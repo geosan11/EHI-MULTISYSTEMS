@@ -336,9 +336,7 @@ export const More = ({ user, transactions, onLogout, onEOD, onAddTx }: { user: U
       {/* Sign Out Trigger */}
       <button 
         onClick={() => {
-          if (confirm('Sign out of EHI Multisystems?')) {
-            onLogout();
-          }
+          onLogout();
         }}
         className="w-full mt-4 bg-[var(--color-surface-1)] hover:bg-[rgba(239,68,68,0.1)] transition-colors border border-[rgba(255,255,255,0.07)] hover:border-[rgba(239,68,68,0.3)] rounded p-4 flex items-center space-x-3 cursor-pointer"
       >

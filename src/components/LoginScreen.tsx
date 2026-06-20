@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { DEMO_USERS } from '../lib/constants';
 import { UserProfile, signIn } from '../lib/auth';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showDemo, setShowDemo] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,92 +42,112 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
   };
 
   return (
-    <div className="min-h-screen bg-[var(--color-obsidian)] flex flex-col items-center justify-center p-8">
-      <div className="w-full max-w-[380px] flex flex-col items-center">
+    <div className="min-h-screen bg-[var(--color-obsidian)] relative flex flex-col items-center justify-center p-8 overflow-hidden">
+      {/* Background radial glows */}
+      <div className="absolute top-0 left-0 w-[500px] h-[500px] rounded-full pointer-events-none filter blur-[100px]" style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.04) 0%, rgba(0,0,0,0) 70%)', top: '-10%', left: '-10%' }} />
+      <div className="absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full pointer-events-none filter blur-[100px]" style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.04) 0%, rgba(0,0,0,0) 70%)', bottom: '-10%', right: '-10%' }} />
+
+      <div className="w-full max-w-[380px] flex flex-col items-center z-10">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="text-[48px] font-bold font-mono text-[var(--color-accent-amber)] leading-none">EHI</div>
-          <div className="text-[13px] font-bold font-mono text-white tracking-[0.2em] mt-2">MULTISYSTEMS</div>
-          <div className="text-[9px] font-mono text-[var(--color-muted)] mt-1">LOGISTICS INTELLIGENCE PLATFORM</div>
+        <div className="text-center mb-10 flex flex-col items-center">
+          <div className="w-[84px] h-[84px] rounded-[20px] bg-[rgba(245,158,11,0.10)] border border-[rgba(245,158,11,0.20)] flex items-center justify-center mb-4">
+            <span className="font-sans text-[36px] font-black text-[var(--color-accent-amber)] leading-none select-none">EHI</span>
+          </div>
+          <div className="mt-2 inline-flex items-center space-x-1.5 bg-[rgba(16,185,129,0.1)] px-2.5 py-1 rounded-full border border-[rgba(16,185,129,0.2)]">
+            <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse"></div>
+            <span className="text-[10px] font-sans font-semibold text-[var(--color-success)] uppercase tracking-wide">System Online</span>
+          </div>
+          <div className="text-[15px] font-bold font-sans text-white tracking-[0.1em] mt-6">MULTISYSTEMS</div>
+          <div className="text-[14px] font-sans text-[var(--color-muted)] mt-1">Staff Operations Portal</div>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="w-full space-y-4">
-          <div className="space-y-1">
-            <label className="text-[9px] font-mono uppercase text-[var(--color-muted)]">Email Address</label>
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-sans font-medium text-[var(--color-light-muted)]">Email Address</label>
             <input 
               type="text" 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full h-11 px-3 text-sm rounded bg-[var(--color-surface-1)] text-white border border-[rgba(255,255,255,0.07)] focus:outline-none focus:border-[var(--color-muted)]"
+              className="w-full h-12 px-4 text-sm rounded-xl bg-[var(--color-surface-1)] text-white border border-[rgba(255,255,255,0.07)] focus:outline-none focus:border-[var(--color-accent-amber)] focus:ring-1 focus:ring-[var(--color-accent-amber)] transition-all"
               required
             />
           </div>
-          <div className="space-y-1">
-            <label className="text-[9px] font-mono uppercase text-[var(--color-muted)]">Password</label>
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-sans font-medium text-[var(--color-light-muted)]">Password</label>
             <input 
               type="password" 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full h-11 px-3 text-sm rounded bg-[var(--color-surface-1)] text-white border border-[rgba(255,255,255,0.07)] focus:outline-none focus:border-[var(--color-muted)]"
+              className="w-full h-12 px-4 text-sm rounded-xl bg-[var(--color-surface-1)] text-white border border-[rgba(255,255,255,0.07)] focus:outline-none focus:border-[var(--color-accent-amber)] focus:ring-1 focus:ring-[var(--color-accent-amber)] transition-all"
               required
             />
           </div>
           
-          {error && <div className="text-[11px] font-mono text-[var(--color-error)] text-center py-1">{error}</div>}
+          {error && <div className="text-[13px] font-sans text-[var(--color-error)] text-center py-1">{error}</div>}
 
           <button 
             type="submit"
             disabled={isLoading}
-            className="w-full py-[14px] bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[14px] font-bold font-mono rounded mt-2 disabled:opacity-70 disabled:cursor-not-allowed transition-opacity"
+            className="w-full h-12 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[15px] font-bold font-sans rounded-xl mt-4 disabled:opacity-70 disabled:cursor-not-allowed transition-opacity hover:bg-opacity-90"
           >
-            {isLoading ? 'SIGNING IN...' : 'SIGN IN'}
+            {isLoading ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
 
         {/* Demo Credentials */}
-        <div className="w-full mt-8">
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <div className="h-px bg-[rgba(255,255,255,0.07)] flex-1"></div>
-            <span className="text-[9px] font-mono text-[var(--color-muted)]">Demo Credentials</span>
-            <div className="h-px bg-[rgba(255,255,255,0.07)] flex-1"></div>
-          </div>
+        <div className="w-full mt-6">
+          <button 
+            onClick={() => setShowDemo(!showDemo)}
+            className="w-full flex items-center justify-center space-x-2 text-[12px] font-sans text-[var(--color-muted)] hover:text-[var(--color-light-muted)] transition-colors py-2 focus:outline-none"
+          >
+            <span>Need help signing in? Contact your admin</span>
+            {showDemo ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
           
-          <div className="bg-[var(--color-surface-1)] rounded border border-[rgba(255,255,255,0.07)] flex flex-col divide-y divide-[rgba(255,255,255,0.07)] max-h-[160px] overflow-y-auto">
-            {(Object.entries(DEMO_USERS)).map(([demoEmail, user]) => {
-              const roleDisplay = user.role === 'super_admin' ? 'SUPER ADMIN' : 
-                                  user.role === 'admin' ? 'ADMIN' : 
-                                  user.role === 'cargo_agent' && demoEmail.includes('air') ? 'AIR OPS' :
-                                  user.role === 'cargo_agent' ? 'CARGO' : 
-                                  user.role === 'vj_agent' ? 'VJ POS' : 
-                                  user.role === 'marketing_agent' ? 'MKTG' : 'AGENT';
-              return (
-                <div 
-                  key={demoEmail}
-                  onClick={() => handleDemoClick(demoEmail, user.password)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      handleDemoClick(demoEmail, user.password);
-                    }
-                  }}
-                  className="px-3 py-2 flex flex-col cursor-pointer hover:bg-[var(--color-surface-2)] transition-colors active:opacity-70 focus:outline-none focus:bg-[var(--color-surface-2)]"
-                >
-                  <div className="text-[10px] font-mono text-[var(--color-light-muted)]">
-                    <span className={`font-bold ${
-                      roleDisplay === 'ADMIN' ? 'text-white' : 
-                      roleDisplay === 'AIR OPS' ? 'text-[var(--color-error)]' : 
-                      roleDisplay === 'VJ POS' ? 'text-[var(--color-accent-cobalt)]' : 
-                      'text-[var(--color-accent-amber)]'
-                    }`}>{roleDisplay}</span> &middot; {demoEmail} &middot; {user.password}
+          {showDemo && (
+            <div className="bg-[var(--color-surface-1)] rounded-xl mt-2 border border-[rgba(255,255,255,0.07)] flex flex-col divide-y divide-[rgba(255,255,255,0.07)] max-h-[160px] overflow-y-auto">
+              {(Object.entries(DEMO_USERS)).map(([demoEmail, user]) => {
+                const roleDisplay = user.role === 'super_admin' ? 'SUPER ADMIN' : 
+                                    user.role === 'admin' ? 'ADMIN' : 
+                                    user.role === 'cargo_agent' && demoEmail.includes('air') ? 'AIR OPS' :
+                                    user.role === 'cargo_agent' ? 'CARGO' : 
+                                    user.role === 'vj_agent' ? 'VJ POS' : 
+                                    user.role === 'marketing_agent' ? 'MKTG' : 'AGENT';
+                return (
+                  <div 
+                    key={demoEmail}
+                    onClick={() => handleDemoClick(demoEmail, user.password)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        handleDemoClick(demoEmail, user.password);
+                      }
+                    }}
+                    className="px-3 py-2 flex flex-col cursor-pointer hover:bg-[var(--color-surface-2)] transition-colors active:opacity-70 focus:outline-none focus:bg-[var(--color-surface-2)]"
+                  >
+                    <div className="text-[11px] font-mono text-[var(--color-light-muted)]">
+                      <span className={`font-bold font-sans text-[10px] uppercase tracking-wider ${
+                        roleDisplay === 'ADMIN' ? 'text-white' : 
+                        roleDisplay === 'AIR OPS' ? 'text-[var(--color-error)]' : 
+                        roleDisplay === 'VJ POS' ? 'text-[var(--color-accent-cobalt)]' : 
+                        'text-[var(--color-accent-amber)]'
+                      }`}>{roleDisplay}</span> &middot; {demoEmail} &middot; {user.password}
+                    </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="absolute bottom-6 left-0 right-0 text-center text-[11px] font-sans text-[var(--color-muted)]">
+          EHI Multisystems &middot; Powered by EHI Ops
         </div>
       </div>
     </div>
   );
 };
+

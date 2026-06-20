@@ -13,6 +13,7 @@ import { MarketingWorkspace } from './views/MarketingWorkspace';
 import { Toast, ToastProps } from './Toast';
 import { supabase } from '../lib/supabase';
 import { randCargo, randBaggage, randMarketingEntry } from '../lib/helpers';
+import { SEED_TRANSACTIONS } from '../lib/constants';
 
 export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void }) => {
   const getDefaultTab = (role: string): TabView => {
@@ -21,7 +22,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     return 'Tower';
   };
   const [currentTab, setCurrentTab] = useState<TabView>(getDefaultTab(user.role));
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>(SEED_TRANSACTIONS);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
