@@ -1,16 +1,47 @@
 import { AccountingConsole } from './AccountingConsole';
 import { Reports } from './Reports';
 import { Settings } from './Settings';
+import { BankReconciliation } from './BankReconciliation';
+import { Fleet } from './Fleet';
+import { Forecasting } from './Forecasting';
+import { FraudAlerts } from './FraudAlerts';
+import { AuditLog } from './AuditLog';
+import { APIDashboard } from './APIDashboard';
+
 import { useState } from 'react';
 import { User, Transaction } from '../../lib/types';
 import { fmt } from '../../lib/helpers';
-import { FileText, Activity, Database, Shield, Settings as SettingsIcon, LogOut, ArrowLeft, BarChart } from 'lucide-react';
+import { 
+  FileText, 
+  Activity, 
+  Database, 
+  Shield, 
+  Settings as SettingsIcon, 
+  LogOut, 
+  ArrowLeft, 
+  BarChart, 
+  Layers, 
+  Truck, 
+  Brain, 
+  ShieldAlert, 
+  Key, 
+  History 
+} from 'lucide-react';
 
 export const More = ({ user, transactions, onLogout, onEOD, onAddTx }: { user: User; transactions: Transaction[]; onLogout: () => void; onEOD: () => void; onAddTx: (tx: Transaction) => void }) => {
   const [eodView, setEodView] = useState(false);
   const [accountingView, setAccountingView] = useState(false);
   const [reportsView, setReportsView] = useState(false);
   const [settingsView, setSettingsView] = useState(false);
+  
+  // Premium Enterprise modules views states
+  const [bankReconView, setBankReconView] = useState(false);
+  const [fleetView, setFleetView] = useState(false);
+  const [forecastingView, setForecastingView] = useState(false);
+  const [fraudAlertsView, setFraudAlertsView] = useState(false);
+  const [auditLogView, setAuditLogView] = useState(false);
+  const [apiDashboardView, setApiDashboardView] = useState(false);
+
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleLockEOD = () => {
@@ -22,6 +53,7 @@ export const More = ({ user, transactions, onLogout, onEOD, onAddTx }: { user: U
     }, 2500);
   };
 
+  // View controllers
   if (accountingView) {
     return <AccountingConsole user={user} transactions={transactions} onBack={() => setAccountingView(false)} />;
   }
@@ -32,6 +64,30 @@ export const More = ({ user, transactions, onLogout, onEOD, onAddTx }: { user: U
 
   if (settingsView) {
     return <Settings user={user} onBack={() => setSettingsView(false)} />;
+  }
+
+  if (bankReconView) {
+    return <BankReconciliation transactions={transactions} onBack={() => setBankReconView(false)} />;
+  }
+
+  if (fleetView) {
+    return <Fleet onBack={() => setFleetView(false)} />;
+  }
+
+  if (forecastingView) {
+    return <Forecasting onBack={() => setForecastingView(false)} />;
+  }
+
+  if (fraudAlertsView) {
+    return <FraudAlerts onBack={() => setFraudAlertsView(false)} />;
+  }
+
+  if (auditLogView) {
+    return <AuditLog onBack={() => setAuditLogView(false)} />;
+  }
+
+  if (apiDashboardView) {
+    return <APIDashboard onBack={() => setApiDashboardView(false)} />;
   }
 
   if (eodView) {
@@ -95,7 +151,7 @@ export const More = ({ user, transactions, onLogout, onEOD, onAddTx }: { user: U
         <button 
           onClick={handleLockEOD}
           disabled={isGenerating}
-          className="w-full py-[14px] bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[13px] font-bold font-mono rounded disabled:opacity-70 disabled:cursor-not-allowed transition-opacity"
+          className="w-full py-[14px] bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[13px] font-bold font-mono rounded disabled:opacity-70 disabled:cursor-not-allowed transition-opacity animate-pulse"
         >
           {isGenerating ? 'GENERATING…' : 'LOCK EOD + SEND REPORT'}
         </button>
@@ -103,8 +159,18 @@ export const More = ({ user, transactions, onLogout, onEOD, onAddTx }: { user: U
     );
   }
 
+  // Role checking helpers
+  const canAccessAccounting = user.role === 'admin' || user.role === 'super_admin' || user.role === 'accountant';
+  const canAccessRecon = user.role === 'super_admin' || user.role === 'accountant';
+  const canAccessFleetAndForecast = user.role === 'super_admin' || user.role === 'admin';
+  const canAccessFraud = user.role === 'super_admin' || user.role === 'admin' || user.role === 'auditor';
+  const canAccessAuditLog = user.role === 'super_admin' || user.role === 'auditor';
+  const isSuperAdmin = user.role === 'super_admin';
+
   return (
-    <div className="p-4 space-y-3 pb-8">
+    <div className="p-4 space-y-3 pb-8 select-none">
+      
+      {/* EOD Button */}
       <button 
         onClick={() => setEodView(true)}
         className="w-full bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)] transition-colors border border-[rgba(245,158,11,0.2)] rounded p-4 flex items-center justify-between"
@@ -118,41 +184,103 @@ export const More = ({ user, transactions, onLogout, onEOD, onAddTx }: { user: U
         </div>
       </button>
 
-      <button className="w-full bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center justify-between opacity-80 cursor-default">
+      {/* Bank Reconciliation (NEW Premium Module) */}
+      <button 
+        onClick={() => { if (canAccessRecon) setBankReconView(true); }}
+        className={`w-full bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center justify-between transition-colors ${canAccessRecon ? 'hover:border-[var(--color-accent-cobalt)] hover:bg-[var(--color-surface-2)] cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+      >
+        <div className="flex items-center space-x-3">
+          <Layers size={18} className="text-[var(--color-accent-cobalt)]" />
+          <div className="text-left">
+            <div className="text-[13px] font-bold font-sans text-white flex items-center space-x-1.5">
+              <span>Bank Reconciliation</span>
+              <span className="text-[8px] font-mono bg-blue-500/10 text-[var(--color-accent-cobalt)] px-1.5 py-0.5 rounded tracking-wide font-black uppercase">CSV AUTO</span>
+            </div>
+            <div className="text-[10px] font-mono text-[var(--color-muted)]">Match bank deposits with system payment ledgers</div>
+          </div>
+        </div>
+      </button>
+
+      {/* Fleet Management (NEW Premium Module) */}
+      <button 
+        onClick={() => { if (canAccessFleetAndForecast) setFleetView(true); }}
+        className={`w-full bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center justify-between transition-colors ${canAccessFleetAndForecast ? 'hover:border-purple-400 hover:bg-[var(--color-surface-2)] cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+      >
+        <div className="flex items-center space-x-3">
+          <Truck size={18} className="text-purple-400" />
+          <div className="text-left">
+            <div className="text-[13px] font-bold font-sans text-white">Fleet Management</div>
+            <div className="text-[10px] font-mono text-[var(--color-muted)]">Vehicles registration, service scheduler, fuel expense log</div>
+          </div>
+        </div>
+      </button>
+
+      {/* Demand Forecasting (NEW Premium Module) */}
+      <button 
+        onClick={() => { if (canAccessFleetAndForecast) setForecastingView(true); }}
+        className={`w-full bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center justify-between transition-colors ${canAccessFleetAndForecast ? 'hover:border-[var(--color-accent-amber)] hover:bg-[var(--color-surface-2)] cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+      >
+        <div className="flex items-center space-x-3">
+          <Brain size={18} className="text-[var(--color-accent-amber)]" />
+          <div className="text-left">
+            <div className="text-[13px] font-bold font-sans text-white flex items-center space-x-1.5">
+              <span>Demand Forecasting AI</span>
+              <span className="text-[8px] font-mono bg-amber-500/10 text-[var(--color-accent-amber)] px-1.5 py-0.5 rounded tracking-wide font-black uppercase">Gemini Intel</span>
+            </div>
+            <div className="text-[10px] font-mono text(--color-muted)">Capacity heatmap and busy periods projections</div>
+          </div>
+        </div>
+      </button>
+
+      {/* Fraud Safety Feed (NEW Premium Module) */}
+      <button 
+        onClick={() => { if (canAccessFraud) setFraudAlertsView(true); }}
+        className={`w-full bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center justify-between transition-colors ${canAccessFraud ? 'hover:border-[var(--color-error)] hover:bg-[var(--color-surface-2)] cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+      >
+        <div className="flex items-center space-x-3">
+          <ShieldAlert size={18} className="text-[var(--color-error)]" />
+          <div className="text-left">
+            <div className="text-[13px] font-bold font-sans text-white flex items-center space-x-2">
+              <span>Fraud & Anomalies Feed</span>
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+              </span>
+            </div>
+            <div className="text-[10px] font-mono text-[var(--color-muted)]">Track sudden debt spikes and duplicated AWBs</div>
+          </div>
+        </div>
+      </button>
+
+      {/* Base Tracking list (Legacy) */}
+      <button className="w-full bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center justify-between opacity-75 cursor-default">
         <div className="flex items-center space-x-3">
           <Activity size={18} className="text-[var(--color-accent-cobalt)]" />
           <div className="text-left">
-            <div className="text-[13px] font-bold font-sans text-white">Tracking History</div>
+            <div className="text-[13px] font-bold font-sans text-white">Tracking History Console</div>
             <div className="text-[10px] font-mono text-[var(--color-muted)]">{transactions.length} total records logged</div>
           </div>
         </div>
       </button>
 
+      {/* Accounting (Accessible only to Accountants/Admins/Super Admins) */}
       <button 
-        onClick={() => {
-          if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'accountant') {
-            setAccountingView(true);
-          }
-        }}
-        className={`w-full bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center justify-between transition-colors ${(user.role === 'admin' || user.role === 'super_admin' || user.role === 'accountant') ? 'hover:border-[var(--color-success)] hover:bg-[var(--color-surface-2)] cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+        onClick={() => { if (canAccessAccounting) setAccountingView(true); }}
+        className={`w-full bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center justify-between transition-colors ${canAccessAccounting ? 'hover:border-[var(--color-success)] hover:bg-[var(--color-surface-2)] cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
       >
         <div className="flex items-center space-x-3">
           <Database size={18} className="text-[var(--color-success)]" />
           <div className="text-left">
-            <div className="text-[13px] font-bold font-sans text-white">Accounting</div>
-            <div className="text-[10px] font-mono text-[var(--color-muted)]">Sync with central ERP</div>
+            <div className="text-[13px] font-bold font-sans text-white">Central Accounting ERP</div>
+            <div className="text-[10px] font-mono text-[var(--color-muted)]">Check balance sheets and cash flows dashboard</div>
           </div>
         </div>
       </button>
 
-      {/* Reports Audit */}
+      {/* Reports (Accessible only to Accountants/Admins/Super Admins) */}
       <button 
-        onClick={() => {
-          if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'accountant') {
-            setReportsView(true);
-          }
-        }}
-        className={`w-full bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center justify-between transition-colors ${(user.role === 'admin' || user.role === 'super_admin' || user.role === 'accountant') ? 'hover:border-[var(--color-success)] hover:bg-[var(--color-surface-2)] cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+        onClick={() => { if (canAccessAccounting) setReportsView(true); }}
+        className={`w-full bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center justify-between transition-colors ${canAccessAccounting ? 'hover:border-[var(--color-success)] hover:bg-[var(--color-surface-2)] cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
       >
         <div className="flex items-center space-x-3">
           <BarChart size={18} className="text-[var(--color-success)]" />
@@ -163,25 +291,38 @@ export const More = ({ user, transactions, onLogout, onEOD, onAddTx }: { user: U
         </div>
       </button>
 
-      <div className="w-full bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center justify-between opacity-50 cursor-not-allowed">
+      {/* Audit Log Trail (NEW Premium Module) */}
+      <button 
+        onClick={() => { if (canAccessAuditLog) setAuditLogView(true); }}
+        className={`w-full bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center justify-between transition-colors ${canAccessAuditLog ? 'hover:border-purple-550 hover:bg-[var(--color-surface-2)] cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+      >
         <div className="flex items-center space-x-3">
-          <Shield size={18} className="text-[var(--color-muted)]" />
+          <History size={18} className="text-purple-400" />
           <div className="text-left">
-            <div className="text-[13px] font-bold font-sans text-white">Access Control</div>
-            <div className="text-[10px] font-mono text-[var(--color-muted)]">Manage station users</div>
+            <div className="text-[13px] font-bold font-sans text-white">Revision Audit Log</div>
+            <div className="text-[10px] font-mono text-[var(--color-muted)]">Strict NDPR/Financial compliance trace log</div>
           </div>
         </div>
-        <div className="px-2 py-0.5 bg-[rgba(255,255,255,0.1)] rounded text-[8px] font-mono text-white">SOON</div>
-      </div>
+      </button>
 
-      {/* Settings Console */}
+      {/* API Dashboard Credentials (NEW Premium Module) */}
       <button 
-        onClick={() => {
-          if (user.role === 'super_admin') {
-            setSettingsView(true);
-          }
-        }}
-        className={`w-full bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center justify-between transition-colors ${user.role === 'super_admin' ? 'hover:border-[var(--color-accent-amber)] hover:bg-[var(--color-surface-2)] cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+        onClick={() => { if (isSuperAdmin) setApiDashboardView(true); }}
+        className={`w-full bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center justify-between transition-colors ${isSuperAdmin ? 'hover:border-blue-400 hover:bg-[var(--color-surface-2)] cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+      >
+        <div className="flex items-center space-x-3">
+          <Key size={18} className="text-[var(--color-accent-cobalt)]" />
+          <div className="text-left">
+            <div className="text-[13px] font-bold font-sans text-white">Partners API Keys & Webhooks</div>
+            <div className="text-[10px] font-mono text-[var(--color-muted)]">Key-hashes, scopes limit, and integration documentation</div>
+          </div>
+        </div>
+      </button>
+
+      {/* Settings Console (Accessible to Super Admins only) */}
+      <button 
+        onClick={() => { if (isSuperAdmin) setSettingsView(true); }}
+        className={`w-full bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center justify-between transition-colors ${isSuperAdmin ? 'hover:border-[var(--color-accent-amber)] hover:bg-[var(--color-surface-2)] cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
       >
         <div className="flex items-center space-x-3">
           <SettingsIcon size={18} className="text-[var(--color-accent-amber)]" />
@@ -192,13 +333,14 @@ export const More = ({ user, transactions, onLogout, onEOD, onAddTx }: { user: U
         </div>
       </button>
 
+      {/* Sign Out Trigger */}
       <button 
         onClick={() => {
           if (confirm('Sign out of EHI Multisystems?')) {
             onLogout();
           }
         }}
-        className="w-full mt-4 bg-[var(--color-surface-1)] hover:bg-[rgba(239,68,68,0.1)] transition-colors border border-[rgba(255,255,255,0.07)] hover:border-[rgba(239,68,68,0.3)] rounded p-4 flex items-center space-x-3"
+        className="w-full mt-4 bg-[var(--color-surface-1)] hover:bg-[rgba(239,68,68,0.1)] transition-colors border border-[rgba(255,255,255,0.07)] hover:border-[rgba(239,68,68,0.3)] rounded p-4 flex items-center space-x-3 cursor-pointer"
       >
         <LogOut size={18} className="text-[var(--color-error)]" />
         <div className="text-left">
