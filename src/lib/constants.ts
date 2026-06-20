@@ -58,19 +58,22 @@ export const DEMO_USERS = {
   },
 } as const;
 
-export const CORPORATE_CLIENTS = ['Aramex', 'SAHCO', 'Globacom', 'ZeemMax', 'FedEx', 'DHL'];
+export const CORPORATE_CLIENTS = ['Aramex', 'SAHCO', 'GlobaCom', 'ZeemMax', 'EHI', 'Salco', 'Slot', 'Prosper', 'Evergreen', 'Wellcare', 'Other'] as const;
 
 export const CONTENT_TYPES = [
-  'Medical Supplies',
+  'Medical',
+  'Clothes & Shoes',
   'Documents',
-  'Electronics / Phones',
-  'Cosmetics',
-  'Clothing',
-  'Parcels',
+  'Chairs/Furniture',
   'Tyres',
+  'Phones/Electronics',
+  'Cosmetics',
+  'Package/Parcel',
+  'Baby Items',
   'SIM Cards',
-  'Food Items',
-  'Miscellaneous',
+  'Clearance',
+  'Courier',
+  'Other'
 ] as const;
 
 export const EXPENSE_CATEGORIES = [

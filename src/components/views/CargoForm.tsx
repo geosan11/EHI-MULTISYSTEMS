@@ -1,97 +1,109 @@
-import { useState } from 'react';
-import { PRICING, BANKS } from '../../lib/constants';
-import { PaymentMode, Transaction } from '../../lib/types';
+import { useState, useEffect } from 'react';
+import { Transaction, CargoEntry } from '../../lib/types';
+import { CORPORATE_CLIENTS, CONTENT_TYPES, BANKS } from '../../lib/constants';
 import { fmt, uid, tnow } from '../../lib/helpers';
-import { CheckCircle, Loader2 } from 'lucide-react';
-import { QRCode } from '../QRCode';
+import { CheckCircle } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { downloadCargoReceipt } from './CargoReceipt';
+
+// Helper route options based on standard destinations
+const CARGO_ROUTES = [
+  'ABV/Abuja', 'PHC/Port Harcourt', 'BNI/Benin', 'KAN/Kano',
+  'Asaba', 'Enugu', 'Warri', 'Owerri', 'Lagos', 'Kaduna',
+  'Makurdi', 'Other'
+];
 
 export const CargoForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }) => {
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [route, setRoute] = useState(Object.keys(PRICING)[0]);
-  const [mode, setMode] = useState<PaymentMode>('Cash');
-  const [bank, setBank] = useState('');
-  const [notes, setNotes] = useState('');
+  const [serialNumber, setSerialNumber] = useState<number>(1);
+  const [consignee, setConsignee] = useState(CORPORATE_CLIENTS[0] as string);
+  const [airline, setAirline] = useState('Arik Air');
+  const [customConsignee, setCustomConsignee] = useState('');
+  const [awb, setAwb] = useState('');
+  const [pcs, setPcs] = useState('1');
+  const [kg, setKg] = useState('');
+  const [route, setRoute] = useState(CARGO_ROUTES[0]);
+  const [contentType, setContentType] = useState(CONTENT_TYPES[0] as string);
+  const [amount, setAmount] = useState('');
+  const [mode, setMode] = useState<'Cash'|'Transfer'|'Debt'>('Cash');
+  const [bank, setBank] = useState(BANKS[0] as string);
+  const [remark, setRemark] = useState('');
+  const [salesAnalysis, setSalesAnalysis] = useState('');
   
-  const [bb, setBb] = useState(0);
-  const [mb, setMb] = useState(0);
-  const [sb, setSb] = useState(0);
-
-  const [paystackRef, setPaystackRef] = useState('');
-  const [verificationResult, setVerificationResult] = useState<{ verified: boolean, message: string } | null>(null);
-  const [isVerifying, setIsVerifying] = useState(false);
-
   const [successTx, setSuccessTx] = useState<Transaction | null>(null);
 
-  const routePrices = PRICING[route];
-  const totalAmount = (bb * routePrices.BB) + (mb * routePrices.MB) + (sb * routePrices.SB);
-  
-  let details = [];
-  if (bb > 0) details.push(`${bb}BB`);
-  if (mb > 0) details.push(`${mb}MB`);
-  if (sb > 0) details.push(`${sb}SB`);
-  const summaryStr = `${details.join(' ')} → ${route}`;
-
-  const isValid = name.trim().length > 0 && phone.trim().length > 0 && totalAmount > 0;
-
-  const verifyPaystackPayment = async () => {
-    if (!paystackRef.trim()) return;
-    setIsVerifying(true);
-    setVerificationResult(null);
+  async function getNextSerialNumber(): Promise<number> {
     try {
-      const response = await fetch('/api/paystack/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reference: paystackRef }),
-      });
-      const data = await response.json();
-      if (data.verified) {
-        setVerificationResult({ verified: true, message: `✓ Verified: ₦${data.amount.toLocaleString()} from ${data.payer}` });
-      } else {
-        setVerificationResult({ verified: false, message: '✗ Could not verify reference' });
+      const today = new Date().toISOString().split('T')[0];
+      const { data } = await supabase
+        .from('cargo_entries')
+        .select('serial_number')
+        .eq('entry_date', today)
+        .order('serial_number', { ascending: false })
+        .limit(1);
+
+      if (data && data.length > 0) {
+        return data[0].serial_number + 1;
       }
-    } catch {
-      setVerificationResult({ verified: false, message: '✗ Error verifying payment' });
-    } finally {
-      setIsVerifying(false);
+    } catch (e) {
+      console.warn("Could not fetch serial, falling back to 1", e);
     }
-  };
+    return 1;
+  }
+
+  useEffect(() => {
+    getNextSerialNumber().then(setSerialNumber);
+  }, []);
+
+  const actualConsignee = consignee === 'Other' ? customConsignee : consignee;
+  
+  const isValid = actualConsignee.trim().length > 0 &&
+                  awb.trim().length > 0 &&
+                  route.trim().length > 0 &&
+                  contentType.trim().length > 0 &&
+                  parseFloat(amount) > 0;
 
   const handleSubmit = () => {
     if (!isValid) return;
 
+    const summaryStr = `${airline} · ${awb} · ${pcs}pcs · ${kg}KG · ${route} · ${contentType}`;
+
     const tx: Transaction = {
-      id: uid('WB'),
-      name: name.trim(),
+      id: uid('CG'),
+      name: actualConsignee,
       detail: summaryStr,
-      amount: totalAmount,
+      amount: parseFloat(amount),
       mode,
-      bank: mode === 'Transfer' || mode === 'Debt' ? bank : undefined,
-      remarks: notes.trim(),
+      bank: mode === 'Transfer' ? bank : undefined,
+      remarks: remark.trim(),
       time: tnow(),
       type: 'cargo',
-      status: 'Intake'
+      status: 'Intake',
+      awb_tag_number: awb,
+      pieces: parseInt(pcs) || 1,
+      kg: parseFloat(kg) || 0,
     };
 
     onAddTx(tx);
     setSuccessTx(tx);
+    
+    // Auto increment conceptual
+    getNextSerialNumber().then(setSerialNumber);
   };
 
   const handleReset = () => {
-    setName('');
-    setPhone('');
-    setBb(0);
-    setMb(0);
-    setSb(0);
-    setBank('');
-    setNotes('');
-    setPaystackRef('');
-    setVerificationResult(null);
+    setAwb('');
+    setPcs('1');
+    setKg('');
+    setAmount('');
+    setRemark('');
+    setSalesAnalysis('');
     setSuccessTx(null);
   };
 
   const handleDownloadReceipt = () => {
-    alert("Downloading PDF receipt...");
+    if (successTx) {
+      downloadCargoReceipt(successTx, serialNumber);
+    }
   };
 
   if (successTx) {
@@ -99,28 +111,33 @@ export const CargoForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }) =
       <div className="p-4 space-y-4">
         <div className="bg-[rgba(16,185,129,0.1)] border border-[var(--color-success)] rounded text-center p-6 flex flex-col items-center">
           <CheckCircle size={32} className="text-[var(--color-success)] mb-3" />
-          <div className="text-[10px] font-mono text-[var(--color-success)] uppercase tracking-widest mb-4">WAYBILL GENERATED</div>
+          <div className="text-[12px] font-bold font-mono text-[var(--color-success)] mb-4">Entry Logged — #{serialNumber - 1}</div>
           
-          <div className="bg-white p-2 rounded max-w-max mb-4">
-            <QRCode id={successTx.id} size={150} />
-          </div>
-
-          <div className="text-[16px] font-bold font-mono text-white mb-1">{successTx.id}</div>
-          <div className="text-[12px] font-sans text-[var(--color-light-muted)] mb-3">{successTx.name}</div>
-          
-          <div className="w-full bg-[var(--color-obsidian)] rounded p-3 mb-4">
-            <div className="text-[10px] font-mono text-[var(--color-muted)] mb-1">Details</div>
-            <div className="text-[11px] font-mono text-white mb-2">{successTx.detail}</div>
-            
-            <div className="flex justify-between items-end mt-3 border-t border-[rgba(255,255,255,0.07)] pt-3">
-              <div className="text-left">
-                <div className="text-[20px] font-bold font-mono text-[var(--color-accent-amber)]">{fmt(successTx.amount)}</div>
-              </div>
-              <div className="text-right">
-                <div className="text-[9px] font-mono text-[var(--color-muted)]">{successTx.mode}</div>
-                <div className="text-[9px] font-mono text-[var(--color-muted)]">{successTx.time}</div>
-              </div>
-            </div>
+          <div className="w-full bg-[var(--color-surface-1)] rounded p-4 mb-6 border border-[rgba(255,255,255,0.07)] text-left space-y-2">
+             <div className="flex justify-between border-b border-[rgba(255,255,255,0.05)] pb-2">
+               <span className="text-[10px] font-mono text-[var(--color-muted)]">Consignee</span>
+               <span className="text-[12px] font-mono text-white">{successTx.name}</span>
+             </div>
+             <div className="flex justify-between border-b border-[rgba(255,255,255,0.05)] pb-2">
+               <span className="text-[10px] font-mono text-[var(--color-muted)]">AWB/Tag No</span>
+               <span className="text-[12px] font-mono text-[var(--color-accent-amber)]">{successTx.awb_tag_number}</span>
+             </div>
+             <div className="flex justify-between border-b border-[rgba(255,255,255,0.05)] pb-2">
+               <span className="text-[10px] font-mono text-[var(--color-muted)]">Weight / Route</span>
+               <span className="text-[12px] font-mono text-white">{successTx.kg} KG — {successTx.detail.split('·')[3]}</span>
+             </div>
+             <div className="flex justify-between border-b border-[rgba(255,255,255,0.05)] pb-2">
+               <span className="text-[10px] font-mono text-[var(--color-muted)]">Content</span>
+               <span className="text-[12px] font-mono text-white">{successTx.detail.split('·')[4]}</span>
+             </div>
+             <div className="flex justify-between border-b border-[rgba(255,255,255,0.05)] pb-2">
+               <span className="text-[10px] font-mono text-[var(--color-muted)]">Amount</span>
+               <span className="text-[13px] font-bold font-mono text-white">{fmt(successTx.amount)}</span>
+             </div>
+             <div className="flex justify-between pt-1">
+               <span className="text-[10px] font-mono text-[var(--color-muted)]">Payment</span>
+               <span className="text-[12px] font-mono text-white">{successTx.mode} {successTx.bank && `(${successTx.bank})`}</span>
+             </div>
           </div>
 
           <div className="flex w-full space-x-2">
@@ -137,160 +154,186 @@ export const CargoForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }) =
   }
 
   return (
-    <div className="p-4 space-y-4 pb-8">
-      <div className="text-[9px] font-mono text-[var(--color-accent-amber)] tracking-[0.1em] uppercase">▸ NEW CARGO WAYBILL</div>
-      
-      <div className="space-y-3">
-        <input 
-          placeholder="Customer Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full h-11 px-3 text-sm rounded font-sans"
-        />
-        
-        <div className="flex space-x-3">
-          <input 
-            type="tel"
-            placeholder="Phone Number"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="flex-1 h-11 px-3 text-sm rounded font-sans min-w-0"
-          />
-          <select 
-            value={route}
-            onChange={(e) => setRoute(e.target.value)}
-            className="flex-1 h-11 px-3 text-sm rounded font-sans min-w-0"
-          >
-            {Object.keys(PRICING).map(r => <option key={r} value={r}>{r}</option>)}
-          </select>
+    <div className="p-4 space-y-4 pb-12">
+      <div className="flex justify-between items-center mb-2">
+        <div className="text-[9px] font-mono text-[var(--color-accent-amber)] tracking-[0.1em] uppercase">▸ NEW CARGO ENTRY</div>
+        <div className="text-[11px] font-mono text-[var(--color-accent-amber)]">
+          Entry #{serialNumber} — {new Date().toLocaleDateString('en-NG')}
         </div>
+      </div>
+      
+      {/* OPERATIONAL SECTION */}
+      <div className="space-y-4 bg-[var(--color-surface-1)] p-4 rounded border border-[rgba(255,255,255,0.07)]">
         
-        <div className="flex space-x-3">
-          <select 
-            value={mode}
-            onChange={(e) => setMode(e.target.value as PaymentMode)}
-            className="h-11 px-3 text-sm flex-1 rounded font-sans"
-          >
-            <option value="Cash">Cash</option>
-            <option value="POS">POS</option>
-            <option value="Transfer">Transfer</option>
-            <option value="Debt">Debt</option>
-          </select>
-
-          {(mode === 'Transfer' || mode === 'Debt') && (
+        <div>
+          <label className="text-[9px] font-mono text-[var(--color-muted)] block mb-1">Consignee</label>
+          <div className="flex space-x-2">
             <select 
-              value={bank}
-              onChange={(e) => setBank(e.target.value)}
-              className="h-11 px-3 text-sm flex-1 rounded font-sans"
+              value={consignee}
+              onChange={(e) => setConsignee(e.target.value)}
+              className="w-full h-11 px-3 text-sm rounded font-sans"
             >
-              <option value="">Select Bank</option>
-              {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+              {CORPORATE_CLIENTS.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
+            {consignee === 'Other' && (
+              <input 
+                placeholder="Enter Consignee"
+                value={customConsignee}
+                onChange={(e) => setCustomConsignee(e.target.value)}
+                className="w-full h-11 px-3 text-sm rounded font-sans"
+              />
+            )}
+          </div>
+        </div>
+
+        <div>
+          <label className="text-[9px] font-mono text-[var(--color-muted)] block mb-1">Airline</label>
+          <div className="flex space-x-2">
+             <select 
+              value={airline}
+              onChange={(e) => setAirline(e.target.value)}
+              className="w-full h-11 px-3 text-sm rounded font-sans"
+             >
+               <option value="Arik Air">Arik Air</option>
+               <option value="Green Africa">Green Africa</option>
+               <option value="United Nigeria">United Nigeria</option>
+               <option value="Other">Other</option>
+             </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="text-[9px] font-mono text-[var(--color-muted)] block mb-1">AWB / Tag No</label>
+          <input 
+            type="text"
+            placeholder="e.g. 30795 or 31455-68"
+            value={awb}
+            onChange={(e) => setAwb(e.target.value.toUpperCase())}
+            className="w-full h-11 px-3 text-[14px] font-bold rounded font-mono"
+          />
+          {awb.includes('-') && (
+            <div className="text-[9px] font-mono text-[var(--color-accent-amber)] mt-1 ml-1 opacity-80">Range detected</div>
           )}
         </div>
 
-        {mode === 'Transfer' && (
-          <div className="flex space-x-2">
+        <div className="flex space-x-3">
+          <div className="flex-1">
+            <label className="text-[9px] font-mono text-[var(--color-muted)] block mb-1">Pcs</label>
             <input 
-              placeholder="Paystack Reference (optional)"
-              value={paystackRef}
-              onChange={(e) => setPaystackRef(e.target.value)}
-              className="w-full h-11 px-3 text-[12px] rounded font-mono"
+              type="number"
+              min="1"
+              value={pcs}
+              onChange={(e) => setPcs(e.target.value)}
+              className="w-full h-11 px-3 text-sm rounded font-sans"
             />
-            <button 
-              onClick={verifyPaystackPayment}
-              disabled={isVerifying || !paystackRef.trim()}
-              className="h-11 px-4 bg-[var(--color-accent-cobalt)] text-white text-[12px] font-bold font-mono rounded flex items-center shrink-0 disabled:opacity-70 disabled:cursor-not-allowed"
+          </div>
+          <div className="flex-1">
+            <label className="text-[9px] font-mono text-[var(--color-muted)] block mb-1">KG</label>
+            <input 
+              type="number"
+              step="0.1"
+              value={kg}
+              onChange={(e) => setKg(e.target.value)}
+              className="w-full h-11 px-3 text-sm rounded font-sans"
+            />
+          </div>
+        </div>
+
+        <div className="flex space-x-3">
+          <div className="flex-1">
+            <label className="text-[9px] font-mono text-[var(--color-muted)] block mb-1">Route</label>
+            <select 
+              value={route}
+              onChange={(e) => setRoute(e.target.value)}
+              className="w-full h-11 px-3 text-[13px] rounded font-sans"
             >
-              {isVerifying ? <Loader2 size={16} className="animate-spin" /> : 'Verify'}
-            </button>
+              {CARGO_ROUTES.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
           </div>
-        )}
-        
-        {verificationResult && (
-          <div className={`text-[10px] font-mono px-3 py-2 rounded ${verificationResult.verified ? 'bg-[rgba(16,185,129,0.1)] text-[var(--color-success)] border border-[rgba(16,185,129,0.2)]' : 'bg-[rgba(239,68,68,0.1)] text-[var(--color-error)] border border-[rgba(239,68,68,0.2)]'}`}>
-            {verificationResult.message}
-          </div>
-        )}
-        
-        <input 
-          placeholder="Notes (optional)"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          className="w-full h-11 px-3 text-sm rounded font-sans"
-        />
-      </div>
-
-      <div className="bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded overflow-hidden">
-        <div className="bg-[rgba(255,255,255,0.02)] py-2 text-center text-[10px] font-mono text-[var(--color-light-muted)] border-b border-[rgba(255,255,255,0.05)]">
-          Package Count × Rate
-        </div>
-        
-        <div className="flex divide-x divide-[rgba(255,255,255,0.07)]">
-          {/* BB */}
-          <div className="flex-1 flex flex-col items-center py-4">
-            <div className="text-[11px] font-bold font-mono text-white">Big Bag</div>
-            <div className="text-[9px] font-mono text-[var(--color-accent-amber)] opacity-70 mb-3">{fmt(routePrices.BB)}</div>
-            
-            <div className="flex items-center space-x-2">
-              <button 
-                onClick={() => setBb(prev => Math.max(0, prev - 1))}
-                className="w-[30px] h-[30px] rounded bg-[var(--color-surface-2)] text-white text-[14px] flex items-center justify-center hover:bg-[rgba(255,255,255,0.1)] focus:outline-none"
-              >-</button>
-              <div className={`text-[20px] font-bold font-mono w-[20px] text-center ${bb > 0 ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-muted)]'}`}>{bb}</div>
-              <button 
-                onClick={() => setBb(prev => prev + 1)}
-                className="w-[30px] h-[30px] rounded bg-[var(--color-surface-2)] text-white text-[14px] flex items-center justify-center hover:bg-[rgba(255,255,255,0.1)] focus:outline-none"
-              >+</button>
-            </div>
-          </div>
-
-          {/* MB */}
-          <div className="flex-1 flex flex-col items-center py-4">
-            <div className="text-[11px] font-bold font-mono text-white">Med Bag</div>
-            <div className="text-[9px] font-mono text-[var(--color-accent-amber)] opacity-70 mb-3">{fmt(routePrices.MB)}</div>
-            
-            <div className="flex items-center space-x-2">
-              <button 
-                onClick={() => setMb(prev => Math.max(0, prev - 1))}
-                className="w-[30px] h-[30px] rounded bg-[var(--color-surface-2)] text-white text-[14px] flex items-center justify-center hover:bg-[rgba(255,255,255,0.1)] focus:outline-none"
-              >-</button>
-              <div className={`text-[20px] font-bold font-mono w-[20px] text-center ${mb > 0 ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-muted)]'}`}>{mb}</div>
-              <button 
-                onClick={() => setMb(prev => prev + 1)}
-                className="w-[30px] h-[30px] rounded bg-[var(--color-surface-2)] text-white text-[14px] flex items-center justify-center hover:bg-[rgba(255,255,255,0.1)] focus:outline-none"
-              >+</button>
-            </div>
-          </div>
-
-          {/* SB */}
-          <div className="flex-1 flex flex-col items-center py-4">
-            <div className="text-[11px] font-bold font-mono text-white">Sml Bag</div>
-            <div className="text-[9px] font-mono text-[var(--color-accent-amber)] opacity-70 mb-3">{fmt(routePrices.SB)}</div>
-            
-            <div className="flex items-center space-x-2">
-              <button 
-                onClick={() => setSb(prev => Math.max(0, prev - 1))}
-                className="w-[30px] h-[30px] rounded bg-[var(--color-surface-2)] text-white text-[14px] flex items-center justify-center hover:bg-[rgba(255,255,255,0.1)] focus:outline-none"
-              >-</button>
-              <div className={`text-[20px] font-bold font-mono w-[20px] text-center ${sb > 0 ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-muted)]'}`}>{sb}</div>
-              <button 
-                onClick={() => setSb(prev => prev + 1)}
-                className="w-[30px] h-[30px] rounded bg-[var(--color-surface-2)] text-white text-[14px] flex items-center justify-center hover:bg-[rgba(255,255,255,0.1)] focus:outline-none"
-              >+</button>
-            </div>
+          <div className="flex-1">
+            <label className="text-[9px] font-mono text-[var(--color-muted)] block mb-1">Content</label>
+            <select 
+              value={contentType}
+              onChange={(e) => setContentType(e.target.value)}
+              className="w-full h-11 px-3 text-[13px] rounded font-sans"
+            >
+              {CONTENT_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
           </div>
         </div>
       </div>
 
-      <div className={`rounded p-4 transition-colors duration-300 ${totalAmount > 0 ? 'bg-[rgba(245,158,11,0.1)] border border-[rgba(245,158,11,0.2)]' : 'bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)]'}`}>
-        <div className="text-[10px] font-mono text-[var(--color-muted)] mb-1">Auto-Calculated Total</div>
-        <div className={`text-[30px] font-bold font-mono ${totalAmount > 0 ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-muted)]'}`}>
-          {totalAmount > 0 ? fmt(totalAmount) : '—'}
+      <div className="flex items-center justify-center space-x-3 py-1 opacity-70">
+        <div className="flex-1 h-[1px] bg-[rgba(255,255,255,0.1)]"></div>
+        <div className="text-[9px] font-mono text-[var(--color-muted)] tracking-widest uppercase">FINANCIAL</div>
+        <div className="flex-1 h-[1px] bg-[rgba(255,255,255,0.1)]"></div>
+      </div>
+
+      {/* FINANCIAL SECTION */}
+      <div className="space-y-4 bg-[var(--color-surface-1)] p-4 rounded border border-[rgba(255,255,255,0.07)]">
+        <div>
+          <label className="text-[9px] font-mono text-[var(--color-muted)] block mb-1">Amount ₦</label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)] font-mono text-lg">₦</span>
+            <input 
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="w-full h-14 pl-8 pr-3 text-[20px] font-bold text-[var(--color-accent-amber)] rounded font-mono"
+            />
+          </div>
         </div>
-        {totalAmount > 0 && (
-          <div className="text-[10px] font-mono text-white opacity-80 mt-1">{summaryStr}</div>
+
+        <div className="flex space-x-3">
+          <div className="flex-1">
+            <label className="text-[9px] font-mono text-[var(--color-muted)] block mb-1">Receipt / Payment Mode</label>
+            <div className="flex bg-[rgba(0,0,0,0.2)] rounded p-1">
+              {['Cash', 'Transfer', 'Debt'].map(m => (
+                <button
+                  key={m}
+                  onClick={() => setMode(m as any)}
+                  className={`flex-1 py-2 text-[11px] font-mono rounded transition-colors ${mode === m ? 'bg-[var(--color-surface-2)] text-white' : 'text-[var(--color-muted)] hover:text-white'}`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        
+        {mode === 'Transfer' && (
+          <div>
+            <label className="text-[9px] font-mono text-[var(--color-muted)] block mb-1">Bank</label>
+            <select 
+              value={bank}
+              onChange={(e) => setBank(e.target.value)}
+              className="w-full h-11 px-3 text-sm rounded font-sans"
+            >
+              {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
         )}
+
+        <div>
+           <label className="text-[9px] font-mono text-[var(--color-muted)] block mb-1">Remark</label>
+           <input 
+             placeholder="Optional notes"
+             value={remark}
+             onChange={(e) => setRemark(e.target.value)}
+             className="w-full h-11 px-3 text-sm rounded font-sans"
+           />
+        </div>
+
+        <div>
+           <label className="text-[9px] font-mono text-[var(--color-muted)] block mb-1">Sales Analysis / Debt Notes</label>
+           <textarea
+             placeholder="e.g., Debt paid / ABV ₦667 outstanding / Transfer confirmed UBA"
+             value={salesAnalysis}
+             onChange={(e) => setSalesAnalysis(e.target.value)}
+             className="w-full h-20 p-3 text-sm rounded font-sans resize-none"
+             rows={3}
+           />
+        </div>
       </div>
 
       <button
@@ -298,7 +341,7 @@ export const CargoForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }) =
         disabled={!isValid}
         className={`w-full py-[14px] rounded font-bold font-mono text-[13px] transition-colors ${isValid ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)]' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)] cursor-not-allowed'}`}
       >
-        GENERATE WAYBILL + QR
+        LOG CARGO ENTRY
       </button>
 
     </div>

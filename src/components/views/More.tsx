@@ -1,14 +1,12 @@
 import { AccountingConsole } from './AccountingConsole';
-import { AirCargoForm } from './AirCargoForm';
 import { useState } from 'react';
 import { User, Transaction } from '../../lib/types';
 import { fmt } from '../../lib/helpers';
-import { FileText, Activity, Database, Shield, Settings, LogOut, ArrowLeft, PlaneTakeoff } from 'lucide-react';
+import { FileText, Activity, Database, Shield, Settings, LogOut, ArrowLeft } from 'lucide-react';
 
 export const More = ({ user, transactions, onLogout, onEOD, onAddTx }: { user: User; transactions: Transaction[]; onLogout: () => void; onEOD: () => void; onAddTx: (tx: Transaction) => void }) => {
   const [eodView, setEodView] = useState(false);
   const [accountingView, setAccountingView] = useState(false);
-  const [airCargoView, setAirCargoView] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleLockEOD = () => {
@@ -24,36 +22,21 @@ export const More = ({ user, transactions, onLogout, onEOD, onAddTx }: { user: U
     return <AccountingConsole user={user} transactions={transactions} onBack={() => setAccountingView(false)} />;
   }
 
-  if (airCargoView) {
-    return (
-       <div className="flex flex-col h-full bg-[var(--color-obsidian)] p-2 relative text-white animate-in slide-in-from-right overflow-y-auto">
-         <button onClick={() => setAirCargoView(false)} className="flex items-center space-x-2 text-[var(--color-light-muted)] mb-2 w-max p-2 rounded hover:bg-[var(--color-surface-2)] z-10">
-           <ArrowLeft size={16} />
-           <span className="text-[11px] font-mono">Back</span>
-         </button>
-         <AirCargoForm onAddTx={onAddTx} />
-       </div>
-    );
-  }
-
   if (eodView) {
     const cargoTx = transactions.filter(t => t.type === 'cargo');
     const mktgTx = transactions.filter(t => t.type === 'marketing');
     const vjTx = transactions.filter(t => t.type === 'baggage');
-    const airTx = transactions.filter(t => t.type === 'air_cargo');
 
     const cargoTotal = cargoTx.reduce((sum, t) => sum + t.amount, 0);
     const mktgTotal = mktgTx.reduce((sum, t) => sum + t.amount, 0);
     const vjTotal = vjTx.reduce((sum, t) => sum + t.amount, 0);
-    const airTotal = airTx.reduce((sum, t) => sum + t.amount, 0);
-    const gt = cargoTotal + mktgTotal + vjTotal + airTotal;
+    const gt = cargoTotal + mktgTotal + vjTotal;
 
     const cashTotal = transactions.reduce((sum, t) => sum + (t.mode === 'Cash' ? t.amount : 0), 0);
-    const posTotal = transactions.reduce((sum, t) => sum + (t.mode === 'POS' ? t.amount : 0), 0);
-    const transferTotal = transactions.reduce((sum, t) => sum + (t.mode === 'Transfer' ? t.amount : 0), 0);
+    const transferTotal = transactions.reduce((sum, t) => sum + (t.mode === 'Transfer' || t.mode === 'Transfer-as-Cash' ? t.amount : 0), 0);
 
     return (
-      <div className="flex flex-col h-full bg-[var(--color-obsidian)] p-4 relative text-white animate-in slide-in-from-right overflow-y-auto">
+      <div className="flex flex-col h-full bg-[var(--color-obsidian)] p-4 relative text-white animate-in slide-in-from-right overflow-y-auto pb-[60px]">
         <button onClick={() => setEodView(false)} className="flex items-center space-x-2 text-[var(--color-light-muted)] mb-4 w-max p-2 -ml-2 rounded hover:bg-[var(--color-surface-2)]">
           <ArrowLeft size={16} />
           <span className="text-[11px] font-mono">Back</span>
@@ -66,16 +49,12 @@ export const More = ({ user, transactions, onLogout, onEOD, onAddTx }: { user: U
         
         <div className="bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded overflow-hidden flex flex-col mb-8">
           <div className="p-4 border-b border-[rgba(255,255,255,0.07)] flex justify-between items-center bg-[rgba(245,158,11,0.05)]">
-            <span className="text-[11px] font-mono text-[var(--color-muted)]">Ground Cargo</span>
+            <span className="text-[11px] font-mono text-[var(--color-muted)]">Cargo Station</span>
             <span className="text-[14px] font-bold font-mono text-[var(--color-accent-amber)]">{fmt(cargoTotal)}</span>
           </div>
-          <div className="p-4 border-b border-[rgba(255,255,255,0.07)] flex justify-between items-center bg-[rgba(245,158,11,0.05)]">
+          <div className="p-4 border-b border-[rgba(255,255,255,0.07)] flex justify-between items-center bg-[rgba(16,185,129,0.05)]">
             <span className="text-[11px] font-mono text-[var(--color-muted)]">Field Marketing</span>
-            <span className="text-[14px] font-bold font-mono text-[var(--color-accent-amber)]">{fmt(mktgTotal)}</span>
-          </div>
-          <div className="p-4 border-b border-[rgba(255,255,255,0.07)] flex justify-between items-center bg-[rgba(239,68,68,0.05)]">
-            <span className="text-[11px] font-mono text-[var(--color-muted)]">Air Cargo Commercial</span>
-            <span className="text-[14px] font-bold font-mono text-[var(--color-error)]">{fmt(airTotal)}</span>
+            <span className="text-[14px] font-bold font-mono text-[var(--color-success)]">{fmt(mktgTotal)}</span>
           </div>
           <div className="p-4 border-b border-[rgba(255,255,255,0.07)] flex justify-between items-center bg-[rgba(59,130,246,0.05)]">
             <span className="text-[11px] font-mono text-[var(--color-muted)]">ValueJet Baggage</span>
@@ -89,10 +68,6 @@ export const More = ({ user, transactions, onLogout, onEOD, onAddTx }: { user: U
             <div className="flex justify-between items-center">
               <span className="text-[10px] font-mono text-[var(--color-muted)]">Cash</span>
               <span className="text-[12px] font-mono text-white">{fmt(cashTotal)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[10px] font-mono text-[var(--color-muted)]">POS</span>
-              <span className="text-[12px] font-mono text-white">{fmt(posTotal)}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-[10px] font-mono text-[var(--color-muted)]">Transfer</span>
@@ -130,21 +105,6 @@ export const More = ({ user, transactions, onLogout, onEOD, onAddTx }: { user: U
           </div>
         </div>
       </button>
-
-      {user.hubType === 'Cargo Station' && (
-        <button 
-          onClick={() => setAirCargoView(true)}
-          className="w-full bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center justify-between"
-        >
-          <div className="flex items-center space-x-3">
-            <PlaneTakeoff size={18} className="text-[var(--color-error)]" />
-            <div className="text-left">
-              <div className="text-[13px] font-bold font-sans text-white">Air Cargo Console</div>
-              <div className="text-[10px] font-mono text-[var(--color-muted)]">Commercial freight billing</div>
-            </div>
-          </div>
-        </button>
-      )}
 
       <button className="w-full bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center justify-between opacity-80 cursor-default">
         <div className="flex items-center space-x-3">

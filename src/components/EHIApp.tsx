@@ -9,10 +9,9 @@ import { ValueJetForm } from './views/ValueJetForm';
 import { Scanner } from './views/Scanner';
 import { More } from './views/More';
 import { MarketingWorkspace } from './views/MarketingWorkspace';
-import { AirCargoForm } from './views/AirCargoForm';
 import { Toast, ToastProps } from './Toast';
 import { supabase } from '../lib/supabase';
-import { randCargo, randBaggage } from '../lib/helpers';
+import { randCargo, randBaggage, randMarketingEntry } from '../lib/helpers';
 
 export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void }) => {
   const getDefaultTab = (role: string): TabView => {
@@ -75,7 +74,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     // Fallback Simulation for UI preview purposes
     const int = setInterval(() => {
       setTransactions(prev => {
-        const newTx = Math.random() > 0.5 ? randCargo() : randBaggage();
+        const rand = Math.random();
+        const newTx = rand < 0.4 ? randCargo() : (rand < 0.75 ? randMarketingEntry() : randBaggage());
         return [newTx, ...prev];
       });
     }, 7000);
@@ -126,7 +126,6 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       <main className="flex-1 overflow-y-auto w-full pb-[60px]">
         {currentTab === 'Tower' && <Dashboard user={user} transactions={transactions} />}
         {currentTab === 'Cargo' && <CargoForm onAddTx={handleAddTx} />}
-        {currentTab === 'Air Cargo' && <AirCargoForm onAddTx={handleAddTx} />}
         {currentTab === 'Marketing' && <MarketingWorkspace user={user} transactions={transactions} expenses={expenses} onAddTx={handleAddTx} onAddExpense={(exp: Expense) => setExpenses(prev => [exp, ...prev])} />}
         {currentTab === 'VJ POS' && <ValueJetForm onAddTx={handleAddTx} />}
         {currentTab === 'Scan' && <Scanner transactions={transactions} user={user} />}
