@@ -1,32 +1,42 @@
 import React, { useState } from 'react';
 import { DEMO_USERS } from '../lib/constants';
-import { User } from '../lib/types';
+import { UserProfile, signIn } from '../lib/auth';
 
-export const LoginScreen = ({ onLogin }: { onLogin: (user: User) => void }) => {
+export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
-    setTimeout(() => {
+    try {
+      const user = await signIn(email, password);
+      onLogin(user);
+    } catch (err: any) {
+      setError(err.message || 'Invalid credentials. Use the demo credentials below.');
+    } finally {
       setIsLoading(false);
-      const user = DEMO_USERS[email as keyof typeof DEMO_USERS];
-      if (user && user.password === password) {
-        onLogin({ email, name: user.name, role: user.role, hub: user.hub, hubType: user.hubType });
-      } else {
-        setError('Invalid credentials. Use the demo credentials below.');
-      }
-    }, 800);
+    }
   };
 
-  const handleDemoClick = (demoEmail: string, demoPass: string) => {
+  const handleDemoClick = async (demoEmail: string, demoPass: string) => {
     setEmail(demoEmail);
     setPassword(demoPass);
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      const user = await signIn(demoEmail, demoPass);
+      onLogin(user);
+    } catch (err: any) {
+      setError(err.message || 'Invalid credentials. Use the demo credentials below.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

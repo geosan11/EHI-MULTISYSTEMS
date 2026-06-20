@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { PRICING, BANKS } from '../../lib/constants';
 import { PaymentMode, Transaction } from '../../lib/types';
 import { fmt, uid, tnow } from '../../lib/helpers';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, Loader2 } from 'lucide-react';
 import { QRCode } from '../QRCode';
 
 export const CargoForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }) => {
@@ -17,6 +17,10 @@ export const CargoForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }) =
   const [mb, setMb] = useState(0);
   const [sb, setSb] = useState(0);
 
+  const [paystackRef, setPaystackRef] = useState('');
+  const [verificationResult, setVerificationResult] = useState<{ verified: boolean, message: string } | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+
   const [successTx, setSuccessTx] = useState<Transaction | null>(null);
 
   const routePrices = PRICING[route];
@@ -29,6 +33,29 @@ export const CargoForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }) =
   const summaryStr = `${details.join(' ')} → ${route}`;
 
   const isValid = name.trim().length > 0 && phone.trim().length > 0 && totalAmount > 0;
+
+  const verifyPaystackPayment = async () => {
+    if (!paystackRef.trim()) return;
+    setIsVerifying(true);
+    setVerificationResult(null);
+    try {
+      const response = await fetch('/api/paystack/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reference: paystackRef }),
+      });
+      const data = await response.json();
+      if (data.verified) {
+        setVerificationResult({ verified: true, message: `✓ Verified: ₦${data.amount.toLocaleString()} from ${data.payer}` });
+      } else {
+        setVerificationResult({ verified: false, message: '✗ Could not verify reference' });
+      }
+    } catch {
+      setVerificationResult({ verified: false, message: '✗ Error verifying payment' });
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   const handleSubmit = () => {
     if (!isValid) return;
@@ -58,7 +85,13 @@ export const CargoForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }) =
     setSb(0);
     setBank('');
     setNotes('');
+    setPaystackRef('');
+    setVerificationResult(null);
     setSuccessTx(null);
+  };
+
+  const handleDownloadReceipt = () => {
+    alert("Downloading PDF receipt...");
   };
 
   if (successTx) {
@@ -94,7 +127,7 @@ export const CargoForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }) =
             <button onClick={handleReset} className="flex-1 py-3 bg-[var(--color-surface-1)] text-white text-[11px] font-mono rounded">
               New Entry
             </button>
-            <button className="flex-1 py-3 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[11px] font-bold font-mono rounded">
+            <button onClick={handleDownloadReceipt} className="flex-1 py-3 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[11px] font-bold font-mono rounded">
               Print Receipt
             </button>
           </div>
@@ -155,6 +188,30 @@ export const CargoForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }) =
             </select>
           )}
         </div>
+
+        {mode === 'Transfer' && (
+          <div className="flex space-x-2">
+            <input 
+              placeholder="Paystack Reference (optional)"
+              value={paystackRef}
+              onChange={(e) => setPaystackRef(e.target.value)}
+              className="w-full h-11 px-3 text-[12px] rounded font-mono"
+            />
+            <button 
+              onClick={verifyPaystackPayment}
+              disabled={isVerifying || !paystackRef.trim()}
+              className="h-11 px-4 bg-[var(--color-accent-cobalt)] text-white text-[12px] font-bold font-mono rounded flex items-center shrink-0 disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isVerifying ? <Loader2 size={16} className="animate-spin" /> : 'Verify'}
+            </button>
+          </div>
+        )}
+        
+        {verificationResult && (
+          <div className={`text-[10px] font-mono px-3 py-2 rounded ${verificationResult.verified ? 'bg-[rgba(16,185,129,0.1)] text-[var(--color-success)] border border-[rgba(16,185,129,0.2)]' : 'bg-[rgba(239,68,68,0.1)] text-[var(--color-error)] border border-[rgba(239,68,68,0.2)]'}`}>
+            {verificationResult.message}
+          </div>
+        )}
         
         <input 
           placeholder="Notes (optional)"

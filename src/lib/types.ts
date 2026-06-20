@@ -11,11 +11,13 @@ export type UserRole =
   | 'auditor';
 
 export interface User {
+  id?: string;
   email: string;
   name: string;
   role: UserRole;
   hubType: HubType;
   hub: string;
+  active?: boolean;
 }
 
 export type PaymentMode = 'Cash' | 'POS' | 'Transfer' | 'Debt' | 'Debt Paid';

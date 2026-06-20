@@ -1,31 +1,44 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Transaction } from '../../lib/types';
 import { ALL_STATUSES } from '../../lib/constants';
 import { fmt } from '../../lib/helpers';
-import { QrCode, RefreshCw, Search } from 'lucide-react';
+import { QrCode, Search } from 'lucide-react';
+import { Html5QrcodeScanner } from 'html5-qrcode';
 
-export const Scanner = ({ transactions }: { transactions: Transaction[] }) => {
+export const Scanner = ({ transactions, user }: { transactions: Transaction[], user: any }) => {
   const [search, setSearch] = useState('');
   const [result, setResult] = useState<Transaction | null>(null);
-  const [isScanning, setIsScanning] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const handleScan = () => {
-    setIsScanning(true);
-    setResult(null);
-    setErrorMsg('');
-    setTimeout(() => {
-      setIsScanning(false);
-      const randTx = transactions[Math.floor(Math.random() * transactions.length)];
-      if (randTx) {
-        setResult(randTx);
-      }
-    }, 1800);
-  };
+  useEffect(() => {
+    const scanner = new Html5QrcodeScanner(
+      'qr-reader',
+      {
+        fps: 10,
+        qrbox: { width: 220, height: 220 },
+        aspectRatio: 1.0,
+        showTorchButtonIfSupported: true,
+      },
+      false
+    );
 
-  const handleSearch = () => {
-    if (!search.trim()) return;
-    const q = search.trim().toLowerCase();
+    scanner.render(
+      async (decodedText) => {
+        await scanner.clear();
+        lookupWaybill(decodedText);
+      },
+      (error) => {
+        console.debug('QR scan:', error);
+      }
+    );
+
+    return () => {
+      scanner.clear().catch(console.error);
+    };
+  }, []);
+
+  const lookupWaybill = (id: string) => {
+    const q = id.trim().toLowerCase();
     const found = transactions.find(t => t.id.toLowerCase().includes(q) || t.name.toLowerCase().includes(q));
     if (found) {
       setResult(found);
@@ -36,28 +49,34 @@ export const Scanner = ({ transactions }: { transactions: Transaction[] }) => {
     }
   };
 
+  const handleSearch = () => {
+    if (!search.trim()) return;
+    lookupWaybill(search);
+  };
+
+  const handleMarkArrived = () => {
+    // Mock the backend update
+    if (result) {
+      const updated = { ...result, status: 'Arrived' } as Transaction;
+      setResult(updated);
+      alert(`Waybill ${result.id} marked as arrived! SMS sent to customer.`);
+    }
+  };
+
   return (
     <div className="p-4 space-y-4">
       <div className="text-[9px] font-mono text-[var(--color-success)] tracking-[0.1em] uppercase">▸ QR SCAN & TRACKING</div>
 
-      <div 
-        onClick={isScanning ? undefined : handleScan}
-        className={`w-full h-[180px] rounded flex flex-col items-center justify-center cursor-pointer transition-colors ${isScanning ? 'border-2 border-solid border-[var(--color-accent-cobalt)] bg-[rgba(59,130,246,0.05)]' : 'border-2 border-dashed border-[rgba(255,255,255,0.2)] hover:border-[rgba(255,255,255,0.4)] bg-[var(--color-surface-1)]'}`}
-      >
-        {isScanning ? (
-          <>
-            <RefreshCw size={32} className="text-[var(--color-accent-cobalt)] animate-spin mb-3" />
-            <div className="text-[12px] font-bold font-mono text-[var(--color-accent-cobalt)]">SCANNING…</div>
-          </>
-        ) : (
-          <>
-            <QrCode size={32} className="text-[var(--color-muted)] mb-3" />
-            <div className="text-[12px] font-bold font-mono text-white pointer-events-none">TAP TO SIMULATE QR SCAN</div>
-            <div className="text-[9px] font-mono text-[var(--color-muted)] mt-1">(uses device camera in production)</div>
-          </>
-        )}
+      <div className="w-full bg-white rounded overflow-hidden">
+        <div id="qr-reader" className="w-full"></div>
       </div>
-
+      <style>{`
+        #qr-reader { border-radius: 12px; overflow: hidden; border: none !important; }
+        #qr-reader__scan_region { background: transparent; }
+        #qr-reader__dashboard { display: none; }
+        #qr-reader video { object-fit: cover; }
+      `}</style>
+      
       <div className="flex space-x-2">
         <input 
           placeholder="Search waybill ID or customer name..."
@@ -117,12 +136,18 @@ export const Scanner = ({ transactions }: { transactions: Transaction[] }) => {
             })}
           </div>
 
-          <div className="border-t border-[rgba(255,255,255,0.07)] pt-3 flex justify-between items-center">
+          <div className="border-t border-[rgba(255,255,255,0.07)] pt-3 flex justify-between items-center mb-4">
             <div className={`text-[18px] font-bold font-mono ${result.type === 'cargo' ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-accent-cobalt)]'}`}>
               {fmt(result.amount)}
             </div>
             <div className="text-[10px] font-mono text-[var(--color-muted)]">{result.mode} &middot; {result.time}</div>
           </div>
+
+          {result.status === 'In-Transit' && (user.role === 'admin' || user.role === 'super_admin' || user.role === 'cargo_agent') && (
+            <button onClick={handleMarkArrived} className="w-full py-3 bg-[var(--color-success)] text-[var(--color-obsidian)] font-bold text-[12px] rounded uppercase">
+              Mark as Arrived
+            </button>
+          )}
         </div>
       )}
 

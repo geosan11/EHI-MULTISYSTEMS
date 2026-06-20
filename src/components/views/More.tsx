@@ -1,10 +1,14 @@
+import { AccountingConsole } from './AccountingConsole';
+import { AirCargoForm } from './AirCargoForm';
 import { useState } from 'react';
 import { User, Transaction } from '../../lib/types';
 import { fmt } from '../../lib/helpers';
-import { FileText, Activity, Database, Shield, Settings, LogOut, ArrowLeft } from 'lucide-react';
+import { FileText, Activity, Database, Shield, Settings, LogOut, ArrowLeft, PlaneTakeoff } from 'lucide-react';
 
-export const More = ({ user, transactions, onLogout, onEOD }: { user: User; transactions: Transaction[]; onLogout: () => void; onEOD: () => void }) => {
+export const More = ({ user, transactions, onLogout, onEOD, onAddTx }: { user: User; transactions: Transaction[]; onLogout: () => void; onEOD: () => void; onAddTx: (tx: Transaction) => void }) => {
   const [eodView, setEodView] = useState(false);
+  const [accountingView, setAccountingView] = useState(false);
+  const [airCargoView, setAirCargoView] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleLockEOD = () => {
@@ -15,6 +19,22 @@ export const More = ({ user, transactions, onLogout, onEOD }: { user: User; tran
       onEOD();
     }, 2500);
   };
+
+  if (accountingView) {
+    return <AccountingConsole user={user} transactions={transactions} onBack={() => setAccountingView(false)} />;
+  }
+
+  if (airCargoView) {
+    return (
+       <div className="flex flex-col h-full bg-[var(--color-obsidian)] p-2 relative text-white animate-in slide-in-from-right overflow-y-auto">
+         <button onClick={() => setAirCargoView(false)} className="flex items-center space-x-2 text-[var(--color-light-muted)] mb-2 w-max p-2 rounded hover:bg-[var(--color-surface-2)] z-10">
+           <ArrowLeft size={16} />
+           <span className="text-[11px] font-mono">Back</span>
+         </button>
+         <AirCargoForm onAddTx={onAddTx} />
+       </div>
+    );
+  }
 
   if (eodView) {
     const cargoTx = transactions.filter(t => t.type === 'cargo');
@@ -111,6 +131,21 @@ export const More = ({ user, transactions, onLogout, onEOD }: { user: User; tran
         </div>
       </button>
 
+      {user.hubType === 'Cargo Station' && (
+        <button 
+          onClick={() => setAirCargoView(true)}
+          className="w-full bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center justify-between"
+        >
+          <div className="flex items-center space-x-3">
+            <PlaneTakeoff size={18} className="text-[var(--color-error)]" />
+            <div className="text-left">
+              <div className="text-[13px] font-bold font-sans text-white">Air Cargo Console</div>
+              <div className="text-[10px] font-mono text-[var(--color-muted)]">Commercial freight billing</div>
+            </div>
+          </div>
+        </button>
+      )}
+
       <button className="w-full bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center justify-between opacity-80 cursor-default">
         <div className="flex items-center space-x-3">
           <Activity size={18} className="text-[var(--color-accent-cobalt)]" />
@@ -121,7 +156,14 @@ export const More = ({ user, transactions, onLogout, onEOD }: { user: User; tran
         </div>
       </button>
 
-      <div className="w-full bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center justify-between opacity-50 cursor-not-allowed">
+      <button 
+        onClick={() => {
+          if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'accountant') {
+            setAccountingView(true);
+          }
+        }}
+        className={`w-full bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center justify-between transition-colors ${(user.role === 'admin' || user.role === 'super_admin' || user.role === 'accountant') ? 'hover:border-[var(--color-success)] hover:bg-[var(--color-surface-2)] cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+      >
         <div className="flex items-center space-x-3">
           <Database size={18} className="text-[var(--color-success)]" />
           <div className="text-left">
@@ -129,8 +171,7 @@ export const More = ({ user, transactions, onLogout, onEOD }: { user: User; tran
             <div className="text-[10px] font-mono text-[var(--color-muted)]">Sync with central ERP</div>
           </div>
         </div>
-        <div className="px-2 py-0.5 bg-[rgba(255,255,255,0.1)] rounded text-[8px] font-mono text-white">SOON</div>
-      </div>
+      </button>
 
       <div className="w-full bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center justify-between opacity-50 cursor-not-allowed">
         <div className="flex items-center space-x-3">
