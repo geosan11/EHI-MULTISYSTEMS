@@ -44,7 +44,7 @@ const PublicTrackingPage = () => {
   }, [activeRef]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col items-center">
+    <div className="bg-slate-50 text-slate-900 font-sans flex flex-col items-center" style={{ minHeight: '100dvh' }}>
       {/* Branding Header */}
       <header className="w-full max-w-lg bg-white border-b border-slate-200 py-4 px-6 flex items-center justify-between shadow-xs">
         <div className="flex items-center space-x-2">
@@ -185,7 +185,7 @@ const AuthenticatedApp = () => {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-[var(--color-obsidian)] flex items-center justify-center">
+      <div className="bg-[var(--color-obsidian)] flex items-center justify-center" style={{ minHeight: '100dvh' }}>
         <Loader2 className="animate-spin text-[var(--color-accent-amber)]" size={48} />
       </div>
     );

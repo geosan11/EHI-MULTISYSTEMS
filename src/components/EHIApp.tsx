@@ -141,7 +141,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
   return (
     <div style={{
       display: 'flex',
-      height: '100vh',
+      height: '100dvh',
       width: '100%',
       background: 'var(--color-background)',
       overflow: 'hidden',
@@ -178,7 +178,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         </div>
 
         <main
-          className="flex-1 overflow-y-auto pb-[60px] md:pb-0"
+          className="flex-1 overflow-y-auto md:pb-0"
+          style={{ paddingBottom: 'calc(60px + env(safe-area-inset-bottom))' }}
         >
           <div
             className="mx-auto"
@@ -206,7 +207,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               {currentTab === 'Cargo' && <CargoForm onAddTx={handleAddTx} user={user} />}
               {currentTab === 'Marketing' && <MarketingWorkspace user={user} transactions={transactions} expenses={expenses} onAddTx={handleAddTx} onAddExpense={(exp: Expense) => setExpenses(prev => [exp, ...prev])} />}
               {currentTab === 'VJ POS' && <ValueJetForm onAddTx={handleAddTx} />}
-              {currentTab === 'Scan' && <Scanner transactions={transactions} user={user} />}
+              {currentTab === 'Scan' && <Scanner transactions={transactions} user={user} showToast={showToast} />}
               {currentTab === 'MyTrips' && (
                 <div className="flex flex-col items-center justify-center h-full text-[var(--color-muted)] font-mono text-[10px]">
                    MY TRIPS MODULE PENDING

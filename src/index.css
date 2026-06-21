@@ -10,6 +10,7 @@
 /* ── DARK MODE (default) ────────────────── */
 :root,
 :root.dark {
+  --app-height: 100dvh;
   --color-obsidian:      #0B0F19;
   --color-surface-1:     #1E293B;
   --color-surface-2:     #253347;
@@ -151,3 +152,38 @@ select option {
 #qr-reader-div img { display: none !important; }
 #qr-reader-div__scan_region { background: transparent !important; }
 #qr-reader-div__dashboard { display: none !important; }
+
+/* ── IOS SAFARI FIXES ──────────────────────── */
+@supports (padding: env(safe-area-inset-bottom)) {
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+input,
+select,
+textarea,
+button {
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 0;
+}
+
+input[class*="rounded"],
+select[class*="rounded"],
+button[class*="rounded"] {
+  border-radius: inherit;
+}
+
+select {
+  font-size: 16px;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="number"],
+input[type="password"] {
+  font-size: 16px;
+}

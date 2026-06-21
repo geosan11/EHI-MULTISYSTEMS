@@ -17,7 +17,13 @@ export const BottomNav = ({ user, currentTab, onChangeTab }: { user: User; curre
   const visibleTabs = allTabs.filter(t => t.roles.includes(user.role));
 
   return (
-    <div className="w-full h-[64px] bg-[var(--color-obsidian)] flex items-center justify-around border-t border-[rgba(255,255,255,0.07)] shrink-0 z-50">
+    <div 
+      className="w-full bg-[var(--color-obsidian)] flex items-center justify-around border-t border-[rgba(255,255,255,0.07)] shrink-0 z-50"
+      style={{
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        height: 'calc(60px + env(safe-area-inset-bottom))',
+      }}
+    >
       {visibleTabs.map(tab => {
         const isActive = currentTab === tab.id;
         

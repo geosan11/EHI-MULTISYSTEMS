@@ -42,7 +42,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
   };
 
   return (
-    <div className="min-h-screen bg-[var(--color-obsidian)] relative flex flex-col items-center justify-center p-8 overflow-hidden">
+    <div className="bg-[var(--color-obsidian)] relative flex flex-col items-center justify-center p-8 overflow-hidden" style={{ minHeight: '100dvh' }}>
       {/* Background radial glows */}
       <div className="absolute top-0 left-0 w-[500px] h-[500px] rounded-full pointer-events-none filter blur-[100px]" style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.04) 0%, rgba(0,0,0,0) 70%)', top: '-10%', left: '-10%' }} />
       <div className="absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full pointer-events-none filter blur-[100px]" style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.04) 0%, rgba(0,0,0,0) 70%)', bottom: '-10%', right: '-10%' }} />

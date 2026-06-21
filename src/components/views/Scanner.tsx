@@ -8,9 +8,11 @@ import { WrongDestinationAlert, NotLoggedInAlert, AlreadyProcessedAlert, Success
 export const Scanner = ({
   user,
   transactions,
+  showToast,
 }: {
   user: User;
   transactions: any[];
+  showToast?: (opts: any) => void;
 }) => {
   const [mode, setMode] = useState<ScanMode>('ARRIVE');
   const [isScanning, setIsScanning] = useState(false);
@@ -78,9 +80,23 @@ export const Scanner = ({
   }, [mode, currentHub, user.name]);
 
   // Start camera scanner
-  const startScanner = useCallback(() => {
+  const startScanner = useCallback(async () => {
+    // Request camera permission explicitly on iOS
+    try {
+      await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    } catch (err) {
+      if (showToast) {
+        showToast({
+          message: 'Camera permission denied. Enable in Settings → Safari → Camera.',
+          type: 'error',
+        });
+      } else {
+        alert('Camera permission denied. Enable in Settings → Safari → Camera.');
+      }
+      return;
+    }
     setIsScanning(true);
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     if (isScanning && !scannerRef.current) {
