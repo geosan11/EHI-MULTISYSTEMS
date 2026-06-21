@@ -46,13 +46,48 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
 
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const handleLockEOD = () => {
+  const handleLockEOD = async () => {
     setIsGenerating(true);
-    setTimeout(() => {
+    try {
+      const { downloadEODReport, printEODReport } = await import('./EODReport');
+      
+      const cargoTx = transactions.filter(t => t.type === 'cargo');
+      const mktgTx = transactions.filter(t => t.type === 'marketing');
+      const vjTx = transactions.filter(t => t.type === 'baggage');
+
+      const data = {
+        date: new Date().toLocaleDateString('en-GB'),
+        hubName: user.hub,
+        lockedBy: user.name,
+        lockedAt: new Date().toLocaleTimeString('en-GB'),
+        cargoTotal: cargoTx.reduce((sum, t) => sum + t.amount, 0),
+        mktgTotal: mktgTx.reduce((sum, t) => sum + t.amount, 0),
+        vjTotal: vjTx.reduce((sum, t) => sum + t.amount, 0),
+        grossTotal: transactions.reduce((sum, t) => sum + t.amount, 0),
+        cashTotal: transactions.reduce((sum, t) => sum + (t.mode === 'Cash' ? t.amount : 0), 0),
+        transferTotal: transactions.reduce((sum, t) => sum + (t.mode === 'Transfer' || t.mode === 'Transfer-as-Cash' ? t.amount : 0), 0),
+        debtTotal: 0,
+        totalExpenses: expenses.reduce((sum, e) => sum + e.amount, 0),
+        netCashToRemit: transactions.reduce((sum, t) => sum + (t.mode === 'Cash' ? t.amount : 0), 0) - expenses.reduce((sum, e) => sum + e.amount, 0),
+        cargoCount: cargoTx.length,
+        mktgCount: mktgTx.length,
+        vjCount: vjTx.length,
+        transactions: transactions,
+        expenses: expenses,
+      };
+
+      await downloadEODReport(data);
+      await printEODReport(data);
+      
+      setTimeout(() => {
+        setIsGenerating(false);
+        setEodView(false);
+        onEOD();
+      }, 1000);
+    } catch (err) {
+      console.error(err);
       setIsGenerating(false);
-      setEodView(false);
-      onEOD();
-    }, 2500);
+    }
   };
 
   // View controllers

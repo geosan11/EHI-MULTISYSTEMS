@@ -54,6 +54,28 @@ export const ValueJetForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }
     setSuccessTx(null);
   };
 
+  const handleDownloadReceipt = async () => {
+    if (successTx) {
+      const { downloadVJReceipt } = await import('./ValueJetReceipt');
+      const data = {
+        entryRef: successTx.tx.id,
+        date: new Date().toLocaleDateString('en-GB'),
+        hubName: 'ValueJet Counter',
+        agentName: 'VJ Agent',
+        passengerName: successTx.tx.name,
+        flightNumber: flight.toUpperCase(),
+        destination: dest || 'Unknown',
+        totalBaggage: successTx.kgs,
+        freeAllowance: 20,
+        excessKg: successTx.exc,
+        ratePerKg: rateVal,
+        amount: successTx.tx.amount,
+        paymentMode: successTx.tx.mode,
+      };
+      downloadVJReceipt(data);
+    }
+  };
+
   // Focus visible styles for ValueJet (cobalt stream)
   const vjFocusClasses = "focus:outline-none focus:ring-2 focus:ring-[rgba(59,130,246,0.5)] focus:border-[rgba(59,130,246,0.5)] transition-[border-color,box-shadow]";
 
@@ -120,10 +142,26 @@ export const ValueJetForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }
             <button onClick={handleReset} className="flex-1 py-3 bg-[var(--color-surface-1)] text-white text-[11px] font-mono rounded cursor-pointer">
               Next Passenger
             </button>
-            <button onClick={handleReset} className="flex-1 py-3 bg-[var(--color-accent-cobalt)] text-white text-[11px] font-bold font-mono rounded cursor-pointer">
+            <button onClick={handleDownloadReceipt} className="flex-1 py-3 bg-[var(--color-accent-cobalt)] text-white text-[11px] font-bold font-mono rounded cursor-pointer">
               Print Receipt
             </button>
           </div>
+          <button
+            onClick={handleDownloadReceipt}
+            style={{
+              width: '100%', padding: '11px',
+              background: 'transparent',
+              border: '1px solid rgba(59,130,246,0.3)',
+              borderRadius: 8, cursor: 'pointer',
+              fontSize: 11, fontFamily: 'monospace',
+              fontWeight: 700, color: 'var(--color-accent-cobalt)',
+              display: 'flex', alignItems: 'center',
+              justifyContent: 'center', gap: 6,
+              marginTop: 8,
+            }}
+          >
+            ↓ DOWNLOAD RECEIPT
+          </button>
         </motion.div>
       </div>
     );

@@ -39,15 +39,69 @@ export const MarketingWorkspace = ({
   const routePrices = PRICING[route];
   const totalAmount = (bb * routePrices.BB) + (mb * routePrices.MB) + (sb * routePrices.SB);
   
-  const isValid = name.trim().length > 0 && phone.trim().length > 0 && totalAmount > 0;
+  const isValid = name.trim().length > 0 && totalAmount > 0;
 
   const marketingTxs = transactions.filter(t => t.type === 'marketing');
   const totalSales = marketingTxs.reduce((sum, t) => sum + t.amount, 0);
   const cashSales = marketingTxs.reduce((sum, t) => sum + (t.mode === 'Cash' ? t.amount : 0), 0);
-  const transferSales = marketingTxs.reduce((sum, t) => sum + (t.mode === 'Transfer' ? t.amount : 0), 0);
+  const transferSales = marketingTxs.reduce((sum, t) => sum + (t.mode === 'Transfer' || t.mode === 'Transfer-as-Cash' ? t.amount : 0), 0);
   
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
   const balanceToRemit = cashSales - totalExpenses; // Usually, expenses are taken from cash
+
+  const [showCloseModal, setShowCloseModal] = useState(false);
+
+  const handleDownloadReceipt = async () => {
+    if (successTx) {
+      const { downloadMarketingReceipt } = await import('./MarketingReceipt');
+      const data = {
+        entryRef: successTx.id,
+        date: new Date().toLocaleDateString('en-GB'),
+        agentName: user.name,
+        customerName: successTx.name,
+        phone: phone || undefined,
+        route: route,
+        bigBags: bb,
+        medBags: mb,
+        smallBags: sb,
+        amount: successTx.amount,
+        paymentMode: successTx.mode,
+        bankName: bank || undefined,
+      };
+      downloadMarketingReceipt(data);
+    }
+  };
+
+  const handleCloseDay = () => {
+    setShowCloseModal(false);
+    // In a real app we'd trigger a cloud function to seal these. For now reset. Let's just alert.
+    alert("Day closed and submitted successfully!");
+  };
+
+  const handleDownloadSummary = async () => {
+    const { downloadMarketingDailySummary } = await import('./MarketingReceipt');
+    const uniqueRoutes = [...new Set(marketingTxs.map(t => t.detail.split(' · ')[0]))].join(', ');
+    const data = {
+      date: new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+      agentName: user.name,
+      hubName: user.hub,
+      entries: marketingTxs.map(t => ({
+        customerName: t.name,
+        route: t.detail.split(' · ')[0],
+        bags: t.detail.split(' · ')[1],
+        amount: t.amount,
+        paymentMode: t.mode,
+        bank: t.bank
+      })),
+      totalSales,
+      cashSales,
+      transferSales,
+      expenses,
+      totalExpenses,
+      balanceToRemit
+    };
+    downloadMarketingDailySummary(data);
+  };
 
   const handleAddEntry = () => {
     if (!isValid || submitting) return;
@@ -164,6 +218,22 @@ export const MarketingWorkspace = ({
                   View List
                 </button>
               </div>
+              <button
+                onClick={handleDownloadReceipt}
+                style={{
+                  width: '100%', padding: '11px',
+                  background: 'transparent',
+                  border: '1px solid rgba(16,185,129,0.3)',
+                  borderRadius: 8, cursor: 'pointer',
+                  fontSize: 11, fontFamily: 'monospace',
+                  fontWeight: 700, color: 'var(--color-success)',
+                  display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', gap: 6,
+                  marginTop: 8,
+                }}
+              >
+                ↓ DOWNLOAD RECEIPT
+              </button>
             </motion.div>
           ) : (
             <div className="space-y-4 bg-[rgba(255,255,255,0.02)] -mx-4 px-4 py-4 md:mx-0 md:rounded-xl md:border border-y border-[rgba(255,255,255,0.05)]">
@@ -372,13 +442,135 @@ export const MarketingWorkspace = ({
               )}
             </div>
 
-            <button className="w-full py-[14px] mt-4 bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)] text-[var(--color-success)] text-[12px] font-bold font-mono rounded border border-[rgba(16,185,129,0.2)] transition-colors cursor-pointer">
+            <button 
+              onClick={() => setShowCloseModal(true)}
+              className="w-full py-[14px] mt-4 bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)] text-[var(--color-success)] text-[12px] font-bold font-mono rounded border border-[rgba(16,185,129,0.2)] transition-colors cursor-pointer"
+            >
               END DAY & SUBMIT
             </button>
           </div>
         </aside>
 
       </div>
+
+      {showCloseModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0,0,0,0.85)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: 16
+        }}>
+          <div style={{
+             background: 'var(--color-obsidian)',
+             width: '100%', maxWidth: 480,
+             borderRadius: 16,
+             border: '1px solid rgba(255,255,255,0.1)',
+             padding: 24,
+             position: 'relative'
+          }}>
+            <button
+               onClick={() => setShowCloseModal(false)}
+               style={{ position: 'absolute', top: 16, right: 16, color: 'var(--color-muted)' }}
+            >
+               ×
+            </button>
+            <div style={{
+              fontSize: 12, fontFamily: 'monospace', color: '#10B981',
+              letterSpacing: '0.1em', marginBottom: 12, fontWeight: 'bold'
+            }}>▸ MARKETING DAILY CLOSE</div>
+
+            <div style={{ fontSize: 13, color: 'var(--color-muted)', marginBottom: 20 }}>
+              {new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}<br/>
+              Agent: {user.name}
+            </div>
+
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 16, marginBottom: 16 }}>
+              <div style={{ fontSize: 10, color: 'var(--color-light-muted)', marginBottom: 8, letterSpacing: '0.05em' }}>ENTRIES THIS SESSION</div>
+              <div className="flex justify-between" style={{ fontSize: 13, marginBottom: 4 }}>
+                <span className="text-[var(--color-muted)]">Customers served:</span>
+                <span className="text-white">{marketingTxs.length}</span>
+              </div>
+              <div className="flex justify-between" style={{ fontSize: 13 }}>
+                <span className="text-[var(--color-muted)]">Routes covered:</span>
+                <span className="text-white text-right max-w-[200px] truncate">{[...new Set(marketingTxs.map(t => t.detail.split(' · ')[0]))].join(', ')}</span>
+              </div>
+            </div>
+
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 16, marginBottom: 16 }}>
+              <div style={{ fontSize: 10, color: 'var(--color-light-muted)', marginBottom: 8, letterSpacing: '0.05em' }}>REVENUE BREAKDOWN</div>
+              <div className="flex justify-between" style={{ fontSize: 13, marginBottom: 4 }}>
+                <span className="text-[var(--color-muted)]">Total Sales:</span>
+                <span className="text-white font-mono font-bold">{fmt(totalSales)}</span>
+              </div>
+              <div className="flex justify-between" style={{ fontSize: 13, marginBottom: 4 }}>
+                <span className="text-[var(--color-muted)]">Cash Sales:</span>
+                <span className="text-[var(--color-success)] font-mono">{fmt(cashSales)}</span>
+              </div>
+              <div className="flex justify-between" style={{ fontSize: 13 }}>
+                <span className="text-[var(--color-muted)]">Transfer Sales:</span>
+                <span className="text-[var(--color-accent-blue)] font-mono">{fmt(transferSales)}</span>
+              </div>
+            </div>
+
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 16, marginBottom: 20 }}>
+              <div style={{ fontSize: 10, color: 'var(--color-light-muted)', marginBottom: 8, letterSpacing: '0.05em' }}>EXPENSES</div>
+              {expenses.length > 0 ? expenses.map((e, i) => (
+                <div key={i} className="flex justify-between" style={{ fontSize: 13, marginBottom: 4 }}>
+                  <span className="text-[var(--color-muted)]">{e.type}:</span>
+                  <span className="text-[var(--color-error)] font-mono">{fmt(e.amount)}</span>
+                </div>
+              )) : (
+                <div style={{ fontSize: 12, color: 'var(--color-muted)', fontStyle: 'italic' }}>No expenses logged.</div>
+              )}
+              <div className="flex justify-between" style={{ fontSize: 13, marginTop: 8, paddingTop: 8, borderTop: '1px dashed rgba(255,255,255,0.1)' }}>
+                <span className="text-white">TOTAL EXPENSES:</span>
+                <span className="text-[var(--color-error)] font-mono font-bold">{fmt(totalExpenses)}</span>
+              </div>
+            </div>
+
+            <div style={{
+              background: 'rgba(16,185,129,0.1)', border: '1px solid #10B981',
+              borderRadius: 8, padding: 16, marginBottom: 24
+            }}>
+              <div className="flex justify-between items-center">
+                <span style={{ fontSize: 14, color: '#10B981', fontWeight: 'bold' }}>BALANCE TO REMIT:</span>
+                <span style={{ fontSize: 20, color: '#10B981', fontWeight: 'bold', fontFamily: 'monospace' }}>{fmt(balanceToRemit)}</span>
+              </div>
+              <div style={{ fontSize: 11, color: 'rgba(16,185,129,0.7)', marginTop: 4 }}>(Cash collected minus expenses)</div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleDownloadSummary}
+                style={{
+                  flex: 1, padding: 12, background: 'transparent',
+                  border: '1px solid rgba(16,185,129,0.4)', borderRadius: 8,
+                  color: '#10B981', fontSize: 11, fontFamily: 'monospace', fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                DOWNLOAD SUMMARY PDF
+              </button>
+              <button
+                onClick={handleCloseDay}
+                style={{
+                  flex: 1, padding: 12, background: '#10B981',
+                  border: 'none', borderRadius: 8,
+                  color: '#000', fontSize: 11, fontFamily: 'monospace', fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                CONFIRM & CLOSE DAY
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

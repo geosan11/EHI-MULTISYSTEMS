@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Transaction } from '../../lib/types';
+import { Transaction, User } from '../../lib/types';
 import { CORPORATE_CLIENTS, CONTENT_TYPES, BANKS } from '../../lib/constants';
 import { fmt, uid, tnow } from '../../lib/helpers';
 import { CheckCircle, Loader2, User as UserIcon, Plane, Hash, Package, MapPin, Layers, Banknote, CreditCard, Landmark, MessageSquare } from 'lucide-react';
@@ -33,7 +33,10 @@ function incrementLocalSerial(): number {
   return next;
 }
 
-export const CargoForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }) => {
+export const CargoForm = ({ onAddTx, user }: {
+  onAddTx: (tx: Transaction) => void;
+  user: User;
+}) => {
   const [serialNumber, setSerialNumber] = useState<number>(getLocalSerial);
   const [consignee, setConsignee] = useState(CORPORATE_CLIENTS[0] as string);
   const [airline, setAirline] = useState('Arik Air');
@@ -108,7 +111,50 @@ export const CargoForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }) =
   const handleDownloadReceipt = async () => {
     if (successTx) {
       const { downloadCargoReceipt } = await import('./CargoReceipt');
-      downloadCargoReceipt(successTx, serialNumber - 1);
+      const data = {
+        entryRef: successTx.id,
+        serialNumber: serialNumber - 1,
+        date: new Date().toLocaleDateString('en-GB'),
+        hubName: user?.hub || 'EHI Cargo Station',
+        agentName: user?.name || 'EHI Agent',
+        airline: airline === 'AK' ? 'Arik Air' : airline === 'GA' ? 'Green Africa Airways' : 'United Nigeria Airlines',
+        consignee: actualConsignee,
+        awbTagNumber: awb,
+        pieces: parseInt(pcs),
+        kg: parseFloat(kg),
+        route: route,
+        contentType: contentType,
+        amount: parsedAmount,
+        paymentMode: mode,
+        bankName: bank || undefined,
+        remark: remark || undefined,
+      };
+      downloadCargoReceipt(data);
+    }
+  };
+
+  const handlePrintReceipt = async () => {
+    if (successTx) {
+      const { printCargoReceipt } = await import('./CargoReceipt');
+      const data = {
+        entryRef: successTx.id,
+        serialNumber: serialNumber - 1,
+        date: new Date().toLocaleDateString('en-GB'),
+        hubName: user?.hub || 'EHI Cargo Station',
+        agentName: user?.name || 'EHI Agent',
+        airline: airline === 'AK' ? 'Arik Air' : airline === 'GA' ? 'Green Africa Airways' : 'United Nigeria Airlines',
+        consignee: actualConsignee,
+        awbTagNumber: awb,
+        pieces: parseInt(pcs),
+        kg: parseFloat(kg),
+        route: route,
+        contentType: contentType,
+        amount: parsedAmount,
+        paymentMode: mode,
+        bankName: bank || undefined,
+        remark: remark || undefined,
+      };
+      printCargoReceipt(data);
     }
   };
 
@@ -177,12 +223,29 @@ export const CargoForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }) =
 
           <div className="flex w-full space-x-3">
             <button onClick={handleReset} className="flex-1 py-3.5 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-1)] text-white text-[14px] font-sans font-medium rounded-xl transition-colors cursor-pointer focus:outline-none">
-              Add Another
+              New Entry
             </button>
-            <button onClick={handleDownloadReceipt} className="flex-1 py-3.5 bg-[var(--color-accent-amber)] hover:bg-opacity-90 text-[var(--color-obsidian)] text-[14px] font-bold font-sans rounded-xl transition-opacity cursor-pointer focus:outline-none">
+            <button onClick={handlePrintReceipt} className="flex-1 py-3.5 bg-[var(--color-accent-amber)] hover:bg-opacity-90 text-[var(--color-obsidian)] text-[14px] font-bold font-sans rounded-xl transition-opacity cursor-pointer focus:outline-none">
               Print Receipt
             </button>
           </div>
+          
+          <button
+            onClick={handleDownloadReceipt}
+            style={{
+              width: '100%', padding: '11px',
+              background: 'transparent',
+              border: '1px solid rgba(245,158,11,0.3)',
+              borderRadius: 8, cursor: 'pointer',
+              fontSize: 11, fontFamily: 'monospace',
+              fontWeight: 700, color: 'var(--color-accent-amber)',
+              display: 'flex', alignItems: 'center',
+              justifyContent: 'center', gap: 6,
+              marginTop: 8,
+            }}
+          >
+            ↓ DOWNLOAD RECEIPT
+          </button>
         </motion.div>
       </div>
     );

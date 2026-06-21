@@ -203,7 +203,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                   <Dashboard user={user} transactions={transactions} />
                 )
               )}
-              {currentTab === 'Cargo' && <CargoForm onAddTx={handleAddTx} />}
+              {currentTab === 'Cargo' && <CargoForm onAddTx={handleAddTx} user={user} />}
               {currentTab === 'Marketing' && <MarketingWorkspace user={user} transactions={transactions} expenses={expenses} onAddTx={handleAddTx} onAddExpense={(exp: Expense) => setExpenses(prev => [exp, ...prev])} />}
               {currentTab === 'VJ POS' && <ValueJetForm onAddTx={handleAddTx} />}
               {currentTab === 'Scan' && <Scanner transactions={transactions} user={user} />}

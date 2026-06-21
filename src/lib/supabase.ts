@@ -5,11 +5,11 @@ let _client: SupabaseClient;
 function buildClient(): SupabaseClient {
   const url =
     localStorage.getItem('ehi_supabase_url') ||
-    import.meta.env.VITE_SUPABASE_URL ||
+    (import.meta as any).env?.VITE_SUPABASE_URL ||
     'https://mock.supabase.co';
   const key =
     localStorage.getItem('ehi_supabase_anon_key') ||
-    import.meta.env.VITE_SUPABASE_ANON_KEY ||
+    (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ||
     'mock-key';
 
   const isMock = url === 'https://mock.supabase.co';
@@ -62,7 +62,7 @@ export function reinitSupabase(): void {
 export function getConnectionMode(): 'live' | 'demo' {
   const url =
     localStorage.getItem('ehi_supabase_url') ||
-    import.meta.env.VITE_SUPABASE_URL ||
+    (import.meta as any).env?.VITE_SUPABASE_URL ||
     '';
   return url && url !== 'https://mock.supabase.co' ? 'live' : 'demo';
 }
