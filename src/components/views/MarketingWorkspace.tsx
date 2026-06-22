@@ -195,19 +195,14 @@ export const MarketingWorkspace = ({
         {/* Left Column - Forms */}
         <div className="space-y-6">
           {successTx ? (
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: 'spring', damping: 15, stiffness: 200 }}
-              className="bg-[rgba(16,185,129,0.05)] border border-[rgba(16,185,129,0.2)] rounded p-4 flex flex-col"
+            <div 
+              className="bg-[rgba(16,185,129,0.05)] border border-[rgba(16,185,129,0.2)] rounded p-4 flex flex-col animate-in fade-in zoom-in-95 duration-200"
             >
-              <motion.div
-                animate={{ scale: [1, 1.15, 1] }}
-                transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-                className="flex justify-center"
+              <div
+                className="flex justify-center animate-pulse"
               >
                 <CheckCircle size={32} className="text-[var(--color-success)] mb-3" />
-              </motion.div>
+              </div>
               <div className="text-[11px] font-mono text-[var(--color-success)] uppercase tracking-widest mb-1 text-center">ENTRY RECORDED</div>
               <div className="text-[14px] font-bold font-mono text-[var(--color-success)] mb-4 uppercase text-center" style={{ fontFamily: 'JetBrains Mono' }}>
                 REF: {successTx.id}
@@ -256,7 +251,7 @@ export const MarketingWorkspace = ({
               >
                 ↓ DOWNLOAD RECEIPT
               </button>
-            </motion.div>
+            </div>
           ) : (
             <div className="space-y-4 bg-[rgba(255,255,255,0.02)] -mx-4 px-4 py-4 md:mx-0 md:rounded-xl md:border border-y border-[rgba(255,255,255,0.05)]">
               <div className="border-b border-[rgba(255,255,255,0.07)] pb-1 mb-2">

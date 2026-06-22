@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { QrCode, RefreshCw, Package, Plane, TrendingUp, ArrowDown, ArrowUp, List } from 'lucide-react';
-import { User, ScanMode, ScanValidationResult, BatchScanItem } from '../../lib/types';
+import { User, ScanMode, ScanValidationResult, BatchScanItem, ScanResultType } from '../../lib/types';
 import { validateScan, logScanEvent } from '../../lib/scanLogic';
 import { WrongDestinationAlert, NotLoggedInAlert, AlreadyProcessedAlert, SuccessFlash } from '../ScanAlerts';
 
@@ -53,12 +53,76 @@ export const Scanner = ({
   const scannerRef = useRef<any>(null);
   const processingRef = useRef(false);
 
+  // New states for batch queuing
+  const [isBatchQueueMode, setIsBatchQueueMode] = useState(false);
+  const [batchQueue, setBatchQueue] = useState<{
+    ref: string;
+    name: string;
+    result: ScanResultType;
+    mode: ScanMode;
+    destination?: string;
+    time: string;
+    kg?: number;
+  }[]>([]);
+  const [submittingBatch, setSubmittingBatch] = useState(false);
+  const [showQueueSummary, setShowQueueSummary] = useState(false);
+
   const currentHub = user.hub;
   const batchSuccess = batchItems.filter(b => b.result.startsWith('SUCCESS')).length;
   const batchAlerts = batchItems.filter(b => !b.result.startsWith('SUCCESS') && b.result !== 'ALREADY_PROCESSED').length;
   const successfulScans = batchItems
     .filter(item => item.result === 'SUCCESS_ARRIVE' || item.result === 'SUCCESS_DEPART')
     .slice(0, 5);
+
+  const handleConfirmSubmitBatch = async (itemsToSubmit = batchQueue) => {
+    if (itemsToSubmit.length === 0) return;
+    setSubmittingBatch(true);
+
+    try {
+      // Loop through all items and commit them to supabase
+      await Promise.all(itemsToSubmit.map(item => 
+        logScanEvent(
+          item.ref,
+          item.mode,
+          currentHub,
+          user.name,
+          item.destination
+        )
+      ));
+
+      // Add to session logs so they display in recent successfully scanned logs list
+      const newlyLoggedItems: BatchScanItem[] = itemsToSubmit.map(item => ({
+        ref: item.ref,
+        name: item.name,
+        result: item.result,
+        time: item.time
+      }));
+
+      setBatchItems(prev => [...newlyLoggedItems, ...prev]);
+
+      if (showToast) {
+        showToast({
+          message: `Successfully logged batch of ${itemsToSubmit.length} scans to database!`,
+          type: 'success'
+        });
+      }
+
+      setBatchQueue([]);
+      setShowQueueSummary(false);
+    } catch (error) {
+      console.error('Failed to submit batch scans:', error);
+      if (showToast) {
+        showToast({
+          message: 'Failed to submit batch scans. Please try again.',
+          type: 'error'
+        });
+      } else {
+        alert('Failed to submit batch scans. Please try again.');
+      }
+    } finally {
+      setSubmittingBatch(false);
+    }
+  };
 
   const processCode = useCallback(async (code: string) => {
     if (processingRef.current) return;
@@ -70,30 +134,79 @@ export const Scanner = ({
 
       if (result.type === 'SUCCESS_ARRIVE' || result.type === 'SUCCESS_DEPART') {
         playBeep();
-        // Log the event to database
-        await logScanEvent(
-          code,
-          mode,
-          currentHub,
-          user.name,
-          result.cargo?.destination
-        );
+        
+        if (isBatchQueueMode) {
+          // Check for duplicate in current batch queue to prevent double scanning
+          let isDuplicate = false;
+          setBatchQueue(prev => {
+            if (prev.some(item => item.ref === code && item.mode === mode)) {
+              isDuplicate = true;
+              return prev;
+            }
+            return [{
+              ref: code,
+              name: result.cargo?.name || code,
+              result: result.type,
+              mode: mode,
+              destination: result.cargo?.destination,
+              time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+              kg: result.cargo?.kg,
+            }, ...prev];
+          });
 
-        // Add to batch list
-        setBatchItems(prev => [{
-          ref: code,
-          name: result.cargo?.name || code,
-          result: result.type,
-          time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
-        }, ...prev]);
+          if (isDuplicate) {
+            if (showToast) {
+              showToast({
+                message: `${code} is already in the batch queue for ${mode}`,
+                type: 'warning'
+              });
+            }
+            setProcessing(false);
+            processingRef.current = false;
+            return;
+          }
 
-        // Show success flash briefly then auto-clear
-        setSuccessFlash(result);
-        setTimeout(() => {
-          setSuccessFlash(null);
-          processingRef.current = false;
-          setProcessing(false);
-        }, 1500);
+          if (showToast) {
+            showToast({
+              message: `Queued ${mode} scan for AWB ${code}`,
+              type: 'success'
+            });
+          }
+
+          // Show success flash briefly then auto-clear
+          setSuccessFlash(result);
+          setTimeout(() => {
+            setSuccessFlash(null);
+            processingRef.current = false;
+            setProcessing(false);
+          }, 1200);
+
+        } else {
+          // Log the event immediately to database
+          await logScanEvent(
+            code,
+            mode,
+            currentHub,
+            user.name,
+            result.cargo?.destination
+          );
+
+          // Add to session batch/history list
+          setBatchItems(prev => [{
+            ref: code,
+            name: result.cargo?.name || code,
+            result: result.type,
+            time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+          }, ...prev]);
+
+          // Show success flash briefly then auto-clear
+          setSuccessFlash(result);
+          setTimeout(() => {
+            setSuccessFlash(null);
+            processingRef.current = false;
+            setProcessing(false);
+          }, 1500);
+        }
 
       } else {
         // Error — show alert modal, pause scanner
@@ -109,7 +222,7 @@ export const Scanner = ({
       setProcessing(false);
       processingRef.current = false;
     }
-  }, [mode, currentHub, user.name]);
+  }, [mode, currentHub, user.name, isBatchQueueMode, showToast]);
 
   // Start camera scanner
   const startScanner = useCallback(async () => {
@@ -233,6 +346,107 @@ export const Scanner = ({
     };
   }, []);
 
+  // Batch Queue Summary View
+  if (showQueueSummary) {
+    return (
+      <div className="p-4 pb-24 space-y-4 animate-in fade-in duration-200">
+        <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-3">
+          <button onClick={() => setShowQueueSummary(false)} className="text-[11px] font-mono text-[var(--color-muted)] flex items-center gap-1 hover:text-[var(--color-foreground)] transition-colors cursor-pointer border-none bg-transparent">
+            ← BACK TO SCANNER
+          </button>
+          <span className="text-[10px] font-mono text-[var(--color-accent-amber)] uppercase tracking-wider font-bold">
+            {batchQueue.length} items in batch queue
+          </span>
+        </div>
+
+        {batchQueue.length === 0 ? (
+          <div className="text-center py-16 text-[var(--color-muted)] font-mono text-[11px]">
+            The batch queue is currently empty. Start scanning in Batch mode to add items here.
+          </div>
+        ) : (
+          <>
+            {/* Batch Action Buttons */}
+            <div className="grid grid-cols-2 gap-3 pb-2">
+              <button
+                onClick={() => {
+                  if (confirm('Are you sure you want to clear all items in the batch queue?')) {
+                    setBatchQueue([]);
+                    setShowQueueSummary(false);
+                    if (showToast) showToast({ message: 'Batch queue cleared', type: 'info' });
+                  }
+                }}
+                className="py-3 bg-red-950/40 hover:bg-red-900/30 text-red-400 text-[12px] font-sans font-semibold rounded-[var(--radius-sm)] border border-red-900/50 transition-colors cursor-pointer"
+              >
+                Clear Queue ({batchQueue.length})
+              </button>
+              <button
+                onClick={() => handleConfirmSubmitBatch()}
+                disabled={submittingBatch}
+                style={{
+                  background: 'var(--color-success)',
+                  color: '#0d1117',
+                }}
+                className="py-3 hover:bg-opacity-90 text-[12px] font-bold font-sans rounded-[var(--radius-sm)] border-none transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              >
+                {submittingBatch ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    SUBMITTING...
+                  </>
+                ) : (
+                  <>
+                    Commit Batch ({batchQueue.length})
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Queue items list */}
+            <div className="space-y-2">
+              {batchQueue.map((item, i) => {
+                const isArrive = item.mode === 'ARRIVE';
+                const color = isArrive ? 'var(--color-success)' : 'var(--color-accent-cobalt)';
+                return (
+                  <div key={i} className="flex items-center gap-3 bg-[var(--color-surface-1)] p-3.5 rounded-lg border border-[var(--color-border)] hover:border-[var(--color-border-strong)] transition-all">
+                    <div style={{
+                      width: 8, height: 8, borderRadius: '50%',
+                      background: isArrive ? '#10B981' : '#3B82F6',
+                      flexShrink: 0,
+                    }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="text-[12px] font-bold text-[var(--color-foreground)] truncate">{item.name}</div>
+                      <div className="text-[10px] font-mono text-[var(--color-muted)] flex items-center gap-2">
+                        <span>{item.ref}</span>
+                        {item.kg && <span>· {item.kg} KG</span>}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 flex items-center gap-3">
+                      <div className="text-right">
+                        <div className="text-[10px] font-mono uppercase font-bold" style={{ color }}>
+                          {item.mode}
+                        </div>
+                        <div className="text-[9px] text-[var(--color-muted)] font-mono">{item.time}</div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setBatchQueue(prev => prev.filter((_, idx) => idx !== i));
+                          if (showToast) showToast({ message: `Removed ${item.ref} from queue`, type: 'info' });
+                        }}
+                        className="p-1 px-1.5 rounded bg-[rgba(239,68,68,0.1)] text-[var(--color-error)] hover:bg-[rgba(239,68,68,0.2)] border-none text-[10px] font-mono transition-colors cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
   // Batch list view
   if (showBatch) {
     return (
@@ -341,11 +555,90 @@ export const Scanner = ({
       </div>
 
       {/* Mode description */}
-      <div className="text-[10px] font-mono text-[var(--color-muted)] text-center">
+      <div className="text-[10px] font-mono text-[var(--color-muted)] text-center mb-1">
         {mode === 'ARRIVE'
           ? 'Scan cargo arriving at this hub'
           : 'Scan cargo departing from this hub'}
       </div>
+
+      {/* Scan Logic Option Toggle: Instant vs Batch Queue */}
+      <div className="flex bg-[var(--color-surface-2)] p-1 rounded-xl shadow-inner mt-1 mb-2" style={{ width: '100%' }}>
+        {[
+          { key: 'instant', label: '⚡ Instant Log', desc: 'Direct DB commit' },
+          { key: 'batch', label: '📥 Batch Queue', desc: 'Verify before log' }
+        ].map((opt) => {
+          const active = (opt.key === 'batch') === isBatchQueueMode;
+          return (
+            <button
+              key={opt.key}
+              type="button"
+              onClick={() => {
+                setIsBatchQueueMode(opt.key === 'batch');
+                dismissAlert();
+              }}
+              style={{
+                flex: 1, minWidth: 0, padding: '8px 4px',
+                background: active ? 'var(--color-surface-1)' : 'transparent',
+                borderRadius: '8px',
+                border: 'none',
+                color: active ? 'var(--color-accent-amber)' : '#64748B',
+                boxShadow: active ? '0 1px 4px rgba(0,0,0,0.15)' : 'none',
+                cursor: 'pointer',
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.2s',
+              }}
+            >
+              <span className="font-sans text-[12px] font-bold tracking-wide">
+                {opt.label}
+              </span>
+              <span className="font-sans text-[9px] opacity-65 font-medium mt-0.5">
+                {opt.desc}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Batch Queue Status Box */}
+      {batchQueue.length > 0 && (
+        <div 
+          onClick={() => setShowQueueSummary(true)}
+          style={{
+            background: 'linear-gradient(135deg, rgba(245,158,11,0.1) 0%, rgba(245,158,11,0.03) 100%)',
+            border: '1.5px solid rgba(245,158,11,0.25)',
+            borderRadius: 'var(--radius-md)',
+            padding: '12px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            gap: 12,
+            marginTop: 4,
+            marginBottom: 8,
+          }}
+          className="hover:border-amber-500/40 transition-colors shadow-sm"
+        >
+          <div className="min-w-0 flex-1">
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-accent-amber)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>⚡ Batch Queue Storage</span>
+              <span className="px-1.5 py-0.5 rounded bg-[var(--color-accent-amber)] text-black text-[9px] font-extrabold">{batchQueue.length}</span>
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--color-muted)', marginTop: 4 }} className="truncate font-sans font-medium">
+              Scans are staged locally. Tap to summarize and commit.
+            </div>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowQueueSummary(true);
+            }}
+            className="px-3 py-1.5 bg-[var(--color-accent-amber)] hover:bg-opacity-90 text-black text-[10px] font-bold font-sans rounded-[var(--radius-xs)] border-none shrink-0 transition-colors cursor-pointer"
+          >
+            REVIEW & COMMIT
+          </button>
+        </div>
+      )}
 
       {/* Camera scanner */}
       {isScanning ? (

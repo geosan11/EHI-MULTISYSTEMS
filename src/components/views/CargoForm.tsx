@@ -206,18 +206,12 @@ export const CargoForm = ({ onAddTx, user }: {
           <span className="text-[14px] font-sans font-semibold text-[var(--color-foreground)]">Cargo Receipt</span>
         </div>
 
-        <motion.div 
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', damping: 15, stiffness: 200 }}
-          className="bg-[rgba(16,185,129,0.05)] border border-[var(--color-success)] rounded-[var(--radius-md)] text-center p-8 flex flex-col items-center"
+        <div 
+          className="bg-[rgba(16,185,129,0.05)] border border-[var(--color-success)] rounded-[var(--radius-md)] text-center p-8 flex flex-col items-center animate-in fade-in zoom-in-95 duration-200"
         >
-          <motion.div
-            animate={{ scale: [1, 1.15, 1] }}
-            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-          >
+          <div className="animate-pulse">
             <CheckCircle size={40} className="text-[var(--color-success)] mb-3" />
-          </motion.div>
+          </div>
           <div className="text-[14px] font-semibold font-sans text-[var(--color-success)] mb-1">Cargo entry saved successfully!</div>
           <div className="text-[12px] font-mono text-[var(--color-muted)] mb-6">
             REF: {successTx.id}
@@ -275,7 +269,7 @@ export const CargoForm = ({ onAddTx, user }: {
           >
             ↓ DOWNLOAD PDF RECEIPT
           </button>
-        </motion.div>
+        </div>
       </div>
     );
   }
@@ -457,10 +451,8 @@ export const CargoForm = ({ onAddTx, user }: {
             </div>
             
             {mode === 'Transfer' && (
-              <motion.div
-                 initial={{ height: 0, opacity: 0 }}
-                 animate={{ height: "auto", opacity: 1 }}
-                 className="overflow-hidden"
+              <div
+                 className="animate-in fade-in slide-in-from-top-2 duration-200"
               >
                 {renderLabel(Landmark, "Bank")}
                 <select 
@@ -470,14 +462,12 @@ export const CargoForm = ({ onAddTx, user }: {
                 >
                   {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
-              </motion.div>
+              </div>
             )}
 
             {mode === 'POS' && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                className="overflow-hidden"
+              <div
+                className="animate-in fade-in slide-in-from-top-2 duration-200"
               >
                 {renderLabel(CreditCard, "POS Terminal / Bank")}
                 <select
@@ -487,7 +477,7 @@ export const CargoForm = ({ onAddTx, user }: {
                 >
                   {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
-              </motion.div>
+              </div>
             )}
 
             <div>

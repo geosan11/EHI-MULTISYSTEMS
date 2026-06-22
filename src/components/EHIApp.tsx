@@ -200,7 +200,6 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       background: 'var(--color-background)',
       overflow: 'hidden',
       fontFamily: "'Inter', system-ui, sans-serif",
-      transition: 'background-color 0.2s ease'
     }}>
       <SideNav
         user={user}

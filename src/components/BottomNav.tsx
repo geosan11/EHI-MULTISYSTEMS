@@ -41,15 +41,15 @@ export const BottomNav = ({ user, currentTab, onChangeTab }: { user: User; curre
                 layoutId="nav-pill"
                 style={{
                   position: 'absolute',
-                  top: '12px',
+                  top: 10,
                   width: 44, height: 28,
                   borderRadius: 'var(--radius-full)',
-                  background: tab.accent === 'white' || tab.accent === 'var(--color-foreground)'
-                    ? 'rgba(255,255,255,0.1)'
-                    : `${tab.accent}1A`,
-                  border: tab.accent === 'white' || tab.accent === 'var(--color-foreground)'
+                  background: tab.accent === 'white'
+                    ? 'rgba(255,255,255,0.10)'
+                    : `color-mix(in srgb, ${tab.accent} 20%, transparent)`,
+                  border: tab.accent === 'white'
                     ? '1px solid rgba(255,255,255,0.12)'
-                    : `1px solid ${tab.accent}40`,
+                    : `1px solid color-mix(in srgb, ${tab.accent} 30%, transparent)`,
                 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 30 }}
               />

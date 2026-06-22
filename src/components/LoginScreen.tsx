@@ -44,13 +44,21 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
   return (
     <div className="bg-[var(--color-obsidian)] relative flex flex-col items-center justify-center p-8 overflow-hidden" style={{ minHeight: '100dvh' }}>
       {/* Background radial glows */}
-      <div className="absolute top-0 left-0 w-[500px] h-[500px] rounded-full pointer-events-none filter blur-[100px]" style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.04) 0%, rgba(0,0,0,0) 70%)', top: '-10%', left: '-10%' }} />
-      <div className="absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full pointer-events-none filter blur-[100px]" style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.04) 0%, rgba(0,0,0,0) 70%)', bottom: '-10%', right: '-10%' }} />
+      <div className="absolute top-0 left-0 w-[500px] h-[500px] rounded-full pointer-events-none filter blur-[100px]" style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.12) 0%, transparent 65%)', top: '-10%', left: '-10%' }} />
+      <div className="absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full pointer-events-none filter blur-[100px]" style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.09) 0%, transparent 65%)', bottom: '-10%', right: '-10%' }} />
 
       <div className="w-full max-w-[380px] flex flex-col items-center z-10">
         {/* Header */}
         <div className="text-center mb-10 flex flex-col items-center">
-          <div className="w-[84px] h-[84px] rounded-[20px] bg-[rgba(245,158,11,0.10)] border border-[rgba(245,158,11,0.20)] flex items-center justify-center mb-4">
+          <div style={{
+            width: 88, height: 88,
+            borderRadius: 'var(--radius-xl)',
+            background: 'linear-gradient(135deg, rgba(245,158,11,0.18) 0%, rgba(245,158,11,0.07) 100%)',
+            border: '1.5px solid rgba(245,158,11,0.32)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: 16,
+            boxShadow: '0 8px 32px rgba(245,158,11,0.14), 0 0 0 1px rgba(245,158,11,0.06) inset',
+          }}>
             <span className="font-sans text-[36px] font-black text-[var(--color-accent-amber)] leading-none select-none">EHI</span>
           </div>
           <div className="mt-2 inline-flex items-center space-x-1.5 bg-[rgba(16,185,129,0.1)] px-2.5 py-1 rounded-full border border-[rgba(16,185,129,0.2)]">
@@ -89,7 +97,16 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
           <button 
             type="submit"
             disabled={isLoading}
-            className="w-full h-12 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[15px] font-bold font-sans rounded-xl mt-4 disabled:opacity-70 disabled:cursor-not-allowed transition-opacity hover:bg-opacity-90"
+            style={{
+              width: '100%', height: 50,
+              background: 'linear-gradient(135deg, var(--color-accent-amber) 0%, #C87900 100%)',
+              border: 'none', borderRadius: 'var(--radius-md)',
+              color: '#0D1117', fontSize: 15, fontWeight: 800,
+              cursor: 'pointer',
+              boxShadow: 'var(--shadow-amber)',
+              opacity: isLoading ? 0.7 : 1,
+              transition: 'opacity 0.15s',
+            }}
           >
             {isLoading ? 'Signing In...' : 'Sign In'}
           </button>

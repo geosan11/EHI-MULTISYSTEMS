@@ -137,14 +137,15 @@ export const Header = ({
             <button
               onClick={() => setShowDropdown(!showDropdown)}
               style={{
-                width: 34, height: 34,
+                width: 36, height: 36,
                 borderRadius: 'var(--radius-full)',
-                background: 'linear-gradient(135deg, var(--color-accent-amber) 0%, #D97706 100%)',
+                background: 'linear-gradient(135deg, var(--color-accent-amber) 0%, #C87900 100%)',
                 border: 'none',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer',
                 boxShadow: showDropdown ? '0 0 0 3px var(--glow-amber)' : 'none',
                 transition: 'box-shadow 0.15s ease',
+                color: '#0D1117', fontSize: 13, fontWeight: 800,
               }}
             >
               <span style={{ fontSize: 13, fontWeight: 800, color: '#0D1117' }}>
@@ -213,10 +214,11 @@ export const Header = ({
               color: 'var(--color-error)',
               fontSize: 11, fontWeight: 600,
               textAlign: 'center', padding: '6px 16px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              display: 'flex', alignItems: 'center',
+              justifyContent: 'center', gap: 6,
             }}
           >
-            <WifiOff size={12} />
+            <WifiOff size={12} className="text-[var(--color-error)] opacity-80" />
             Offline — entries queued for sync
           </motion.div>
         )}

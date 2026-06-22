@@ -131,19 +131,12 @@ export const ValueJetForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }
           </span>
         </div>
 
-        <motion.div 
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', damping: 15, stiffness: 200 }}
-          className="bg-[rgba(59,130,246,0.1)] border border-[var(--color-accent-cobalt)] rounded text-center p-6 flex flex-col items-center"
+        <div 
+          className="bg-[rgba(59,130,246,0.1)] border border-[var(--color-accent-cobalt)] rounded text-center p-6 flex flex-col items-center animate-in fade-in zoom-in-95 duration-200"
         >
-          <motion.div
-            animate={{ scale: [1, 1.15, 1] }}
-            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-            className="flex justify-center"
-          >
+          <div className="flex justify-center animate-pulse">
             <CheckCircle size={32} className="text-[var(--color-accent-cobalt)] mb-3" />
-          </motion.div>
+          </div>
           <div className="text-[10px] font-mono text-[var(--color-accent-cobalt)] uppercase tracking-widest mb-1">COMMIT SUCCESS</div>
           <div className="text-[14px] font-bold font-mono text-[var(--color-accent-cobalt)] mb-4 uppercase" style={{ fontFamily: 'JetBrains Mono' }}>
             REF: {s.tx.id}
@@ -204,7 +197,7 @@ export const ValueJetForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }
           >
             ↓ DOWNLOAD RECEIPT
           </button>
-        </motion.div>
+        </div>
       </div>
     );
   }
