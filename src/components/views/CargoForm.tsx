@@ -77,7 +77,7 @@ export const CargoForm = ({ onAddTx, user }: {
       detail: summaryStr,
       amount: parsedAmount,
       mode,
-      bank: mode === 'Transfer' ? bank : undefined,
+      bank: (mode === 'Transfer' || mode === 'POS') ? bank : undefined,
       remarks: remark.trim(),
       time: tnow(),
       type: 'cargo',
@@ -106,7 +106,7 @@ export const CargoForm = ({ onAddTx, user }: {
           pcs,
           amount: parsedAmount,
           mode,
-          bank: mode === 'Transfer' ? bank : undefined,
+          bank: (mode === 'Transfer' || mode === 'POS') ? bank : undefined,
         }),
       });
     }
@@ -138,7 +138,11 @@ export const CargoForm = ({ onAddTx, user }: {
         date: new Date().toLocaleDateString('en-GB'),
         hubName: user?.hub || 'EHI Cargo Station',
         agentName: user?.name || 'EHI Agent',
-        airline: airline === 'AK' ? 'Arik Air' : airline === 'GA' ? 'Green Africa Airways' : 'United Nigeria Airlines',
+        airline: airline === 'Green Africa'
+          ? 'Green Africa Airways'
+          : airline === 'United Nigeria'
+            ? 'United Nigeria Airlines'
+            : airline,
         consignee: actualConsignee,
         awbTagNumber: awb,
         pieces: parseInt(pcs),
@@ -163,7 +167,11 @@ export const CargoForm = ({ onAddTx, user }: {
         date: new Date().toLocaleDateString('en-GB'),
         hubName: user?.hub || 'EHI Cargo Station',
         agentName: user?.name || 'EHI Agent',
-        airline: airline === 'AK' ? 'Arik Air' : airline === 'GA' ? 'Green Africa Airways' : 'United Nigeria Airlines',
+        airline: airline === 'Green Africa'
+          ? 'Green Africa Airways'
+          : airline === 'United Nigeria'
+            ? 'United Nigeria Airlines'
+            : airline,
         consignee: actualConsignee,
         awbTagNumber: awb,
         pieces: parseInt(pcs),
@@ -441,6 +449,23 @@ export const CargoForm = ({ onAddTx, user }: {
               >
                 {renderLabel(Landmark, "Bank")}
                 <select 
+                  value={bank}
+                  onChange={(e) => setBank(e.target.value)}
+                  className={formInputClass}
+                >
+                  {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </motion.div>
+            )}
+
+            {mode === 'POS' && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                className="overflow-hidden"
+              >
+                {renderLabel(CreditCard, "POS Terminal / Bank")}
+                <select
                   value={bank}
                   onChange={(e) => setBank(e.target.value)}
                   className={formInputClass}

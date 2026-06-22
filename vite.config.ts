@@ -32,7 +32,6 @@ export default defineConfig(() => {
             'pdf':           ['@react-pdf/renderer'],
             'qr':            ['html5-qrcode'],
             'offline':       ['dexie'],
-            'ai':            ['@google/genai'],
           },
         },
       },

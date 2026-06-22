@@ -58,11 +58,19 @@ export async function signIn(email: string, password: string): Promise<UserProfi
       .single();
 
     if (profileError) {
-        if (email.includes('admin')) return { id: data.user.id, email, name: 'Geosan — Super Admin', role: 'super_admin', hub: 'Lagos HQ', hubType: 'Head Office', active: true };
-        if (profileError.message === 'Failed to fetch' || profileError instanceof TypeError) {
-           return { id: data.user.id, email, name: 'Demo User', role: 'super_admin', hub: 'Lagos HQ', hubType: 'Head Office', active: true };
-        }
-        throw profileError;
+      const fallbackDemo = DEMO_USERS[email as keyof typeof DEMO_USERS];
+      if (fallbackDemo) {
+        return {
+          id: data.user.id ?? `demo-${email.split('@')[0]}`,
+          email,
+          name: fallbackDemo.name,
+          role: fallbackDemo.role,
+          hub: fallbackDemo.hub,
+          hubType: fallbackDemo.hubType,
+          active: true,
+        };
+      }
+      throw new Error('Your account profile was not found. Contact admin.');
     }
     
     return {
@@ -74,12 +82,20 @@ export async function signIn(email: string, password: string): Promise<UserProfi
         hubType: profile.hub_type,
         active: profile.active
     };
-  } catch (err) {
-    if (email.includes('admin')) return { id: data!.user!.id, email, name: 'Geosan — Super Admin', role: 'super_admin', hub: 'Lagos HQ', hubType: 'Head Office', active: true };
-    if (err instanceof TypeError || (err as Error)?.message === 'Failed to fetch') {
-      return { id: data!.user!.id, email, name: 'Demo User', role: 'super_admin', hub: 'Lagos HQ', hubType: 'Head Office', active: true };
+  } catch (err: any) {
+    const fallbackDemo = DEMO_USERS[email as keyof typeof DEMO_USERS];
+    if (fallbackDemo) {
+      return {
+        id: data?.user?.id ?? `demo-${email.split('@')[0]}`,
+        email,
+        name: fallbackDemo.name,
+        role: fallbackDemo.role,
+        hub: fallbackDemo.hub,
+        hubType: fallbackDemo.hubType,
+        active: true,
+      };
     }
-    throw err;
+    throw new Error('Your account profile was not found. Contact admin.');
   }
 }
 

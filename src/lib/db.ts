@@ -37,6 +37,7 @@ class EHILocalDB extends Dexie {
       shipments: 'id, synced, created_at',
       manifests: 'id, synced, created_at',
       marketing_entries: 'id, synced, created_at',
+      air_consignments: null,
       cargo_entries: 'id, synced, created_at',
       sync_queue: '++id, table_name, synced, created_at',
     });

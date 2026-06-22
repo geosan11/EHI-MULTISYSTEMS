@@ -15,6 +15,7 @@
   --color-surface-1:     #1E293B;
   --color-surface-2:     #253347;
   --color-surface-3:     #2D3F57;
+  --color-surface-card:  #1A2535;
   --color-accent-amber:  #F59E0B;
   --color-accent-cobalt: #3B82F6;
   --color-success:       #10B981;
@@ -46,6 +47,7 @@
   --color-surface-1:     #FFFFFF;
   --color-surface-2:     #F1F5F9;
   --color-surface-3:     #E2E8F0;
+  --color-surface-card:  #FFFFFF;
   --color-accent-amber:  #D97706;
   --color-accent-cobalt: #2563EB;
   --color-success:       #059669;

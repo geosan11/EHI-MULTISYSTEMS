@@ -34,8 +34,13 @@ export const APIDashboard = ({
     e.preventDefault();
     if (!newLabel) return;
     
-    const hex = Math.random().toString(16).slice(2, 14);
-    const generatedRawKey = `ehi_live_${hex}${Math.random().toString(16).slice(2, 14)}`;
+    const array = new Uint8Array(24);
+    crypto.getRandomValues(array);
+    const hex = Array.from(array)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+    const generatedRawKey = `ehi_live_${hex}`;
+    
     const newKey: ApiKey = {
       id: Date.now().toString(),
       label: newLabel,

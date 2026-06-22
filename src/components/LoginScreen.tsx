@@ -118,6 +118,17 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                   user.role === 'accountant' ? 'ACCOUNTANT' :
                   user.role === 'auditor' ? 'AUDITOR' :
                   user.role.toUpperCase();
+                const roleColour =
+                  roleDisplay === 'SUPER ADMIN' ? 'text-[var(--color-accent-amber)]' :
+                  roleDisplay === 'ADMIN'       ? 'text-white' :
+                  roleDisplay === 'CARGO'       ? 'text-[var(--color-accent-amber)]' :
+                  roleDisplay === 'AIR OPS'     ? 'text-[var(--color-error)]' :
+                  roleDisplay === 'VALUEJET POS'? 'text-[var(--color-accent-cobalt)]' :
+                  roleDisplay === 'MARKETING'   ? 'text-[var(--color-success)]' :
+                  roleDisplay === 'DRIVER'      ? 'text-purple-400' :
+                  roleDisplay === 'ACCOUNTANT'  ? 'text-[var(--color-accent-cobalt)]' :
+                  roleDisplay === 'AUDITOR'     ? 'text-[var(--color-error)]' :
+                  'text-[var(--color-muted)]';
                 return (
                   <div 
                     key={demoEmail}
@@ -132,12 +143,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                     className="px-3 py-2 flex flex-col cursor-pointer hover:bg-[var(--color-surface-2)] transition-colors active:opacity-70 focus:outline-none focus:bg-[var(--color-surface-2)]"
                   >
                     <div className="text-[11px] font-mono text-[var(--color-light-muted)]">
-                      <span className={`font-bold font-sans text-[10px] uppercase tracking-wider ${
-                        roleDisplay === 'ADMIN' ? 'text-white' : 
-                        roleDisplay === 'AIR OPS' ? 'text-[var(--color-error)]' : 
-                        roleDisplay === 'VJ POS' ? 'text-[var(--color-accent-cobalt)]' : 
-                        'text-[var(--color-accent-amber)]'
-                      }`}>{roleDisplay}</span> &middot; {demoEmail} &middot; {user.password}
+                      <span className={`font-bold font-sans text-[10px] uppercase tracking-wider ${roleColour}`}>{roleDisplay}</span> &middot; {demoEmail} &middot; {user.password}
                     </div>
                   </div>
                 )

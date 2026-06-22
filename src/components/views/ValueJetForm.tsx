@@ -7,9 +7,6 @@ import { motion } from 'motion/react';
 import { sendReceiptWhatsApp, buildValueJetWhatsApp } from '../../lib/notifications';
 
 const VJ_RATE_PER_KG = 1000;
-const VJ_FREE_ALLOWANCE = parseFloat(
-  localStorage.getItem('ehi_vj_free_kg') || '20'
-);
 
 export const ValueJetForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }) => {
   const [name, setName] = useState('');
@@ -22,8 +19,12 @@ export const ValueJetForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }
   const [successTx, setSuccessTx] = useState<{ tx: Transaction, kgs: number, exc: number } | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const vjFreeAllowance = parseFloat(
+    localStorage.getItem('ehi_vj_free_kg') || '20'
+  );
+
   const kgVal = parseFloat(kg) || 0;
-  const excessKg = Math.max(0, kgVal - VJ_FREE_ALLOWANCE);
+  const excessKg = Math.max(0, kgVal - vjFreeAllowance);
   const totalAmount = excessKg * VJ_RATE_PER_KG;
 
   const isValid = name.trim().length > 0 && flight.trim().length > 0 && kgVal > 0;
@@ -87,7 +88,7 @@ export const ValueJetForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }
         flightNumber: flight.toUpperCase(),
         destination: dest || 'Unknown',
         totalBaggage: successTx.kgs,
-        freeAllowance: VJ_FREE_ALLOWANCE,
+        freeAllowance: vjFreeAllowance,
         excessKg: successTx.exc,
         ratePerKg: VJ_RATE_PER_KG,
         amount: successTx.tx.amount,
@@ -95,6 +96,26 @@ export const ValueJetForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }
       };
       downloadVJReceipt(data);
     }
+  };
+
+  const handlePrintReceipt = async () => {
+    if (!successTx) return;
+    const { printVJReceipt } = await import('./ValueJetReceipt');
+    await printVJReceipt({
+      entryRef: successTx.tx.id,
+      date: new Date().toLocaleDateString('en-GB'),
+      hubName: 'ValueJet Counter',
+      agentName: 'VJ Agent',
+      passengerName: successTx.tx.name,
+      flightNumber: flight.toUpperCase(),
+      destination: dest || 'Unknown',
+      totalBaggage: successTx.kgs,
+      freeAllowance: vjFreeAllowance,
+      excessKg: successTx.exc,
+      ratePerKg: VJ_RATE_PER_KG,
+      amount: successTx.tx.amount,
+      paymentMode: successTx.tx.mode,
+    });
   };
 
   // Focus visible styles for ValueJet (cobalt stream)
@@ -141,7 +162,7 @@ export const ValueJetForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }
             </div>
             <div className="flex justify-between items-center mb-2">
               <span className="text-[10px] font-mono text-[var(--color-muted)]">Free Allowance</span>
-              <span className="text-[12px] font-mono text-[var(--color-success)]">– 20.0 kg</span>
+              <span className="text-[12px] font-mono text-[var(--color-success)]">– {vjFreeAllowance.toFixed(1)} kg</span>
             </div>
             <div className="flex justify-between items-center pb-2 border-b border-[rgba(255,255,255,0.07)]">
               <span className="text-[10px] font-mono text-[var(--color-accent-cobalt)]">Excess Baggage</span>
@@ -163,7 +184,7 @@ export const ValueJetForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }
             <button onClick={handleReset} className="flex-1 py-3 bg-[var(--color-surface-1)] text-white text-[11px] font-mono rounded cursor-pointer">
               Next Passenger
             </button>
-            <button onClick={handleDownloadReceipt} className="flex-1 py-3 bg-[var(--color-accent-cobalt)] text-white text-[11px] font-bold font-mono rounded cursor-pointer">
+            <button onClick={handlePrintReceipt} className="flex-1 py-3 bg-[var(--color-accent-cobalt)] text-white text-[11px] font-bold font-mono rounded cursor-pointer">
               Print Receipt
             </button>
           </div>
@@ -289,7 +310,7 @@ export const ValueJetForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }
               </div>
               <div className="flex justify-between items-center mb-2">
                 <span className="text-[10px] font-mono text-[var(--color-muted)]">Free Allowance</span>
-                <span className="text-[12px] font-mono text-[var(--color-success)]" style={{ fontFamily: 'JetBrains Mono' }}>– 20.0 kg</span>
+                <span className="text-[12px] font-mono text-[var(--color-success)]" style={{ fontFamily: 'JetBrains Mono' }}>– {vjFreeAllowance.toFixed(1)} kg</span>
               </div>
               <div className="flex justify-between items-center border-t border-[rgba(255,255,255,0.07)] mt-3 pt-3 mb-4">
                 <span className="text-[10px] font-mono font-bold text-[var(--color-light-muted)]">Excess KG</span>

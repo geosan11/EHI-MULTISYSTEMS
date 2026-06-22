@@ -6,7 +6,7 @@ import { Header } from './Header';
 import { BottomNav } from './BottomNav';
 import { SideNav } from './SideNav';
 import { Toast, ToastProps } from './Toast';
-import { supabase } from '../lib/supabase';
+import { supabase, getConnectionMode } from '../lib/supabase';
 import { randCargo, randBaggage, randMarketingEntry } from '../lib/helpers';
 import { Loader2 } from 'lucide-react';
 import { Dashboard } from './views/Dashboard';
@@ -76,39 +76,90 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     if (isOffline) return;
     
     // Subscribe to real-time changes
-    const channel = supabase
-      .channel('ehi-live-ops')
-      .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'shipments'
-      }, payload => {
-        // mock logic to push transaction
-        const newTx = payload.new as any;
-        pendingTxRef.current.push({
-          id: newTx.entry_ref || newTx.id || 'REALTIME',
-          name: newTx.customer_name || 'ValueJet Psgr',
-          detail: `Baggage · ${newTx.route || ''}`,
-          amount: newTx.amount_paid || 0,
-          mode: newTx.payment_mode || 'Cash',
-          time: new Date(newTx.log_date || Date.now()).toLocaleTimeString(),
-          type: 'baggage', status: 'Intake'
-        });
+    const cargoChannel = supabase
+      .channel('ehi-cargo-live')
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'cargo_entries' },
+        payload => {
+          const r = payload.new as any;
+          pendingTxRef.current.push({
+            id: r.entry_ref || r.id,
+            name: r.consignee_name || 'Cargo',
+            detail: `${r.awb_tag_number || ''} · ${r.route || ''}`,
+            amount: r.amount || 0,
+            mode: r.receipt_mode || 'Cash',
+            time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+            type: 'cargo',
+            status: 'Intake',
+            awb_tag_number: r.awb_tag_number,
+            kg: r.total_kg,
+            pieces: r.total_pcs,
+          });
+          if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
+          flushTimerRef.current = setTimeout(flushPendingTx, 300);
+        }
+      ).subscribe();
+
+    const vjChannel = supabase
+      .channel('ehi-vj-live')
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'manifests' },
+        payload => {
+          const r = payload.new as any;
+          pendingTxRef.current.push({
+            id: r.transaction_id || r.id,
+            name: r.passenger_name || 'VJ Passenger',
+            detail: `${r.flight_no || ''} · +${r.excess_kg || 0}kg excess`,
+            amount: r.amount || 0,
+            mode: r.payment_mode || 'POS',
+            time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+            type: 'baggage',
+            status: 'Delivered',
+          });
+          if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
+          flushTimerRef.current = setTimeout(flushPendingTx, 300);
+        }
+      ).subscribe();
+
+    const marketingChannel = supabase
+      .channel('ehi-marketing-live')
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'marketing_entries' },
+        payload => {
+          const r = payload.new as any;
+          pendingTxRef.current.push({
+            id: r.entry_ref || r.id,
+            name: r.customer_name || 'Customer',
+            detail: `${r.route || ''} · ${r.qty_big_bag || 0}BB ${r.qty_med_bag || 0}MB ${r.qty_small_bag || 0}SB`,
+            amount: r.amount_paid || 0,
+            mode: r.payment_mode || 'Cash',
+            time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+            type: 'marketing',
+            status: 'Intake',
+          });
+          if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
+          flushTimerRef.current = setTimeout(flushPendingTx, 300);
+        }
+      ).subscribe();
+
+    // Only simulate in demo mode — NEVER inject fake data in production
+    let int: ReturnType<typeof setInterval> | null = null;
+    if (getConnectionMode() === 'demo') {
+      int = setInterval(() => {
+        const rand = Math.random();
+        const newTx = rand < 0.4 ? randCargo()
+          : (rand < 0.75 ? randMarketingEntry() : randBaggage());
+        pendingTxRef.current.push(newTx);
         if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
         flushTimerRef.current = setTimeout(flushPendingTx, 300);
-      })
-      .subscribe();
-
-    // Fallback Simulation for UI preview purposes
-    const int = setInterval(() => {
-      const rand = Math.random();
-      const newTx = rand < 0.4 ? randCargo() : (rand < 0.75 ? randMarketingEntry() : randBaggage());
-      pendingTxRef.current.push(newTx);
-      if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
-      flushTimerRef.current = setTimeout(flushPendingTx, 300);
-    }, 7000);
+      }, 7000);
+    }
     
     return () => {
-      supabase.removeChannel(channel);
-      clearInterval(int);
+      supabase.removeChannel(cargoChannel);
+      supabase.removeChannel(vjChannel);
+      supabase.removeChannel(marketingChannel);
+      if (int) clearInterval(int);
       if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
     };
   }, [isOffline, flushPendingTx]);
@@ -117,6 +168,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     setTransactions(prev => [tx, ...prev].slice(0, 200));
     const tableName = tx.type === 'marketing' ? 'marketing_entries' 
       : tx.type === 'cargo' ? 'cargo_entries' 
+      : tx.type === 'baggage' ? 'manifests' 
       : 'shipments';
     
     const payload = { ...tx };

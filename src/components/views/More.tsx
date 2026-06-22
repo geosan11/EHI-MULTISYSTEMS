@@ -46,44 +46,48 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
 
   const [isGenerating, setIsGenerating] = useState(false);
 
+  const buildEODData = () => {
+    const cargoTx = transactions.filter(t => t.type === 'cargo');
+    const mktgTx  = transactions.filter(t => t.type === 'marketing');
+    const vjTx    = transactions.filter(t => t.type === 'baggage');
+    return {
+      date:           new Date().toLocaleDateString('en-GB'),
+      hubName:        user.hub,
+      lockedBy:       user.name,
+      lockedAt:       new Date().toLocaleTimeString('en-GB'),
+      cargoTotal:     cargoTx.reduce((s, t) => s + t.amount, 0),
+      mktgTotal:      mktgTx.reduce((s, t)  => s + t.amount, 0),
+      vjTotal:        vjTx.reduce((s, t)    => s + t.amount, 0),
+      grossTotal:     transactions.reduce((s, t) => s + t.amount, 0),
+      cashTotal:      transactions.filter(t => t.mode === 'Cash')
+                        .reduce((s, t) => s + t.amount, 0),
+      transferTotal:  transactions
+                        .filter(t => t.mode === 'Transfer' || t.mode === 'Transfer-as-Cash')
+                        .reduce((s, t) => s + t.amount, 0),
+      debtTotal:      transactions.filter(t => t.mode === 'Debt')
+                        .reduce((s, t) => s + t.amount, 0),
+      totalExpenses:  expenses.reduce((s, e) => s + e.amount, 0),
+      netCashToRemit: transactions.filter(t => t.mode === 'Cash')
+                        .reduce((s, t) => s + t.amount, 0)
+                      - expenses.reduce((s, e) => s + e.amount, 0),
+      cargoCount: cargoTx.length,
+      mktgCount:  mktgTx.length,
+      vjCount:    vjTx.length,
+      transactions,
+      expenses,
+    };
+  };
+
   const handleLockEOD = async () => {
     setIsGenerating(true);
     try {
-      const { downloadEODReport, printEODReport } = await import('./EODReport');
-      
-      const cargoTx = transactions.filter(t => t.type === 'cargo');
-      const mktgTx = transactions.filter(t => t.type === 'marketing');
-      const vjTx = transactions.filter(t => t.type === 'baggage');
-
-      const data = {
-        date: new Date().toLocaleDateString('en-GB'),
-        hubName: user.hub,
-        lockedBy: user.name,
-        lockedAt: new Date().toLocaleTimeString('en-GB'),
-        cargoTotal: cargoTx.reduce((sum, t) => sum + t.amount, 0),
-        mktgTotal: mktgTx.reduce((sum, t) => sum + t.amount, 0),
-        vjTotal: vjTx.reduce((sum, t) => sum + t.amount, 0),
-        grossTotal: transactions.reduce((sum, t) => sum + t.amount, 0),
-        cashTotal: transactions.reduce((sum, t) => sum + (t.mode === 'Cash' ? t.amount : 0), 0),
-        transferTotal: transactions.reduce((sum, t) => sum + (t.mode === 'Transfer' || t.mode === 'Transfer-as-Cash' ? t.amount : 0), 0),
-        debtTotal: 0,
-        totalExpenses: expenses.reduce((sum, e) => sum + e.amount, 0),
-        netCashToRemit: transactions.reduce((sum, t) => sum + (t.mode === 'Cash' ? t.amount : 0), 0) - expenses.reduce((sum, e) => sum + e.amount, 0),
-        cargoCount: cargoTx.length,
-        mktgCount: mktgTx.length,
-        vjCount: vjTx.length,
-        transactions: transactions,
-        expenses: expenses,
-      };
-
-      await downloadEODReport(data);
-      await printEODReport(data);
-      
+      const { downloadEODReport } = await import('./EODReport');
+      await downloadEODReport(buildEODData());
       setTimeout(() => {
         setIsGenerating(false);
         setEodView(false);
         onEOD();
-      }, 1000);
+      }, 800);
     } catch (err) {
       console.error(err);
       setIsGenerating(false);
@@ -189,13 +193,44 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
           </div>
         </div>
 
-        <button 
-          onClick={handleLockEOD}
-          disabled={isGenerating}
-          className="w-full py-[14px] bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[13px] font-bold font-mono rounded disabled:opacity-70 disabled:cursor-not-allowed transition-opacity animate-pulse"
-        >
-          {isGenerating ? 'GENERATING…' : 'LOCK EOD + SEND REPORT'}
-        </button>
+        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+          <button
+            onClick={async () => {
+              const { printEODReport } = await import('./EODReport');
+              const cargoTx = transactions.filter(t => t.type === 'cargo');
+              const mktgTx = transactions.filter(t => t.type === 'marketing');
+              const vjTx = transactions.filter(t => t.type === 'baggage');
+              await printEODReport({
+                date: new Date().toLocaleDateString('en-GB'),
+                hubName: user.hub,
+                lockedBy: user.name,
+                lockedAt: new Date().toLocaleTimeString('en-GB'),
+                cargoTotal: cargoTx.reduce((s, t) => s + t.amount, 0),
+                mktgTotal: mktgTx.reduce((s, t) => s + t.amount, 0),
+                vjTotal: vjTx.reduce((s, t) => s + t.amount, 0),
+                grossTotal: transactions.reduce((s, t) => s + t.amount, 0),
+                cashTotal: transactions.filter(t => t.mode === 'Cash').reduce((s, t) => s + t.amount, 0),
+                transferTotal: transactions.filter(t => t.mode === 'Transfer').reduce((s, t) => s + t.amount, 0),
+                debtTotal: transactions.filter(t => t.mode === 'Debt').reduce((s, t) => s + t.amount, 0),
+                totalExpenses: expenses.reduce((s, e) => s + e.amount, 0),
+                netCashToRemit: transactions.filter(t => t.mode === 'Cash').reduce((s, t) => s + t.amount, 0) - expenses.reduce((s, e) => s + e.amount, 0),
+                cargoCount: cargoTx.length, mktgCount: mktgTx.length, vjCount: vjTx.length,
+                transactions, expenses,
+              });
+            }}
+            className="flex-1 py-3 border border-[rgba(245,158,11,0.4)] text-[var(--color-accent-amber)] text-[11px] font-bold font-mono rounded cursor-pointer"
+            style={{ background: 'transparent' }}
+          >
+            🖨 PRINT
+          </button>
+          <button
+            onClick={handleLockEOD}
+            disabled={isGenerating}
+            className="flex-[2] py-3 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[12px] font-bold font-mono rounded disabled:opacity-60 cursor-pointer"
+          >
+            {isGenerating ? 'GENERATING...' : '⬇ DOWNLOAD REPORT'}
+          </button>
+        </div>
       </div>
     );
   }

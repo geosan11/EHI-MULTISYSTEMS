@@ -133,3 +133,11 @@ export const downloadVJReceipt = async (data: VJReceiptData) => {
   a.click();
   URL.revokeObjectURL(url);
 };
+
+export const printVJReceipt = async (data: VJReceiptData): Promise<void> => {
+  const blob = await pdf(<VJReceiptPDF data={data} />).toBlob();
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, '_blank');
+  if (win) win.print();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+};

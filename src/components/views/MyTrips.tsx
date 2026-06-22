@@ -158,8 +158,11 @@ const TripCard: React.FC<TripCardProps> = ({
   );
 };
 
+const getTodayKey = () =>
+  `ehi_driver_trips_${new Date().toISOString().split('T')[0]}`;
+
 export const MyTrips = ({ user }: { user: User }) => {
-  const TRIPS_KEY = `ehi_driver_trips_${new Date().toISOString().split('T')[0]}`;
+  const TRIPS_KEY = getTodayKey();
 
   const [trips, setTrips] = useState<DriverTrip[]>(() => {
     try {
@@ -173,7 +176,7 @@ export const MyTrips = ({ user }: { user: User }) => {
   // Persist on every change
   useEffect(() => {
     localStorage.setItem(TRIPS_KEY, JSON.stringify(trips));
-  }, [trips, TRIPS_KEY]);
+  }, [trips]);
 
   // Clean up yesterday's key on mount
   useEffect(() => {
