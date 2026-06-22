@@ -233,6 +233,11 @@ input[type="password"] {
   /* Show BottomNav on mobile */
   .ehi-bottomnav-wrapper {
     display: block;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
   }
 
   /* Show mobile Header */
