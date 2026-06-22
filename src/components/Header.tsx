@@ -1,4 +1,4 @@
-import { Wifi, WifiOff, LogOut, Sun, Moon } from 'lucide-react';
+import { Wifi, WifiOff, LogOut, Sun, Moon, ChevronDown } from 'lucide-react';
 import { User } from '../lib/types';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -57,12 +57,15 @@ export const Header = ({
           </button>
 
           <button onClick={onToggleWifi} className="p-1.5 focus:outline-none">
-            {isOffline ? <WifiOff size={18} className="text-[#D97706]" /> : <Wifi size={18} className="text-[var(--color-light-muted)]" />}
+            {isOffline ? <WifiOff size={18} className="text-[var(--color-warning)]" /> : <Wifi size={18} className="text-[var(--color-light-muted)]" />}
           </button>
           
           <div className="relative">
-            <button onClick={() => setShowDropdown(!showDropdown)} className="w-9 h-9 rounded-full bg-[var(--color-surface-2)] flex items-center justify-center border border-[var(--color-border)] focus:outline-none text-[var(--color-foreground)] transition-colors">
-              <span className="text-[13px] font-bold font-sans">{user.name.charAt(0)}</span>
+            <button onClick={() => setShowDropdown(!showDropdown)} className="flex items-center space-x-2 pl-1 pr-2 py-1 rounded-full bg-[var(--color-surface-2)] border border-[var(--color-border)] focus:outline-none hover:bg-[var(--color-surface-3)] transition-colors active:scale-95">
+              <div className="w-7 h-7 rounded-full bg-[var(--color-accent-amber)] flex items-center justify-center text-[var(--color-obsidian)]">
+                <span className="text-[12px] font-bold font-sans">{user.name.charAt(0).toUpperCase()}</span>
+              </div>
+              <ChevronDown size={14} className="text-[var(--color-light-muted)]" />
             </button>
             
             {showDropdown && (

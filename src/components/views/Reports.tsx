@@ -244,8 +244,8 @@ export const Reports = ({
     <div className="flex flex-col h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] p-4 space-y-6 pb-[100px] overflow-y-auto select-none">
       
       {/* Header back navigation */}
-      <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.07)] pb-2">
-        <button onClick={onBack} className="flex items-center space-x-1 text-[var(--color-muted)] hover:text-white transition-colors">
+      <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2">
+        <button onClick={onBack} className="flex items-center space-x-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors">
           <ArrowLeft size={16} />
           <span className="text-[11px] font-mono">Back</span>
         </button>
@@ -272,7 +272,7 @@ export const Reports = ({
       <div className="bg-[var(--color-surface-1)] rounded p-3 border border-[rgba(255,255,255,0.04)] flex justify-between items-center">
         <div>
           <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase">AUDIT SCOPE</div>
-          <div className="text-[12px] font-bold font-sans text-white uppercase">{tabTitles[activeTab]}</div>
+          <div className="text-[12px] font-bold font-sans text-[var(--color-foreground)] uppercase">{tabTitles[activeTab]}</div>
         </div>
         
         {/* Inline context controls */}
@@ -306,7 +306,7 @@ export const Reports = ({
       </div>
 
       {/* Dynamic Report View Layout Container */}
-      <div className="bg-[var(--color-surface-1)] rounded border border-[rgba(255,255,255,0.05)] overflow-hidden">
+      <div className="bg-[var(--color-surface-1)] rounded border border-[var(--color-border)] overflow-hidden">
         
         {/* Table Content */}
         <div className="p-3">

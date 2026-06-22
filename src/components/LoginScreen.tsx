@@ -69,7 +69,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
               type="text" 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full h-12 px-4 text-sm rounded-xl bg-[var(--color-surface-1)] text-white border border-[rgba(255,255,255,0.07)] focus:outline-none focus:border-[var(--color-accent-amber)] focus:ring-1 focus:ring-[var(--color-accent-amber)] transition-all"
+              className="w-full h-12 px-4 text-sm rounded-xl bg-[var(--color-surface-1)] text-[var(--color-foreground)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent-amber)] focus:ring-1 focus:ring-[var(--color-accent-amber)] transition-all"
               required
             />
           </div>
@@ -79,7 +79,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
               type="password" 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full h-12 px-4 text-sm rounded-xl bg-[var(--color-surface-1)] text-white border border-[rgba(255,255,255,0.07)] focus:outline-none focus:border-[var(--color-accent-amber)] focus:ring-1 focus:ring-[var(--color-accent-amber)] transition-all"
+              className="w-full h-12 px-4 text-sm rounded-xl bg-[var(--color-surface-1)] text-[var(--color-foreground)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent-amber)] focus:ring-1 focus:ring-[var(--color-accent-amber)] transition-all"
               required
             />
           </div>
@@ -99,10 +99,10 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
         <div className="w-full mt-6">
           <button 
             onClick={() => setShowDemo(!showDemo)}
-            className="w-full flex items-center justify-center space-x-2 text-[12px] font-sans text-[var(--color-muted)] hover:text-[var(--color-light-muted)] transition-colors py-2 focus:outline-none"
+            className="w-full flex items-center justify-center space-x-2 text-[13px] font-sans text-[var(--color-foreground)] bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded-xl py-3 hover:bg-[var(--color-surface-2)] transition-colors focus:outline-none"
           >
-            <span>Need help signing in? Contact your admin</span>
-            {showDemo ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            <span>Need help signing in? Use Demo</span>
+            {showDemo ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
           
           {showDemo && (
@@ -120,7 +120,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                   user.role.toUpperCase();
                 const roleColour =
                   roleDisplay === 'SUPER ADMIN' ? 'text-[var(--color-accent-amber)]' :
-                  roleDisplay === 'ADMIN'       ? 'text-white' :
+                  roleDisplay === 'ADMIN'       ? 'text-[var(--color-foreground)]' :
                   roleDisplay === 'CARGO'       ? 'text-[var(--color-accent-amber)]' :
                   roleDisplay === 'AIR OPS'     ? 'text-[var(--color-error)]' :
                   roleDisplay === 'VALUEJET POS'? 'text-[var(--color-accent-cobalt)]' :

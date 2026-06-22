@@ -15,7 +15,7 @@ const accentColor: Record<AccentType, string> = {
 };
 
 const accentBg: Record<AccentType, string> = {
-  neutral: 'rgba(255,255,255,0.06)',
+  neutral: 'var(--color-surface-2)',
   amber: 'rgba(245,158,11,0.10)',
   cobalt: 'rgba(59,130,246,0.10)',
   success: 'rgba(16,185,129,0.10)',
@@ -65,7 +65,7 @@ export const SideNav = ({
       {/* Brand */}
       <div style={{
         padding: '20px 12px 16px',
-        borderBottom: '1px solid var(--color-border, rgba(255,255,255,0.07))',
+        borderBottom: '1px solid var(--color-border, var(--color-border))',
       }}>
         <div className="flex items-center lg:gap-3" style={{ minHeight: 40 }}>
           <div style={{

@@ -1,9 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 @import "tailwindcss";
 
 /* ── FONTS ─────────────────────────────── */
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
@@ -28,6 +28,7 @@
   --color-border:        rgba(255,255,255,0.07);
   --color-border-strong: rgba(255,255,255,0.12);
   --color-overlay:       rgba(0,0,0,0.85);
+  --color-on-amber:      #0B0F19; /* dark text on vibrant yellow-orange */
   --color-input-bg:      #1E293B;
   --color-input-text:    #F1F5F9;
   --color-nav-bg:        #0F1827;
@@ -43,28 +44,29 @@
 
 /* ── LIGHT MODE ─────────────────────────── */
 :root.light {
-  --color-obsidian:      #F0F4F8;
+  --color-obsidian:      #FFFFFF;
   --color-surface-1:     #FFFFFF;
   --color-surface-2:     #F1F5F9;
   --color-surface-3:     #E2E8F0;
   --color-surface-card:  #FFFFFF;
-  --color-accent-amber:  #D97706;
+  --color-accent-amber:  #EA580C; /* High contrast orange */
   --color-accent-cobalt: #2563EB;
   --color-success:       #059669;
   --color-error:         #DC2626;
-  --color-warning:       #D97706;
-  --color-muted:         #94A3B8;
-  --color-light-muted:   #64748B;
-  --color-foreground:    #0F172A;
-  --color-background:    #F0F4F8;
-  --color-border:        rgba(0,0,0,0.08);
-  --color-border-strong: rgba(0,0,0,0.15);
-  --color-overlay:       rgba(0,0,0,0.6);
+  --color-warning:       #EA580C;
+  --color-muted:         #64748B; /* Darker slate 500 for better contrast */
+  --color-light-muted:   #475569; /* slate 600 */
+  --color-foreground:    #0F172A; /* Slate 900 */
+  --color-background:    #F8FAFC; /* Slate 50 */
+  --color-border:        #CBD5E1; /* Slate 300 */
+  --color-border-strong: #94A3B8; /* Slate 400 */
+  --color-overlay:       rgba(15, 23, 42, 0.5);
+  --color-on-amber:      #FFFFFF; /* white text on dark orange */
   --color-input-bg:      #FFFFFF;
   --color-input-text:    #0F172A;
   --color-nav-bg:        #FFFFFF;
-  --color-nav-border:    rgba(0,0,0,0.08);
-  --shadow-card:         0 1px 4px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.04);
+  --color-nav-border:    #E2E8F0;
+  --shadow-card:         0 -1px 3px 0 rgba(0, 0, 0, 0.02), 0 2px 4px -2px rgba(0, 0, 0, 0.04), 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(15, 23, 42, 0.05); /* Stronger, softer shadow */
 
   /* ── RESPONSIVE LAYOUT ─────────────── */
   --sidebar-width:     0px;
@@ -116,11 +118,14 @@ input, select, textarea {
   background-color: var(--color-input-bg);
   color: var(--color-input-text);
   border: 1px solid var(--color-border);
-  transition: border-color 0.15s ease, background-color 0.2s ease;
+  transition: border-color 0.15s ease, background-color 0.2s ease, box-shadow 0.15s ease;
+  border-radius: 10px; /* Friendly radius */
+  padding: 12px 14px; /* Proper padding */
 }
 input:focus, select:focus, textarea:focus {
   outline: none;
-  border-color: var(--color-muted);
+  border-color: var(--color-accent-cobalt);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
 }
 input::placeholder, textarea::placeholder {
   color: var(--color-muted);
@@ -180,13 +185,34 @@ select option {
 }
 
 /* ── QR SCANNER ────────────────────────────── */
+#qr-reader-div {
+  display: flex !important;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: var(--color-surface-1);
+}
 #qr-reader-div video {
-  border-radius: 10px;
+  border-radius: 12px;
   width: 100% !important;
+  max-height: 100%;
+  object-fit: cover !important;
 }
 #qr-reader-div img { display: none !important; }
-#qr-reader-div__scan_region { background: transparent !important; }
+#qr-reader-div__scan_region { 
+  background: transparent !important; 
+  width: 100% !important;
+}
 #qr-reader-div__dashboard { display: none !important; }
+
+/* ── BUTTON TAP HIGHLIGHTS (MOBILE) ────────── */
+button {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+button:active {
+  transform: scale(0.98);
+}
 
 /* IOS SAFARI FIXES */
 @supports (padding: env(safe-area-inset-bottom)) {
@@ -197,12 +223,20 @@ select option {
 }
 
 input,
-select,
 textarea,
 button {
   -webkit-appearance: none;
   appearance: none;
-  border-radius: 0;
+}
+
+select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding-right: 36px;
 }
 
 input[class*="rounded"],

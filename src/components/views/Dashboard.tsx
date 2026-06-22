@@ -38,7 +38,7 @@ const TxRow = React.memo(({ t, isNewest }: { t: Transaction, isNewest: boolean }
         <div className="text-[14px] font-sans font-bold text-[var(--color-foreground)] truncate leading-tight">{t.name}</div>
         <div className="text-[12px] font-sans text-[var(--color-light-muted)] truncate mt-0.5">{t.detail}</div>
         <div className="mt-1">
-          <span className="inline-block px-1.5 py-0.5 bg-[rgba(255,255,255,0.05)] text-[9px] font-mono rounded text-[var(--color-muted)]">{t.id}</span>
+          <span className="inline-block px-1.5 py-0.5 bg-[var(--color-border)] text-[9px] font-mono rounded text-[var(--color-muted)]">{t.id}</span>
         </div>
       </div>
 
@@ -112,7 +112,7 @@ export const Dashboard = React.memo(({ user, transactions }: { user: User; trans
   return (
     <div className="flex flex-col p-4 space-y-5 h-full">
       {/* Score Cards Header */}
-      <div className="border-b border-[rgba(255,255,255,0.07)] pb-2 flex justify-between items-center shrink-0">
+      <div className="border-b border-[var(--color-border)] pb-2 flex justify-between items-center shrink-0">
         <span className="text-[13px] font-sans font-semibold text-[var(--color-muted)]">
           Stats Overview
         </span>

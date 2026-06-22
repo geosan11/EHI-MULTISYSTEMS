@@ -63,8 +63,8 @@ export const FraudAlerts = ({
   return (
     <div className="flex flex-col h-full bg-[var(--color-obsidian)] p-4 text-[var(--color-foreground)] overflow-y-auto pb-[80px] font-sans">
       {/* Header back navigation */}
-      <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.07)] pb-2 mb-4">
-        <button onClick={onBack} className="flex items-center space-x-1 text-[var(--color-muted)] hover:text-white transition-colors">
+      <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2 mb-4">
+        <button onClick={onBack} className="flex items-center space-x-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors">
           <ArrowLeft size={16} />
           <span className="text-[11px] font-mono">Back</span>
         </button>
@@ -74,7 +74,7 @@ export const FraudAlerts = ({
       <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
         <div className="space-y-0.5">
           <div className="text-[9px] font-mono text-slate-400 tracking-[0.15em] uppercase">▸ COGNITIVE SHIELD PRO v1.1</div>
-          <h2 className="text-sm font-black text-white">Anomalies & Fraud Security Feed</h2>
+          <h2 className="text-sm font-black text-[var(--color-foreground)]">Anomalies & Fraud Security Feed</h2>
         </div>
 
         {pendingAlerts.length > 0 && (
@@ -105,7 +105,7 @@ export const FraudAlerts = ({
           </div>
         </div>
 
-        <div className="bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.05)] p-3 rounded-lg flex items-center space-x-3">
+        <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] p-3 rounded-lg flex items-center space-x-3">
           <RefreshCcw size={16} className="text-[var(--color-accent-cobalt)]" />
           <div>
             <span className="text-[8px] font-mono text-slate-400 uppercase block">Integrations Live</span>
@@ -216,7 +216,7 @@ export const FraudAlerts = ({
                   value={resolutionText}
                   onChange={(e) => setResolutionText(e.target.value)}
                   placeholder="e.g. Cleared. Confirmed corresponding bank deposit statement matches duplicated tags series."
-                  className="w-full bg-[var(--color-obsidian)] border border-[rgba(255,255,255,0.12)] p-2 rounded text-[11px] font-mono text-white placeholder-slate-600 focus:outline-none focus:border-[var(--color-error)]"
+                  className="w-full bg-[var(--color-obsidian)] border border-[var(--color-border-strong)] p-2 rounded text-[11px] font-mono text-white placeholder-slate-600 focus:outline-none focus:border-[var(--color-error)]"
                 />
               </div>
 

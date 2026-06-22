@@ -185,7 +185,7 @@ export const MarketingWorkspace = ({
   return (
     <div className="p-4 h-full pb-12" style={{ width: '100%', boxSizing: 'border-box' }}>
       {/* Workspace Header */}
-      <div className="flex justify-between items-center text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-widest border-b border-[rgba(255,255,255,0.07)] pb-2 mb-6">
+      <div className="flex justify-between items-center text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-widest border-b border-[var(--color-border)] pb-2 mb-6">
         <div>{new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</div>
         <div>Agent: {user.name.split(' ')[0]}</div>
       </div>
@@ -213,14 +213,14 @@ export const MarketingWorkspace = ({
                 REF: {successTx.id}
               </div>
               
-              <div className="bg-[var(--color-obsidian)] rounded p-3 mb-4 space-y-2 border border-[rgba(255,255,255,0.05)]">
+              <div className="bg-[var(--color-obsidian)] rounded p-3 mb-4 space-y-2 border border-[var(--color-border)]">
                 <div className="flex justify-between border-b border-[rgba(255,255,255,0.05)] pb-1">
                    <span className="text-[10px] font-mono text-[var(--color-muted)]">Customer</span>
-                   <span className="text-[11px] font-mono text-white">{successTx.name}</span>
+                   <span className="text-[11px] font-mono text-[var(--color-foreground)]">{successTx.name}</span>
                 </div>
                 <div className="flex justify-between border-b border-[rgba(255,255,255,0.05)] pb-1">
                    <span className="text-[10px] font-mono text-[var(--color-muted)]">Route / Bags</span>
-                   <span className="text-[11px] font-mono text-white">{successTx.detail}</span>
+                   <span className="text-[11px] font-mono text-[var(--color-foreground)]">{successTx.detail}</span>
                 </div>
                 <div className="flex justify-between border-b border-[rgba(255,255,255,0.05)] pb-1">
                    <span className="text-[10px] font-mono text-[var(--color-muted)]">Amount</span>

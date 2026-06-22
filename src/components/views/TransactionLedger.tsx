@@ -30,8 +30,8 @@ export const TransactionLedger = ({
   return (
     <div className="flex flex-col h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] relative animate-in slide-in-from-right overflow-hidden">
       {/* Header */}
-      <div className="p-4 border-b border-[rgba(255,255,255,0.07)] flex items-center justify-between shrink-0">
-        <button onClick={onBack} className="flex items-center space-x-1 text-[var(--color-muted)] hover:text-white transition-colors cursor-pointer">
+      <div className="p-4 border-b border-[var(--color-border)] flex items-center justify-between shrink-0">
+        <button onClick={onBack} className="flex items-center space-x-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors cursor-pointer">
           <ArrowLeft size={16} />
           <span className="text-[11px] font-mono">Back</span>
         </button>
@@ -40,7 +40,7 @@ export const TransactionLedger = ({
 
       {/* Table Container */}
       <div className="flex-1 overflow-auto p-4 pb-20">
-        <div className="bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.05)] rounded-xl overflow-hidden shadow-sm">
+        <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl overflow-hidden shadow-sm">
           <table className="w-full text-left font-mono text-[10px]">
             <thead className="bg-[#111827]">
               <tr className="text-[var(--color-muted)] border-b border-[rgba(255,255,255,0.05)] uppercase">
@@ -59,7 +59,7 @@ export const TransactionLedger = ({
                 <tr key={tx.id} className="border-b border-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.02)] transition-colors">
                   <td className="py-2.5 px-3 text-[var(--color-light-muted)] whitespace-nowrap">{tx.id}</td>
                   <td className="py-2.5 px-2 text-[var(--color-muted)] whitespace-nowrap">{tx.time}</td>
-                  <td className="py-2.5 px-2 text-white capitalize">{tx.type}</td>
+                  <td className="py-2.5 px-2 text-[var(--color-foreground)] capitalize">{tx.type}</td>
                   <td className="py-2.5 px-2 text-white truncate max-w-[150px]">{tx.name} &middot; {tx.detail}</td>
                   <td className="py-2.5 px-2 text-center">
                     <span className={`px-1.5 py-0.5 rounded font-sans text-[9px] font-medium ${

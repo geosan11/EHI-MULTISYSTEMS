@@ -119,8 +119,8 @@ export const Fleet = ({
   return (
     <div className="flex flex-col h-full bg-[var(--color-obsidian)] p-4 text-[var(--color-foreground)] overflow-y-auto pb-[80px] font-sans">
       {/* Header back navigation */}
-      <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.07)] pb-2 mb-4">
-        <button onClick={onBack} className="flex items-center space-x-1 text-[var(--color-muted)] hover:text-white transition-colors">
+      <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2 mb-4">
+        <button onClick={onBack} className="flex items-center space-x-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors">
           <ArrowLeft size={16} />
           <span className="text-[11px] font-mono">Back</span>
         </button>
@@ -130,7 +130,7 @@ export const Fleet = ({
       <div className="flex justify-between items-center mb-6">
         <div className="space-y-0.5">
           <div className="text-[9px] font-mono text-slate-400 tracking-[0.15em] uppercase">▸ ENTERPRISE FLEET TRACKER</div>
-          <h2 className="text-sm font-black text-white">Logistics & Route Vehicles</h2>
+          <h2 className="text-sm font-black text-[var(--color-foreground)]">Logistics & Route Vehicles</h2>
         </div>
 
         {activeTab === 'vehicles' && (
@@ -145,7 +145,7 @@ export const Fleet = ({
       </div>
 
       {/* Surface switches */}
-      <div className="flex space-x-2 bg-black/35 p-1 rounded-lg border border-[rgba(255,255,255,0.05)] mb-6">
+      <div className="flex space-x-2 bg-black/35 p-1 rounded-lg border border-[var(--color-border)] mb-6">
         <button
           onClick={() => setActiveTab('vehicles')}
           className={`flex-1 py-2 text-center text-[10px] font-mono uppercase font-bold rounded-md flex items-center justify-center space-x-1.5 transition-colors ${
@@ -390,7 +390,7 @@ export const Fleet = ({
                 <select 
                   value={type} 
                   onChange={(e) => setType(e.target.value)}
-                  className="w-full bg-[var(--color-obsidian)] border border-[rgba(255,255,255,0.12)] p-2 rounded text-xs text-white"
+                  className="w-full bg-[var(--color-obsidian)] border border-[var(--color-border-strong)] p-2 rounded text-xs text-white"
                 >
                   <option value="Van">Van Delivery</option>
                   <option value="Truck">Truck Logistic Trailer</option>

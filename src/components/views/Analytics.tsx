@@ -269,7 +269,7 @@ export const Analytics = ({
     <div className="flex flex-col p-4 space-y-6 pb-20 select-none animate-in fade-in duration-300">
       
       {/* Page Title */}
-      <div className="flex justify-between items-center border-b border-[rgba(255,255,255,0.07)] pb-2">
+      <div className="flex justify-between items-center border-b border-[var(--color-border)] pb-2">
         <span className="text-[10px] font-mono text-[var(--color-accent-cobalt)] tracking-[0.15em] uppercase font-bold">▸ ANALYTICS INTELLIGENCE</span>
         
         {/* Hub Selector */}
@@ -289,12 +289,12 @@ export const Analytics = ({
       </div>
 
       {/* Date Range Selector Tabs */}
-      <div className="flex bg-[var(--color-surface-1)] p-0.5 rounded border border-[rgba(255,255,255,0.05)] w-full">
+      <div className="flex bg-[var(--color-surface-1)] p-0.5 rounded border border-[var(--color-border)] w-full">
         {(['today', 'week', 'month', 'quarter'] as const).map((tab) => (
           <button 
             key={tab}
             onClick={() => setPeriod(tab)}
-            className={`flex-1 text-center py-1.5 text-[9px] font-mono uppercase tracking-wider rounded transition-all ${period === tab ? 'bg-[var(--color-accent-cobalt)] text-white font-bold' : 'text-[var(--color-muted)] hover:text-white'}`}
+            className={`flex-1 text-center py-1.5 text-[9px] font-mono uppercase tracking-wider rounded transition-all ${period === tab ? 'bg-[var(--color-accent-cobalt)] text-[var(--color-foreground)] font-bold' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
           >
             {tab}
           </button>

@@ -46,8 +46,8 @@ export const AuditLog = ({
   return (
     <div className="flex flex-col h-full bg-[var(--color-obsidian)] p-4 text-[var(--color-foreground)] overflow-y-auto pb-[80px] font-sans">
       {/* Header back navigation */}
-      <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.07)] pb-2 mb-4">
-        <button onClick={onBack} className="flex items-center space-x-1 text-[var(--color-muted)] hover:text-white transition-colors">
+      <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2 mb-4">
+        <button onClick={onBack} className="flex items-center space-x-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors">
           <ArrowLeft size={16} />
           <span className="text-[11px] font-mono">Back</span>
         </button>
@@ -57,7 +57,7 @@ export const AuditLog = ({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div className="space-y-0.5">
           <div className="text-[9px] font-mono text-slate-400 tracking-[0.15em] uppercase">▸ COMPLIANCE & REVISION SYSTEMS</div>
-          <h2 className="text-sm font-black text-white">Full Platform Revision Audit Trails</h2>
+          <h2 className="text-sm font-black text-[var(--color-foreground)]">Full Platform Revision Audit Trails</h2>
         </div>
 
         <button 
@@ -70,7 +70,7 @@ export const AuditLog = ({
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.05)] rounded-xl p-4 mb-6 grid grid-cols-1 md:grid-cols-12 gap-3">
+      <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl p-4 mb-6 grid grid-cols-1 md:grid-cols-12 gap-3">
         {/* Search Input */}
         <div className="relative md:col-span-8">
           <Search size={14} className="absolute left-3 top-2.5 text-slate-500" />

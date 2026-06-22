@@ -89,7 +89,7 @@ export const ExpensesTab = ({ expenses = [], user, period = 'today', onAddExpens
   return (
     <div className="space-y-6 pb-24">
       {/* PERIOD SUMMARY */}
-      <div className="bg-[var(--color-surface-card)] rounded-xl border border-[rgba(255,255,255,0.07)] p-5">
+      <div className="bg-[var(--color-surface-card)] rounded-xl border border-[var(--color-border)] p-5">
          <div className="text-[13px] font-sans font-medium text-[var(--color-muted)] mb-1">Total Expenses ({period})</div>
          <div className="text-[28px] font-mono font-bold text-[#F59E0B] mb-2">{fmt(totalExpenses)}</div>
       </div>
@@ -126,8 +126,8 @@ export const ExpensesTab = ({ expenses = [], user, period = 'today', onAddExpens
              <div className="flex-1">
                <label className="text-[11px] font-sans text-[var(--color-muted)] block mb-1">Payment Mode</label>
                <div className="flex bg-[var(--color-surface-1)] rounded-xl p-1 border border-[rgba(255,255,255,0.07)] h-11">
-                 <button onClick={() => setMode('Cash')} className={`flex-1 text-[12px] font-sans font-medium rounded-lg ${mode === 'Cash' ? 'bg-[var(--color-surface-2)] text-white shadow-sm' : 'text-[var(--color-muted)]'}`}>Cash</button>
-                 <button onClick={() => setMode('Transfer')} className={`flex-1 text-[12px] font-sans font-medium rounded-lg ${mode === 'Transfer' ? 'bg-[var(--color-surface-2)] text-white shadow-sm' : 'text-[var(--color-muted)]'}`}>Transfer</button>
+                 <button onClick={() => setMode('Cash')} className={`flex-1 text-[12px] font-sans font-medium rounded-lg ${mode === 'Cash' ? 'bg-[var(--color-surface-2)] text-[var(--color-foreground)] shadow-sm' : 'text-[var(--color-muted)]'}`}>Cash</button>
+                 <button onClick={() => setMode('Transfer')} className={`flex-1 text-[12px] font-sans font-medium rounded-lg ${mode === 'Transfer' ? 'bg-[var(--color-surface-2)] text-[var(--color-foreground)] shadow-sm' : 'text-[var(--color-muted)]'}`}>Transfer</button>
                </div>
              </div>
            </div>
@@ -270,7 +270,7 @@ export const ExpensesTab = ({ expenses = [], user, period = 'today', onAddExpens
                     </div>
                     
                     {e.status === 'pending' && (user?.role === 'super_admin' || user?.role === 'admin') && (
-                      <div className="flex space-x-2 mt-3 pt-3 border-t border-[rgba(255,255,255,0.05)]">
+                      <div className="flex space-x-2 mt-3 pt-3 border-t border-[var(--color-border)]">
                         <button className="flex-1 py-1.5 bg-[rgba(16,185,129,0.1)] hover:bg-[rgba(16,185,129,0.2)] text-[var(--color-success)] text-[11px] font-sans font-bold rounded flex justify-center items-center space-x-1 transition-colors">
                           <CheckCircle size={12}/> <span>Approve</span>
                         </button>

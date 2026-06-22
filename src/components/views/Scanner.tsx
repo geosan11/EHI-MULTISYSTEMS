@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import { QrCode, RefreshCw, Package, Plane, TrendingUp, ArrowDown, ArrowUp, List } from 'lucide-react';
 import { User, ScanMode, ScanValidationResult, BatchScanItem } from '../../lib/types';
 import { validateScan, logScanEvent } from '../../lib/scanLogic';
@@ -22,7 +22,7 @@ export const Scanner = ({
   const [batchItems, setBatchItems] = useState<BatchScanItem[]>([]);
   const [showBatch, setShowBatch] = useState(false);
   const [manualRef, setManualRef] = useState('');
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const scannerRef = useRef<any>(null);
   const processingRef = useRef(false);
 
   const currentHub = user.hub;
@@ -100,25 +100,23 @@ export const Scanner = ({
 
   useEffect(() => {
     if (isScanning && !scannerRef.current) {
-      const scanner = new Html5QrcodeScanner(
-        'qr-reader-div',
+      const scanner = new Html5Qrcode('qr-reader-div');
+      
+      scanner.start(
+        { facingMode: 'environment' },
         {
           fps: 15,
           qrbox: { width: 220, height: 220 },
           aspectRatio: 1.0,
-          showTorchButtonIfSupported: true,
-          showZoomSliderIfSupported: false,
-          defaultZoomValueIfSupported: 2,
         },
-        false
-      );
-
-      scanner.render(
         (decodedText) => processCode(decodedText),
-        () => { /* ignore scan failures — camera looking */ }
-      );
+        () => { /* ignore */ }
+      ).catch(err => {
+        console.error("Scanner start error:", err);
+        setIsScanning(false);
+      });
 
-      scannerRef.current = scanner;
+      scannerRef.current = scanner as any;
     }
   }, [isScanning, processCode]);
 
@@ -141,11 +139,10 @@ export const Scanner = ({
     });
 
     // Step 2: Tell the library to clean up its DOM and internal state.
-    // This may throw if the DOM was already modified — that is fine
-    // because the camera is already off from step 1.
     if (scannerRef.current) {
       try {
-        await scannerRef.current.clear();
+        await scannerRef.current.stop();
+        scannerRef.current.clear();
       } catch {
         // Acceptable — camera is already stopped above
       }
@@ -208,7 +205,7 @@ export const Scanner = ({
   if (showBatch) {
     return (
       <div className="p-4 pb-20 space-y-4">
-        <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.07)] pb-3">
+        <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-3">
           <button onClick={() => setShowBatch(false)} className="text-[11px] font-mono text-[var(--color-muted)] flex items-center gap-1">
             ← BACK TO SCANNER
           </button>
@@ -274,12 +271,12 @@ export const Scanner = ({
       </div>
 
       {/* Mode Toggle — ARRIVE / DEPART */}
-      <div className="flex rounded overflow-hidden border border-[var(--color-border)]" style={{ width: '100%' }}>
+      <div className="flex bg-[var(--color-surface-2)] p-1 rounded-xl mb-6 shadow-inner" style={{ width: '100%' }}>
         {(['ARRIVE', 'DEPART'] as ScanMode[]).map((m) => {
           const active = mode === m;
           const isArrive = m === 'ARRIVE';
           const activeColor = isArrive ? 'var(--color-success)' : 'var(--color-accent-cobalt)';
-          const activeBg = isArrive ? 'rgba(16,185,129,0.12)' : 'rgba(59,130,246,0.12)';
+          const activeBg = 'var(--color-surface-1)';
           const Icon = isArrive ? ArrowDown : ArrowUp;
           return (
             <button
@@ -288,9 +285,10 @@ export const Scanner = ({
               style={{
                 flex: 1, minWidth: 0, padding: '12px 8px',
                 background: active ? activeBg : 'transparent',
+                borderRadius: '8px',
                 border: 'none',
-                borderRight: m === 'ARRIVE' ? '1px solid var(--color-border)' : 'none',
                 color: active ? activeColor : '#64748B',
+                boxShadow: active ? '0 2px 8px rgba(0,0,0,0.2)' : 'none',
                 cursor: 'pointer',
                 display: 'flex', alignItems: 'center',
                 justifyContent: 'center', gap: 6,
@@ -319,10 +317,10 @@ export const Scanner = ({
 
       {/* Camera scanner */}
       {isScanning ? (
-        <div className="relative">
+        <div className="relative w-full">
           <div
             id="qr-reader-div"
-            style={{ borderRadius: 12, overflow: 'hidden' }}
+            style={{ borderRadius: 12, overflow: 'hidden', width: '100%', minHeight: 300 }}
           />
           {processing && (
             <div style={{
@@ -342,29 +340,24 @@ export const Scanner = ({
           </button>
         </div>
       ) : (
-        <div
+        <button
           onClick={startScanner}
-          style={{
-            height: 'clamp(160px, 35vw, 240px)',
-            background: 'var(--color-surface-1)',
-            border: '2px dashed var(--color-border-strong)',
-            borderRadius: 12,
-            display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center',
-            gap: 10, cursor: 'pointer',
-          }}
+          className="w-full flex flex-col items-center justify-center gap-3 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] transition-colors border-2 border-dashed border-[var(--color-accent-amber)] rounded-2xl cursor-pointer"
+          style={{ height: 'clamp(160px, 35vw, 240px)' }}
         >
-          <QrCode size={36} color="#64748B" />
+          <div className="p-4 bg-[var(--color-surface-1)] rounded-full mb-1">
+            <QrCode size={36} className="text-[var(--color-accent-amber)]" />
+          </div>
           <div style={{
-            fontFamily: 'monospace', fontSize: 11,
-            color: '#64748B', textAlign: 'center', lineHeight: 1.6,
+            fontFamily: 'monospace', fontSize: 13, fontWeight: 700,
+            color: 'var(--color-foreground)', textAlign: 'center', lineHeight: 1.6,
             letterSpacing: '0.04em',
           }}>
-            TAP TO START CAMERA
+            TAP TO START SCANNER
             <br />
-            <span style={{ fontSize: 9, opacity: 0.6 }}>Point at cargo QR tag to scan</span>
+            <span style={{ fontSize: 10, fontWeight: 400, opacity: 0.6 }}>Point at cargo QR tag to scan</span>
           </div>
-        </div>
+        </button>
       )}
 
       {/* Manual entry fallback */}

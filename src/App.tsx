@@ -5,6 +5,7 @@ import { EHIApp } from './components/EHIApp';
 import { UserProfile, getSession, signOut } from './lib/auth';
 import { supabase } from './lib/supabase';
 import { Loader2 } from 'lucide-react';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 import { SEED_TRANSACTIONS } from './lib/constants';
 
@@ -312,7 +313,11 @@ const AuthenticatedApp = () => {
     setUser(null);
   };
 
-  return <EHIApp user={user} onLogout={handleLogout} />;
+  return (
+    <ErrorBoundary>
+      <EHIApp user={user} onLogout={handleLogout} />
+    </ErrorBoundary>
+  );
 };
 
 export default function App() {

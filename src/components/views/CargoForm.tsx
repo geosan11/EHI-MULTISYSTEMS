@@ -187,7 +187,7 @@ export const CargoForm = ({ onAddTx, user }: {
     }
   };
 
-  const formInputClass = "w-full h-12 px-3 text-[14px] rounded-xl bg-[var(--color-surface-2)] text-[var(--color-foreground)] border border-[rgba(255,255,255,0.07)] font-sans focus:outline-none focus:ring-1 focus:ring-[var(--color-accent-amber)] focus:border-[var(--color-accent-amber)] transition-all";
+  const formInputClass = "w-full h-12 px-3 text-[14px] rounded-xl bg-[var(--color-surface-2)] text-[var(--color-foreground)] border border-[var(--color-border)] font-sans focus:outline-none focus:ring-1 focus:ring-[var(--color-accent-amber)] focus:border-[var(--color-accent-amber)] transition-all";
 
   const renderLabel = (icon: any, text: string) => {
     const Icon = icon;
@@ -203,7 +203,7 @@ export const CargoForm = ({ onAddTx, user }: {
     return (
       <div className="p-4 space-y-4 max-w-md mx-auto">
         <div className="border-b border-[rgba(255,255,255,0.07)] pb-2 mb-2">
-          <span className="text-[14px] font-sans font-semibold text-white">Cargo Receipt</span>
+          <span className="text-[14px] font-sans font-semibold text-[var(--color-foreground)]">Cargo Receipt</span>
         </div>
 
         <motion.div 
@@ -223,10 +223,10 @@ export const CargoForm = ({ onAddTx, user }: {
             REF: {successTx.id}
           </div>
           
-          <div className="w-full bg-[var(--color-surface-card)] rounded-xl p-4 mb-8 border border-[rgba(255,255,255,0.05)] text-left space-y-3">
+          <div className="w-full bg-[var(--color-surface-card)] rounded-xl p-4 mb-8 border border-[var(--color-border)] text-left space-y-3">
              <div className="flex justify-between border-b border-[rgba(255,255,255,0.05)] pb-2">
                <span className="text-[13px] font-sans text-[var(--color-muted)]">Consignee</span>
-               <span className="text-[14px] font-sans font-medium text-white">{successTx.name}</span>
+               <span className="text-[14px] font-sans font-medium text-[var(--color-foreground)]">{successTx.name}</span>
              </div>
              <div className="flex justify-between border-b border-[rgba(255,255,255,0.05)] pb-2">
                <span className="text-[13px] font-sans text-[var(--color-muted)]">AWB / Tag No</span>

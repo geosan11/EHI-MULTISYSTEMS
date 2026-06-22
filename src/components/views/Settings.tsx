@@ -186,8 +186,8 @@ export const Settings = ({
     <div className="flex flex-col h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] p-4 space-y-6 pb-[100px] overflow-y-auto select-none font-sans">
       
       {/* Header back navigation */}
-      <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.07)] pb-2">
-        <button onClick={onBack} className="flex items-center space-x-1 text-[var(--color-muted)] hover:text-white transition-colors">
+      <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2">
+        <button onClick={onBack} className="flex items-center space-x-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors">
           <ArrowLeft size={16} />
           <span className="text-[11px] font-mono">Back</span>
         </button>
@@ -195,7 +195,7 @@ export const Settings = ({
       </div>
 
       {user.role === 'super_admin' && (
-        <div className="bg-[var(--color-surface-1)] rounded border border-[rgba(255,255,255,0.05)] overflow-hidden">
+        <div className="bg-[var(--color-surface-1)] rounded border border-[var(--color-border)] overflow-hidden">
           {/* Section header */}
           <div className="px-4 py-3 border-b border-[rgba(255,255,255,0.05)] flex items-center gap-2">
             <Key size={13} className="text-[var(--color-accent-amber)]" />
@@ -459,7 +459,7 @@ export const Settings = ({
 
       {/* Global Automation Switches Card */}
       <div className="bg-[var(--color-surface-1)] rounded border border-[rgba(255,255,255,0.05)] p-4 space-y-4">
-        <div className="text-[9px] font-mono text-white tracking-widest uppercase">AUTOMATION SERVICES</div>
+        <div className="text-[9px] font-mono text-[var(--color-foreground)] tracking-widest uppercase">AUTOMATION SERVICES</div>
         
         {/* Toggle WhatsApp Notifications */}
         <div className="flex justify-between items-center py-1">

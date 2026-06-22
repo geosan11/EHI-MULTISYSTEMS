@@ -126,7 +126,7 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
           <button
             key={t}
             onClick={() => setActiveTab(t as any)}
-            className={`px-4 py-2 text-[13px] font-sans font-medium rounded-full whitespace-nowrap transition-colors focus:outline-none ${activeTab === t ? 'bg-[var(--color-accent-cobalt)] text-white' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)] hover:text-white'}`}
+            className={`px-4 py-2 text-[13px] font-sans font-medium rounded-full whitespace-nowrap transition-colors focus:outline-none ${activeTab === t ? 'bg-[var(--color-accent-cobalt)] text-[var(--color-foreground)]' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
           >
             {t}
           </button>
@@ -141,7 +141,7 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
                <button
                  key={p}
                  onClick={() => setPeriod(p as any)}
-                 className={`px-3 py-1.5 text-[12px] font-sans font-medium rounded-full transition-colors focus:outline-none ${period === p ? 'bg-[var(--color-surface-2)] text-white' : 'text-[var(--color-muted)] hover:bg-[rgba(255,255,255,0.05)]'}`}
+                 className={`px-3 py-1.5 text-[12px] font-sans font-medium rounded-full transition-colors focus:outline-none ${period === p ? 'bg-[var(--color-surface-2)] text-white' : 'text-[var(--color-muted)] hover:bg-[var(--color-border)]'}`}
                >
                  {p}
                </button>
@@ -150,7 +150,7 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
 
           {/* REVENUE SUMMARY ROW */}
           <div className="flex space-x-4 overflow-x-auto pb-2 snap-x">
-             <div className="min-w-[200px] flex-1 bg-[var(--color-surface-card)] rounded-xl border border-[rgba(255,255,255,0.07)] p-4 relative overflow-hidden snap-start">
+             <div className="min-w-[200px] flex-1 bg-[var(--color-surface-card)] rounded-xl border border-[var(--color-border)] p-4 relative overflow-hidden snap-start">
                 <div className="absolute left-0 top-0 bottom-0 w-[4px] bg-[var(--color-accent-amber)]" />
                 <div className="flex items-center space-x-2 mb-2 ml-2">
                   <Box size={16} className="text-[var(--color-accent-amber)]" />

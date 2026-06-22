@@ -169,7 +169,7 @@ export const DebtorsTab = ({ transactions = [], user, onUpdateTx }: { transactio
       )}
 
       {/* SUMMARY HEADER */}
-      <div className="bg-[var(--color-surface-card)] rounded-xl border border-[rgba(255,255,255,0.07)] p-5">
+      <div className="bg-[var(--color-surface-card)] rounded-xl border border-[var(--color-border)] p-5">
         <div className="text-[13px] font-sans font-medium text-[var(--color-muted)] mb-1">Total Outstanding</div>
         <div className="text-[28px] font-mono font-bold text-[var(--color-error)] mb-6">{fmt(totalOutstanding)}</div>
 
@@ -190,7 +190,7 @@ export const DebtorsTab = ({ transactions = [], user, onUpdateTx }: { transactio
       </div>
 
       {user?.role === 'super_admin' && (
-        <button className="w-full py-3.5 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-1)] text-white text-[14px] font-sans font-medium rounded-xl border border-[rgba(255,255,255,0.07)] transition-colors focus:outline-none flex items-center justify-center space-x-2">
+        <button className="w-full py-3.5 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-1)] text-[var(--color-foreground)] text-[14px] font-sans font-medium rounded-xl border border-[rgba(255,255,255,0.07)] transition-colors focus:outline-none flex items-center justify-center space-x-2">
           <Plus size={16} />
           <span>Log Manual Credit Sale</span>
         </button>
@@ -203,7 +203,7 @@ export const DebtorsTab = ({ transactions = [], user, onUpdateTx }: { transactio
              <button
                key={f}
                onClick={() => setFilter(f as any)}
-               className={`px-3 py-1.5 text-[12px] font-sans font-medium rounded-lg transition-colors focus:outline-none ${filter === f ? 'bg-[var(--color-surface-2)] text-white shadow-sm' : 'text-[var(--color-muted)] hover:text-white'}`}
+               className={`px-3 py-1.5 text-[12px] font-sans font-medium rounded-lg transition-colors focus:outline-none ${filter === f ? 'bg-[var(--color-surface-2)] text-[var(--color-foreground)] shadow-sm' : 'text-[var(--color-muted)] hover:text-white'}`}
              >
                {f}
              </button>
@@ -301,7 +301,7 @@ export const DebtorsTab = ({ transactions = [], user, onUpdateTx }: { transactio
                            </div>
 
                            {/* Actions */}
-                           <div className="flex space-x-2 pt-2 border-t border-[rgba(255,255,255,0.05)]">
+                           <div className="flex space-x-2 pt-2 border-t border-[var(--color-border)]">
                              <button 
                                onClick={() => setShowPaymentForm(showPaymentForm === d.id ? null : d.id)}
                                className="flex-1 py-2.5 bg-[var(--color-surface-2)] text-[var(--color-success)] text-[13px] font-sans font-medium rounded-lg hover:bg-[var(--color-surface-1)] transition-colors focus:outline-none"

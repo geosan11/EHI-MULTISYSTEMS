@@ -12,14 +12,14 @@ import { Loader2 } from 'lucide-react';
 import { Dashboard } from './views/Dashboard';
 import { CargoForm } from './views/CargoForm';
 import { ValueJetForm } from './views/ValueJetForm';
+import { Analytics } from './views/Analytics';
+import { More } from './views/More';
+import { MarketingWorkspace } from './views/MarketingWorkspace';
+import { Scanner } from './views/Scanner';
+import { MyTrips } from './views/MyTrips';
+import { ErrorBoundary } from './ErrorBoundary';
 
 import { SEED_TRANSACTIONS } from '../lib/constants';
-
-const Analytics = lazy(() => import('./views/Analytics').then(m => ({ default: m.Analytics })));
-const More = lazy(() => import('./views/More').then(m => ({ default: m.More })));
-const MarketingWorkspace = lazy(() => import('./views/MarketingWorkspace').then(m => ({ default: m.MarketingWorkspace })));
-const Scanner = lazy(() => import('./views/Scanner').then(m => ({ default: m.Scanner })));
-const MyTrips = lazy(() => import('./views/MyTrips').then(m => ({ default: m.MyTrips })));
 
 export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void }) => {
   const getDefaultTab = (role: string): TabView => {
@@ -242,15 +242,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             className="mx-auto w-full"
             style={{ maxWidth: 'var(--content-max-width)' }}
           >
-            <Suspense fallback={
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                height: 200, color: 'var(--color-muted)',
-                fontFamily: 'monospace', fontSize: 11,
-              }}>
-                <Loader2 className="animate-spin text-[var(--color-accent-amber)]" size={32} />
-              </div>
-            }>
+            <ErrorBoundary>
               {currentTab === 'Tower' && (
                 (user.role === 'super_admin' || user.role === 'admin' || user.role === 'accountant') ? (
                   <Analytics user={user} transactions={transactions} />
@@ -276,7 +268,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                   }}
                 />
               )}
-            </Suspense>
+            </ErrorBoundary>
           </div>
         </main>
       </div>

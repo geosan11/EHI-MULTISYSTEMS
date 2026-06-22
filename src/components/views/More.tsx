@@ -156,11 +156,11 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         </button>
 
         <div className="text-[9px] font-mono text-[var(--color-accent-amber)] tracking-[0.1em] uppercase mb-4">▸ EOD DAILY CLOSE</div>
-        <div className="text-[12px] font-mono text-white mb-6 bg-[rgba(255,255,255,0.05)] px-3 py-2 rounded max-w-max border border-[rgba(255,255,255,0.1)]">
+        <div className="text-[12px] font-mono text-[var(--color-foreground)] mb-6 bg-[var(--color-border)] px-3 py-2 rounded max-w-max border border-[rgba(255,255,255,0.1)]">
           {new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}
         </div>
         
-        <div className="bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] rounded overflow-hidden flex flex-col mb-8">
+        <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded overflow-hidden flex flex-col mb-8">
           <div className="p-4 border-b border-[rgba(255,255,255,0.07)] flex justify-between items-center bg-[rgba(245,158,11,0.05)]">
             <span className="text-[11px] font-mono text-[var(--color-muted)]">Cargo Station</span>
             <span className="text-[14px] font-bold font-mono text-[var(--color-accent-amber)]">{fmt(cargoTotal)}</span>
@@ -174,7 +174,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
             <span className="text-[14px] font-bold font-mono text-[var(--color-accent-cobalt)]">{fmt(vjTotal)}</span>
           </div>
           <div className="p-4 border-b border-[rgba(255,255,255,0.07)] flex justify-between items-center bg-[rgba(16,185,129,0.05)]">
-            <span className="text-[11px] font-bold font-mono text-white">Grand Total</span>
+            <span className="text-[11px] font-bold font-mono text-[var(--color-foreground)]">Grand Total</span>
             <span className="text-[16px] font-bold font-mono text-[var(--color-success)]">{fmt(gt)}</span>
           </div>
           <div className="p-4 flex flex-col space-y-2 bg-[var(--color-surface-1)]">

@@ -235,7 +235,7 @@ export const NotLoggedInAlert = ({
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onOk} style={{
             flex: 1, padding: 12,
-            background: 'rgba(255,255,255,0.05)',
+            background: 'var(--color-border)',
             border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: 8, color: '#94A3B8',
             fontSize: 11, fontFamily: 'monospace',

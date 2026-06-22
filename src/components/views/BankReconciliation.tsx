@@ -274,10 +274,10 @@ export const BankReconciliation = ({
            {matchedBtxCount} of {bankTxList.length} transactions matched. Saved to accounting ledger.
          </p>
          <div className="flex space-x-3">
-           <button onClick={downloadReport} className="flex items-center space-x-2 bg-neutral-800 hover:bg-neutral-700 text-white font-sans text-[13px] font-medium px-5 py-2.5 rounded-lg transition-colors">
+           <button onClick={downloadReport} className="flex items-center space-x-2 bg-neutral-800 hover:bg-neutral-700 text-[var(--color-foreground)] font-sans text-[13px] font-medium px-5 py-2.5 rounded-lg transition-colors">
              <Download size={16} /> <span>Download Report</span>
            </button>
-           <button onClick={onBack} className="flex items-center space-x-2 bg-[var(--color-accent-cobalt)] hover:bg-opacity-90 text-white font-sans text-[13px] font-bold px-5 py-2.5 rounded-lg transition-colors">
+           <button onClick={onBack} className="flex items-center space-x-2 bg-[var(--color-accent-cobalt)] hover:bg-opacity-90 text-[var(--color-foreground)] font-sans text-[13px] font-bold px-5 py-2.5 rounded-lg transition-colors">
              <span>Return</span>
            </button>
          </div>
@@ -287,7 +287,7 @@ export const BankReconciliation = ({
 
   return (
     <div className="flex flex-col h-full bg-[var(--color-obsidian)] p-4 text-white overflow-y-auto pb-[80px]">
-      <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.07)] pb-4 mb-4">
+      <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-4 mb-4">
         <button onClick={onBack} className="flex items-center space-x-2 text-[var(--color-muted)] hover:text-white transition-colors">
           <ArrowLeft size={18} />
           <span className="text-[14px] font-sans font-medium">Back</span>
@@ -422,7 +422,7 @@ export const BankReconciliation = ({
               <span className="text-[12px] font-sans font-bold text-[var(--color-muted)] uppercase tracking-wider">Statement Ledger vs. System Log</span>
             </div>
 
-            <div className="divide-y divide-[rgba(255,255,255,0.05)]">
+            <div className="divide-y divide-[var(--color-border)]">
               {bankTxList.map((btx) => {
                 const correspondingSysPayment = btx.matchedId ? systemPayments.find(sp => sp.id === btx.matchedId) : null;
                 return (

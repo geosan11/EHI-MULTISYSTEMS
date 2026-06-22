@@ -125,7 +125,7 @@ export const ValueJetForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }
     const s = successTx;
     return (
       <div className="p-4 space-y-4 max-w-md mx-auto">
-        <div className="border-b border-[rgba(255,255,255,0.07)] pb-1 mb-2">
+        <div className="border-b border-[var(--color-border)] pb-1 mb-2">
           <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: '#3B82F6', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
             ▸ BAGGAGE RECEIPT
           </span>
@@ -155,7 +155,7 @@ export const ValueJetForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }
 
           <div className="text-[12px] font-sans text-[var(--color-light-muted)] mb-3">{s.tx.name}</div>
           
-          <div className="w-full bg-[var(--color-obsidian)] rounded p-3 mb-4 text-left border border-[rgba(255,255,255,0.07)]">
+          <div className="w-full bg-[var(--color-obsidian)] rounded p-3 mb-4 text-left border border-[var(--color-border)]">
             <div className="flex justify-between items-center mb-2">
               <span className="text-[10px] font-mono text-[var(--color-muted)]">Total Weight</span>
               <span className="text-[12px] font-mono text-[var(--color-foreground)]">{s.kgs.toFixed(1)} kg</span>
@@ -181,10 +181,10 @@ export const ValueJetForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }
           </div>
 
           <div className="flex w-full space-x-2">
-            <button onClick={handleReset} className="flex-1 py-3 bg-[var(--color-surface-1)] text-white text-[11px] font-mono rounded cursor-pointer">
+            <button onClick={handleReset} className="flex-1 py-3 bg-[var(--color-surface-1)] text-[var(--color-foreground)] text-[11px] font-mono rounded cursor-pointer">
               Next Passenger
             </button>
-            <button onClick={handlePrintReceipt} className="flex-1 py-3 bg-[var(--color-accent-cobalt)] text-white text-[11px] font-bold font-mono rounded cursor-pointer">
+            <button onClick={handlePrintReceipt} className="flex-1 py-3 bg-[var(--color-accent-cobalt)] text-[var(--color-foreground)] text-[11px] font-bold font-mono rounded cursor-pointer">
               Print Receipt
             </button>
           </div>
@@ -224,7 +224,7 @@ export const ValueJetForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }
             placeholder="Passenger Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className={`w-full h-11 px-3 text-sm rounded bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] text-white font-sans ${vjFocusClasses}`}
+            className={`w-full h-11 px-3 text-sm rounded bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] text-[var(--color-foreground)] font-sans ${vjFocusClasses}`}
           />
 
           <input
@@ -232,7 +232,7 @@ export const ValueJetForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }
             placeholder="Passenger Phone (optional — for WhatsApp receipt)"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className={`w-full h-11 px-3 text-sm rounded bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] text-white font-sans ${vjFocusClasses}`}
+            className={`w-full h-11 px-3 text-sm rounded bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] text-[var(--color-foreground)] font-sans ${vjFocusClasses}`}
           />
           
           <div className="flex space-x-3">
@@ -260,7 +260,7 @@ export const ValueJetForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }
               className={`flex-1 h-11 px-3 text-sm rounded bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] text-white font-sans min-w-0 ${vjFocusClasses}`}
             />
             <div
-              className="flex-1 h-11 px-3 flex items-center justify-between rounded bg-[var(--color-surface-2)] border border-[rgba(255,255,255,0.04)] min-w-0"
+              className="flex-1 h-11 px-3 flex items-center justify-between rounded bg-[var(--color-surface-2)] border border-[var(--color-border)] min-w-0"
             >
               <span style={{ fontSize: 9, fontFamily: 'monospace', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 RATE

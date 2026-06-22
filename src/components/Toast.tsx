@@ -25,7 +25,7 @@ export const Toast = ({ message, type, onClose }: ToastProps) => {
   const Icon = config[type].icon;
 
   return (
-    <div className="absolute bottom-[80px] left-4 right-4 bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] shadow-2xl rounded p-3 flex items-center space-x-3 z-50 animate-in slide-in-from-bottom-5 fade-in duration-200">
+    <div className="absolute bottom-[80px] left-4 right-4 bg-[var(--color-surface-1)] border border-[var(--color-border)] shadow-2xl rounded p-3 flex items-center space-x-3 z-50 animate-in slide-in-from-bottom-5 fade-in duration-200">
       <Icon size={16} color={config[type].color} />
       <span className="text-[11px] font-mono text-[var(--color-foreground)] flex-1">{message}</span>
     </div>
