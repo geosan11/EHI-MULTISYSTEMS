@@ -194,7 +194,26 @@ export const TransactionLedger = ({
                     <td className={`py-2.5 px-2 text-right font-bold whitespace-nowrap ${e.source === 'expense' ? 'text-[var(--color-error)]' : 'text-[var(--color-success)]'}`}>
                       {e.source === 'expense' ? '-' : ''}{fmt(e.amount)}
                     </td>
-                    <td className="py-2.5 px-2 text-center text-[var(--color-light-muted)]">{e.status}</td>
+                    <td className="py-2.5 px-2 text-center">
+                      {e.status !== 'N/A' ? (
+                        <div className="flex items-center justify-center gap-1.5">
+                          <div className={`w-1.5 h-1.5 rounded-full ${
+                            e.status === 'Delivered' ? 'bg-emerald-500' :
+                            ['In-Transit', 'Departure', 'Dispatched'].includes(e.status) ? 'bg-blue-500' :
+                            e.status === 'Arrived' ? 'bg-amber-500' :
+                            'bg-slate-400'
+                          }`} />
+                          <span className={`font-medium ${
+                            e.status === 'Delivered' ? 'text-emerald-500' :
+                            ['In-Transit', 'Departure', 'Dispatched'].includes(e.status) ? 'text-blue-500' :
+                            e.status === 'Arrived' ? 'text-amber-500' :
+                            'text-slate-400'
+                          }`}>{e.status}</span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-600">N/A</span>
+                      )}
+                    </td>
                     <td className="py-2.5 px-3 text-center">
                       {e.source === 'transaction' ? (
                         <button 
