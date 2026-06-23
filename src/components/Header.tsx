@@ -38,16 +38,16 @@ export const Header = ({
 
   return (
     <div
-      className="ehi-mobile-header flex flex-col w-full shrink-0 z-40"
+      className="flex flex-col w-full shrink-0 z-40 relative"
       style={{
-        background: 'linear-gradient(180deg, rgba(245,158,11,0.04) 0%, var(--color-obsidian) 100%)',
+        background: 'var(--color-obsidian)',
         borderBottom: '1px solid var(--color-border)',
       }}
     >
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex items-center justify-between px-4 py-3 min-h-[60px]">
 
         {/* Brand */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 md:hidden">
           <div
             style={{
               width: 36, height: 36,
@@ -83,7 +83,7 @@ export const Header = ({
         </div>
 
         {/* Right controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 ml-auto">
 
           {/* User info */}
           <div className="text-right mr-1 hidden sm:block">

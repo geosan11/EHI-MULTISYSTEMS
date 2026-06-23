@@ -221,17 +221,15 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         }}
       >
         {/* Header — mobile only */}
-        <div className="ehi-mobile-header">
-          <Header
-            user={user}
-            isOffline={isOffline}
-            pendingCount={pendingSyncCount}
-            onToggleWifi={handleToggleWifi}
-            onLogout={onLogout}
-            theme={theme}
-            onToggleTheme={toggle}
-          />
-        </div>
+        <Header
+          user={user}
+          isOffline={isOffline}
+          pendingCount={pendingSyncCount}
+          onToggleWifi={handleToggleWifi}
+          onLogout={onLogout}
+          theme={theme}
+          onToggleTheme={toggle}
+        />
 
         <main
           className="flex-1 overflow-y-auto"

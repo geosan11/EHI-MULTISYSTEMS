@@ -122,7 +122,7 @@
 }
 
 @media (min-width: 768px) {
-  :root {
+  :root, :root.dark, :root.light {
     --sidebar-width:     64px;
     --content-padding:   24px;
     --content-max-width: 100%;
@@ -132,7 +132,7 @@
 }
 
 @media (min-width: 1200px) {
-  :root {
+  :root, :root.dark, :root.light {
     --sidebar-width:     220px;
     --content-padding:   32px;
     --content-max-width: 1100px;
@@ -276,18 +276,16 @@ button:active:not(:disabled) { transform: scale(0.98); }
 
 @media (max-width: 767px) {
   .ehi-sidenav           { display: none !important; }
-  .ehi-mobile-header     { display: block; }
   .ehi-main-content      { 
     width: 100% !important; 
     max-width: 100% !important; 
-    padding-bottom: calc(62px + env(safe-area-inset-bottom)) !important;
+    padding-bottom: 0 !important;
   }
-  main { padding-bottom: 0 !important; }
+  main { padding-bottom: calc(62px + env(safe-area-inset-bottom)) !important; }
 }
 
 @media (min-width: 768px) {
   .ehi-sidenav           { display: flex !important; }
-  .ehi-mobile-header     { display: none !important; }
 }
 
 .ehi-main-content {
@@ -297,7 +295,6 @@ button:active:not(:disabled) { transform: scale(0.98); }
 
 .ehi-card,
 .ehi-input,
-.ehi-sidenav,
-.ehi-mobile-header > div {
+.ehi-sidenav {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
