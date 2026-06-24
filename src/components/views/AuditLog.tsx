@@ -70,7 +70,7 @@ export const AuditLog = ({
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl p-4 mb-6 grid grid-cols-1 md:grid-cols-12 gap-3">
+      <div className="ehi-card mb-6 grid grid-cols-1 md:grid-cols-12 gap-3">
         {/* Search Input */}
         <div className="relative md:col-span-8">
           <Search size={14} className="absolute left-3 top-2.5 text-slate-500" />
@@ -101,7 +101,7 @@ export const AuditLog = ({
       </div>
 
       {/* Audit Log Table list */}
-      <div className="bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.05)] rounded-xl overflow-hidden">
+      <div className="ehi-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs font-mono">
             <thead>
@@ -148,7 +148,7 @@ export const AuditLog = ({
       {/* Difference Audit Inspect Modal */}
       {selectedEntry && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 z-55">
-          <div className="bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-lg w-full overflow-hidden shadow-2xl">
+          <div className="ehi-card max-w-lg w-full overflow-hidden shadow-2xl">
             <div className="p-4 border-b border-[rgba(255,255,255,0.07)] flex justify-between items-center bg-black/40">
               <span className="text-[9px] font-mono text-purple-400 uppercase font-bold tracking-wider">EHI SECURITY AUDIT LOG DIFFERENCE ANALYSIS</span>
               <button onClick={() => setSelectedEntry(null)} className="text-slate-400 hover:text-[var(--color-foreground)] font-mono text-xs cursor-pointer">✕</button>

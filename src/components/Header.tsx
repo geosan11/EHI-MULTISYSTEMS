@@ -40,7 +40,7 @@ export const Header = ({
     <div
       className="flex flex-col w-full shrink-0 z-40 relative"
       style={{
-        background: 'var(--color-obsidian)',
+        background: 'var(--color-nav-bg)',
         borderBottom: '1px solid var(--color-border)',
       }}
     >

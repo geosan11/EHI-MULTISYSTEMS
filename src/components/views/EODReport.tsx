@@ -17,9 +17,18 @@ export interface EODReportData {
   grossTotal: number;
   cashTotal: number;
   transferTotal: number;
+  posTotal: number; // added
   debtTotal: number;
   totalExpenses: number;
-  netCashToRemit: number;
+  netCashToRemit: number; // this is expected net cash
+  countedCash?: number;
+  countedTransfer?: number;
+  countedPOS?: number;
+  varianceReason?: string;
+  managerName?: string;
+  denoms?: {
+    n1000: string; n500: string; n200: string; n100: string; n50: string; n20: string; n10: string;
+  };
   cargoCount: number;
   mktgCount: number;
   vjCount: number;
@@ -96,7 +105,7 @@ const EODReportPDF = ({ data }: { data: EODReportData }) => (
         </View>
 
         <View style={styles.summaryBox}>
-          <Text style={styles.sectionTitle}>PAYMENT ANALYSIS</Text>
+          <Text style={styles.sectionTitle}>PAYMENT ANALYSIS (SYSTEM EXPECTED)</Text>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Cash Received</Text>
             <Text style={styles.summaryValue}>₦{data.cashTotal.toLocaleString('en-NG')}</Text>
@@ -106,47 +115,116 @@ const EODReportPDF = ({ data }: { data: EODReportData }) => (
             <Text style={styles.summaryValue}>₦{data.transferTotal.toLocaleString('en-NG')}</Text>
           </View>
           <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>POS Terminal</Text>
+            <Text style={styles.summaryValue}>₦{data.posTotal.toLocaleString('en-NG')}</Text>
+          </View>
+          <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Outstanding Debt</Text>
             <Text style={[styles.summaryValue, { color: '#EF4444' }]}>₦{data.debtTotal.toLocaleString('en-NG')}</Text>
           </View>
           <View style={[styles.summaryRow, { marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderTopColor: '#e5e7eb' }]}>
             <Text style={[styles.summaryLabel, { fontWeight: 'bold' }]}>TOTAL SETTLED</Text>
-            <Text style={styles.summaryValue}>₦{(data.cashTotal + data.transferTotal).toLocaleString('en-NG')}</Text>
+            <Text style={styles.summaryValue}>₦{(data.cashTotal + data.transferTotal + data.posTotal).toLocaleString('en-NG')}</Text>
           </View>
         </View>
       </View>
 
       <View style={styles.summaryGrid}>
         <View style={[styles.summaryBox, { width: '100%' }]}>
-          <Text style={styles.sectionTitle}>CASH RECONCILIATION & EXPENSES</Text>
-          {data.expenses.map((e, i) => (
-            <View style={styles.summaryRow} key={`exp-${i}`}>
-              <Text style={styles.summaryLabel}>- {e.type} {e.description ? `(${e.description})` : ''}</Text>
-              <Text style={[styles.summaryValue, { color: '#EF4444' }]}>-₦{e.amount.toLocaleString('en-NG')}</Text>
+          <Text style={styles.sectionTitle}>CASH RECONCILIATION</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 }}>
+             <View style={{ width: '48%' }}>
+                <Text style={[styles.summaryLabel, { fontWeight: 'bold', marginBottom: 4 }]}>EXPENSES (PAID IN CASH)</Text>
+                {data.expenses.filter(e => !e.mode || e.mode === 'Cash').map((e, i) => (
+                  <View style={styles.summaryRow} key={`exp-${i}`}>
+                    <Text style={styles.summaryLabel}>- {e.type} {e.description ? `(${e.description})` : ''}</Text>
+                    <Text style={[styles.summaryValue, { color: '#EF4444' }]}>-₦{e.amount.toLocaleString('en-NG')}</Text>
+                  </View>
+                ))}
+                {data.expenses.filter(e => !e.mode || e.mode === 'Cash').length === 0 && (
+                  <Text style={[styles.summaryLabel, { fontStyle: 'italic' }]}>No cash expenses logged today.</Text>
+                )}
+             </View>
+             <View style={{ width: '48%' }}>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Expected Net Cash:</Text>
+                  <Text style={styles.summaryValue}>₦{data.netCashToRemit.toLocaleString('en-NG')}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Expected Transfer:</Text>
+                  <Text style={styles.summaryValue}>₦{data.transferTotal.toLocaleString('en-NG')}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Expected POS:</Text>
+                  <Text style={styles.summaryValue}>₦{data.posTotal.toLocaleString('en-NG')}</Text>
+                </View>
+             </View>
+          </View>
+
+          <View style={{ borderTopWidth: 1, borderTopColor: '#e5e7eb', paddingTop: 10, paddingBottom: 5 }}>
+            <View style={{ flexDirection: 'row', backgroundColor: '#f9fafb', padding: 4 }}>
+              <Text style={{ flex: 1, fontSize: 8, fontWeight: 'bold' }}>CHANNEL</Text>
+              <Text style={{ flex: 1, fontSize: 8, fontWeight: 'bold', textAlign: 'right' }}>EXPECTED</Text>
+              <Text style={{ flex: 1, fontSize: 8, fontWeight: 'bold', textAlign: 'right' }}>COUNTED (ACTUAL)</Text>
+              <Text style={{ flex: 1, fontSize: 8, fontWeight: 'bold', textAlign: 'right' }}>VARIANCE</Text>
             </View>
-          ))}
-          {data.expenses.length === 0 && (
-             <Text style={[styles.summaryLabel, { fontStyle: 'italic' }]}>No expenses logged today.</Text>
-          )}
+            {[
+              { label: 'Physical Cash', expected: data.netCashToRemit, actual: data.countedCash || 0 },
+              { label: 'Bank Transfer', expected: data.transferTotal, actual: data.countedTransfer || 0 },
+              { label: 'POS Terminal', expected: data.posTotal, actual: data.countedPOS || 0 },
+            ].map((row, i) => {
+              const variance = row.actual - row.expected;
+              return (
+                <View key={`var-${i}`} style={{ flexDirection: 'row', padding: 4, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' }}>
+                  <Text style={{ flex: 1, fontSize: 8 }}>{row.label}</Text>
+                  <Text style={{ flex: 1, fontSize: 8, textAlign: 'right' }}>₦{row.expected.toLocaleString('en-NG')}</Text>
+                  <Text style={{ flex: 1, fontSize: 8, textAlign: 'right', fontWeight: 'bold' }}>₦{row.actual.toLocaleString('en-NG')}</Text>
+                  <Text style={{ flex: 1, fontSize: 8, textAlign: 'right', color: variance === 0 ? '#10B981' : (variance < 0 ? '#EF4444' : '#F59E0B') }}>
+                    {variance === 0 ? 'BALANCED' : (variance > 0 ? `+₦${variance.toLocaleString('en-NG')}` : `-₦${Math.abs(variance).toLocaleString('en-NG')}`)}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
           
+          {data.varianceReason && (
+             <View style={{ marginTop: 10, padding: 8, backgroundColor: '#FEF2F2', borderRadius: 4 }}>
+                <Text style={{ fontSize: 9, fontWeight: 'bold', color: '#991B1B', marginBottom: 2 }}>VARIANCE REASON:</Text>
+                <Text style={{ fontSize: 9, color: '#991B1B' }}>{data.varianceReason}</Text>
+             </View>
+          )}
+
+          {data.denoms && (
+             <View style={{ marginTop: 10 }}>
+                <Text style={{ fontSize: 9, fontWeight: 'bold', color: '#4B5563', marginBottom: 4 }}>CASH DENOMINATIONS:</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                  {Object.entries(data.denoms).map(([k, v]) => {
+                    if (!v || Number(v) === 0) return null;
+                    const val = k.replace('n', '');
+                    return (
+                      <Text key={k} style={{ fontSize: 8, color: '#6B7280', marginRight: 10, marginBottom: 2 }}>
+                        ₦{val} x {v}
+                      </Text>
+                    );
+                  })}
+                </View>
+             </View>
+          )}
+
           <View style={styles.netBox}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ fontSize: 10, color: '#92400E', fontWeight: 'bold' }}>CASH RECEIVED</Text>
-              <Text style={{ fontSize: 10, color: '#92400E' }}>₦{data.cashTotal.toLocaleString('en-NG')}</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={styles.netText}>PHYSICAL CASH REMITTED:</Text>
+              <Text style={styles.netText}>₦{(data.countedCash || 0).toLocaleString('en-NG')}</Text>
             </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
-              <Text style={{ fontSize: 10, color: '#92400E', fontWeight: 'bold' }}>LESS: EXPENSES (CASH)</Text>
-              <Text style={{ fontSize: 10, color: '#92400E' }}>-₦{data.totalExpenses.toLocaleString('en-NG')}</Text>
-            </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F59E0B' }}>
-              <Text style={styles.netText}>NET CASH TO REMIT:</Text>
-              <Text style={styles.netText}>₦{data.netCashToRemit.toLocaleString('en-NG')}</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+              <Text style={{ fontSize: 9, color: '#92400E' }}>Remitted By: {data.lockedBy}</Text>
+              <Text style={{ fontSize: 9, color: '#92400E' }}>Received By: {data.managerName || '________________________'}</Text>
             </View>
           </View>
         </View>
       </View>
 
-      <Text style={[styles.sectionTitle, { marginTop: 20 }]}>TRANSACTION LOG ({data.transactions.length})</Text>
+      <Text style={[styles.sectionTitle, { marginTop: 10 }]}>TRANSACTION LOG ({data.transactions.length})</Text>
       <View style={styles.table}>
         <View style={styles.tableRow}>
           <View style={styles.tableColNarrow}><Text style={styles.tableCellHeader}>S/N</Text></View>

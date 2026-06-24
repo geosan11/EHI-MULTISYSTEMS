@@ -419,7 +419,7 @@ export const ITDashboard = ({ user }: { user: User }) => {
         </div>
 
         <div className="flex flex-wrap gap-2 items-center">
-          <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-md px-3 py-1.5 flex items-center space-x-2">
+          <div className="ehi-card px-3 py-1.5 flex items-center space-x-2">
             <div className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
             <span className="text-[10px] font-mono text-emerald-400 font-bold uppercase">Node Online</span>
           </div>
@@ -435,7 +435,7 @@ export const ITDashboard = ({ user }: { user: User }) => {
 
       {/* Hero Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded p-3.5 relative overflow-hidden">
+        <div className="ehi-card p-3.5 relative overflow-hidden">
           <div className="absolute top-1 right-2 opacity-[0.03]">
             <ShieldAlert size={80} />
           </div>
@@ -448,7 +448,7 @@ export const ITDashboard = ({ user }: { user: User }) => {
           </div>
         </div>
 
-        <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded p-3.5 relative overflow-hidden">
+        <div className="ehi-card p-3.5 relative overflow-hidden">
           <span className="text-[10px] font-mono text-[var(--color-muted)] tracking-wider">ACTIVE BUG TICKETS</span>
           <div className="flex items-baseline space-x-2 mt-1">
             <span className="text-2xl font-bold font-mono text-[var(--color-accent-amber)]">{totalActive}</span>
@@ -456,7 +456,7 @@ export const ITDashboard = ({ user }: { user: User }) => {
           </div>
         </div>
 
-        <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded p-3.5 relative overflow-hidden">
+        <div className="ehi-card p-3.5 relative overflow-hidden">
           <span className="text-[10px] font-mono text-[var(--color-muted)] tracking-wider">LAST SPEED CHECK</span>
           <div className="flex items-baseline space-x-2 mt-1">
             <span className="text-2xl font-bold font-mono text-cyan-400">
@@ -466,7 +466,7 @@ export const ITDashboard = ({ user }: { user: User }) => {
           </div>
         </div>
 
-        <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded p-3.5 relative overflow-hidden">
+        <div className="ehi-card p-3.5 relative overflow-hidden">
           <span className="text-[10px] font-mono text-[var(--color-muted)] tracking-wider">OFFLINE QUEUE INT</span>
           <div className="flex items-baseline space-x-2 mt-1">
             <span className="text-2xl font-bold font-mono text-emerald-400">100%</span>
@@ -508,7 +508,7 @@ export const ITDashboard = ({ user }: { user: User }) => {
         <div className="space-y-4">
           
           {/* Filters & Actions bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[var(--color-surface-1)] p-3 border border-[var(--color-border)] rounded">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 ehi-card p-3">
             <div className="flex flex-wrap items-center gap-2">
               <div className="text-[10px] font-mono text-[var(--color-muted)]">STATUS:</div>
               {['All', 'Active', 'Investigating', 'Resolved'].map(st => (
@@ -545,7 +545,7 @@ export const ITDashboard = ({ user }: { user: User }) => {
           </div>
 
           {/* Quick Bug Injectors */}
-          <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded p-3">
+          <div className="ehi-card p-3">
             <div className="text-[10px] font-mono text-[var(--color-muted)] uppercase mb-2">⚡ Simulate Active Runtime Failures / Inject Bugs:</div>
             <div className="flex flex-wrap gap-2">
               <button
@@ -584,7 +584,7 @@ export const ITDashboard = ({ user }: { user: User }) => {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded p-4"
+              className="ehi-card"
             >
               <form onSubmit={handleAddBug} className="space-y-3">
                 <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2 mb-2">
@@ -770,7 +770,7 @@ export const ITDashboard = ({ user }: { user: User }) => {
       {/* TAB CONTENT: LIVE LOGGER */}
       {activeTab === 'logs' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between bg-[var(--color-surface-1)] p-3 border border-[var(--color-border)] rounded">
+          <div className="flex items-center justify-between ehi-card p-3">
             <div className="flex items-center space-x-2">
               <Terminal size={14} className="text-[var(--color-accent-amber)]" />
               <div className="text-[11px] font-mono text-[var(--color-light-muted)]">SHELL: ehi-logistics-daemon v2.4.1 (active pings)</div>
@@ -819,7 +819,7 @@ export const ITDashboard = ({ user }: { user: User }) => {
       {/* TAB CONTENT: SELF DIAGNOSTICS */}
       {activeTab === 'diagnostics' && (
         <div className="space-y-4">
-          <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="ehi-card flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h3 className="text-sm font-bold font-sans text-white mb-1">EHI Multi-Systems Automated Integration Test</h3>
               <p className="text-xs text-[var(--color-muted)] font-mono">
@@ -839,7 +839,7 @@ export const ITDashboard = ({ user }: { user: User }) => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Visual Checklist Card */}
-            <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded p-4 space-y-4">
+            <div className="ehi-card space-y-4">
               <span className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wider block">Diagnostics Audit Progress:</span>
 
               <div className="space-y-3.5">
@@ -910,7 +910,7 @@ export const ITDashboard = ({ user }: { user: User }) => {
             </div>
 
             {/* Diagnostic Logs Console block */}
-            <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded p-4 flex flex-col justify-between">
+            <div className="ehi-card flex flex-col justify-between">
               <div>
                 <span className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wider block mb-2">Network Performance & Hardware Metrics:</span>
                 
@@ -963,7 +963,7 @@ export const ITDashboard = ({ user }: { user: User }) => {
       {activeTab === 'proposals' && (
         <div className="space-y-4">
           
-          <div className="flex items-center justify-between bg-[var(--color-surface-1)] p-3 border border-[var(--color-border)] rounded">
+          <div className="flex items-center justify-between ehi-card p-3">
             <div>
               <h3 className="text-sm font-bold font-sans text-white">IT Department Improvements & Refinement Roadmap</h3>
               <p className="text-[10px] font-mono text-[var(--color-muted)] mt-0.5">Submit software refinement proposals to EHI core developers based on logged bug metrics.</p>
@@ -984,7 +984,7 @@ export const ITDashboard = ({ user }: { user: User }) => {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded p-4"
+              className="ehi-card"
             >
               <form onSubmit={handleAddProposal} className="space-y-3">
                 <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2 mb-2">

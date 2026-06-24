@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { DEMO_USERS } from '../lib/constants';
 import { UserProfile, signIn } from '../lib/auth';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { LoadingState } from './views/LoadingState';
 
 export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void }) => {
   const [email, setEmail] = useState('');
@@ -97,16 +98,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
           <button 
             type="submit"
             disabled={isLoading}
-            style={{
-              width: '100%', height: 50,
-              background: 'linear-gradient(135deg, var(--color-accent-amber) 0%, #C87900 100%)',
-              border: 'none', borderRadius: 'var(--radius-md)',
-              color: '#0D1117', fontSize: 15, fontWeight: 800,
-              cursor: 'pointer',
-              boxShadow: 'var(--shadow-amber)',
-              opacity: isLoading ? 0.7 : 1,
-              transition: 'opacity 0.15s',
-            }}
+            className="ehi-btn-primary ehi-btn"
           >
             {isLoading ? 'Signing In...' : 'Sign In'}
           </button>

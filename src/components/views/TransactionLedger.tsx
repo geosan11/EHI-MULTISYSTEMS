@@ -112,12 +112,12 @@ export const TransactionLedger = ({
             placeholder="Search entries, dates, amounts..." 
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full h-10 pl-9 pr-3 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg text-[12px] font-sans text-white focus:outline-none focus:border-[var(--color-accent-blue)]"
+            className="w-full h-10 pl-9 pr-3 ehi-card text-[12px] font-sans text-white focus:outline-none focus:border-[var(--color-accent-blue)]"
           />
         </div>
         
         <div className="flex gap-3">
-          <div className="flex items-center bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg overflow-hidden h-10 px-2 font-mono text-[11px]">
+          <div className="flex items-center ehi-card overflow-hidden h-10 px-2 font-mono text-[11px]">
             <Filter size={12} className="text-[var(--color-muted)] mx-2" />
             <select 
               value={typeFilter} 
@@ -132,7 +132,7 @@ export const TransactionLedger = ({
             </select>
           </div>
 
-          <div className="flex items-center bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg overflow-hidden h-10 px-2 font-mono text-[11px]">
+          <div className="flex items-center ehi-card overflow-hidden h-10 px-2 font-mono text-[11px]">
             <select 
               value={modeFilter} 
               onChange={e => setModeFilter(e.target.value)}
@@ -152,7 +152,7 @@ export const TransactionLedger = ({
 
       {/* Table Container */}
       <div className="flex-1 overflow-auto p-4 pb-20">
-        <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl overflow-hidden shadow-sm">
+        <div className="ehi-card overflow-hidden shadow-sm">
           <table className="w-full text-left font-mono text-[10px]">
             <thead className="bg-[#111827]">
               <tr className="text-[var(--color-muted)] border-b border-[rgba(255,255,255,0.05)] uppercase">

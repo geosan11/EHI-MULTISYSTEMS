@@ -641,7 +641,7 @@ export const Scanner = ({
           <div className="min-w-0 flex-1">
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-accent-amber)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: 6 }}>
               <span>⚡ Batch Queue Storage</span>
-              <span className="px-1.5 py-0.5 rounded bg-[var(--color-accent-amber)] text-black text-[9px] font-extrabold">{batchQueue.length}</span>
+              <span className="ehi-btn-primary ehi-btn">{batchQueue.length}</span>
             </div>
             <div style={{ fontSize: 10, color: 'var(--color-muted)', marginTop: 4 }} className="truncate font-sans font-medium">
               Scans are staged locally. Tap to summarize and commit.
@@ -652,7 +652,7 @@ export const Scanner = ({
               e.stopPropagation();
               setShowQueueSummary(true);
             }}
-            className="px-3 py-1.5 bg-[var(--color-accent-amber)] hover:bg-opacity-90 text-black text-[10px] font-bold font-sans rounded-[var(--radius-xs)] border-none shrink-0 transition-colors cursor-pointer"
+            className="ehi-btn-primary ehi-btn"
           >
             REVIEW & COMMIT
           </button>
@@ -711,7 +711,7 @@ export const Scanner = ({
           onChange={e => setManualRef(e.target.value.toUpperCase())}
           onKeyDown={e => e.key === 'Enter' && handleManualLookup()}
           placeholder="Enter AWB / tag ref manually..."
-          className="flex-1 h-11 px-3 text-[12px] font-mono rounded border border-[var(--color-border)] focus:border-[var(--color-muted)] outline-none bg-[var(--color-input-bg)] text-[var(--color-input-text)]"
+          className="ehi-input"
         />
         <button
           onClick={handleManualLookup}
@@ -733,7 +733,7 @@ export const Scanner = ({
             <div className="text-[18px] font-bold font-mono text-[var(--color-error)]">{batchAlerts}</div>
             <div className="text-[8px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Alerts</div>
           </div>
-          <div className="flex-1 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded p-2 text-center">
+          <div className="flex-1 ehi-card p-2 text-center">
             <div className="text-[18px] font-bold font-mono text-[var(--color-foreground)]">{batchItems.length}</div>
             <div className="text-[8px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Total</div>
           </div>
@@ -741,7 +741,7 @@ export const Scanner = ({
       )}
 
       {/* Recent Scans List */}
-      <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl p-4 shadow-sm">
+      <div className="ehi-card">
         <div className="flex items-center justify-between mb-3 border-b border-[var(--color-border)] pb-2">
           <div className="flex items-center gap-1.5">
             <span className="text-[12px] font-sans font-bold text-[var(--color-foreground)]">Recent Scans</span>

@@ -133,7 +133,7 @@ export const Forecasting = ({
         {/* Double split charts */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Chart: Historical Baseline Area */}
-          <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl p-4 lg:col-span-6 space-y-4">
+          <div className="ehi-card lg:col-span-6 space-y-4">
             <div className="flex justify-between items-center text-xs font-mono font-bold uppercase text-slate-400">
               <span>Historical Daily Baseline</span>
               <span className="text-[9px] text-[var(--color-accent-cobalt)]">Actual data logs</span>
@@ -160,7 +160,7 @@ export const Forecasting = ({
           </div>
 
           {/* Right Chart: AI Projected Bar Series */}
-          <div className="bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.05)] rounded-xl p-4 lg:col-span-6 space-y-4">
+          <div className="ehi-card p-4 lg:col-span-6 space-y-4">
             <div className="flex justify-between items-center text-xs font-mono font-bold uppercase text-slate-400">
               <span>Next 7-Day Predicted Load</span>
               <span className="text-[9px] text-[var(--color-accent-amber)] flex items-center space-x-1">
@@ -219,7 +219,7 @@ export const Forecasting = ({
         )}
 
         {/* Route Demand Calendar Heatmap Grid */}
-        <div className="bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.05)] rounded-xl p-4 space-y-4">
+        <div className="ehi-card p-4 space-y-4">
           <div className="flex justify-between items-center">
             <div>
               <span className="text-[10px] font-mono font-bold text-[var(--color-foreground)] uppercase tracking-wider block">ROUTE STATIONS CAPACITY CALENDAR</span>

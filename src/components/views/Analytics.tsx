@@ -304,7 +304,7 @@ export const Analytics = ({
       {/* Revenue Stream KPI Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {/* KPI 1 : Cargo Revenue */}
-        <div className="bg-[var(--color-surface-1)] rounded border border-[rgba(255,255,255,0.05)] p-3 relative overflow-hidden flex flex-col justify-between h-[85px]">
+        <div className="ehi-card p-3 relative overflow-hidden flex flex-col justify-between h-[85px]">
           <div className="absolute left-0 top-0 bottom-0 w-[2.5px] bg-[var(--color-accent-amber)]" />
           <div className="text-[8px] font-mono text-[var(--color-muted)] uppercase tracking-wider pl-1">Cargo Stream</div>
           <div className="text-[17px] font-bold font-mono text-[var(--color-accent-amber)] pl-1">{fmt(stats.cargoRev)}</div>
@@ -314,7 +314,7 @@ export const Analytics = ({
         </div>
 
         {/* KPI 2 : Marketing Revenue */}
-        <div className="bg-[var(--color-surface-1)] rounded border border-[rgba(255,255,255,0.05)] p-3 relative overflow-hidden flex flex-col justify-between h-[85px]">
+        <div className="ehi-card p-3 relative overflow-hidden flex flex-col justify-between h-[85px]">
           <div className="absolute left-0 top-0 bottom-0 w-[2.5px] bg-[var(--color-success)]" />
           <div className="text-[8px] font-mono text-[var(--color-muted)] uppercase tracking-wider pl-1">Field Marketing</div>
           <div className="text-[17px] font-bold font-mono text-[var(--color-success)] pl-1">{fmt(stats.mktgRev)}</div>
@@ -324,7 +324,7 @@ export const Analytics = ({
         </div>
 
         {/* KPI 3 : ValueJet Baggage */}
-        <div className="bg-[var(--color-surface-1)] rounded border border-[rgba(255,255,255,0.05)] p-3 relative overflow-hidden flex flex-col justify-between h-[85px]">
+        <div className="ehi-card p-3 relative overflow-hidden flex flex-col justify-between h-[85px]">
           <div className="absolute left-0 top-0 bottom-0 w-[2.5px] bg-[var(--color-accent-cobalt)]" />
           <div className="text-[8px] font-mono text-[var(--color-muted)] uppercase tracking-wider pl-1">ValueJet Baggage</div>
           <div className="text-[17px] font-bold font-mono text-[var(--color-accent-cobalt)] pl-1">{fmt(stats.vjRev)}</div>
@@ -334,7 +334,7 @@ export const Analytics = ({
         </div>
 
         {/* Dynamic Top Route Card */}
-        <div className="bg-[var(--color-surface-1)] rounded border border-[rgba(255,255,255,0.05)] p-3 relative overflow-hidden flex flex-col justify-between h-[85px]">
+        <div className="ehi-card p-3 relative overflow-hidden flex flex-col justify-between h-[85px]">
           <div className="absolute left-0 top-0 bottom-0 w-[2.5px] bg-purple-500" />
           <div className="text-[8px] font-mono text-[var(--color-muted)] uppercase tracking-wider pl-1 font-bold">Leading Location</div>
           <div className="text-[13px] font-bold font-mono text-purple-300 pl-1 py-1 uppercase truncate">{stats.topRoute}</div>
@@ -352,7 +352,7 @@ export const Analytics = ({
       </div>
 
       {/* Revenue Trend Chart Section */}
-      <div className="bg-[var(--color-surface-1)] rounded border border-[rgba(255,255,255,0.05)] p-4 space-y-3">
+      <div className="ehi-card p-4 space-y-3">
         <div className="text-[9px] font-mono text-[var(--color-foreground)] uppercase tracking-wider flex items-center space-x-1.5">
           <TrendingUp size={11} className="text-[var(--color-accent-cobalt)]" />
           <span>REVENUE PERFORMANCE TREND (Last 7 Days)</span>
@@ -396,7 +396,7 @@ export const Analytics = ({
       {/* Route Performance & Payment Breakdown */}
       <div className="grid md:grid-cols-2 gap-4">
         {/* Horizontal Top Routes Table */}
-        <div className="bg-[var(--color-surface-1)] rounded border border-[rgba(255,255,255,0.05)] p-4 space-y-3">
+        <div className="ehi-card p-4 space-y-3">
           <div className="text-[9px] font-mono text-[var(--color-foreground)] uppercase tracking-wider flex items-center space-x-2">
             <Layers size={11} className="text-purple-400" />
             <span>RANKED ROUTES BY REVENUE VOLUME</span>
@@ -424,7 +424,7 @@ export const Analytics = ({
         </div>
 
         {/* Payment breakdown Donut style mapping */}
-        <div className="bg-[var(--color-surface-1)] rounded border border-[rgba(255,255,255,0.05)] p-4 space-y-3">
+        <div className="ehi-card p-4 space-y-3">
           <div className="text-[9px] font-mono text-[var(--color-foreground)] uppercase tracking-wider">PAYMENT INSTRUMENT BREAKDOWN</div>
           <div className="flex items-center justify-between">
             {/* Legend Left */}
@@ -475,7 +475,7 @@ export const Analytics = ({
       {/* Intelligence & Matrix */}
       <div className="grid md:grid-cols-2 gap-4">
         {/* Cargo Intelligence Deep Dive */}
-        <div className="bg-[var(--color-surface-1)] rounded border border-[rgba(255,255,255,0.05)] p-4 space-y-3 h-full">
+        <div className="ehi-card p-4 space-y-3 h-full">
         <div className="text-[9px] font-mono text-[var(--color-accent-amber)] uppercase tracking-wider flex items-center space-x-1.5 font-bold">
           <Package size={11} />
           <span>CARGO DESK REVENUE INTELLIGENCE</span>
@@ -527,7 +527,7 @@ export const Analytics = ({
       </div>
 
       {/* Field Marketing intelligence deep dive */}
-      <div className="bg-[var(--color-surface-1)] rounded border border-[rgba(255,255,255,0.05)] p-4 space-y-3 h-full">
+      <div className="ehi-card p-4 space-y-3 h-full">
         <div className="text-[9px] font-mono text-[var(--color-success)] uppercase tracking-wider flex items-center space-x-1.5 font-bold">
           <TrendingUp size={11} />
           <span>FIELD MARKETING AGENT RECORD</span>
@@ -567,7 +567,7 @@ export const Analytics = ({
 
       <div className="grid md:grid-cols-2 gap-4">
         {/* Multi-Hub Performance Matrix Section */}
-        <div className="bg-[var(--color-surface-1)] rounded border border-[rgba(255,255,255,0.05)] p-4 space-y-3 h-full">
+        <div className="ehi-card p-4 space-y-3 h-full">
         <div className="text-[9px] font-mono text-[var(--color-foreground)] uppercase tracking-wider flex items-center space-x-1.5 font-bold">
           <MapPin size={11} className="text-purple-400" />
           <span>MULTI-HUB LOGISTICS DISTRIBUTION</span>
@@ -597,7 +597,7 @@ export const Analytics = ({
       </div>
 
       {/* AI Insights panel Powered by Gemini */}
-      <div className="bg-[var(--color-surface-1)] rounded border border-[rgba(255,255,255,0.05)] overflow-hidden h-full flex flex-col">
+      <div className="ehi-card overflow-hidden h-full flex flex-col">
         {/* Header bar */}
         <div className="bg-[rgba(16,185,129,0.08)] border-b border-[rgba(255,255,255,0.05)] p-3 flex justify-between items-center">
           <div className="flex items-center space-x-1.5">

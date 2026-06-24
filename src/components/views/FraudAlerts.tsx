@@ -196,7 +196,7 @@ export const FraudAlerts = ({
       {/* Evaluation Log Modals */}
       {selectedAlert && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-55">
-          <div className="bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-sm w-full overflow-hidden shadow-2xl">
+          <div className="ehi-card max-w-sm w-full overflow-hidden shadow-2xl">
             <div className="p-4 border-b border-[rgba(255,255,255,0.07)] flex justify-between items-center bg-black/40">
               <span className="text-[9px] font-mono text-[var(--color-error)] uppercase font-bold tracking-wider">SECURE SECURITY ANOMALY EVALUATION</span>
               <button onClick={() => setSelectedAlert(null)} className="text-slate-400 hover:text-[var(--color-foreground)] font-mono text-xs cursor-pointer">✕</button>
@@ -223,7 +223,7 @@ export const FraudAlerts = ({
               <div className="flex space-x-2 pt-2">
                 <button 
                   type="submit"
-                  className="flex-1 bg-[var(--color-error)] text-white font-mono text-[10px] font-bold uppercase py-2.5 rounded hover:bg-red-650 cursor-pointer"
+                  className="ehi-btn-destructive ehi-btn"
                 >
                   Confirm Audited Override
                 </button>

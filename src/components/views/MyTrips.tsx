@@ -32,7 +32,7 @@ const TripCard: React.FC<TripCardProps> = ({
 
   return (
     <div
-      className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl overflow-hidden mb-3"
+      className="ehi-card overflow-hidden mb-3"
       style={{ borderLeft: `3px solid ${statusColor}` }}
     >
       {/* Card header */}

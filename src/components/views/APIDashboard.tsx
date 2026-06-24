@@ -118,7 +118,7 @@ export const APIDashboard = ({
       {/* Tab content controller */}
       {activeSubTab === 'console' ? (
         <div className="space-y-4">
-          <div className="bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.05)] rounded-xl p-4 space-y-4">
+          <div className="ehi-card p-4 space-y-4">
             <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">Active Developer Tokens</span>
 
             <div className="divide-y divide-[rgba(255,255,255,0.05)] text-xs font-mono">
@@ -151,7 +151,7 @@ export const APIDashboard = ({
           </div>
         </div>
       ) : (
-        <div className="bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.05)] rounded-xl p-4 space-y-6 font-mono text-xs text-slate-300">
+        <div className="ehi-card p-4 space-y-6 font-mono text-xs text-slate-300">
           <div className="space-y-2">
             <h3 className="text-sm font-bold text-[var(--color-foreground)] uppercase tracking-wider flex items-center space-x-1.5">
               <Shield size={14} className="text-[var(--color-accent-cobalt)]" />
@@ -213,7 +213,7 @@ export const APIDashboard = ({
       {/* Generate Key Modal */}
       {showAddKeyModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-55">
-          <div className="bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-sm w-full overflow-hidden shadow-2xl">
+          <div className="ehi-card max-w-sm w-full overflow-hidden shadow-2xl">
             <div className="p-4 border-b border-[rgba(255,255,255,0.07)] flex justify-between items-center bg-black/40">
               <span className="text-[10px] font-mono text-[var(--color-accent-cobalt)] uppercase font-bold tracking-wider">GENERATE API CREDENTIALS</span>
               <button onClick={() => setShowAddKeyModal(false)} className="text-slate-400 hover:text-[var(--color-foreground)] font-mono text-xs cursor-pointer">✕</button>

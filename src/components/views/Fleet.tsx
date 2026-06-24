@@ -231,7 +231,7 @@ export const Fleet = ({
       )}
 
       {activeTab === 'maintenance' && (
-        <div className="bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.05)] rounded-xl overflow-hidden">
+        <div className="ehi-card overflow-hidden">
           <div className="p-3 border-b border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.02)] flex justify-between items-center">
             <span className="text-[10px] font-mono text-[var(--color-foreground)] uppercase tracking-wider">Scheduled Fleet Services</span>
             <span className="text-[9px] text-[var(--color-muted)] font-mono uppercase">Interval Checklist (90-Day Standard)</span>
@@ -285,7 +285,7 @@ export const Fleet = ({
       {activeTab === 'fuel' && (
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
           {/* Fuel Entry Log Form */}
-          <form onSubmit={handleLogFuel} className="bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.05)] rounded-xl p-4 md:col-span-4 h-max space-y-4">
+          <form onSubmit={handleLogFuel} className="ehi-card p-4 md:col-span-4 h-max space-y-4">
             <div className="text-[10px] font-mono text-[var(--color-accent-amber)] tracking-wider uppercase">Log Fuel Consumption</div>
 
             <div className="space-y-1">
@@ -344,7 +344,7 @@ export const Fleet = ({
           </form>
 
           {/* Historical Log list */}
-          <div className="bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.05)] rounded-xl md:col-span-8 overflow-hidden">
+          <div className="ehi-card md:col-span-8 overflow-hidden">
             <div className="p-3 border-b border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.02)] flex justify-between items-center">
               <span className="text-[10px] font-mono text-[var(--color-foreground)] uppercase tracking-wider font-bold">Historical Fuel Expenditures</span>
               <span className="text-[9px] text-[var(--color-muted)] font-mono uppercase">Fleet records</span>
@@ -378,7 +378,7 @@ export const Fleet = ({
       {/* Add Vehicle Modal Overlay */}
       {showAddVehicleModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-55">
-          <div className="bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.1)] rounded-xl max-w-sm w-full overflow-hidden shadow-2xl">
+          <div className="ehi-card max-w-sm w-full overflow-hidden shadow-2xl">
             <div className="p-4 border-b border-[rgba(255,255,255,0.07)] flex justify-between items-center bg-black/40">
               <span className="text-[10px] font-mono text-[var(--color-accent-amber)] uppercase font-bold tracking-wider">ADD VEHICLE TO FLEET</span>
               <button onClick={() => setShowAddVehicleModal(false)} className="text-slate-400 hover:text-[var(--color-foreground)] font-mono text-xs cursor-pointer">✕</button>

@@ -151,7 +151,7 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
                 value={receiverName} 
                 onChange={e => setReceiverName(e.target.value)} 
                 placeholder="Name of person taking package" 
-                className="w-full bg-[var(--color-input-bg)] border border-[var(--color-border)] rounded h-11 px-3 text-[var(--color-foreground)] text-sm font-sans focus:outline-none focus:border-[var(--color-accent-amber)]" 
+                className="ehi-input" 
               />
             </div>
             
@@ -162,7 +162,7 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
                 value={receiverPhone} 
                 onChange={e => setReceiverPhone(e.target.value)} 
                 placeholder="Optional contact number" 
-                className="w-full bg-[var(--color-input-bg)] border border-[var(--color-border)] rounded h-11 px-3 text-[var(--color-foreground)] text-sm font-sans focus:outline-none focus:border-[var(--color-accent-amber)]" 
+                className="ehi-input" 
               />
             </div>
 
@@ -172,7 +172,7 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
                 <select 
                   value={idType} 
                   onChange={e => setIdType(e.target.value as any)} 
-                  className="w-full bg-[var(--color-input-bg)] border border-[var(--color-border)] rounded h-11 px-3 text-[var(--color-foreground)] text-sm font-sans focus:outline-none focus:border-[var(--color-accent-amber)] appearance-none"
+                  className="ehi-input"
                 >
                   <option value="">Select ID...</option>
                   <option value="NIN">NIN</option>
@@ -188,7 +188,7 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
                   value={idNumber} 
                   onChange={e => setIdNumber(e.target.value)} 
                   placeholder="Optional ID #..." 
-                  className="w-full bg-[var(--color-input-bg)] border border-[var(--color-border)] rounded h-11 px-3 text-[var(--color-foreground)] text-sm font-sans focus:outline-none focus:border-[var(--color-accent-amber)]" 
+                  className="ehi-input" 
                 />
               </div>
             </div>
@@ -232,7 +232,7 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
                   <button onClick={handleCapture} className="flex-1 h-11 bg-[var(--color-success)] text-black font-bold uppercase text-[12px] flex items-center justify-center gap-2 cursor-pointer rounded border-none">
                     <Camera size={14} /> Snap
                   </button>
-                  <button onClick={() => setIsPhotoActive(false)} className="flex-1 h-11 bg-transparent border border-[var(--color-border)] text-[var(--color-foreground)] font-bold uppercase text-[12px] cursor-pointer rounded">
+                  <button onClick={() => setIsPhotoActive(false)} className="ehi-btn-secondary ehi-btn">
                     Cancel
                   </button>
                 </div>
@@ -258,7 +258,7 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
               value={notes} 
               onChange={e => setNotes(e.target.value)} 
               placeholder="E.g. Left with security guard, package inspected..." 
-              className="w-full bg-[var(--color-input-bg)] border border-[var(--color-border)] rounded px-3 py-2 text-[var(--color-foreground)] text-sm font-sans focus:outline-none focus:border-[var(--color-accent-amber)] resize-none"
+              className="ehi-input"
               rows={3}
             />
           </div>

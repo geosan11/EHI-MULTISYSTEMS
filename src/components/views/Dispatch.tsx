@@ -88,7 +88,7 @@ export const Dispatch = ({ onBack }: { onBack: () => void }) => {
               <div 
                 key={trip.id} 
                 onClick={() => setSelectedTrip(trip)}
-                className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl p-4 cursor-pointer hover:border-[var(--color-accent-blue)] transition-colors group"
+                className="ehi-card cursor-pointer hover:border-[var(--color-accent-blue)] transition-colors group"
               >
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex items-center gap-3">

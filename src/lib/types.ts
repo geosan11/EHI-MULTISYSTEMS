@@ -159,6 +159,7 @@ export interface Expense {
   description: string;
   time: string;
   status?: 'pending' | 'approved' | 'rejected';
+  mode?: string;
 }
 
 export type TabView = 'Tower' | 'Cargo' | 'VJ POS' | 'Marketing' | 'Scan' | 'More' | 'MyTrips' | 'IT Debug';

@@ -195,7 +195,7 @@ export const Settings = ({
       </div>
 
       {user.role === 'super_admin' && (
-        <div className="bg-[var(--color-surface-1)] rounded border border-[var(--color-border)] overflow-hidden">
+        <div className="ehi-card overflow-hidden">
           {/* Section header */}
           <div className="px-4 py-3 border-b border-[rgba(255,255,255,0.05)] flex items-center gap-2">
             <Key size={13} className="text-[var(--color-accent-amber)]" />
@@ -458,7 +458,7 @@ export const Settings = ({
       )}
 
       {/* Global Automation Switches Card */}
-      <div className="bg-[var(--color-surface-1)] rounded border border-[rgba(255,255,255,0.05)] p-4 space-y-4">
+      <div className="ehi-card p-4 space-y-4">
         <div className="text-[9px] font-mono text-[var(--color-foreground)] tracking-widest uppercase">AUTOMATION SERVICES</div>
         
         {/* Toggle WhatsApp Notifications */}
@@ -491,7 +491,7 @@ export const Settings = ({
       </div>
 
       {/* Routing Matrix Pricing Configuration List */}
-      <div className="bg-[var(--color-surface-1)] rounded border border-[rgba(255,255,255,0.05)] p-4 space-y-4">
+      <div className="ehi-card p-4 space-y-4">
         <div className="flex justify-between items-center">
           <div className="text-[9px] font-mono text-[var(--color-foreground)] tracking-widest uppercase flex items-center space-x-1.5">
             <DollarSign size={12} className="text-[var(--color-accent-amber)]" />
@@ -542,7 +542,7 @@ export const Settings = ({
       {/* regional and aviation grid container */}
       <div className="grid md:grid-cols-2 gap-4">
         {/* regional station hubs management */}
-        <div className="bg-[var(--color-surface-1)] rounded border border-[rgba(255,255,255,0.05)] p-4 space-y-3">
+        <div className="ehi-card p-4 space-y-3">
         <div className="text-[9px] font-mono text-[var(--color-foreground)] tracking-widest uppercase flex items-center space-x-1.5">
           <MapPin size={11} className="text-purple-400" />
           <span>MULTI-HUB OUTPOSTS</span>
@@ -570,7 +570,7 @@ export const Settings = ({
         </div>
         
         {/* aviation air cargo carriers configuration list */}
-        <div className="bg-[var(--color-surface-1)] rounded border border-[rgba(255,255,255,0.05)] p-4 space-y-3">
+        <div className="ehi-card p-4 space-y-3">
         <div className="text-[9px] font-mono text-[var(--color-foreground)] tracking-widest uppercase flex items-center space-x-1.5">
           <Plane size={11} className="text-[var(--color-accent-cobalt)]" />
           <span>AVIATION AIRLINE SUPPORTS</span>

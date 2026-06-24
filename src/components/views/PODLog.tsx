@@ -53,12 +53,12 @@ export const PODLog = ({ onBack }: { onBack: () => void }) => {
             placeholder="Search AWB, Consignee, Receiver..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full h-11 pl-9 pr-3 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl text-[12px] font-mono text-[var(--color-input-text)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
+            className="w-full h-11 pl-9 pr-3 ehi-card text-[12px] font-mono text-[var(--color-input-text)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
           />
         </div>
         <button 
           onClick={fetchPods} 
-          className="h-11 px-4 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl flex items-center justify-center text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors cursor-pointer"
+          className="h-11 px-4 ehi-card flex items-center justify-center text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors cursor-pointer"
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
         </button>
@@ -80,7 +80,7 @@ export const PODLog = ({ onBack }: { onBack: () => void }) => {
             <div 
               key={pod.id}
               onClick={() => setSelectedPod(pod)}
-              className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl p-3 flex items-center justify-between cursor-pointer hover:border-[var(--color-muted)] transition-colors group"
+              className="ehi-card p-3 flex items-center justify-between cursor-pointer hover:border-[var(--color-muted)] transition-colors group"
             >
               <div className="flex items-start gap-3 min-w-0">
                 <div className="p-2 bg-[rgba(16,185,129,0.1)] rounded-lg text-[var(--color-success)] shrink-0">

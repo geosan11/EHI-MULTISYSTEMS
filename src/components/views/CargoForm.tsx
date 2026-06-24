@@ -735,7 +735,7 @@ export const CargoForm = ({ onAddTx, user }: {
                     type="number"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="w-full h-14 pl-9 pr-4 text-[20px] font-bold text-[var(--color-accent-amber)] rounded-[var(--radius-sm)] bg-[var(--color-input-bg)] border border-[var(--color-border-strong)] font-mono focus:outline-none transition-all"
+                    className="ehi-input"
                   />
                 </div>
               </div>
@@ -1185,7 +1185,7 @@ export const CargoForm = ({ onAddTx, user }: {
                       SCALE WEIGHING CONSOLE
                     </div>
 
-                    <div className="bg-[var(--color-input-bg)] p-3 rounded border border-[var(--color-border)] mb-4 text-[12px] space-y-1">
+                    <div className="ehi-input">
                       <div className="flex justify-between">
                         <span className="text-zinc-400">Arrived Client:</span>
                         <span className="font-bold text-white">{selectedIntake.consignee}</span>
@@ -1470,7 +1470,7 @@ export const CargoForm = ({ onAddTx, user }: {
                           </div>
                           <button
                             onClick={handleSaveRouteRate}
-                            className="w-full py-2 bg-[var(--color-accent-amber)] text-black font-bold text-[12px] hover:opacity-95 rounded cursor-pointer"
+                            className="ehi-btn-primary ehi-btn"
                           >
                             ✓ SAVE NEGOTIATED TARIFF
                           </button>

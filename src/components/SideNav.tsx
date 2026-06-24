@@ -5,22 +5,6 @@ import {
 import { User, TabView } from '../lib/types';
 import { Theme } from '../lib/useTheme';
 
-type AccentType = 'neutral' | 'amber' | 'cobalt' | 'success';
-
-const accentColor: Record<AccentType, string> = {
-  neutral: 'var(--color-foreground)',
-  amber: 'var(--color-accent-amber)',
-  cobalt: 'var(--color-accent-cobalt)',
-  success: 'var(--color-success)',
-};
-
-const accentBg: Record<AccentType, string> = {
-  neutral: 'var(--color-surface-2)',
-  amber: 'rgba(245,158,11,0.10)',
-  cobalt: 'rgba(59,130,246,0.10)',
-  success: 'rgba(16,185,129,0.10)',
-};
-
 export const SideNav = ({
   user, currentTab, onChangeTab, onLogout, theme, onToggleTheme
 }: {
@@ -32,20 +16,22 @@ export const SideNav = ({
   onToggleTheme: () => void;
 }) => {
   const allTabs: {
-    id: TabView; icon: any; label: string;
-    accent: AccentType; roles: string[];
+    id: TabView; icon: any; label: string; roles: string[];
   }[] = [
-    { id: 'Tower',     icon: LayoutDashboard,  label: 'Control Tower', accent: 'neutral', roles: ['super_admin','admin','cargo_agent','vj_agent','accountant','auditor'] },
-    { id: 'Cargo',     icon: Package,          label: 'Cargo Entry',   accent: 'amber',   roles: ['super_admin','admin','cargo_agent'] },
-    { id: 'Marketing', icon: TrendingUp,       label: 'Marketing',     accent: 'success', roles: ['super_admin','admin','marketing_agent'] },
-    { id: 'VJ POS',    icon: Plane,            label: 'ValueJet POS',  accent: 'cobalt',  roles: ['super_admin','admin','vj_agent'] },
-    { id: 'Scan',      icon: QrCode,           label: 'QR Scanner',    accent: 'success', roles: ['super_admin','admin','cargo_agent','vj_agent','marketing_agent','driver'] },
-    { id: 'MyTrips',   icon: Truck,            label: 'My Trips',      accent: 'neutral', roles: ['driver'] },
-    { id: 'IT Debug',  icon: Cpu,              label: 'IT Debug',      accent: 'amber',   roles: ['super_admin','admin'] },
-    { id: 'More',      icon: MoreHorizontal,   label: 'More',          accent: 'neutral', roles: ['super_admin','admin','accountant','auditor'] },
+    { id: 'Tower',     icon: LayoutDashboard,  label: 'Control Tower', roles: ['super_admin','admin','cargo_agent','vj_agent','accountant','auditor'] },
+    { id: 'Cargo',     icon: Package,          label: 'Cargo Entry',   roles: ['super_admin','admin','cargo_agent'] },
+    { id: 'Marketing', icon: TrendingUp,       label: 'Marketing',     roles: ['super_admin','admin','marketing_agent'] },
+    { id: 'VJ POS',    icon: Plane,            label: 'ValueJet POS',  roles: ['super_admin','admin','vj_agent'] },
+    { id: 'Scan',      icon: QrCode,           label: 'QR Scanner',    roles: ['super_admin','admin','cargo_agent','vj_agent','marketing_agent','driver'] },
+    { id: 'MyTrips',   icon: Truck,            label: 'My Trips',      roles: ['driver'] },
+    { id: 'IT Debug',  icon: Cpu,              label: 'IT Debug',      roles: ['super_admin','admin'] },
+    { id: 'More',      icon: MoreHorizontal,   label: 'More',          roles: ['super_admin','admin','accountant','auditor'] },
   ];
 
   const visibleTabs = allTabs.filter(t => t.roles.includes(user.role));
+
+  const activeColor = 'var(--color-accent-amber)';
+  const activeBg = 'rgba(245,158,11,0.10)';
 
   return (
     <aside
@@ -120,20 +106,20 @@ export const SideNav = ({
         {visibleTabs.map(tab => {
           const Icon = tab.icon;
           const isActive = currentTab === tab.id;
-          const color = accentColor[tab.accent];
 
           return (
             <button
               key={tab.id}
               onClick={() => onChangeTab(tab.id)}
+              className={`group ${isActive ? '' : 'hover:bg-[rgba(255,255,255,0.02)]'}`}
               style={{
                 width: '100%',
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '11px 14px',
-                background: isActive ? accentBg[tab.accent] : 'transparent',
+                background: isActive ? activeBg : 'transparent',
                 border: 'none',
                 borderLeft: isActive
-                  ? `2px solid ${color}`
+                  ? `2px solid ${activeColor}`
                   : '2px solid transparent',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
@@ -142,17 +128,18 @@ export const SideNav = ({
             >
               <Icon
                 size={18}
-                color={isActive ? color : 'var(--color-muted)'}
+                color={isActive ? activeColor : 'var(--color-muted)'}
                 strokeWidth={isActive ? 2.5 : 1.5}
-                style={{ flexShrink: 0 }}
+                style={{ flexShrink: 0, transition: 'color 0.15s ease' }}
+                className={isActive ? '' : 'group-hover:text-[var(--color-accent-amber)]'}
               />
               <span
-                className="ehi-sidebar-text"
+                className={`ehi-sidebar-text ${isActive ? '' : 'group-hover:text-[var(--color-accent-amber)]'}`}
                 style={{
-                  fontSize: 12,
-                  fontWeight: isActive ? 700 : 400,
-                  color: isActive ? color : 'var(--color-light-muted)',
-                  whiteSpace: 'nowrap',
+                  fontSize: 13,
+                  fontWeight: isActive ? 600 : 500,
+                  color: isActive ? activeColor : 'var(--color-muted)',
+                  transition: 'all 0.15s ease',
                 }}
               >
                 {tab.label}

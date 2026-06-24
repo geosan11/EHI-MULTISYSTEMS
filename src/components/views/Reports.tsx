@@ -244,7 +244,7 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
           </button>
 
           {/* Date range selector */}
-          <div className="ehi-card p-4 space-y-3">
+          <div className="ehi-card space-y-3">
             <div className="flex items-center gap-2">
               <Calendar size={13} style={{ color: 'var(--color-accent-amber)' }} />
               <span className="text-[9px] font-mono uppercase tracking-wider text-[var(--color-accent-amber)] font-bold">Date Range</span>
@@ -278,7 +278,7 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
           </div>
 
           {/* Report content area */}
-          <div className="ehi-card p-4">
+          <div className="ehi-card">
             <div className="text-[14px] font-bold text-[var(--color-foreground)] mb-3">
               {REPORT_TYPES.find(r => r.id === selectedReport)?.label}
             </div>
