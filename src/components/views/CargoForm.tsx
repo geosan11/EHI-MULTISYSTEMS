@@ -269,6 +269,7 @@ export const CargoForm = ({ onAddTx, user }: {
       type: 'cargo',
       status: 'Intake',
       awb_tag_number: selectedIntake.awb,
+      airline: selectedIntake.airline,
       pieces: selectedIntake.pieces,
       kg: weightNum
     };
@@ -372,6 +373,7 @@ export const CargoForm = ({ onAddTx, user }: {
       type: 'cargo',
       status: 'Intake',
       awb_tag_number: awb,
+      airline: airline,
       pieces: parseInt(pcs) || 1,
       kg: parseFloat(kg) || 0,
     };

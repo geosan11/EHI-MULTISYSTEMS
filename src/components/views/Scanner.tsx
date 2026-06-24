@@ -535,7 +535,7 @@ export const Scanner = ({
       </div>
 
       {/* Mode Toggle — ARRIVE / DEPART / DELIVER */}
-      <div className="flex bg-[var(--color-surface-2)] p-1 rounded-xl mb-6 shadow-inner" style={{ width: '100%' }}>
+      <div className="flex bg-[var(--color-surface-2)] p-1 rounded-lg mb-6 shadow-inner" style={{ width: '100%' }}>
         {(['ARRIVE', 'DEPART', 'DELIVER'] as ScanMode[]).map((m) => {
           const active = mode === m;
           const activeColor = m === 'ARRIVE' ? 'var(--color-success)' : m === 'DEPART' ? 'var(--color-accent-cobalt)' : '#a855f7';
@@ -581,7 +581,7 @@ export const Scanner = ({
       </div>
 
       {/* Scan Logic Option Toggle: Instant vs Batch Queue */}
-      <div className="flex bg-[var(--color-surface-2)] p-1 rounded-xl shadow-inner mt-1 mb-2" style={{ width: '100%' }}>
+      <div className="flex bg-[var(--color-surface-2)] p-1 rounded-lg shadow-inner mt-1 mb-2" style={{ width: '100%' }}>
         {[
           { key: 'instant', label: '⚡ Instant Log', desc: 'Direct DB commit' },
           { key: 'batch', label: '📥 Batch Queue', desc: 'Verify before log' }
@@ -686,7 +686,7 @@ export const Scanner = ({
       ) : (
         <button
           onClick={startScanner}
-          className="w-full flex flex-col items-center justify-center gap-3 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] transition-colors border-2 border-dashed border-[var(--color-accent-amber)] rounded-2xl cursor-pointer"
+          className="w-full flex flex-col items-center justify-center gap-3 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] transition-colors border-2 border-dashed border-[var(--color-accent-amber)] rounded-lg cursor-pointer"
           style={{ height: 'clamp(160px, 35vw, 240px)' }}
         >
           <div className="p-4 bg-[var(--color-surface-1)] rounded-full mb-1">
@@ -725,11 +725,11 @@ export const Scanner = ({
       {/* Batch counter when active */}
       {batchItems.length > 0 && (
         <div className="flex gap-3 mt-2">
-          <div className="flex-1 bg-[rgba(16,185,129,0.07)] border border-[rgba(16,185,129,0.2)] rounded p-2 text-center">
+          <div className="flex-1 bg-[rgba(16,185,129,0.07)] border border-[rgba(16,185,129,0.2)] rounded-[var(--radius-lg)] p-2 text-center">
             <div className="text-[18px] font-bold font-mono text-[var(--color-success)]">{batchSuccess}</div>
             <div className="text-[8px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Logged</div>
           </div>
-          <div className="flex-1 bg-[rgba(239,68,68,0.07)] border border-[rgba(239,68,68,0.2)] rounded p-2 text-center">
+          <div className="flex-1 bg-[rgba(239,68,68,0.07)] border border-[rgba(239,68,68,0.2)] rounded-[var(--radius-lg)] p-2 text-center">
             <div className="text-[18px] font-bold font-mono text-[var(--color-error)]">{batchAlerts}</div>
             <div className="text-[8px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Alerts</div>
           </div>
@@ -743,16 +743,16 @@ export const Scanner = ({
       {/* Recent Scans List */}
       <div className="ehi-card">
         <div className="flex items-center justify-between mb-3 border-b border-[var(--color-border)] pb-2">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[12px] font-sans font-bold text-[var(--color-foreground)]">Recent Scans</span>
-            <span className="text-[9px] font-mono bg-[var(--color-surface-2)] text-[var(--color-muted)] px-1.5 py-0.5 rounded-full">
+          <div className="flex items-center gap-2 ml-1">
+            <span className="text-[13px] font-sans font-bold text-[var(--color-foreground)] tracking-wide">Recent Scans</span>
+            <span className="text-[9px] font-mono bg-[var(--color-surface-2)] text-[var(--color-muted)] px-1.5 py-0.5 rounded-full ml-1">
               Last 5
             </span>
           </div>
           {successfulScans.length > 0 && (
             <button
               onClick={() => setShowBatch(true)}
-              className="text-[10px] font-mono text-[var(--color-accent-amber)] hover:underline focus:outline-none cursor-pointer"
+              className="text-[10px] font-mono text-[var(--color-accent-amber)] hover:underline focus:outline-none cursor-pointer mr-1"
             >
               View Session ({batchItems.length})
             </button>

@@ -12,6 +12,8 @@ import { PODLog } from './PODLog';
 import { Dispatch } from './Dispatch';
 import { EODReconciliation } from './EODReconciliation';
 
+import { AirlineCommissions } from './AirlineCommissions';
+
 import { useState } from 'react';
 import { User, TabView, Transaction, Expense } from '../../lib/types';
 import { fmt } from '../../lib/helpers';
@@ -31,7 +33,8 @@ import {
   Key, 
   History,
   MapPin,
-  Cpu
+  Cpu,
+  Percent
 } from 'lucide-react';
 
 export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, onAddExpense, onChangeTab }: { user: User; transactions: Transaction[]; expenses: Expense[]; onLogout: () => void; onEOD: () => void; onAddTx: (tx: Transaction) => void; onAddExpense: (e: Expense) => void; onChangeTab: (t: TabView) => void }) => {
@@ -50,6 +53,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
   const [ledgerView, setLedgerView] = useState(false);
   const [podLogView, setPodLogView] = useState(false);
   const [dispatchView, setDispatchView] = useState(false);
+  const [airlineCommissionsView, setAirlineCommissionsView] = useState(false);
 
   // View controllers
   if (eodView) {
@@ -104,6 +108,10 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
     return <Dispatch onBack={() => setDispatchView(false)} />;
   }
 
+  if (airlineCommissionsView) {
+    return <AirlineCommissions onBack={() => setAirlineCommissionsView(false)} />;
+  }
+
   // Role checking helpers
   const canAccessAccounting = user.role === 'admin' || user.role === 'super_admin' || user.role === 'accountant';
   const canAccessRecon = user.role === 'super_admin' || user.role === 'accountant';
@@ -120,7 +128,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         onClick={() => setEodView(true)}
         className="w-full bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)] transition-colors border border-[rgba(255,255,255,0.07)] hover:border-[var(--color-accent-amber)] rounded p-4 flex items-center space-x-3 cursor-pointer group"
       >
-        <FileText size={18} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
+        <FileText size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
         <div className="text-left flex-1">
           <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">EOD Daily Close</div>
           <div className="text-[10px] font-mono text-[var(--color-muted)]">Generate and dispatch end of day reports</div>
@@ -132,7 +140,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         onClick={() => { if (canAccessRecon) setBankReconView(true); }}
         className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${canAccessRecon ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
       >
-        <Layers size={18} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
+        <Layers size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
         <div className="text-left flex-1">
           <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors flex items-center space-x-1.5">
             <span>Bank Reconciliation</span>
@@ -147,7 +155,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         onClick={() => { if (canAccessFleetAndForecast) setFleetView(true); }}
         className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${canAccessFleetAndForecast ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
       >
-        <Truck size={18} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
+        <Truck size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
         <div className="text-left flex-1">
           <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Fleet Management</div>
           <div className="text-[10px] font-mono text-[var(--color-muted)]">Vehicles registration, service scheduler, fuel expense log</div>
@@ -159,7 +167,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         onClick={() => { if (canAccessFleetAndForecast) setForecastingView(true); }}
         className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${canAccessFleetAndForecast ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
       >
-        <Brain size={18} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
+        <Brain size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
         <div className="text-left flex-1">
           <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors flex items-center space-x-1.5">
             <span>Demand Forecasting AI</span>
@@ -174,7 +182,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         onClick={() => { if (canAccessFraud) setFraudAlertsView(true); }}
         className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${canAccessFraud ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
       >
-        <ShieldAlert size={18} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
+        <ShieldAlert size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
         <div className="text-left flex-1">
           <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors flex items-center space-x-2">
             <span>Fraud & Anomalies Feed</span>
@@ -192,7 +200,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         onClick={() => { if (canAccessAccounting) setLedgerView(true); }}
         className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${canAccessAccounting ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
       >
-        <Activity size={18} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
+        <Activity size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
         <div className="text-left flex-1">
           <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Transaction Ledger</div>
           <div className="text-[10px] font-mono text-[var(--color-muted)]">{transactions.length} total records logged</div>
@@ -204,7 +212,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         onClick={() => { if (canAccessAccounting) setAccountingView(true); }}
         className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${canAccessAccounting ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
       >
-        <Database size={18} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
+        <Database size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
         <div className="text-left flex-1">
           <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Central Accounting ERP</div>
           <div className="text-[10px] font-mono text-[var(--color-muted)]">Check balance sheets and cash flows dashboard</div>
@@ -216,7 +224,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         onClick={() => { if (canAccessAccounting) setReportsView(true); }}
         className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${canAccessAccounting ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
       >
-        <BarChart size={18} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
+        <BarChart size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
         <div className="text-left flex-1">
           <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Advanced Reports</div>
           <div className="text-[10px] font-mono text-[var(--color-muted)]">Operational audits and trend sheets</div>
@@ -228,7 +236,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         onClick={() => { if (canAccessFraud) setPodLogView(true); }}
         className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${canAccessFraud ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
       >
-        <Shield size={18} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
+        <Shield size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
         <div className="text-left flex-1">
           <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Proof of Delivery Log</div>
           <div className="text-[10px] font-mono text-[var(--color-muted)]">GPS trace, signatures and photo evidence</div>
@@ -240,7 +248,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         onClick={() => { if (canAccessAuditLog) setAuditLogView(true); }}
         className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${canAccessAuditLog ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
       >
-        <History size={18} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
+        <History size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
         <div className="text-left flex-1">
           <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Revision Audit Log</div>
           <div className="text-[10px] font-mono text-[var(--color-muted)]">Strict NDPR/Financial compliance trace log</div>
@@ -252,7 +260,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         onClick={() => { if (canAccessFleetAndForecast) setDispatchView(true); }}
         className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${canAccessFleetAndForecast ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
       >
-        <MapPin size={18} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
+        <MapPin size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
         <div className="text-left flex-1">
           <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Dispatch & Fleet Tracking</div>
           <div className="text-[10px] font-mono text-[var(--color-muted)]">Live driver tracking on active routes</div>
@@ -264,7 +272,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         onClick={() => { if (isSuperAdmin) setApiDashboardView(true); }}
         className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${isSuperAdmin ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
       >
-        <Key size={18} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
+        <Key size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
         <div className="text-left flex-1">
           <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Partners API Keys & Webhooks</div>
           <div className="text-[10px] font-mono text-[var(--color-muted)]">Key-hashes, scopes limit, and integration documentation</div>
@@ -276,10 +284,22 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         onClick={() => { if (isSuperAdmin) setSettingsView(true); }}
         className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${isSuperAdmin ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
       >
-        <SettingsIcon size={18} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
+        <SettingsIcon size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
         <div className="text-left flex-1">
           <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Platform Settings</div>
           <div className="text-[10px] font-mono text-[var(--color-muted)]">Automation and route pricing configuration</div>
+        </div>
+      </button>
+
+      {/* Airline Commissions Settings */}
+      <button 
+        onClick={() => { if (canAccessAccounting) setAirlineCommissionsView(true); }}
+        className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${canAccessAccounting ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
+      >
+        <Percent size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
+        <div className="text-left flex-1">
+          <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Airline Commissions</div>
+          <div className="text-[10px] font-mono text-[var(--color-muted)]">Set percentage cuts for partner airlines</div>
         </div>
       </button>
 
@@ -289,7 +309,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
           onClick={() => { onChangeTab('IT Debug'); }}
           className="w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] rounded p-4 flex items-center space-x-3 cursor-pointer group"
         >
-          <Cpu size={18} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
+          <Cpu size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
           <div className="text-left flex-1">
             <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">IT Systems Debugging & Fallbacks</div>
             <div className="text-[10px] font-mono text-[var(--color-muted)]">Check real-time timeouts, database schemas, and offline logs</div>
@@ -302,12 +322,12 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         onClick={() => {
           onLogout();
         }}
-        className="w-full mt-4 bg-[var(--color-surface-1)] hover:bg-[rgba(239,68,68,0.1)] transition-colors border border-[rgba(255,255,255,0.07)] hover:border-[rgba(239,68,68,0.3)] rounded p-4 flex items-center space-x-3 cursor-pointer group"
+        className="w-full mt-4 bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] rounded p-4 flex items-center space-x-3 cursor-pointer group"
       >
-        <LogOut size={18} className="text-[var(--color-muted)] group-hover:text-[var(--color-error)] transition-colors" />
+        <LogOut size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
         <div className="text-left flex-1">
-          <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-error)] transition-colors">Sign Out</div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)] group-hover:text-[var(--color-error)] opacity-80 transition-colors">{user.name} &middot; {user.hub}</div>
+          <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Sign Out</div>
+          <div className="text-[10px] font-mono text-[var(--color-muted)] opacity-80 group-hover:text-[var(--color-accent-amber)] transition-colors">{user.name} &middot; {user.hub}</div>
         </div>
       </button>
 

@@ -18,6 +18,7 @@ import { MarketingWorkspace } from './views/MarketingWorkspace';
 import { Scanner } from './views/Scanner';
 import { MyTrips } from './views/MyTrips';
 import { ITDashboard } from './views/ITDashboard';
+import { CreditDebit } from './views/CreditDebit';
 import { ErrorBoundary } from './ErrorBoundary';
 
 import { SEED_TRANSACTIONS } from '../lib/constants';
@@ -253,6 +254,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               {currentTab === 'Scan' && <Scanner transactions={transactions} user={user} showToast={showToast} />}
               {currentTab === 'MyTrips' && <MyTrips user={user} />}
               {currentTab === 'IT Debug' && <ITDashboard user={user} />}
+              {currentTab === 'Credit & Debit' && <CreditDebit user={user} transactions={transactions} />}
               {currentTab === 'More' && (
                 <More 
                   user={user} 

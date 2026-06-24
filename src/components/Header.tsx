@@ -98,6 +98,7 @@ export const Header = ({
           {/* Theme toggle */}
           <button
             onClick={onToggleTheme}
+            className="group"
             style={{
               width: 34, height: 34,
               borderRadius: 'var(--radius-sm)',
@@ -109,14 +110,15 @@ export const Header = ({
             }}
           >
             {theme === 'dark'
-              ? <Sun size={16} color="var(--color-accent-amber)" />
-              : <Moon size={16} color="var(--color-light-muted)" />
+              ? <Sun size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
+              : <Moon size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
             }
           </button>
 
           {/* Wifi */}
           <button
             onClick={onToggleWifi}
+            className="group"
             style={{
               width: 34, height: 34,
               borderRadius: 'var(--radius-sm)',
@@ -127,8 +129,8 @@ export const Header = ({
             }}
           >
             {isOffline
-              ? <WifiOff size={16} color="var(--color-error)" />
-              : <Wifi size={16} color="var(--color-muted)" />
+              ? <WifiOff size={18} strokeWidth={1.5} className="text-[var(--color-error)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
+              : <Wifi size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
             }
           </button>
 
@@ -180,18 +182,17 @@ export const Header = ({
                   </div>
                   <button
                     onClick={() => { setShowDropdown(false); onLogout(); }}
+                    className="group"
                     style={{
                       width: '100%', padding: '12px 14px',
                       background: 'transparent', border: 'none',
                       display: 'flex', alignItems: 'center', gap: 10,
-                      cursor: 'pointer', color: 'var(--color-error)',
+                      cursor: 'pointer', color: 'var(--color-muted)',
                       transition: 'background 0.15s',
                     }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(239,68,68,0.08)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
-                    <LogOut size={15} />
-                    <span style={{ fontSize: 13 }}>Sign Out</span>
+                    <LogOut size={18} strokeWidth={1.5} className="group-hover:text-[var(--color-accent-amber)] transition-colors" />
+                    <span className="group-hover:text-[var(--color-accent-amber)] transition-colors" style={{ fontSize: 13, fontWeight: 500 }}>Sign Out</span>
                   </button>
                 </div>
               </>

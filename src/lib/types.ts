@@ -145,6 +145,7 @@ export interface Transaction {
   bank?: string;
   // Cargo specifics
   awb_tag_number?: string;
+  airline?: string;
   consignee?: string;
   pieces?: number;
   kg?: number;
@@ -162,7 +163,7 @@ export interface Expense {
   mode?: string;
 }
 
-export type TabView = 'Tower' | 'Cargo' | 'VJ POS' | 'Marketing' | 'Scan' | 'More' | 'MyTrips' | 'IT Debug';
+export type TabView = 'Tower' | 'Cargo' | 'VJ POS' | 'Marketing' | 'Scan' | 'More' | 'MyTrips' | 'IT Debug' | 'Credit & Debit';
 
 export interface AppState {
   user: User | null;

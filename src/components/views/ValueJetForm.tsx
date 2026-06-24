@@ -40,6 +40,7 @@ export const ValueJetForm = ({ onAddTx }: { onAddTx: (tx: Transaction) => void }
       detail: `${flight.toUpperCase()} · +${excessKg.toFixed(1)}kg excess`,
       amount: totalAmount,
       mode,
+      airline: 'ValueJet',
       time: tnow(),
       type: 'baggage',
       status: 'Delivered'

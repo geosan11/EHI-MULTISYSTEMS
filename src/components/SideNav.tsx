@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Package, TrendingUp, Plane, QrCode,
-  MoreHorizontal, Truck, LogOut, Sun, Moon, Cpu
+  MoreHorizontal, Truck, LogOut, Sun, Moon, Cpu, CreditCard
 } from 'lucide-react';
 import { User, TabView } from '../lib/types';
 import { Theme } from '../lib/useTheme';
@@ -25,6 +25,7 @@ export const SideNav = ({
     { id: 'Scan',      icon: QrCode,           label: 'QR Scanner',    roles: ['super_admin','admin','cargo_agent','vj_agent','marketing_agent','driver'] },
     { id: 'MyTrips',   icon: Truck,            label: 'My Trips',      roles: ['driver'] },
     { id: 'IT Debug',  icon: Cpu,              label: 'IT Debug',      roles: ['super_admin','admin'] },
+    { id: 'Credit & Debit', icon: CreditCard, label: 'Credit & Debit', roles: ['super_admin','admin', 'accountant'] },
     { id: 'More',      icon: MoreHorizontal,   label: 'More',          roles: ['super_admin','admin','accountant','auditor'] },
   ];
 
@@ -128,19 +129,16 @@ export const SideNav = ({
               <div style={{ width: 20, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                 <Icon
                   size={isActive ? 20 : 18}
-                  color={isActive ? activeColor : 'var(--color-muted)'}
-                  strokeWidth={isActive ? 2.5 : 1.5}
+                  strokeWidth={1.5}
                   style={{ flexShrink: 0, transition: 'all 0.15s ease' }}
-                  className={isActive ? '' : 'group-hover:text-[var(--color-accent-amber)]'}
+                  className={isActive ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)]'}
                 />
               </div>
               <span
-                className={`ehi-sidebar-text ${isActive ? '' : 'group-hover:text-[var(--color-accent-amber)]'}`}
+                className={`ehi-sidebar-text ${isActive ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)]'} transition-colors`}
                 style={{
                   fontSize: 13,
                   fontWeight: isActive ? 600 : 500,
-                  color: isActive ? activeColor : 'var(--color-muted)',
-                  transition: 'all 0.15s ease',
                 }}
               >
                 {tab.label}
@@ -159,7 +157,7 @@ export const SideNav = ({
       }}>
         <button
           onClick={onToggleTheme}
-          className="hover:bg-[var(--color-surface-2)] transition-colors"
+          className="group hover:bg-[var(--color-surface-2)] transition-colors"
           style={{
             width: '100%', padding: '9px 14px',
             background: 'transparent', border: 'none',
@@ -167,10 +165,13 @@ export const SideNav = ({
             cursor: 'pointer', borderRadius: 6,
           }}
         >
-          {theme === 'dark' ? <Sun size={17} color="var(--color-light-muted)" /> : <Moon size={17} color="var(--color-light-muted)" />}
+          {theme === 'dark' 
+            ? <Sun size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" /> 
+            : <Moon size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
+          }
           <span
-            className="ehi-sidebar-text text-left"
-            style={{ fontSize: 12, color: 'var(--color-foreground)' }}
+            className="ehi-sidebar-text text-left text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors"
+            style={{ fontSize: 12 }}
           >
             {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
           </span>
@@ -178,7 +179,7 @@ export const SideNav = ({
 
         <button
           onClick={onLogout}
-          className="hover:bg-[rgba(239,68,68,0.1)] transition-colors"
+          className="group hover:bg-[var(--color-surface-2)] transition-colors"
           style={{
             width: '100%', padding: '9px 14px',
             background: 'transparent', border: 'none',
@@ -186,10 +187,10 @@ export const SideNav = ({
             cursor: 'pointer', borderRadius: 6,
           }}
         >
-          <LogOut size={17} color="var(--color-error)" />
+          <LogOut size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
           <span
-            className="ehi-sidebar-text"
-            style={{ fontSize: 12, color: 'var(--color-error)' }}
+            className="ehi-sidebar-text text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors"
+            style={{ fontSize: 12 }}
           >
             Sign Out
           </span>
