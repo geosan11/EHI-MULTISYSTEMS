@@ -132,7 +132,7 @@ export const Scanner = ({
     setProcessing(true);
 
     try {
-      const result = await validateScan(code, mode, currentHub);
+      const result = await validateScan(code, mode, currentHub, transactions);
 
       if (result.type === 'SUCCESS_DELIVER') {
         playBeep();

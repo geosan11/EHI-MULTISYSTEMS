@@ -1,4 +1,5 @@
-import { Document, Page, Text, View, StyleSheet, pdf, Font } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, pdf, Font, Image } from '@react-pdf/renderer';
+import QRCode from 'qrcode';
 
 Font.register({
   family: 'Courier',
@@ -22,6 +23,7 @@ export interface CargoReceiptData {
   paymentMode: string;
   bankName?: string;
   remark?: string;
+  qrCodeDataUrl?: string;
 }
 
 const styles = StyleSheet.create({
@@ -37,7 +39,9 @@ const styles = StyleSheet.create({
   amountLabel: { fontSize: 10, color: '#6b7280', textTransform: 'uppercase', width: 60 },
   amountValue: { fontSize: 18, fontWeight: 'bold', color: '#B45309' },
   footerRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 4 },
-  footerText: { fontSize: 8, color: '#9ca3af', fontStyle: 'italic', textAlign: 'center' }
+  footerText: { fontSize: 8, color: '#9ca3af', fontStyle: 'italic', textAlign: 'center' },
+  qrContainer: { alignItems: 'center', marginVertical: 10 },
+  qrImage: { width: 80, height: 80 }
 });
 
 const CargoReceiptPDF = ({ data }: { data: CargoReceiptData }) => (
@@ -47,6 +51,12 @@ const CargoReceiptPDF = ({ data }: { data: CargoReceiptData }) => (
         <Text style={styles.companyName}>EHI MULTISYSTEMS NIGERIA LIMITED</Text>
         <Text style={styles.title}>CARGO ENTRY RECEIPT</Text>
       </View>
+
+      {data.qrCodeDataUrl && (
+        <View style={styles.qrContainer}>
+          <Image src={data.qrCodeDataUrl} style={styles.qrImage} />
+        </View>
+      )}
 
       <View style={styles.divider} />
       
@@ -140,6 +150,13 @@ const CargoReceiptPDF = ({ data }: { data: CargoReceiptData }) => (
 );
 
 export const downloadCargoReceipt = async (data: CargoReceiptData) => {
+  if (!data.qrCodeDataUrl) {
+    try {
+      data.qrCodeDataUrl = await QRCode.toDataURL(data.entryRef, { margin: 1, width: 200 });
+    } catch (e) {
+      console.warn("Failed to generate QR code", e);
+    }
+  }
   const blob = await pdf(<CargoReceiptPDF data={data} />).toBlob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -150,6 +167,13 @@ export const downloadCargoReceipt = async (data: CargoReceiptData) => {
 };
 
 export const printCargoReceipt = async (data: CargoReceiptData) => {
+  if (!data.qrCodeDataUrl) {
+    try {
+      data.qrCodeDataUrl = await QRCode.toDataURL(data.entryRef, { margin: 1, width: 200 });
+    } catch (e) {
+      console.warn("Failed to generate QR code", e);
+    }
+  }
   const blob = await pdf(<CargoReceiptPDF data={data} />).toBlob();
   const url = URL.createObjectURL(blob);
   window.open(url, '_blank');

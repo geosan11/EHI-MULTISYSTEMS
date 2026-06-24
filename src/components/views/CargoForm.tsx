@@ -64,6 +64,8 @@ function incrementLocalSerial(): number {
   return next;
 }
 
+import { QRCode } from '../QRCode';
+
 export const CargoForm = ({ onAddTx, user }: {
   onAddTx: (tx: Transaction) => void;
   user: User;
@@ -541,6 +543,9 @@ export const CargoForm = ({ onAddTx, user }: {
           </div>
           
           <div className="w-full bg-[var(--color-surface-card)] rounded-[var(--radius-md)] p-4 mb-8 border border-[var(--color-border)] text-left space-y-3 shadow-md">
+             <div className="flex justify-center mb-4 p-4 bg-white rounded">
+               <QRCode id={successTx.id} size={150} />
+             </div>
              <div className="flex justify-between border-b border-[var(--color-border)] pb-2">
                <span className="text-[13px] font-sans text-[var(--color-muted)]">Consignee</span>
                <span className="text-[14px] font-sans font-medium text-[var(--color-foreground)]">{successTx.name}</span>

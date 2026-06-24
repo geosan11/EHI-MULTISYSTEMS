@@ -1,9 +1,33 @@
 import { supabase } from './supabase';
 import { ScanMode, ScanValidationResult, TrackingEvent } from './types';
 
-// Fetch cargo record by QR ref from any table
-export async function fetchCargoByRef(ref: string): Promise<any | null> {
+// Fetch cargo record by QR ref from any table or local transactions
+export async function fetchCargoByRef(ref: string, localTransactions?: any[]): Promise<any | null> {
   const cleanRef = ref.trim().toUpperCase();
+
+  // Try local transactions first (for demo mode)
+  if (localTransactions && localTransactions.length > 0) {
+    const localMatch = localTransactions.find(t => 
+      t.id === cleanRef || 
+      (t.awb_tag_number && t.awb_tag_number.toUpperCase() === cleanRef)
+    );
+    if (localMatch) {
+      return {
+        ...localMatch,
+        _table: localMatch.type === 'cargo' ? 'cargo_entries' : 
+                localMatch.type === 'baggage' ? 'manifests' : 'shipments',
+        awb_tag_number: localMatch.awb_tag_number || localMatch.id,
+        route: localMatch.detail?.split(' · ')[4] || '',
+        destination: localMatch.detail?.split(' · ')[4] || '',
+        consignee_name: localMatch.name,
+        passenger_name: localMatch.name,
+        customer_name: localMatch.name,
+        content_type: localMatch.detail?.split(' · ')[5] || 'Package',
+        total_pcs: localMatch.pieces || 1,
+        total_kg: localMatch.kg || 0
+      };
+    }
+  }
 
   // Try cargo_entries first
   const { data: cargoData } = await supabase
@@ -97,11 +121,12 @@ export async function getLastEventAnywhere(
 export async function validateScan(
   ref: string,
   mode: ScanMode,
-  currentHub: string
+  currentHub: string,
+  localTransactions?: any[]
 ): Promise<ScanValidationResult> {
 
   // 1. Fetch cargo record
-  const cargo = await fetchCargoByRef(ref);
+  const cargo = await fetchCargoByRef(ref, localTransactions);
 
   if (!cargo) {
     return {
@@ -141,14 +166,15 @@ export async function validateScan(
   if (mode === 'ARRIVE') {
 
     const lastAnyForArrive = await getLastEventAnywhere(ref);
-    if (!lastAnyForArrive) {
+    // Relaxed constraint: if no event exists, we can still ARRIVE it at a hub (e.g., origin Intake)
+    /* if (!lastAnyForArrive) {
       return {
         type: 'NOT_LOGGED_IN',
         cargo: cargoInfo,
         currentHub,
         message: `Data hasn't been logged from depart.`
       };
-    }
+    } */
 
     // Check if cargo belongs here (final dest or valid transit)
     if (!isCorrectDestination) {
@@ -211,11 +237,12 @@ export async function validateScan(
 
     // Check if cargo has an ARRIVE record at this hub
     const arriveEvent = await getLastEventAtHub(ref, currentHub);
+    const lastAny = await getLastEventAnywhere(ref);
 
-    if (!arriveEvent || arriveEvent.event_type !== 'ARRIVE') {
-      // Get last known location for the message
-      const lastAny = await getLastEventAnywhere(ref);
-
+    // Relaxed constraint: if it's the very first event ever, allow it to DEPART (e.g. from origin)
+    if (!lastAny && (!arriveEvent || arriveEvent.event_type !== 'ARRIVE')) {
+       // Proceed, it's the origin depart
+    } else if (lastAny && (!arriveEvent || arriveEvent.event_type !== 'ARRIVE')) {
       return {
         type: 'NOT_LOGGED_IN',
         cargo: cargoInfo,
@@ -260,9 +287,10 @@ export async function validateScan(
   // 6. DELIVER MODE validation
   if (mode === 'DELIVER') {
     const arriveEvent = await getLastEventAtHub(ref, currentHub);
+    const lastAny = await getLastEventAnywhere(ref);
 
-    if (!arriveEvent || arriveEvent.event_type !== 'ARRIVE') {
-      const lastAny = await getLastEventAnywhere(ref);
+    // If it's the very first event, just let it deliver for demo purposes (or fail appropriately)
+    if (lastAny && (!arriveEvent || arriveEvent.event_type !== 'ARRIVE')) {
       return {
         type: 'NOT_LOGGED_IN',
         cargo: cargoInfo,
