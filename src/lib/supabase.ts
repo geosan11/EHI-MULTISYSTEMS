@@ -79,3 +79,29 @@ export async function testSupabaseConnection(): Promise<{
     return { ok: false, error: e.message || 'Connection failed' };
   }
 }
+
+export async function fetchAndApplyServerConfig(): Promise<boolean> {
+  const currentUrl = localStorage.getItem('ehi_supabase_url');
+  if (currentUrl && currentUrl !== 'https://mock.supabase.co') {
+    return true; // Already configured
+  }
+
+  try {
+    const response = await fetch('/api/config', {
+      signal: AbortSignal.timeout(4000)
+    });
+    
+    if (!response.ok) return false;
+    
+    const config = await response.json();
+    if (config.configured && config.supabaseUrl && config.supabaseAnonKey) {
+      localStorage.setItem('ehi_supabase_url', config.supabaseUrl);
+      localStorage.setItem('ehi_supabase_anon_key', config.supabaseAnonKey);
+      reinitSupabase();
+      return true;
+    }
+    return false;
+  } catch (error) {
+    return false; // Silently fail and remain in demo mode
+  }
+}

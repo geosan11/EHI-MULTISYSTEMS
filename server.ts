@@ -9,9 +9,21 @@ import geminiRoutes from './server/gemini';
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   app.use(express.json());
+
+  // Supabase runtime config exposure
+  app.get('/api/config', (req, res) => {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+
+    if (supabaseUrl && supabaseAnonKey) {
+      res.json({ configured: true, supabaseUrl, supabaseAnonKey });
+    } else {
+      res.json({ configured: false });
+    }
+  });
 
   // API routes
   app.use('/api/paystack', paystackRoutes);
