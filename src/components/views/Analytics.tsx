@@ -12,7 +12,8 @@ import {
   Calendar,
   Layers,
   MapPin,
-  Users
+  Users,
+  Download
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -102,17 +103,15 @@ export const Analytics = ({
     quarterAgo.setMonth(quarterAgo.getMonth() - 3);
 
     return hubFilteredTxs.filter(t => {
-      // Try to parse time — transactions use tnow() which is HH:MM
-      // In demo mode all tx are from today, so 'today' shows all
-      // For week/month/quarter in demo we show a percentage of data
-      if (period === 'today') return true;
-
-      // Use the transaction index as a stable proxy for age
-      const idx = hubFilteredTxs.indexOf(t);
-      const total = hubFilteredTxs.length;
-      if (period === 'week')    return idx < Math.ceil(total * 0.7);
-      if (period === 'month')   return idx < Math.ceil(total * 0.85);
-      if (period === 'quarter') return true;
+      let txDate = new Date();
+      if (t.created_at) {
+        txDate = new Date(t.created_at);
+      }
+      
+      if (period === 'today') return txDate >= today;
+      if (period === 'week') return txDate >= weekAgo;
+      if (period === 'month') return txDate >= monthAgo;
+      if (period === 'quarter') return txDate >= quarterAgo;
       return true;
     });
   }, [hubFilteredTxs, period]);
@@ -265,26 +264,71 @@ export const Analytics = ({
     }
   }, [stats]);
 
+  const handleDownloadCSV = () => {
+    if (!periodFilteredTxs || periodFilteredTxs.length === 0) return;
+    
+    const headers = ['ID', 'Date', 'Type', 'Status', 'Amount', 'Payment Mode', 'Route/Detail', 'AWB/Tag'];
+    
+    const rows = periodFilteredTxs.map(t => {
+      let route = t.route || '';
+      let awb = t.awb_tag_number || '';
+      if (!route && t.detail) {
+        route = t.detail.split('·')[0]?.trim() || '';
+      }
+      return [
+        t.id,
+        t.created_at || new Date().toISOString(),
+        t.type,
+        t.status,
+        t.amount.toString(),
+        t.mode || '',
+        `"${route}"`,
+        `"${awb}"`
+      ].join(',');
+    });
+    
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `ehi_transactions_${period}_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="flex flex-col p-4 space-y-6 pb-20 select-none animate-in fade-in duration-300">
       
       {/* Page Title */}
       <div className="flex justify-between items-center border-b border-[var(--color-border)] pb-2">
-        <span className="text-[10px] font-mono text-[var(--color-accent-cobalt)] tracking-[0.15em] uppercase font-bold">▸ ANALYTICS INTELLIGENCE</span>
+        <span className="text-[10px] font-mono text-[var(--color-accent-cobalt)] tracking-[0.15em] uppercase font-bold hidden md:inline">▸ ANALYTICS INTELLIGENCE</span>
+        <span className="text-[10px] font-mono text-[var(--color-accent-cobalt)] tracking-[0.15em] uppercase font-bold md:hidden">▸ ANALYTICS</span>
         
-        {/* Hub Selector */}
-        <div className="relative">
-          <select 
-            value={selectedHub}
-            onChange={(e) => setSelectedHub(e.target.value)}
-            style={{ maxWidth: '160px' }}
-            className="bg-[var(--color-surface-1)] text-[var(--color-foreground)] text-[10px] font-mono h-7 pl-2 pr-6 rounded border border-[rgba(255,255,255,0.15)] appearance-none cursor-pointer"
+        <div className="flex items-center space-x-2">
+          {/* Hub Selector */}
+          <div className="relative">
+            <select 
+              value={selectedHub}
+              onChange={(e) => setSelectedHub(e.target.value)}
+              style={{ maxWidth: '160px' }}
+              className="bg-[var(--color-surface-1)] text-[var(--color-foreground)] text-[10px] font-mono h-7 pl-2 pr-6 rounded border border-[rgba(255,255,255,0.15)] appearance-none cursor-pointer"
+            >
+              {activeHubs.map(hub => (
+                <option key={hub.id} value={hub.id}>{hub.name}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-1.5 top-1.5 text-[var(--color-muted)] pointer-events-none" size={10} />
+          </div>
+          
+          <button 
+            onClick={handleDownloadCSV}
+            className="flex items-center justify-center bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)] text-[var(--color-foreground)] border border-[var(--color-border)] h-7 px-2 rounded transition-colors"
+            title="Download CSV"
           >
-            {activeHubs.map(hub => (
-              <option key={hub.id} value={hub.id}>{hub.name}</option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-1.5 top-1.5 text-[var(--color-muted)] pointer-events-none" size={10} />
+            <Download size={14} className="text-[var(--color-accent-amber)]" />
+          </button>
         </div>
       </div>
 

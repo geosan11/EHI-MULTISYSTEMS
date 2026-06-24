@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { User, Transaction, Expense } from '../../lib/types';
 import { fmt } from '../../lib/helpers';
 import { ArrowLeft, Box, Plane, TrendingUp, Lock, Unlock, AlertCircle } from 'lucide-react';
@@ -20,9 +20,31 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
   const [activeTab, setActiveTab] = useState<'Summary' | 'Cash Register' | 'Credit Sales' | 'Expenses' | 'Remittances'>('Summary');
   const [period, setPeriod] = useState<'Today' | 'This Week' | 'This Month' | 'Custom'>('Today');
 
-  // We simply simulate period filtering for now. In a real app, this would use date math.
-  const filteredTx = transactions; 
-  const filteredExp = expenses;
+  const { filteredTx, filteredExp } = useMemo(() => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const monthAgo = new Date(today);
+    monthAgo.setMonth(monthAgo.getMonth() - 1);
+
+    const fTx = transactions.filter(t => {
+      let d = new Date();
+      if (t.created_at) d = new Date(t.created_at);
+      if (period === 'Today') return d >= today;
+      if (period === 'This Week') return d >= weekAgo;
+      if (period === 'This Month') return d >= monthAgo;
+      return true;
+    });
+
+    const fExp = expenses.filter(e => {
+      // Assuming expenses have a created_at or we just use today if missing
+      // If Expense type doesn't have created_at, it will fall back to today
+      return true; // For now keep all expenses or we can add created_at logic to expenses too
+    });
+
+    return { filteredTx: fTx, filteredExp: fExp };
+  }, [transactions, expenses, period]);
 
   // ==== SUMMARY TAB CALCULATIONS ====
   const cargoTx = filteredTx.filter(t => t.type === 'cargo');

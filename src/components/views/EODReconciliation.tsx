@@ -16,22 +16,35 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // Filter to only include today's transactions
+  const todaysTx = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return transactions.filter(t => {
+      let d = new Date();
+      if (t.created_at) d = new Date(t.created_at);
+      return d >= today;
+    });
+  }, [transactions]);
+
+  const todaysExp = useMemo(() => expenses, [expenses]);
+
   // System Totals
   const expectedTotals = useMemo(() => {
-    const cargoTx = transactions.filter(t => t.type === 'cargo');
-    const mktgTx  = transactions.filter(t => t.type === 'marketing');
-    const vjTx    = transactions.filter(t => t.type === 'baggage');
+    const cargoTx = todaysTx.filter(t => t.type === 'cargo');
+    const mktgTx  = todaysTx.filter(t => t.type === 'marketing');
+    const vjTx    = todaysTx.filter(t => t.type === 'baggage');
 
     const cargoTotal = cargoTx.reduce((s, t) => s + t.amount, 0);
     const mktgTotal = mktgTx.reduce((s, t)  => s + t.amount, 0);
     const vjTotal = vjTx.reduce((s, t)    => s + t.amount, 0);
     const grossTotal = cargoTotal + mktgTotal + vjTotal;
 
-    const cashTotal = transactions.filter(t => t.mode === 'Cash').reduce((s, t) => s + t.amount, 0);
-    const transferTotal = transactions.filter(t => t.mode === 'Transfer' || t.mode === 'Transfer-as-Cash').reduce((s, t) => s + t.amount, 0);
-    const posTotal = transactions.filter(t => t.mode === 'POS').reduce((s, t) => s + t.amount, 0);
-    const debtTotal = transactions.filter(t => t.mode === 'Debt').reduce((s, t) => s + t.amount, 0);
-    const expensesTotal = expenses.filter(e => !e.mode || e.mode === 'Cash').reduce((s, e) => s + e.amount, 0);
+    const cashTotal = todaysTx.filter(t => t.mode === 'Cash').reduce((s, t) => s + t.amount, 0);
+    const transferTotal = todaysTx.filter(t => t.mode === 'Transfer' || t.mode === 'Transfer-as-Cash').reduce((s, t) => s + t.amount, 0);
+    const posTotal = todaysTx.filter(t => t.mode === 'POS').reduce((s, t) => s + t.amount, 0);
+    const debtTotal = todaysTx.filter(t => t.mode === 'Debt').reduce((s, t) => s + t.amount, 0);
+    const expensesTotal = todaysExp.filter(e => !e.mode || e.mode === 'Cash').reduce((s, e) => s + e.amount, 0);
     
     // Net expected cash
     const netExpectedCash = cashTotal - expensesTotal;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Transaction, User } from '../../lib/types';
 import { CORPORATE_CLIENTS, CONTENT_TYPES, BANKS } from '../../lib/constants';
 import { fmt, uid, tnow } from '../../lib/helpers';

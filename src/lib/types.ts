@@ -138,6 +138,7 @@ export interface Transaction {
   amount: number;
   mode: PaymentMode | string;
   time: string;
+  created_at?: string;
   type: 'cargo' | 'baggage' | 'marketing';
   status: 'Intake' | 'Departure' | 'In-Transit' | 'Arrived' | 'Delivered' | 'Pending' | 'Received' | 'Dispatched';
   isPending?: boolean;

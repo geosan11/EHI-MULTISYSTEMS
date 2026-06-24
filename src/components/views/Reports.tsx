@@ -55,8 +55,10 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
   // Filter transactions to date range
   const filteredTx = useMemo(() => {
     return transactions.filter(t => {
-      // Demo: use today's date for all entries
-      const d = new Date();
+      let d = new Date();
+      if (t.created_at) {
+        d = new Date(t.created_at);
+      }
       return d >= dateRange.from && d <= dateRange.to;
     });
   }, [transactions, dateRange]);

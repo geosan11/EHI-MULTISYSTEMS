@@ -71,24 +71,37 @@ const TxRow = React.memo(({ t, isNewest }: { t: Transaction, isNewest: boolean }
 });
 
 export const Dashboard = React.memo(({ user, transactions }: { user: User; transactions: Transaction[] }) => {
-  const cargoTx = useMemo(() => transactions.filter(t => t.type === 'cargo'), [transactions]);
-  const mktgTx = useMemo(() => transactions.filter(t => t.type === 'marketing'), [transactions]);
-  const vjTx = useMemo(() => transactions.filter(t => t.type === 'baggage'), [transactions]);
+  const todaysTx = useMemo(() => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return transactions.filter(t => {
+      if (t.created_at) {
+        return new Date(t.created_at) >= today;
+      }
+      return true; // demo fallback
+    });
+  }, [transactions]);
+
+  const cargoTx = useMemo(() => todaysTx.filter(t => t.type === 'cargo'), [todaysTx]);
+  const mktgTx = useMemo(() => todaysTx.filter(t => t.type === 'marketing'), [todaysTx]);
+  const vjTx = useMemo(() => todaysTx.filter(t => t.type === 'baggage'), [todaysTx]);
 
   const cargoTotal = useMemo(() => cargoTx.reduce((sum, t) => sum + t.amount, 0), [cargoTx]);
+  const cargoKgTotal = useMemo(() => cargoTx.reduce((sum, t) => sum + (t.kg || 0), 0), [cargoTx]);
   const mktgTotal = useMemo(() => mktgTx.reduce((sum, t) => sum + t.amount, 0), [mktgTx]);
   const vjTotal = useMemo(() => vjTx.reduce((sum, t) => sum + t.amount, 0), [vjTx]);
+  const vjKgTotal = useMemo(() => vjTx.reduce((sum, t) => sum + (t.kg || 0), 0), [vjTx]);
 
   const isAdmin = user.role === 'admin' || user.role === 'super_admin';
   const showCargo = isAdmin || user.role === 'cargo_agent';
   const showVJ = isAdmin || user.role === 'vj_agent';
   const showMktg = isAdmin || user.role === 'marketing_agent';
 
-  const allVisibleTx = useMemo(() => transactions.filter(t => 
+  const allVisibleTx = useMemo(() => todaysTx.filter(t => 
     (showCargo && t.type === 'cargo') || 
     (showMktg && t.type === 'marketing') || 
     (showVJ && t.type === 'baggage')
-  ), [transactions, showCargo, showMktg, showVJ]);
+  ), [todaysTx, showCargo, showMktg, showVJ]);
 
   const cashTotal = useMemo(() => allVisibleTx.reduce((sum, t) => sum + (t.mode === 'Cash' ? t.amount : 0), 0), [allVisibleTx]);
   const transferTotal = useMemo(() => allVisibleTx.reduce((sum, t) => sum + (t.mode === 'Transfer' ? t.amount : 0), 0), [allVisibleTx]);
@@ -150,8 +163,9 @@ export const Dashboard = React.memo(({ user, transactions }: { user: User; trans
               color: 'var(--color-accent-amber)', lineHeight: 1.1 }}>
               <AnimatedScore value={cargoTotal} />
             </div>
-            <div style={{ fontSize: 11, color: 'var(--color-muted)' }}>
-              {cargoTx.length} {cargoTx.length === 1 ? 'entry' : 'entries'}
+            <div style={{ fontSize: 11, color: 'var(--color-muted)', display: 'flex', justifyContent: 'space-between' }}>
+              <span>{cargoTx.length} {cargoTx.length === 1 ? 'entry' : 'entries'}</span>
+              <span>{cargoKgTotal.toLocaleString()} KG</span>
             </div>
           </div>
         )}
@@ -210,8 +224,9 @@ export const Dashboard = React.memo(({ user, transactions }: { user: User; trans
               color: 'var(--color-accent-cobalt)', lineHeight: 1.1 }}>
               <AnimatedScore value={vjTotal} />
             </div>
-            <div style={{ fontSize: 11, color: 'var(--color-muted)' }}>
-              {vjTx.length} {vjTx.length === 1 ? 'passenger' : 'passengers'}
+            <div style={{ fontSize: 11, color: 'var(--color-muted)', display: 'flex', justifyContent: 'space-between' }}>
+              <span>{vjTx.length} {vjTx.length === 1 ? 'passenger' : 'passengers'}</span>
+              <span>{vjKgTotal.toLocaleString()} Excess KG</span>
             </div>
           </div>
         )}
