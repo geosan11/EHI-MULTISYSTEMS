@@ -34,48 +34,7 @@ interface ImprovementProposal {
   voted?: boolean;
 }
 
-const PRE_BUGS: BugLog[] = [
-  {
-    id: 'BUG-101',
-    title: 'Supabase real-time connection timeout',
-    description: 'Postgres changes listener triggers connection timeout warning when user remains on un-focused tab.',
-    component: 'Database',
-    severity: 'High',
-    status: 'Investigating',
-    occurrences: 14,
-    timestamp: '2026-06-23T12:45:00Z',
-  },
-  {
-    id: 'BUG-102',
-    title: 'WhatsApp receipt dispatch retry failure',
-    description: 'Rate limiting on local notification bridge fails gracefully with status 429 but fails to queue subsequent retries.',
-    component: 'WhatsApp SMS',
-    severity: 'Medium',
-    status: 'Active',
-    occurrences: 8,
-    timestamp: '2026-06-23T11:20:00Z',
-  },
-  {
-    id: 'BUG-103',
-    title: 'Offline Sync Queue parallel conflict',
-    description: 'Concurrent writes to Dexie IndexedDB and Supabase fallback during weak cellular coverage cause minor audit log duplications.',
-    component: 'Sync Queue',
-    severity: 'Critical',
-    status: 'Active',
-    occurrences: 3,
-    timestamp: '2026-06-23T13:05:00Z',
-  },
-  {
-    id: 'BUG-104',
-    title: 'Scanner camera canvas sizing issue',
-    description: 'ZingBar canvas layout does not adapt correctly when rotated on certain budget Android tablets.',
-    component: 'Scanner System',
-    severity: 'Low',
-    status: 'Resolved',
-    occurrences: 1,
-    timestamp: '2026-06-23T08:14:00Z',
-  }
-];
+const PRE_BUGS: BugLog[] = [];
 
 const PRE_PROPOSALS: ImprovementProposal[] = [
   {

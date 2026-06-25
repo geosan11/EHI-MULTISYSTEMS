@@ -31,7 +31,14 @@ export async function writeWithOfflineSupport(
 
   // Attempt immediate Supabase insert
   try {
-    const { error } = await supabase.from(tableName).insert(payload);
+    const supabasePayload = { ...payload };
+    // Remove the client-side ID since Supabase uses a UUID for the primary key.
+    // Our client-side ID is stored in entry_ref or transaction_id
+    if (tableName === 'marketing_entries' || tableName === 'cargo_entries' || tableName === 'manifests') {
+      delete supabasePayload.id;
+    }
+
+    const { error } = await supabase.from(tableName).insert(supabasePayload);
     if (!error) {
       await db.sync_queue.where('record_id').equals(payload.id as string).delete();
       await (db[tableName] as Dexie.Table).where('id').equals(payload.id as string).modify({ synced: 1 });
@@ -53,9 +60,14 @@ export async function processSyncQueue(): Promise<number> {
 
   for (const item of pending) {
     try {
+      const supabasePayload = { ...(item.payload as any) };
+      if (item.table_name === 'marketing_entries' || item.table_name === 'cargo_entries' || item.table_name === 'manifests') {
+        delete supabasePayload.id;
+      }
+      
       const { error } = await supabase
         .from(item.table_name)
-        .upsert(item.payload as Record<string, unknown>);
+        .upsert(supabasePayload, { onConflict: item.table_name === 'manifests' ? 'transaction_id' : 'entry_ref' });
       if (!error) {
         await db.sync_queue.delete(item.id!);
         synced++;

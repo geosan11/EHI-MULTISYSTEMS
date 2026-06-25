@@ -547,9 +547,9 @@ export const Scanner = ({
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowArrivalsView(true)}
-            className="flex items-center gap-1.5 text-[10px] font-mono text-[var(--color-success)] hover:underline cursor-pointer border-none bg-transparent"
+            className="flex items-center gap-1.5 text-[11px] font-mono font-semibold text-[var(--color-success)] hover:text-white bg-[rgba(16,185,129,0.1)] hover:bg-[rgba(16,185,129,0.2)] border border-[rgba(16,185,129,0.2)] px-3 py-1.5 rounded-full transition-colors cursor-pointer"
           >
-            <ArrowDown size={11} />
+            <ArrowDown size={12} />
             Hub Arrivals
           </button>
           {batchItems.length > 0 && (
