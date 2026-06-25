@@ -103,7 +103,7 @@ export const AirlineCommissions = ({ onBack }: { onBack: () => void }) => {
                 type="number"
                 value={newCommission}
                 onChange={(e) => setNewCommission(e.target.value)}
-                className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg py-2 pl-2 pr-7 text-[13px] font-mono text-right text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
+                className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg py-2 pl-2 pr-8 text-[13px] font-mono text-right text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
                 step="0.1"
                 min="0"
                 max="100"
@@ -141,7 +141,7 @@ export const AirlineCommissions = ({ onBack }: { onBack: () => void }) => {
                 type="number"
                 value={rate}
                 onChange={(e) => handleChange(airline, e.target.value)}
-                className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg py-2 pl-3 pr-8 text-[13px] font-mono text-right text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
+                className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg py-2 pl-3 pr-9 text-[13px] font-mono text-right text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
                 step="0.1"
                 min="0"
                 max="100"

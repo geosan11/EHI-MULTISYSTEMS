@@ -36,3 +36,7 @@ export const tnow = (): string => {
   const now = new Date();
   return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 };
+
+export function generatePickupPin(): string {
+  return String(Math.floor(10000 + Math.random() * 90000));
+}

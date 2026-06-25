@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Transaction, User } from '../../lib/types';
 import { CORPORATE_CLIENTS, CONTENT_TYPES, BANKS, CARGO_ROUTES } from '../../lib/constants';
-import { fmt, uid, tnow } from '../../lib/helpers';
+import { fmt, uid, tnow, generatePickupPin } from '../../lib/helpers';
 import {
   CheckCircle, Loader2, User as UserIcon, Plane, Hash, Package, MapPin, Layers,
   Banknote, CreditCard, Landmark, MessageSquare, Scale, Users, ShieldAlert,
-  PlusCircle, Trash2, Edit3, Coins, Search, ArrowRight, Table, DollarSign, Building
+  PlusCircle, Trash2, Edit3, Coins, Search, ArrowRight, Table, DollarSign, Building, Copy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { sendReceiptWhatsApp, buildCargoWhatsApp } from '../../lib/notifications';
@@ -84,6 +84,7 @@ export const CargoForm = ({ onAddTx, user }: {
   const [bank, setBank] = useState(BANKS[0] as string);
   const [remark, setRemark] = useState('');
   const [senderPhone, setSenderPhone] = useState('');
+  const [consigneePhone, setConsigneePhone] = useState('');
   
   const [narrationCode, setNarrationCode] = useState<string>('');
 
@@ -422,6 +423,8 @@ export const CargoForm = ({ onAddTx, user }: {
 
     const summaryStr = `${airline} · ${awb} · ${pcs}pcs · ${kg}KG · ${route} · ${contentType}`;
 
+    const pickupPin = generatePickupPin();
+
     const tx: Transaction = {
       id: uid('CG'),
       name: actualConsignee,
@@ -438,13 +441,28 @@ export const CargoForm = ({ onAddTx, user }: {
       airline: airline,
       pieces: parseInt(pcs) || 1,
       kg: parseFloat(kg) || 0,
-    };
+      pickupPin,
+      consigneePhone: consigneePhone.trim(),
+    } as Transaction;
 
     setSuccessTx(tx);
     setSerialNumber(incrementLocalSerial());
     setSubmitting(false);
 
     onAddTx(tx);
+
+    // Call PIN notification API
+    fetch('/api/notify/pickup-pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        senderPhone: senderPhone.trim(),
+        consigneePhone: consigneePhone.trim(),
+        pin: pickupPin,
+        entryRef: tx.id,
+        route
+      })
+    }).catch(e => console.error('Failed to notify pin:', e));
 
     if (senderPhone.trim().length > 0) {
       sendReceiptWhatsApp({
@@ -480,6 +498,7 @@ export const CargoForm = ({ onAddTx, user }: {
     setBank(BANKS[0] as string);
     setRemark('');
     setSenderPhone('');
+    setConsigneePhone('');
     setSuccessTx(null);
   };
 
@@ -508,6 +527,7 @@ export const CargoForm = ({ onAddTx, user }: {
         paymentNarration: successTx.paymentNarration,
         bankName: successTx.bank || undefined,
         remark: successTx.remarks || undefined,
+        pickupPin: (successTx as any).pickupPin || undefined,
       };
       downloadCargoReceipt(data);
     }
@@ -538,6 +558,7 @@ export const CargoForm = ({ onAddTx, user }: {
         paymentNarration: successTx.paymentNarration,
         bankName: successTx.bank || undefined,
         remark: successTx.remarks || undefined,
+        pickupPin: (successTx as any).pickupPin || undefined,
       };
       printCargoReceipt(data);
     }
@@ -580,6 +601,31 @@ export const CargoForm = ({ onAddTx, user }: {
              <div className="flex justify-center mb-4 p-4 bg-white rounded">
                <QRCode id={successTx.id} size={150} />
              </div>
+
+             {/* PICKUP PIN SECTION */}
+             {((successTx as any).pickupPin) && (
+               <div className="my-6 border border-[var(--color-accent-amber)] rounded-[var(--radius-md)] bg-[rgba(245,158,11,0.05)] overflow-hidden">
+                 <div className="bg-[rgba(245,158,11,0.1)] px-4 py-2 border-b border-[var(--color-accent-amber)] flex justify-between items-center">
+                   <span className="text-[12px] font-bold text-[var(--color-accent-amber)] uppercase tracking-wider">Pickup PIN</span>
+                   <button 
+                     onClick={() => navigator.clipboard.writeText((successTx as any).pickupPin)}
+                     className="text-[var(--color-accent-amber)] hover:text-white transition-colors"
+                     title="Copy PIN"
+                   >
+                     <Copy size={14} />
+                   </button>
+                 </div>
+                 <div className="p-4 text-center">
+                   <div className="text-[32px] font-mono font-bold text-[var(--color-foreground)] tracking-[0.5em] ml-[0.25em]">
+                     {(successTx as any).pickupPin}
+                   </div>
+                   <p className="text-[11px] text-[var(--color-muted)] mt-2 font-sans leading-snug max-w-[250px] mx-auto">
+                     Share this PIN with the consignee. They must present it at the destination hub to collect the cargo.
+                   </p>
+                 </div>
+               </div>
+             )}
+
              <div className="flex justify-between border-b border-[var(--color-border)] pb-2">
                <span className="text-[13px] font-sans text-[var(--color-muted)]">Consignee</span>
                <span className="text-[14px] font-sans font-medium text-[var(--color-foreground)]">{successTx.name}</span>
@@ -702,6 +748,13 @@ export const CargoForm = ({ onAddTx, user }: {
                       className={formInputClass}
                     />
                   )}
+                  <input
+                    type="tel"
+                    placeholder="Consignee Phone (destination) (Optional)"
+                    value={consigneePhone}
+                    onChange={(e) => setConsigneePhone(e.target.value)}
+                    className={formInputClass}
+                  />
                 </div>
               </div>
 
@@ -804,7 +857,7 @@ export const CargoForm = ({ onAddTx, user }: {
                     type="number"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="ehi-input pl-10"
+                    className="ehi-input pl-12"
                   />
                 </div>
               </div>
@@ -1270,7 +1323,7 @@ export const CargoForm = ({ onAddTx, user }: {
                           placeholder="Scale Reading"
                           value={gateWeight}
                           onChange={(e) => setGateWeight(e.target.value)}
-                          className="w-full h-12 pl-4 pr-10 text-[16px] font-bold text-[var(--color-accent-amber)] rounded-md bg-[var(--color-bg)] border border-[rgba(255,255,255,0.1)] font-mono focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
+                          className="w-full h-12 pl-4 pr-12 text-[16px] font-bold text-[var(--color-accent-amber)] rounded-md bg-[var(--color-bg)] border border-[rgba(255,255,255,0.1)] font-mono focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
                         />
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--color-muted)] font-bold text-[12px] font-sans">KG</span>
                       </div>

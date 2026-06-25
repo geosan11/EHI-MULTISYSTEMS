@@ -368,4 +368,17 @@ export async function logScanEvent(
     scanned_by_name: scannedByName,
     cargo_destination: cargoDestination,
   });
+
+  // Also update cargo_entries status if it exists
+  let newStatus = '';
+  if (mode === 'ARRIVE') newStatus = 'Arrive';
+  if (mode === 'DEPART') newStatus = 'Depart';
+  if (mode === 'DELIVER') newStatus = 'Delivers';
+  
+  if (newStatus) {
+    const { data } = await supabase.from('cargo_entries').select('id').eq('id', ref).limit(1).maybeSingle();
+    if (data) {
+      await supabase.from('cargo_entries').update({ status: newStatus }).eq('id', ref);
+    }
+  }
 }

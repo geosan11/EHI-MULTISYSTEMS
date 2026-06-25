@@ -25,6 +25,7 @@ export interface CargoReceiptData {
   paymentNarration?: string;
   remark?: string;
   qrCodeDataUrl?: string;
+  pickupPin?: string;
 }
 
 const styles = StyleSheet.create({
@@ -42,7 +43,11 @@ const styles = StyleSheet.create({
   footerRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 4 },
   footerText: { fontSize: 8, color: '#9ca3af', fontStyle: 'italic', textAlign: 'center' },
   qrContainer: { alignItems: 'center', marginVertical: 10 },
-  qrImage: { width: 80, height: 80 }
+  qrImage: { width: 80, height: 80 },
+  pinContainer: { marginTop: 8, padding: 8, backgroundColor: '#FFFBEB', borderRadius: 4, borderWidth: 1, borderColor: '#F59E0B', alignItems: 'center' },
+  pinLabel: { fontSize: 10, color: '#D97706', fontWeight: 'bold', textTransform: 'uppercase' },
+  pinValue: { fontSize: 24, fontFamily: 'Courier', fontWeight: 'bold', color: '#111827', letterSpacing: 5, marginVertical: 4 },
+  pinHelper: { fontSize: 7, color: '#6B7280', textAlign: 'center' }
 });
 
 const CargoReceiptPDF = ({ data }: { data: CargoReceiptData }) => (
@@ -56,6 +61,15 @@ const CargoReceiptPDF = ({ data }: { data: CargoReceiptData }) => (
       {data.qrCodeDataUrl && (
         <View style={styles.qrContainer}>
           <Image src={data.qrCodeDataUrl} style={styles.qrImage} />
+        </View>
+      )}
+
+      {data.pickupPin && (
+        <View style={styles.pinContainer}>
+          <Text style={styles.pinLabel}>PICKUP PIN</Text>
+          <Text style={styles.pinValue}>{data.pickupPin}</Text>
+          <Text style={styles.pinHelper}>Share this PIN with the consignee.</Text>
+          <Text style={styles.pinHelper}>They must present it to collect cargo.</Text>
         </View>
       )}
 
