@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Theme } from '../lib/useTheme';
 
+import { EHILogo } from './EHILogo';
+
 export const Header = ({ 
   user, 
   isOffline, 
@@ -48,26 +50,8 @@ export const Header = ({
 
         {/* Brand */}
         <div className="flex items-center gap-2.5 ehi-header-brand">
-          <div
-            style={{
-              width: 36, height: 36,
-              borderRadius: 'var(--radius-sm)',
-              background: 'rgba(245,158,11,0.12)',
-              border: '1px solid rgba(245,158,11,0.25)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <span style={{
-              fontSize: 12, fontWeight: 900,
-              color: 'var(--color-accent-amber)',
-              fontFamily: 'monospace', letterSpacing: '-0.02em',
-            }}>EHI</span>
-          </div>
+          <EHILogo width={100} height={40} />
           <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-foreground)' }}>
-              EHI Multisystems
-            </div>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 4,
               background: 'rgba(245,158,11,0.12)',

@@ -1,5 +1,6 @@
 import { Document, Page, Text, View, StyleSheet, pdf, Font } from '@react-pdf/renderer';
 import { Transaction, Expense } from '../../lib/types';
+import { EHILogoPDF } from '../EHILogoPDF';
 
 Font.register({
   family: 'Courier',
@@ -75,7 +76,9 @@ const EODReportPDF = ({ data }: { data: EODReportData }) => (
   <Document>
     <Page size="A4" orientation="landscape" style={styles.page}>
       <View style={styles.header}>
-        <Text style={styles.companyName}>EHI MULTISYSTEMS NIGERIA LIMITED</Text>
+        <View style={{ alignItems: 'flex-start', marginBottom: 15 }}>
+          <EHILogoPDF width={110} />
+        </View>
         <Text style={styles.title}>DAILY OPERATIONS REPORT</Text>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
           <Text style={{ fontSize: 9 }}>Date: {data.date}</Text>

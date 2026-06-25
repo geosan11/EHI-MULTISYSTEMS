@@ -1,4 +1,5 @@
 import { Document, Page, Text, View, StyleSheet, pdf, Font } from '@react-pdf/renderer';
+import { EHILogoPDF } from '../EHILogoPDF';
 
 Font.register({
   family: 'Courier',
@@ -211,7 +212,9 @@ const PDFDocument = ({ payload }: { payload: ReportDataPayload }) => {
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
-          <Text style={styles.companyName}>EHI MULTISYSTEMS NIGERIA LIMITED</Text>
+          <View style={{ alignItems: 'flex-start', marginBottom: 15 }}>
+            <EHILogoPDF width={120} />
+          </View>
           <Text style={styles.title}>{payload.reportLabel}</Text>
           <View style={styles.subtitleRow}>
             <Text style={styles.subtitleText}>Date Range: {rangeStr}</Text>

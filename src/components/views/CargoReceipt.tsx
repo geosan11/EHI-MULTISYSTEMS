@@ -1,5 +1,6 @@
 import { Document, Page, Text, View, StyleSheet, pdf, Font, Image } from '@react-pdf/renderer';
 import QRCode from 'qrcode';
+import { EHILogoPDF } from '../EHILogoPDF';
 
 Font.register({
   family: 'Courier',
@@ -54,7 +55,9 @@ const CargoReceiptPDF = ({ data }: { data: CargoReceiptData }) => (
   <Document>
     <Page size="A6" style={styles.page}>
       <View style={styles.header}>
-        <Text style={styles.companyName}>EHI MULTISYSTEMS NIGERIA LIMITED</Text>
+        <View style={{ alignItems: 'center', marginBottom: 10 }}>
+          <EHILogoPDF width={100} />
+        </View>
         <Text style={styles.title}>CARGO ENTRY RECEIPT</Text>
       </View>
 

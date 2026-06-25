@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UserProfile, signIn } from '../lib/auth';
 import { LoadingState } from './views/LoadingState';
+import { EHILogo } from './EHILogo';
 
 export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void }) => {
   const [email, setEmail] = useState('');
@@ -32,23 +33,14 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
       <div className="w-full max-w-[380px] flex flex-col items-center z-10">
         {/* Header */}
         <div className="text-center mb-10 flex flex-col items-center">
-          <div style={{
-            width: 88, height: 88,
-            borderRadius: 'var(--radius-xl)',
-            background: 'linear-gradient(135deg, rgba(245,158,11,0.18) 0%, rgba(245,158,11,0.07) 100%)',
-            border: '1.5px solid rgba(245,158,11,0.32)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            marginBottom: 16,
-            boxShadow: '0 8px 32px rgba(245,158,11,0.14), 0 0 0 1px rgba(245,158,11,0.06) inset',
-          }}>
-            <span className="font-sans text-[36px] font-black text-[var(--color-accent-amber)] leading-none select-none">EHI</span>
+          <div className="mb-4">
+            <EHILogo width={180} height={100} />
           </div>
           <div className="mt-2 inline-flex items-center space-x-1.5 bg-[rgba(16,185,129,0.1)] px-2.5 py-1 rounded-full border border-[rgba(16,185,129,0.2)]">
             <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse"></div>
             <span className="text-[10px] font-sans font-semibold text-[var(--color-success)] uppercase tracking-wide">System Online</span>
           </div>
-          <div className="text-[15px] font-bold font-sans text-[var(--color-foreground)] tracking-[0.1em] mt-6">MULTISYSTEMS</div>
-          <div className="text-[14px] font-sans text-[var(--color-muted)] mt-1">Staff Operations Portal</div>
+          <div className="text-[14px] font-sans text-[var(--color-muted)] mt-4">Staff Operations Portal</div>
         </div>
 
         {/* Form */}

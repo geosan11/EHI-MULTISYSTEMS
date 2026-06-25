@@ -1,4 +1,5 @@
 import { Document, Page, Text, View, StyleSheet, pdf, Font } from '@react-pdf/renderer';
+import { EHILogoPDF } from '../EHILogoPDF';
 
 Font.register({
   family: 'Courier',
@@ -63,7 +64,9 @@ const MarketingReceiptPDF = ({ data }: { data: MarketingReceiptData }) => (
   <Document>
     <Page size="A6" style={styles.page}>
       <View style={styles.header}>
-        <Text style={styles.companyName}>EHI MULTISYSTEMS NIGERIA LIMITED</Text>
+        <View style={{ alignItems: 'center', marginBottom: 10 }}>
+          <EHILogoPDF width={100} />
+        </View>
         <Text style={styles.title}>FIELD MARKETING RECEIPT</Text>
       </View>
 
@@ -186,7 +189,9 @@ const MarketingDailySummaryPDF = ({ data }: { data: MarketingDailySummaryData })
   <Document>
     <Page size="A4" style={summaryStyles.page}>
       <View style={summaryStyles.header}>
-        <Text style={summaryStyles.companyName}>EHI MULTISYSTEMS NIGERIA LIMITED</Text>
+        <View style={{ alignItems: 'center', marginBottom: 15 }}>
+          <EHILogoPDF width={120} />
+        </View>
         <Text style={summaryStyles.title}>FIELD MARKETING DAILY SUMMARY</Text>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
           <Text style={{ fontSize: 10 }}>Date: {data.date}</Text>
