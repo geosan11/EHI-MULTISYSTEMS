@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { User, Transaction } from '../../lib/types';
 import { fmt } from '../../lib/helpers';
-import { ArrowLeft, CreditCard, Building2, Users, Search } from 'lucide-react';
+import { ArrowLeft, CreditCard, Building2, Users, Search, ArrowDownLeft, ArrowUpRight, TrendingDown, TrendingUp, Building, UserSquare2 } from 'lucide-react';
 
 export const CreditDebit = ({ user, transactions }: { user: User; transactions: Transaction[] }) => {
   const [activeTab, setActiveTab] = useState<'debts' | 'credits'>('debts');
@@ -61,22 +61,22 @@ export const CreditDebit = ({ user, transactions }: { user: User; transactions: 
           </div>
         </div>
 
-        <div className="flex bg-[var(--color-surface-2)] p-1 rounded-lg mt-5 mb-2 w-full">
+        <div className="flex bg-[var(--color-obsidian)] border border-[rgba(255,255,255,0.05)] p-1 rounded-lg mt-5 mb-2 w-full">
           <button
             onClick={() => setActiveTab('debts')}
-            className={`flex-1 py-2 text-[12px] font-bold font-sans rounded transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'debts' ? 'bg-[var(--color-surface-1)] text-[var(--color-accent-amber)] shadow-sm' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+            className={`flex-1 py-2.5 text-[11px] font-bold font-mono uppercase tracking-wider rounded transition-all flex items-center justify-center gap-2 ${
+              activeTab === 'debts' ? 'bg-[var(--color-surface-2)] text-[var(--color-accent-amber)] shadow-sm border border-[rgba(245,158,11,0.2)]' : 'text-[var(--color-muted)] hover:text-white'
             }`}
           >
-            <Users size={14} strokeWidth={1.5} /> Receivables (Debts)
+            <ArrowDownLeft size={14} strokeWidth={2} /> Receivables
           </button>
           <button
             onClick={() => setActiveTab('credits')}
-            className={`flex-1 py-2 text-[12px] font-bold font-sans rounded transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'credits' ? 'bg-[var(--color-surface-1)] text-[var(--color-accent-cobalt)] shadow-sm' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+            className={`flex-1 py-2.5 text-[11px] font-bold font-mono uppercase tracking-wider rounded transition-all flex items-center justify-center gap-2 ${
+              activeTab === 'credits' ? 'bg-[var(--color-surface-2)] text-emerald-400 shadow-sm border border-[rgba(16,185,129,0.2)]' : 'text-[var(--color-muted)] hover:text-white'
             }`}
           >
-            <Building2 size={14} strokeWidth={1.5} /> Payables (Credits)
+            <ArrowUpRight size={14} strokeWidth={2} /> Payables
           </button>
         </div>
 
@@ -95,32 +95,42 @@ export const CreditDebit = ({ user, transactions }: { user: User; transactions: 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {activeTab === 'debts' && (
           <>
-            <div className="ehi-card p-4 flex flex-col justify-center items-center">
-              <div className="text-[11px] font-mono text-[var(--color-muted)] uppercase tracking-wider mb-1">Total Outstanding Debt</div>
-              <div className="text-[24px] font-sans font-bold text-[var(--color-error)]">₦{fmt(totalDebt)}</div>
+            <div className="bg-[var(--color-surface-card)] border border-[rgba(245,158,11,0.2)] rounded-lg p-6 flex flex-col justify-center items-center shadow-[0_0_15px_rgba(245,158,11,0.05)] relative overflow-hidden">
+              <div className="absolute -top-6 -right-6 opacity-5 text-[var(--color-accent-amber)]">
+                <TrendingDown size={120} />
+              </div>
+              <div className="text-[11px] font-mono text-[var(--color-muted)] uppercase tracking-wider mb-2 relative z-10 flex items-center gap-2">
+                <ArrowDownLeft size={14} className="text-[var(--color-accent-amber)]" /> Total Outstanding Debt
+              </div>
+              <div className="text-[32px] font-sans font-bold text-[var(--color-accent-amber)] relative z-10">₦{fmt(totalDebt)}</div>
             </div>
 
             <div className="space-y-3">
-              <h3 className="text-[13px] font-bold font-sans text-[var(--color-foreground)] tracking-wide">Debtors Breakdown</h3>
-              {debtSummary.length === 0 && <div className="text-[12px] font-mono text-[var(--color-muted)] text-center py-4">No debts found.</div>}
+              <h3 className="text-[11px] font-mono text-[var(--color-muted)] uppercase tracking-wider pl-1">Debtors Breakdown</h3>
+              {debtSummary.length === 0 && <div className="text-[12px] font-mono text-[var(--color-muted)] text-center py-4 bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.05)] rounded-lg">No debts found.</div>}
               {debtSummary.map((d, i) => (
-                <div key={i} className="ehi-card p-3 flex justify-between items-center">
-                  <div className="font-sans font-bold text-[13px] text-[var(--color-foreground)]">{d.name}</div>
-                  <div className="font-mono text-[13px] font-bold text-[var(--color-error)]">₦{fmt(d.amount)}</div>
+                <div key={i} className="bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.05)] rounded-lg p-4 flex justify-between items-center hover:border-[rgba(255,255,255,0.1)] transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-[var(--color-surface-2)] rounded flex items-center justify-center text-[var(--color-muted)]">
+                      <UserSquare2 size={16} />
+                    </div>
+                    <div className="font-sans font-bold text-[14px] text-white">{d.name}</div>
+                  </div>
+                  <div className="font-mono text-[14px] font-bold text-[var(--color-accent-amber)] tracking-tight">₦{fmt(d.amount)}</div>
                 </div>
               ))}
             </div>
 
-            <div className="mt-6 space-y-3">
-              <h3 className="text-[13px] font-bold font-sans text-[var(--color-foreground)] tracking-wide">Detailed Ledger</h3>
+            <div className="mt-8 space-y-3">
+              <h3 className="text-[11px] font-mono text-[var(--color-muted)] uppercase tracking-wider pl-1">Detailed Ledger</h3>
               {debts.map((tx, i) => (
-                <div key={i} className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-lg p-3">
-                  <div className="flex justify-between items-start mb-1">
-                    <span className="text-[12px] font-sans font-bold text-[var(--color-foreground)]">{tx.name}</span>
-                    <span className="text-[12px] font-mono font-bold text-[var(--color-error)]">₦{fmt(tx.amount)}</span>
+                <div key={i} className="bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.05)] rounded-lg p-4 hover:border-[rgba(255,255,255,0.1)] transition-colors">
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-[14px] font-sans font-bold text-white">{tx.name}</span>
+                    <span className="text-[13px] font-mono font-bold text-[var(--color-accent-amber)]">₦{fmt(tx.amount)}</span>
                   </div>
-                  <div className="text-[11px] font-mono text-[var(--color-muted)] line-clamp-1">{tx.detail}</div>
-                  <div className="flex justify-between mt-2 pt-2 border-t border-[rgba(255,255,255,0.05)] text-[10px] font-mono text-[var(--color-muted)]">
+                  <div className="text-[12px] font-sans text-[var(--color-muted)] mb-3">{tx.detail}</div>
+                  <div className="flex justify-between pt-3 border-t border-[rgba(255,255,255,0.05)] text-[10px] font-mono text-[var(--color-muted)] uppercase">
                     <span>{new Date(tx.time).toLocaleDateString()}</span>
                     <span>{tx.id}</span>
                   </div>
@@ -132,37 +142,47 @@ export const CreditDebit = ({ user, transactions }: { user: User; transactions: 
 
         {activeTab === 'credits' && (
           <>
-            <div className="ehi-card p-4 flex flex-col justify-center items-center">
-              <div className="text-[11px] font-mono text-[var(--color-muted)] uppercase tracking-wider mb-1">Total Due to Airlines</div>
-              <div className="text-[24px] font-sans font-bold text-[var(--color-accent-cobalt)]">₦{fmt(totalCredit)}</div>
+            <div className="bg-[var(--color-surface-card)] border border-[rgba(16,185,129,0.2)] rounded-lg p-6 flex flex-col justify-center items-center shadow-[0_0_15px_rgba(16,185,129,0.05)] relative overflow-hidden">
+              <div className="absolute -top-6 -right-6 opacity-5 text-emerald-400">
+                <TrendingUp size={120} />
+              </div>
+              <div className="text-[11px] font-mono text-[var(--color-muted)] uppercase tracking-wider mb-2 relative z-10 flex items-center gap-2">
+                <ArrowUpRight size={14} className="text-emerald-400" /> Total Due to Airlines
+              </div>
+              <div className="text-[32px] font-sans font-bold text-emerald-400 relative z-10">₦{fmt(totalCredit)}</div>
             </div>
 
             <div className="space-y-3">
-              <h3 className="text-[13px] font-bold font-sans text-[var(--color-foreground)] tracking-wide">Airlines Breakdown</h3>
-              {creditSummary.length === 0 && <div className="text-[12px] font-mono text-[var(--color-muted)] text-center py-4">No credits found.</div>}
+              <h3 className="text-[11px] font-mono text-[var(--color-muted)] uppercase tracking-wider pl-1">Airlines Breakdown</h3>
+              {creditSummary.length === 0 && <div className="text-[12px] font-mono text-[var(--color-muted)] text-center py-4 bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.05)] rounded-lg">No credits found.</div>}
               {creditSummary.map((c, i) => (
-                <div key={i} className="ehi-card p-3 flex justify-between items-center">
-                  <div className="font-sans font-bold text-[13px] text-[var(--color-foreground)]">{c.airline}</div>
-                  <div className="font-mono text-[13px] font-bold text-[var(--color-accent-cobalt)]">₦{fmt(c.amount)}</div>
+                <div key={i} className="bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.05)] rounded-lg p-4 flex justify-between items-center hover:border-[rgba(255,255,255,0.1)] transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-[var(--color-surface-2)] rounded flex items-center justify-center text-[var(--color-muted)]">
+                      <Building size={16} />
+                    </div>
+                    <div className="font-sans font-bold text-[14px] text-white">{c.airline}</div>
+                  </div>
+                  <div className="font-mono text-[14px] font-bold text-emerald-400 tracking-tight">₦{fmt(c.amount)}</div>
                 </div>
               ))}
             </div>
 
-            <div className="mt-6 space-y-3">
-              <h3 className="text-[13px] font-bold font-sans text-[var(--color-foreground)] tracking-wide">Detailed Remittances</h3>
+            <div className="mt-8 space-y-3">
+              <h3 className="text-[11px] font-mono text-[var(--color-muted)] uppercase tracking-wider pl-1">Detailed Remittances</h3>
               {credits.map((tx, i) => {
                 const commRate = commissions[tx.airline!] || 0;
                 const weOwe = tx.amount * (1 - commRate / 100);
                 return (
-                  <div key={i} className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-lg p-3">
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="text-[12px] font-sans font-bold text-[var(--color-foreground)]">{tx.airline} <span className="opacity-50">({tx.id})</span></span>
-                      <span className="text-[12px] font-mono font-bold text-[var(--color-accent-cobalt)]">₦{fmt(weOwe)}</span>
+                  <div key={i} className="bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.05)] rounded-lg p-4 hover:border-[rgba(255,255,255,0.1)] transition-colors">
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-[14px] font-sans font-bold text-white">{tx.airline} <span className="opacity-50 text-[11px] font-mono ml-1">({tx.id})</span></span>
+                      <span className="text-[13px] font-mono font-bold text-emerald-400">₦{fmt(weOwe)}</span>
                     </div>
-                    <div className="text-[10px] font-mono text-[var(--color-muted)]">
-                      Base: ₦{fmt(tx.amount)} &middot; Comm: {commRate}% (₦{fmt(tx.amount * commRate / 100)})
+                    <div className="text-[11px] font-mono text-[var(--color-muted)] mb-3 bg-[var(--color-surface-2)] inline-block px-2 py-1 rounded">
+                      Base: ₦{fmt(tx.amount)} <span className="mx-1 opacity-50">&middot;</span> Comm: {commRate}% <span className="text-[var(--color-accent-amber)]">(₦{fmt(tx.amount * commRate / 100)})</span>
                     </div>
-                    <div className="text-[11px] font-mono text-[var(--color-muted)] mt-1.5 line-clamp-1 border-t border-[rgba(255,255,255,0.05)] pt-1.5">
+                    <div className="text-[12px] font-sans text-[var(--color-muted)] line-clamp-1 pt-1">
                       {tx.detail}
                     </div>
                   </div>
