@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Transaction, User } from '../../lib/types';
-import { CORPORATE_CLIENTS, CONTENT_TYPES, BANKS } from '../../lib/constants';
+import { CORPORATE_CLIENTS, CONTENT_TYPES, BANKS, CARGO_ROUTES } from '../../lib/constants';
 import { fmt, uid, tnow } from '../../lib/helpers';
 import {
   CheckCircle, Loader2, User as UserIcon, Plane, Hash, Package, MapPin, Layers,
@@ -9,12 +9,6 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { sendReceiptWhatsApp, buildCargoWhatsApp } from '../../lib/notifications';
-
-const CARGO_ROUTES = [
-  'ABV/Abuja', 'PHC/Port Harcourt', 'BNI/Benin', 'KAN/Kano',
-  'Asaba', 'Enugu', 'Warri', 'Owerri', 'Lagos', 'Kaduna',
-  'Makurdi', 'Other'
-];
 
 interface CorporateClient {
   id: string;
@@ -101,6 +95,31 @@ export const CargoForm = ({ onAddTx, user }: {
     }
   }, [mode, narrationCode, user.hub, serialNumber]);
   
+  const [standardRates, setStandardRates] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const saved = localStorage.getItem('ehi_standard_cargo_rates');
+    if (saved) {
+      setStandardRates(JSON.parse(saved));
+    } else {
+      const initial: Record<string, number> = {};
+      CARGO_ROUTES.forEach(r => initial[r] = 500);
+      setStandardRates(initial);
+      localStorage.setItem('ehi_standard_cargo_rates', JSON.stringify(initial));
+    }
+  }, []);
+
+  // Auto calculate amount for retail
+  useEffect(() => {
+    const w = parseFloat(kg) || 0;
+    const rate = standardRates[route] || 500;
+    if (w > 0) {
+      setAmount((w * rate).toString());
+    } else {
+      setAmount('');
+    }
+  }, [kg, route, standardRates]);
+
   const [availableAirlines, setAvailableAirlines] = useState<string[]>(['Arik Air', 'Green Africa', 'United Nigeria', 'Other']);
 
   useEffect(() => {
@@ -785,7 +804,7 @@ export const CargoForm = ({ onAddTx, user }: {
                     type="number"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="ehi-input"
+                    className="ehi-input pl-10"
                   />
                 </div>
               </div>
@@ -985,16 +1004,6 @@ export const CargoForm = ({ onAddTx, user }: {
                   {pendingIntakes.length} pending
                 </span>
               )}
-            </button>
-            <button
-              onClick={() => setCorpSubTab('directory')}
-              className={`pb-2.5 px-1 transition-all cursor-pointer ${
-                corpSubTab === 'directory' 
-                  ? 'text-[var(--color-accent-amber)] border-b-2 border-[var(--color-accent-amber)]' 
-                  : 'text-[var(--color-light-muted)] hover:text-white'
-              }`}
-            >
-              📊 B2B Clients & Negotiated Rates
             </button>
           </div>
 
@@ -1223,120 +1232,103 @@ export const CargoForm = ({ onAddTx, user }: {
               </div>
 
               {/* INTEGRATED SCALE WEIGHT & CALCULATION WORKSPACE */}
-              <div className="space-y-4">
+              <div>
                 {selectedIntake ? (
-                  <div className="bg-[var(--color-surface-card)] border-2 border-[var(--color-border-strong)] p-5 rounded-[var(--radius-md)] text-zinc-300">
-                    <div style={{
-                      fontSize: 10, fontFamily: 'monospace',
-                      color: 'var(--color-muted)',
-                      textTransform: 'uppercase', letterSpacing: '0.1em',
-                      marginBottom: 12, fontWeight: 700
-                    }}>
-                      SCALE WEIGHING CONSOLE
+                  <div className="bg-[var(--color-surface-card)] border border-[var(--color-border-strong)] p-6 rounded-[var(--radius-md)] text-zinc-300 flex flex-col h-auto">
+                    <div className="flex items-center justify-between mb-6 pb-2 border-b border-[rgba(255,255,255,0.05)]">
+                      <div className="text-[13px] font-bold text-[var(--color-accent-amber)] uppercase tracking-wider">
+                        SCALE WEIGHING CONSOLE
+                      </div>
                     </div>
 
-                    <div className="ehi-input">
-                      <div className="flex justify-between">
-                        <span className="text-zinc-400">Arrived Client:</span>
-                        <span className="font-bold text-white">{selectedIntake.consignee}</span>
+                    <div className="bg-[var(--color-surface-2)] p-4 rounded-lg border border-[rgba(255,255,255,0.05)] space-y-2 text-[12px] mb-6">
+                      <div className="flex justify-between items-center py-1 border-b border-[rgba(255,255,255,0.05)]">
+                        <span className="text-[var(--color-muted)] font-medium">Arrived Client</span>
+                        <span className="font-bold text-[var(--color-foreground)]">{selectedIntake.consignee}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-zinc-400">Shipment Route:</span>
-                        <span className="font-bold text-amber-500">{selectedIntake.route}</span>
+                      <div className="flex justify-between items-center py-1 border-b border-[rgba(255,255,255,0.05)]">
+                        <span className="text-[var(--color-muted)] font-medium">Shipment Route</span>
+                        <span className="font-bold text-[var(--color-accent-amber)]">{selectedIntake.route}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-zinc-400">Carrier Waybill:</span>
-                        <span className="font-bold text-white font-mono">{selectedIntake.awb}</span>
+                      <div className="flex justify-between items-center py-1 border-b border-[rgba(255,255,255,0.05)]">
+                        <span className="text-[var(--color-muted)] font-medium">Carrier Waybill</span>
+                        <span className="font-bold text-[var(--color-foreground)] font-mono">{selectedIntake.awb}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-zinc-400">Total Containers:</span>
-                        <span className="font-bold text-white">{selectedIntake.pieces} pieces</span>
+                      <div className="flex justify-between items-center py-1">
+                        <span className="text-[var(--color-muted)] font-medium">Total Containers</span>
+                        <span className="font-bold text-[var(--color-foreground)]">{selectedIntake.pieces} pieces</span>
                       </div>
                     </div>
 
                     {/* SCALE SIMULATION FOR INTEGRATION LOOKS POPULAR */}
-                    <div className="mb-4">
-                      {renderLabel(Scale, "Commercial Scale Verified Weight (KG)")}
-                      <div className="flex gap-2">
-                        <div className="relative flex-1">
-                          <input 
-                            type="number"
-                            step="0.1"
-                            placeholder="Place cargo, input scale Reading"
-                            value={gateWeight}
-                            onChange={(e) => setGateWeight(e.target.value)}
-                            className="w-full h-14 px-4 text-center text-[22px] font-bold text-[var(--color-accent-amber)] rounded bg-[var(--color-obsidian)] border border-[var(--color-border-strong)] font-mono focus:outline-none"
-                          />
-                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 font-bold ml-1 font-sans">KG</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            // Stabilize at a random mock package weight between 5 and 180 kg
-                            const randomized = (Math.random() * 150 + 10).toFixed(1);
-                            setGateWeight(randomized);
-                          }}
-                          className="px-3 bg-slate-800 hover:bg-slate-700 font-bold text-[10px] rounded border border-slate-600 text-[var(--color-accent-amber)] cursor-pointer"
-                        >
-                          SCALE<br/>STABILIZE
-                        </button>
+                    <div className="mb-6">
+                      <label className="text-[11px] font-medium text-[var(--color-muted)] block mb-1.5">Commercial Scale Verified Weight (KG)</label>
+                      <div className="relative">
+                        <input 
+                          type="number"
+                          step="0.1"
+                          placeholder="Scale Reading"
+                          value={gateWeight}
+                          onChange={(e) => setGateWeight(e.target.value)}
+                          className="w-full h-12 pl-4 pr-10 text-[16px] font-bold text-[var(--color-accent-amber)] rounded-md bg-[var(--color-bg)] border border-[rgba(255,255,255,0.1)] font-mono focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
+                        />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--color-muted)] font-bold text-[12px] font-sans">KG</span>
                       </div>
                     </div>
 
-                    <div className="h-px bg-[var(--color-border)] my-4" />
-
                     {/* DYNAMIC CONTRACT PRICING ENGINE */}
-                    <div className="space-y-3 font-mono text-[12px]">
-                      <div className="flex justify-between">
-                        <span className="text-zinc-400">Direct Negotiated Rate:</span>
-                        <span className="font-bold text-white">
-                          ₦{
-                            (() => {
-                              const matchC = corpClients.find(c => c.company_name === selectedIntake.consignee);
-                              const matchR = matchC ? corpRates.find(r => r.corporate_client_id === matchC.id && r.route_name === selectedIntake.route) : null;
-                              return matchR ? matchR.rate_per_kg : '500.00 (Baseline fallback)';
-                            })()
-                          }/KG
-                        </span>
-                      </div>
-
-                      {/* RBAC OVERWRITE PRICING LOCK */}
-                      {isAuthorizedRole ? (
-                        <div className="pt-1">
-                          <label className="text-[11px] font-semibold text-zinc-400 mb-1.5 block">Admin Custom Rate Overwrite (₦/KG):</label>
-                          <input 
-                            type="number"
-                            placeholder="Leave empty for default contract rate"
-                            value={customRateOverwrite}
-                            onChange={(e) => setCustomRateOverwrite(e.target.value)}
-                            className="w-full h-8 px-2 text-[11px] bg-slate-900 text-white border border-slate-700 rounded focus:outline-none"
-                          />
+                    <div className="flex flex-col space-y-4">
+                      <div className="bg-[var(--color-bg)] p-4 rounded-lg border border-[rgba(255,255,255,0.05)] space-y-3 font-mono text-[12px]">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[var(--color-muted)]">Negotiated Rate</span>
+                          <span className="font-bold text-[var(--color-foreground)]">
+                            ₦{
+                              (() => {
+                                const matchC = corpClients.find(c => c.company_name === selectedIntake.consignee);
+                                const matchR = matchC ? corpRates.find(r => r.corporate_client_id === matchC.id && r.route_name === selectedIntake.route) : null;
+                                return matchR ? matchR.rate_per_kg : '500.00 (Baseline)';
+                              })()
+                            }/KG
+                          </span>
                         </div>
-                      ) : (
-                        <div className="flex items-center gap-1 opacity-80 text-[10px] bg-zinc-950 p-2 rounded border border-zinc-800 italic">
-                          <span>🔒 Rates locked by Accounting Contract rules.</span>
+
+                        {/* RBAC OVERWRITE PRICING LOCK */}
+                        {isAuthorizedRole ? (
+                          <div className="pt-2 border-t border-[rgba(255,255,255,0.05)]">
+                            <label className="text-[10px] text-[var(--color-muted)] block mb-1.5">Admin Custom Rate Overwrite (₦/KG):</label>
+                            <input 
+                              type="number"
+                              placeholder="Leave empty for default"
+                              value={customRateOverwrite}
+                              onChange={(e) => setCustomRateOverwrite(e.target.value)}
+                              className="w-full h-9 px-3 text-[12px] bg-[var(--color-surface-2)] text-[var(--color-foreground)] border border-[rgba(255,255,255,0.05)] rounded focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-[10px] bg-[var(--color-surface-2)] text-[var(--color-muted)] p-2 rounded italic">
+                            <ShieldAlert size={12} />
+                            <span>Rates locked by Accounting rules.</span>
+                          </div>
+                        )}
+
+                        <div className="pt-3 mt-1 border-t border-[rgba(255,255,255,0.1)] flex justify-between items-center">
+                          <span className="text-[12px] font-sans text-[var(--color-muted)] font-medium uppercase tracking-wider">Computed Bill</span>
+                          <span className="text-[18px] text-[var(--color-accent-amber)] font-bold">
+                            ₦{
+                              (() => {
+                                const matchC = corpClients.find(c => c.company_name === selectedIntake.consignee);
+                                const matchR = matchC ? corpRates.find(r => r.corporate_client_id === matchC.id && r.route_name === selectedIntake.route) : null;
+                                const rate = customRateOverwrite 
+                                  ? parseFloat(customRateOverwrite) 
+                                  : matchR 
+                                    ? matchR.rate_per_kg 
+                                    : 500;
+                                const weight = parseFloat(gateWeight) || 0;
+                                return (weight * rate).toLocaleString('en-NG', { maximumFractionDigits: 2 });
+                              })()
+                            }
+                          </span>
                         </div>
-                      )}
-
-                      <div className="h-px bg-zinc-800 my-2" />
-
-                      <div className="flex justify-between pt-2">
-                        <span className="text-[13px] font-sans text-zinc-400 font-bold">Computed Bill (Post-Paid):</span>
-                        <span className="text-[20px] text-[var(--color-accent-amber)] font-bold">
-                          ₦{
-                            (() => {
-                              const matchC = corpClients.find(c => c.company_name === selectedIntake.consignee);
-                              const matchR = matchC ? corpRates.find(r => r.corporate_client_id === matchC.id && r.route_name === selectedIntake.route) : null;
-                              const rate = customRateOverwrite 
-                                ? parseFloat(customRateOverwrite) 
-                                : matchR 
-                                  ? matchR.rate_per_kg 
-                                  : 500;
-                              const weight = parseFloat(gateWeight) || 0;
-                              return (weight * rate).toLocaleString('en-NG', { maximumFractionDigits: 2 });
-                            })()
-                          }
-                        </span>
                       </div>
 
                       <div className="text-[11px] text-[#ef4444] bg-[rgba(239,68,68,0.03)] p-2 rounded border border-[rgba(239,68,68,0.1)] leading-snug">
@@ -1373,191 +1365,6 @@ export const CargoForm = ({ onAddTx, user }: {
             </div>
           )}
 
-          {/* PHASE 3 SUBTAB: CORPORATE DIRECTORY & CONTRACT RATES */}
-          {corpSubTab === 'directory' && (
-            <div className="max-w-6xl mx-auto space-y-6">
-              
-              {/* ACCORDED DIRECTORY GRID */}
-              <div className="grid gap-6 md:grid-cols-[1.5fr_1fr]">
-                
-                {/* LIST OF B2B CLIENTS */}
-                <div className="bg-[var(--color-surface-card)] border border-[var(--color-border-strong)] p-5 rounded-[var(--radius-md)]">
-                  <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-3 mb-4">
-                    <div className="flex items-center gap-2">
-                      <Users size={18} className="text-[var(--color-accent-amber)]" />
-                      <h3 className="text-[14px] font-sans font-bold text-[var(--color-foreground)] uppercase tracking-wider">Corporate Client directory</h3>
-                    </div>
-                    <span className="text-[11px] font-sans font-semibold bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded">
-                      {corpClients.length} accounts configured
-                    </span>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left font-sans text-[13px]">
-                      <thead>
-                        <tr className="border-b border-[var(--color-border-strong)] text-[var(--color-light-muted)]">
-                          <th className="pb-2 font-bold uppercase text-[10px] tracking-wider">Company</th>
-                          <th className="pb-2 font-bold uppercase text-[10px] tracking-wider">Contact Phone</th>
-                          <th className="pb-2 text-right font-bold uppercase text-[10px] tracking-wider">Accumulated Debt</th>
-                          <th className="pb-2 text-center font-bold uppercase text-[10px] tracking-wider">Setup</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[var(--color-border)]">
-                        {corpClients.map(c => (
-                          <tr key={c.id} className="hover:bg-zinc-900/40">
-                            <td className="py-2.5 font-bold text-white flex items-center gap-1.5">
-                              <span>🏢</span>
-                              {c.company_name}
-                            </td>
-                            <td className="py-2.5 text-zinc-400 font-mono text-[11px]">{c.contact_phone}</td>
-                            <td className="py-2.5 text-right font-bold font-mono text-[var(--color-accent-amber)]">
-                              {fmt(c.accumulated_monthly_debt)}
-                            </td>
-                            <td className="py-2.5 text-center">
-                              <button
-                                onClick={() => setSelectedRateClient(c)}
-                                className={`text-[11px] font-semibold px-2.5 py-1 rounded cursor-pointer ${
-                                  selectedRateClient?.id === c.id 
-                                    ? 'bg-[var(--color-accent-amber)] text-[#030712] font-bold' 
-                                    : 'bg-slate-800 hover:bg-slate-700 text-[var(--color-accent-amber)]'
-                                }`}
-                              >
-                                Edit Rates
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* ACCOUNTANT / ADMIN MOCK INJECTOR (RBAC PROTECTED) */}
-                  {isAuthorizedRole ? (
-                    <div className="mt-6 border-t border-[var(--color-border-strong)] pt-4 space-y-3">
-                      <h4 className="text-[12px] font-bold text-white">Create New Corporate profile</h4>
-                      <div className="grid grid-cols-2 gap-3">
-                        <input 
-                          placeholder="Company name (e.g. DHL)"
-                          value={newClientName}
-                          onChange={(e) => setNewClientName(e.target.value)}
-                          className={`${formInputClass} h-9 text-[12px]`}
-                        />
-                        <input 
-                          placeholder="Contact telephone"
-                          value={newClientPhone}
-                          onChange={(e) => setNewClientPhone(e.target.value)}
-                          className={`${formInputClass} h-9 text-[12px]`}
-                        />
-                      </div>
-                      <button 
-                        onClick={handleCreateCorpAccount}
-                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded text-[12px] text-white font-bold cursor-pointer transition-colors"
-                      >
-                        + ADD CLIENT BUSINESS
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-
-                {/* DYNAMIC RATE VIEWER / CUSTOM CONTRACT MAKER */}
-                <div className="space-y-4">
-                  {selectedRateClient ? (
-                    <div className="bg-[var(--color-surface-card)] border border-[var(--color-border-strong)] p-5 rounded-[var(--radius-md)] font-sans text-zinc-300">
-                      <div className="flex justify-between items-center pb-2.5 border-b border-[var(--color-border)] mb-4">
-                        <h4 className="text-[13px] font-bold text-white uppercase tracking-wider">
-                          Contract Rates: {selectedRateClient.company_name}
-                        </h4>
-                        <button 
-                          onClick={() => setSelectedRateClient(null)}
-                          className="text-[10px] text-red-400 hover:underline"
-                        >
-                          Clear selection
-                        </button>
-                      </div>
-
-                      {/* DISPLAY RATES SET FOR THIS CLIENT */}
-                      <div className="space-y-2 mb-6">
-                        <div className="text-[11px] text-[var(--color-light-muted)] uppercase tracking-wider font-mono">Current Negotiated rates</div>
-                        {corpRates.filter(r => r.corporate_client_id === selectedRateClient.id).length === 0 ? (
-                          <div className="text-zinc-500 italic text-[11px] py-4 bg-zinc-950 rounded text-center">
-                            No route specific tariffs recorded. Baseline fee of ₦500.00/KG will apply.
-                          </div>
-                        ) : (
-                          <div className="divide-y divide-zinc-800 bg-zinc-950 p-2.5 rounded border border-zinc-800 space-y-1">
-                            {corpRates.filter(r => r.corporate_client_id === selectedRateClient.id).map(r => (
-                              <div key={r.id} className="flex justify-between text-[12px] font-mono py-1">
-                                <span className="text-zinc-400">{r.route_name}</span>
-                                <span className="font-bold text-[var(--color-accent-amber)]">₦{r.rate_per_kg}/KG</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* CLIENTS RATE ADDING CONSOL (RBAC SHIELDED) */}
-                      {isAuthorizedRole ? (
-                        <div className="bg-zinc-950/50 p-3.5 rounded border border-zinc-800 space-y-3">
-                          <h5 className="text-[11px] font-bold text-white uppercase tracking-wider">Create/Amend Contract Rate</h5>
-                          <div>
-                            <label className="text-[11px] text-zinc-400 block mb-1">Destination Route</label>
-                            <select
-                              value={rateRoute}
-                              onChange={(e) => setRateRoute(e.target.value)}
-                              className={`${formInputClass} h-9 text-[12px]`}
-                            >
-                              {CARGO_ROUTES.map(r => <option key={r} value={r}>{r}</option>)}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-[11px] text-zinc-400 block mb-1">Contract Tariff (₦ per KG)</label>
-                            <input 
-                              type="number"
-                              placeholder="e.g. 450"
-                              value={ratePrice}
-                              onChange={(e) => setRatePrice(e.target.value)}
-                              className={`${formInputClass} h-9 text-[12px] font-mono`}
-                            />
-                          </div>
-                          <button
-                            onClick={handleSaveRouteRate}
-                            className="ehi-btn-primary ehi-btn"
-                          >
-                            ✓ SAVE NEGOTIATED TARIFF
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="p-3.5 rounded bg-[rgba(239,68,68,0.03)] border border-[rgba(239,68,68,0.1)] text-[11px] leading-relaxed text-[var(--color-error)]">
-                          <p className="font-bold mb-1">🔒 ACCESS DENIED: RATE CREATOR LOCKED</p>
-                          <p>Your current role of <strong className="font-mono text-white">{user?.role}</strong> is restricted from altering corporate contracts or modifying route tariffs. Please contact a Finance Officer or Super Admin to change negotiated parameters.</p>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="bg-[var(--color-surface-card)] border border-[var(--color-border-strong)] p-12 rounded-[var(--radius-md)] text-center text-[var(--color-muted)]">
-                       <Coins size={32} className="mx-auto text-zinc-700 mb-3" />
-                       <p className="text-[12px] font-sans font-semibold text-zinc-400">Negotiated Rate Configurator</p>
-                       <p className="text-[11px] font-sans max-w-xs mx-auto mt-1">Select any client business in the directory table list and click "Edit Rates" to review customized routes and set custom negotiated tariffs.</p>
-                    </div>
-                  )}
-
-                  {/* RBAC ROLE INFORMATION OVERVIEW */}
-                  <div className="bg-slate-900/60 p-4 rounded border border-slate-700 text-[11px] space-y-2">
-                    <div className="flex items-center gap-1.5 font-bold text-white text-[12px]">
-                      <span>🛡️ RBAC Control Guard</span>
-                    </div>
-                    <p className="text-[var(--color-light-muted)] leading-relaxed">
-                      Current authenticated user is <span className="text-white font-bold">{user?.name}</span> with system-role <span className="text-amber-500 font-mono font-bold uppercase bg-slate-950 px-1 py-0.5 rounded text-[10px]">{user?.role}</span>.
-                    </p>
-                    <p className="text-[var(--color-light-muted)]">
-                      {isAuthorizedRole 
-                        ? "✓ Grant authorized access details. Full parameters modification and customer ledger balance writes enabled." 
-                        : "🔒 Restricted lookup: Contract details are set read-only. Modification controls are automatically locked in compliance with corporate EHI audit safeguards."}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>

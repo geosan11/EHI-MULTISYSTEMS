@@ -22,6 +22,12 @@ export const AIRLINES = [
 
 export const CORPORATE_CLIENTS = ['Aramex', 'SAHCO', 'GlobaCom', 'ZeemMax', 'EHI', 'Salco', 'Slot', 'Prosper', 'Evergreen', 'Wellcare', 'Other'] as const;
 
+export const CARGO_ROUTES = [
+  'ABV/Abuja', 'PHC/Port Harcourt', 'BNI/Benin', 'KAN/Kano',
+  'Asaba', 'Enugu', 'Warri', 'Owerri', 'Lagos', 'Kaduna',
+  'Makurdi', 'Other'
+];
+
 export const CONTENT_TYPES = [
   'Medical',
   'Clothes & Shoes',

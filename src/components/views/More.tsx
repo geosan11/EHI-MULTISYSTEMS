@@ -13,6 +13,7 @@ import { Dispatch } from './Dispatch';
 import { EODReconciliation } from './EODReconciliation';
 import { SupportTickets } from './SupportTickets';
 
+import { PricingConfiguration } from './PricingConfiguration';
 import { AirlineCommissions } from './AirlineCommissions';
 
 import { useState } from 'react';
@@ -32,6 +33,7 @@ import {
   Brain, 
   ShieldAlert, 
   Key, 
+  DollarSign,
   History,
   MapPin,
   Cpu,
@@ -55,6 +57,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
   const [podLogView, setPodLogView] = useState(false);
   const [dispatchView, setDispatchView] = useState(false);
   const [airlineCommissionsView, setAirlineCommissionsView] = useState(false);
+  const [pricingView, setPricingView] = useState(false);
   const [supportView, setSupportView] = useState(false);
 
   // View controllers
@@ -112,6 +115,10 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
 
   if (airlineCommissionsView) {
     return <AirlineCommissions onBack={() => setAirlineCommissionsView(false)} />;
+  }
+
+  if (pricingView) {
+    return <PricingConfiguration user={user} onBack={() => setPricingView(false)} />;
   }
 
   if (supportView) {
@@ -282,6 +289,18 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         <div className="text-left flex-1">
           <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Partners API Keys & Webhooks</div>
           <div className="text-[10px] font-mono text-[var(--color-muted)]">Key-hashes, scopes limit, and integration documentation</div>
+        </div>
+      </button>
+
+      {/* Pricing Configuration (Accessible to Super Admins only) */}
+      <button 
+        onClick={() => { if (isSuperAdmin) setPricingView(true); }}
+        className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${isSuperAdmin ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
+      >
+        <DollarSign size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
+        <div className="text-left flex-1">
+          <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Pricing & Rates Configuration</div>
+          <div className="text-[10px] font-mono text-[var(--color-muted)]">B2B client rates and retail standard tariffs</div>
         </div>
       </button>
 

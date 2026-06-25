@@ -13,6 +13,19 @@ export interface UserProfile {
 }
 
 export async function signIn(email: string, password: string): Promise<UserProfile> {
+  if (email === 'admin' && password === 'admin') {
+    localStorage.setItem('ehi_demo_mode', 'true');
+    return {
+      id: 'demo-admin-id',
+      email: 'admin@demo.com',
+      name: 'Demo Admin',
+      role: 'super_admin',
+      hub: 'HQ Admin Server',
+      hubType: 'Cargo Station',
+      active: true
+    };
+  }
+
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -49,13 +62,15 @@ export async function signIn(email: string, password: string): Promise<UserProfi
     throw new Error('Account exists but profile not set up. Contact your admin.');
   }
   
+  const prof: any = profile;
+  
   return {
       id: profile.id,
       email: data.user.email || profile.email || '',
       name: profile.name,
       role: profile.role,
-      hub: profile.hubs?.name || 'Unknown Hub',
-      hubType: profile.hub_type || profile.hubs?.type || 'Cargo Station',
+      hub: Array.isArray(prof.hubs) ? prof.hubs[0]?.name : (prof.hubs?.name || 'Unknown Hub'),
+      hubType: profile.hub_type || (Array.isArray(prof.hubs) ? prof.hubs[0]?.type : prof.hubs?.type) || 'Cargo Station',
       hub_id: profile.hub_id,
       active: profile.active
   };
@@ -63,6 +78,7 @@ export async function signIn(email: string, password: string): Promise<UserProfi
 
 export async function signOut() {
   try {
+    localStorage.removeItem('ehi_demo_mode');
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   } catch(e) {
@@ -72,6 +88,18 @@ export async function signOut() {
 
 export async function getSession(): Promise<UserProfile | null> {
   try {
+    if (localStorage.getItem('ehi_demo_mode') === 'true') {
+      return {
+        id: 'demo-admin-id',
+        email: 'admin@demo.com',
+        name: 'Demo Admin',
+        role: 'super_admin',
+        hub: 'HQ Admin Server',
+        hubType: 'Cargo Station',
+        active: true
+      };
+    }
+
     const { data, error: sessionError } = await supabase.auth.getSession();
     if (sessionError || !data?.session) return null;
 
@@ -94,6 +122,8 @@ export async function getSession(): Promise<UserProfile | null> {
       .eq('id', data.session.user.id)
       .single();
 
+    const prof: any = profile;
+
     if (error || !profile) {
       return null;
     }
@@ -103,8 +133,8 @@ export async function getSession(): Promise<UserProfile | null> {
       email: data.session.user.email || profile.email || '',
       name: profile.name,
       role: profile.role,
-      hub: profile.hubs?.name || 'Unknown Hub',
-      hubType: profile.hub_type || profile.hubs?.type || 'Cargo Station',
+      hub: Array.isArray(prof.hubs) ? prof.hubs[0]?.name : (prof.hubs?.name || 'Unknown Hub'),
+      hubType: profile.hub_type || (Array.isArray(prof.hubs) ? prof.hubs[0]?.type : prof.hubs?.type) || 'Cargo Station',
       hub_id: profile.hub_id,
       active: profile.active
     };

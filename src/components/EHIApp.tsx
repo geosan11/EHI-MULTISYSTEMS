@@ -233,7 +233,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         id: tx.id,
         transaction_id: tx.id,
         passenger_name: tx.name,
-        flight_no: tx.flight || tx.detail?.split(' · ')[0] || 'Unknown',
+        flight_no: (tx as any).flight || tx.detail?.split(' · ')[0] || 'Unknown',
         excess_kg: parseFloat(kgStr) || 0,
         amount: tx.amount,
         pnr: pnr,
