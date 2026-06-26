@@ -3,8 +3,17 @@ import { Transaction, Expense } from '../../lib/types';
 import { EHILogoPDF } from '../EHILogoPDF';
 
 Font.register({
-  family: 'Courier',
-  src: 'https://fonts.gstatic.com/s/courierprime/v2/u-450q2lgwslOquVD4MwZwe8w_y2-Q.ttf',
+  family: 'Roboto',
+  fonts: [
+    {
+      src: "https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf",
+      fontWeight: 400,
+    },
+    {
+      src: "https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Medium.ttf",
+      fontWeight: 700,
+    },
+  ],
 });
 
 export interface EODReportData {
@@ -38,7 +47,7 @@ export interface EODReportData {
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 30, fontFamily: 'Helvetica', fontSize: 10 },
+  page: { padding: 30, fontFamily: 'Roboto', fontSize: 10 },
   header: { marginBottom: 20 },
   companyName: { fontSize: 16, fontWeight: 'bold', color: '#111827', marginBottom: 4 },
   title: { fontSize: 12, color: '#6b7280', textTransform: 'uppercase', marginBottom: 20 },

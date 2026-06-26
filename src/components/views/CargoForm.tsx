@@ -629,6 +629,7 @@ export const CargoForm = ({
           mode,
           bank: mode === "Transfer" || mode === "POS" ? bank : undefined,
           paymentNarration: mode === "Transfer" ? narrationCode : undefined,
+          pin: pickupPin,
         }),
       });
     }

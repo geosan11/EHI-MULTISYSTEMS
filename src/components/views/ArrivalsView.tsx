@@ -84,7 +84,15 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
 
     if (!selectedCargo) return;
 
-    if (selectedCargo.pickup_pin === enteredPin) {
+    let actualPin = selectedCargo.pickup_pin;
+    if (!actualPin && selectedCargo.remark) {
+      try {
+        const parsed = JSON.parse(selectedCargo.remark);
+        if (parsed && parsed.pin) actualPin = parsed.pin;
+      } catch(e) {}
+    }
+
+    if (actualPin === enteredPin) {
       // MATCH
       try {
         await supabase.from('cargo_entries').update({

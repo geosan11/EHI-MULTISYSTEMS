@@ -222,8 +222,11 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         bank: tx.bank,
         hub_id: hubId,
         airline: (tx as any).airline || parts[0] || 'Unknown',
-        pickup_pin: (tx as any).pickupPin || null,
-        consignee_phone: (tx as any).consigneePhone || null,
+        remark: JSON.stringify({
+          pin: (tx as any).pickupPin || null,
+          phone: (tx as any).consigneePhone || null,
+          text: (tx as any).remarks || ''
+        }),
         entered_by: user.id && user.id.includes('-') && user.id.length > 30 ? user.id : undefined, // Ensure valid UUID
         created_at: new Date().toISOString()
       };

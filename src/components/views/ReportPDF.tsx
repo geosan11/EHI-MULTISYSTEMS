@@ -2,12 +2,21 @@ import { Document, Page, Text, View, StyleSheet, pdf, Font } from '@react-pdf/re
 import { EHILogoPDF } from '../EHILogoPDF';
 
 Font.register({
-  family: 'Courier',
-  src: 'https://fonts.gstatic.com/s/courierprime/v2/u-450q2lgwslOquVD4MwZwe8w_y2-Q.ttf',
+  family: 'Roboto',
+  fonts: [
+    {
+      src: "https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf",
+      fontWeight: 400,
+    },
+    {
+      src: "https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Medium.ttf",
+      fontWeight: 700,
+    },
+  ],
 });
 
 const styles = StyleSheet.create({
-  page: { padding: 30, fontFamily: 'Helvetica', fontSize: 10 },
+  page: { padding: 30, fontFamily: 'Roboto', fontSize: 10 },
   header: { marginBottom: 20 },
   companyName: { fontSize: 16, fontWeight: 'bold', color: '#F59E0B', marginBottom: 4 },
   title: { fontSize: 13, color: '#111827', textTransform: 'uppercase', marginBottom: 15, fontWeight: 'bold' },

@@ -49,6 +49,7 @@ export function buildCargoWhatsApp(data: {
   mode: string;
   bank?: string;
   paymentNarration?: string;
+  pin?: string;
 }): string {
   const payment = data.bank ? `${data.mode} (${data.bank})` : data.mode;
   let text = 
@@ -65,6 +66,12 @@ export function buildCargoWhatsApp(data: {
     
   if (data.mode === 'Transfer' && data.paymentNarration) {
     text += `📝 *Narration:* ${data.paymentNarration}\n`;
+  }
+
+  if (data.pin) {
+    text += `━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `🔐 *PICKUP PIN:* ${data.pin}\n`;
+    text += `_Please share this PIN with the consignee to collect the cargo._\n`;
   }
 
   text += 
