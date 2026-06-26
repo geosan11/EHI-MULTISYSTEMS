@@ -1,43 +1,51 @@
-import { useState, useEffect } from 'react';
-import { User, Transaction, Expense } from '../../lib/types';
-import { PRICING, BANKS, EXPENSE_CATEGORIES } from '../../lib/constants';
-import { fmt, uid, tnow } from '../../lib/helpers';
-import { Plus, CheckCircle, Loader2 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { useState, useEffect } from "react";
+import { User, Transaction, Expense } from "../../lib/types";
+import { PRICING, BANKS, EXPENSE_CATEGORIES } from "../../lib/constants";
+import { fmt, uid, tnow } from "../../lib/helpers";
+import { Plus, CheckCircle, Loader2 } from "lucide-react";
+import { motion } from "motion/react";
 
-import { sendReceiptWhatsApp, buildMarketingWhatsApp } from '../../lib/notifications';
-import { PaymentNarrationBox } from '../PaymentNarrationBox';
+import {
+  sendReceiptWhatsApp,
+  buildMarketingWhatsApp,
+} from "../../lib/notifications";
+import { PaymentNarrationBox } from "../PaymentNarrationBox";
 
-export const MarketingWorkspace = ({ 
-  user, 
-  transactions, 
+export const MarketingWorkspace = ({
+  user,
+  transactions,
   expenses,
   onAddTx,
-  onAddExpense
-}: { 
-  user: User; 
-  transactions: Transaction[]; 
+  onAddExpense,
+}: {
+  user: User;
+  transactions: Transaction[];
   expenses: Expense[];
   onAddTx: (tx: Transaction) => void;
   onAddExpense: (exp: Expense) => void;
 }) => {
   // New Entry State
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [route, setRoute] = useState<string>(Object.keys(PRICING)[0]);
-  const [mode, setMode] = useState<string>('Transfer');
+  const [mode, setMode] = useState<string>("Transfer");
   const [bank, setBank] = useState<string>(BANKS[0]);
   const [bb, setBb] = useState(0);
   const [mb, setMb] = useState(0);
   const [sb, setSb] = useState(0);
 
-  const [narrationCode, setNarrationCode] = useState<string>('');
+  const [narrationCode, setNarrationCode] = useState<string>("");
 
   useEffect(() => {
-    if (mode === 'Transfer' && !narrationCode) {
-      import('../../lib/helpers').then(({ generatePaymentNarration }) => {
+    if (mode === "Transfer" && !narrationCode) {
+      import("../../lib/helpers").then(({ generatePaymentNarration }) => {
         // use a random serial for marketing if none exists
-        setNarrationCode(generatePaymentNarration(user.hub, Math.floor(Math.random() * 900) + 100));
+        setNarrationCode(
+          generatePaymentNarration(
+            user.hub,
+            Math.floor(Math.random() * 900) + 100,
+          ),
+        );
       });
     }
   }, [mode, narrationCode, user.hub]);
@@ -47,19 +55,27 @@ export const MarketingWorkspace = ({
 
   // Expense State
   const [expType, setExpType] = useState<string>(EXPENSE_CATEGORIES[0]);
-  const [expAmount, setExpAmount] = useState('');
-  const [expDesc, setExpDesc] = useState('');
+  const [expAmount, setExpAmount] = useState("");
+  const [expDesc, setExpDesc] = useState("");
 
   const routePrices = PRICING[route];
-  const totalAmount = (bb * routePrices.BB) + (mb * routePrices.MB) + (sb * routePrices.SB);
-  
+  const totalAmount =
+    bb * routePrices.BB + mb * routePrices.MB + sb * routePrices.SB;
+
   const isValid = name.trim().length > 0 && totalAmount > 0;
 
-  const marketingTxs = transactions.filter(t => t.type === 'marketing');
+  const marketingTxs = transactions.filter((t) => t.type === "marketing");
   const totalSales = marketingTxs.reduce((sum, t) => sum + t.amount, 0);
-  const cashSales = marketingTxs.reduce((sum, t) => sum + (t.mode === 'Cash' ? t.amount : 0), 0);
-  const transferSales = marketingTxs.reduce((sum, t) => sum + (t.mode === 'Transfer' || t.mode === 'Transfer-as-Cash' ? t.amount : 0), 0);
-  
+  const cashSales = marketingTxs.reduce(
+    (sum, t) => sum + (t.mode === "Cash" ? t.amount : 0),
+    0,
+  );
+  const transferSales = marketingTxs.reduce(
+    (sum, t) =>
+      sum + (t.mode === "Transfer" || t.mode === "POS" ? t.amount : 0),
+    0,
+  );
+
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
   const balanceToRemit = cashSales - totalExpenses; // Usually, expenses are taken from cash
 
@@ -67,10 +83,10 @@ export const MarketingWorkspace = ({
 
   const handleDownloadReceipt = async () => {
     if (successTx) {
-      const { downloadMarketingReceipt } = await import('./MarketingReceipt');
+      const { downloadMarketingReceipt } = await import("./MarketingReceipt");
       const data = {
         entryRef: successTx.id,
-        date: new Date().toLocaleDateString('en-GB'),
+        date: new Date().toLocaleDateString("en-GB"),
         agentName: user.name,
         customerName: successTx.name,
         phone: phone || undefined,
@@ -94,26 +110,34 @@ export const MarketingWorkspace = ({
   };
 
   const handleDownloadSummary = async () => {
-    const { downloadMarketingDailySummary } = await import('./MarketingReceipt');
-    const uniqueRoutes = [...new Set(marketingTxs.map(t => t.detail.split(' · ')[0]))].join(', ');
+    const { downloadMarketingDailySummary } =
+      await import("./MarketingReceipt");
+    const uniqueRoutes = [
+      ...new Set(marketingTxs.map((t) => t.detail.split(" · ")[0])),
+    ].join(", ");
     const data = {
-      date: new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+      date: new Date().toLocaleDateString("en-GB", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }),
       agentName: user.name,
       hubName: user.hub,
-      entries: marketingTxs.map(t => ({
+      entries: marketingTxs.map((t) => ({
         customerName: t.name,
-        route: t.detail.split(' · ')[0],
-        bags: t.detail.split(' · ')[1],
+        route: t.detail.split(" · ")[0],
+        bags: t.detail.split(" · ")[1],
         amount: t.amount,
         paymentMode: t.mode,
-        bank: t.bank
+        bank: t.bank,
       })),
       totalSales,
       cashSales,
       transferSales,
       expenses,
       totalExpenses,
-      balanceToRemit
+      balanceToRemit,
     };
     downloadMarketingDailySummary(data);
   };
@@ -129,16 +153,16 @@ export const MarketingWorkspace = ({
     if (sb > 0) details.push(`${sb}SB`);
 
     const tx: Transaction = {
-      id: uid('MK'),
+      id: uid("MK"),
       name: name.trim(),
-      detail: `${route} · ${details.join(' ')}`,
+      detail: `${route} · ${details.join(" ")}`,
       amount: totalAmount,
       mode,
-      bank: mode === 'Transfer' ? bank : undefined,
-      paymentNarration: mode === 'Transfer' ? narrationCode : undefined,
+      bank: mode === "Transfer" ? bank : undefined,
+      paymentNarration: mode === "Transfer" ? narrationCode : undefined,
       time: tnow(),
-      type: 'marketing',
-      status: 'Intake'
+      type: "marketing",
+      status: "Intake",
     };
 
     setSuccessTx(tx);
@@ -158,22 +182,22 @@ export const MarketingWorkspace = ({
           ref: tx.id,
           customer: name.trim(),
           route,
-          bags: bagsList.join(' · '),
+          bags: bagsList.join(" · "),
           amount: totalAmount,
           mode,
-          bank: mode === 'Transfer' ? bank : undefined,
+          bank: mode === "Transfer" ? bank : undefined,
         }),
       });
     }
   };
 
   const handleReset = () => {
-    setName('');
-    setPhone('');
+    setName("");
+    setPhone("");
     setBb(0);
     setMb(0);
     setSb(0);
-    setMode('Transfer');
+    setMode("Transfer");
     setSuccessTx(null);
   };
 
@@ -186,58 +210,90 @@ export const MarketingWorkspace = ({
       type: expType,
       amount: amt,
       description: expDesc.trim(),
-      time: tnow()
+      time: tnow(),
     });
 
-    setExpAmount('');
-    setExpDesc('');
+    setExpAmount("");
+    setExpDesc("");
   };
 
   // Focus visible styles for marketing form (green stream)
-  const mktgFocusClasses = "focus:outline-none focus:ring-2 focus:ring-[rgba(16,185,129,0.5)] focus:border-[rgba(16,185,129,0.5)] transition-colors";
+  const mktgFocusClasses =
+    "focus:outline-none focus:ring-2 focus:ring-[rgba(16,185,129,0.5)] focus:border-[rgba(16,185,129,0.5)] transition-colors";
 
   return (
-    <div className="p-4 h-full pb-12" style={{ width: '100%', boxSizing: 'border-box' }}>
+    <div
+      className="p-4 h-full pb-12"
+      style={{ width: "100%", boxSizing: "border-box" }}
+    >
       {/* Workspace Header */}
       <div className="flex justify-between items-center text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-widest border-b border-[var(--color-border)] pb-2 mb-6">
-        <div>{new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</div>
-        <div>Agent: {user.name.split(' ')[0]}</div>
+        <div>
+          {new Date().toLocaleDateString("en-GB", {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+          })}
+        </div>
+        <div>Agent: {user.name.split(" ")[0]}</div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-[1fr_280px]">
-        
         {/* Left Column - Forms */}
         <div className="space-y-6">
           {successTx ? (
-            <div 
-              className="bg-[rgba(16,185,129,0.05)] border border-[rgba(16,185,129,0.2)] rounded p-4 flex flex-col animate-in fade-in zoom-in-95 duration-200"
-            >
-              <div
-                className="flex justify-center animate-pulse"
-              >
-                <CheckCircle size={32} className="text-[var(--color-success)] mb-3" />
+            <div className="bg-[rgba(16,185,129,0.05)] border border-[rgba(16,185,129,0.2)] rounded p-4 flex flex-col animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex justify-center animate-pulse">
+                <CheckCircle
+                  size={32}
+                  className="text-[var(--color-success)] mb-3"
+                />
               </div>
-              <div className="text-[11px] font-mono text-[var(--color-success)] uppercase tracking-widest mb-1 text-center">ENTRY RECORDED</div>
-              <div className="text-[14px] font-bold font-mono text-[var(--color-success)] mb-4 uppercase text-center" style={{ fontFamily: 'JetBrains Mono' }}>
+              <div className="text-[11px] font-mono text-[var(--color-success)] uppercase tracking-widest mb-1 text-center">
+                ENTRY RECORDED
+              </div>
+              <div
+                className="text-[14px] font-bold font-mono text-[var(--color-success)] mb-4 uppercase text-center"
+                style={{ fontFamily: "JetBrains Mono" }}
+              >
                 REF: {successTx.id}
               </div>
-              
+
               <div className="bg-[var(--color-obsidian)] rounded p-3 mb-4 space-y-2 border border-[var(--color-border)]">
                 <div className="flex justify-between border-b border-[rgba(255,255,255,0.05)] pb-1">
-                   <span className="text-[10px] font-mono text-[var(--color-muted)]">Customer</span>
-                   <span className="text-[11px] font-mono text-[var(--color-foreground)]">{successTx.name}</span>
+                  <span className="text-[10px] font-mono text-[var(--color-muted)]">
+                    Customer
+                  </span>
+                  <span className="text-[11px] font-mono text-[var(--color-foreground)]">
+                    {successTx.name}
+                  </span>
                 </div>
                 <div className="flex justify-between border-b border-[rgba(255,255,255,0.05)] pb-1">
-                   <span className="text-[10px] font-mono text-[var(--color-muted)]">Route / Bags</span>
-                   <span className="text-[11px] font-mono text-[var(--color-foreground)]">{successTx.detail}</span>
+                  <span className="text-[10px] font-mono text-[var(--color-muted)]">
+                    Route / Bags
+                  </span>
+                  <span className="text-[11px] font-mono text-[var(--color-foreground)]">
+                    {successTx.detail}
+                  </span>
                 </div>
                 <div className="flex justify-between border-b border-[rgba(255,255,255,0.05)] pb-1">
-                   <span className="text-[10px] font-mono text-[var(--color-muted)]">Amount</span>
-                   <span className="text-[12px] font-bold font-mono text-[var(--color-success)]" style={{ fontFamily: 'JetBrains Mono' }}>{fmt(successTx.amount)}</span>
+                  <span className="text-[10px] font-mono text-[var(--color-muted)]">
+                    Amount
+                  </span>
+                  <span
+                    className="text-[12px] font-bold font-mono text-[var(--color-success)]"
+                    style={{ fontFamily: "JetBrains Mono" }}
+                  >
+                    {fmt(successTx.amount)}
+                  </span>
                 </div>
                 <div className="flex justify-between pt-1">
-                   <span className="text-[10px] font-mono text-[var(--color-muted)]">Payment</span>
-                   <span className="text-[11px] font-mono text-[var(--color-foreground)]">{successTx.mode} {successTx.bank && `(${successTx.bank})`}</span>
+                  <span className="text-[10px] font-mono text-[var(--color-muted)]">
+                    Payment
+                  </span>
+                  <span className="text-[11px] font-mono text-[var(--color-foreground)]">
+                    {successTx.mode} {successTx.bank && `(${successTx.bank})`}
+                  </span>
                 </div>
               </div>
 
@@ -252,14 +308,20 @@ export const MarketingWorkspace = ({
               <button
                 onClick={handleDownloadReceipt}
                 style={{
-                  width: '100%', padding: '11px',
-                  background: 'transparent',
-                  border: '1px solid rgba(16,185,129,0.3)',
-                  borderRadius: 8, cursor: 'pointer',
-                  fontSize: 11, fontFamily: 'monospace',
-                  fontWeight: 700, color: 'var(--color-success)',
-                  display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', gap: 6,
+                  width: "100%",
+                  padding: "11px",
+                  background: "transparent",
+                  border: "1px solid rgba(16,185,129,0.3)",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  fontSize: 11,
+                  fontFamily: "monospace",
+                  fontWeight: 700,
+                  color: "var(--color-success)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
                   marginTop: 8,
                 }}
               >
@@ -269,70 +331,92 @@ export const MarketingWorkspace = ({
           ) : (
             <div className="space-y-4 bg-[rgba(255,255,255,0.02)] -mx-4 px-4 py-4 md:mx-0 md:rounded-xl md:border border-y border-[rgba(255,255,255,0.05)]">
               <div className="border-b border-[rgba(255,255,255,0.07)] pb-1 mb-2">
-                <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: '#10B981', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                <span
+                  style={{
+                    fontFamily: "JetBrains Mono",
+                    fontSize: 10,
+                    color: "#10B981",
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                  }}
+                >
                   ▸ NEW MARKETING ENTRY
                 </span>
               </div>
-              
+
               <div className="space-y-3">
-                <input 
+                <input
                   placeholder="Customer Name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className={`w-full h-11 px-3 text-sm rounded bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] text-[var(--color-foreground)] font-sans ${mktgFocusClasses}`}
                 />
-                <input 
+                <input
                   type="tel"
                   placeholder="Phone Number"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className={`w-full h-11 px-3 text-sm rounded bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] text-[var(--color-foreground)] font-sans ${mktgFocusClasses}`}
                 />
-                
+
                 <div className="flex space-x-3">
-                  <select 
+                  <select
                     value={route}
                     onChange={(e) => setRoute(e.target.value)}
                     className={`flex-1 h-11 px-3 text-[13px] rounded bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] text-[var(--color-foreground)] font-sans min-w-0 ${mktgFocusClasses}`}
                   >
-                    {Object.keys(PRICING).map(r => <option key={r} value={r}>{r}</option>)}
+                    {Object.keys(PRICING).map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
                   </select>
-                  <select 
+                  <select
                     value={mode}
                     onChange={(e) => setMode(e.target.value)}
                     className={`flex-1 h-11 px-3 text-sm rounded bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] text-[var(--color-foreground)] font-sans min-w-0 ${mktgFocusClasses}`}
                   >
                     <option value="Cash">Cash</option>
                     <option value="Transfer">Transfer</option>
-                    <option value="Transfer-as-Cash">Transfer-as-Cash</option>
+                    <option value="POS">POS</option>
                   </select>
                 </div>
 
-                {mode === 'Transfer' && (
+                {mode === "Transfer" && (
                   <div className="space-y-2">
-                    <select 
+                    <select
                       value={bank}
                       onChange={(e) => setBank(e.target.value)}
                       className={`w-full h-11 px-3 text-sm rounded bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] text-[var(--color-foreground)] font-sans ${mktgFocusClasses}`}
                     >
-                      {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+                      {BANKS.map((b) => (
+                        <option key={b} value={b}>
+                          {b}
+                        </option>
+                      ))}
                     </select>
                     <PaymentNarrationBox narrationCode={narrationCode} />
                   </div>
                 )}
 
                 <div className="flex flex-wrap gap-2">
-                  {[ 
-                    { key: 'bb', label: 'BB', val: bb, set: setBb },
-                    { key: 'mb', label: 'MB', val: mb, set: setMb },
-                    { key: 'sb', label: 'SB', val: sb, set: setSb }
-                  ].map(bag => (
-                    <div key={bag.key} className="bg-[var(--color-surface-1)] rounded p-2 flex items-center justify-between border border-[rgba(255,255,255,0.07)]" style={{ flex: '1 1 calc(33% - 8px)', minWidth: 90 }}>
-                      <span className="text-[11px] font-bold font-mono text-[var(--color-muted)]">{bag.label}</span>
-                      <input 
+                  {[
+                    { key: "bb", label: "BB", val: bb, set: setBb },
+                    { key: "mb", label: "MB", val: mb, set: setMb },
+                    { key: "sb", label: "SB", val: sb, set: setSb },
+                  ].map((bag) => (
+                    <div
+                      key={bag.key}
+                      className="bg-[var(--color-surface-1)] rounded p-2 flex items-center justify-between border border-[rgba(255,255,255,0.07)]"
+                      style={{ flex: "1 1 calc(33% - 8px)", minWidth: 90 }}
+                    >
+                      <span className="text-[11px] font-bold font-mono text-[var(--color-muted)]">
+                        {bag.label}
+                      </span>
+                      <input
                         type="number"
                         min="0"
-                        value={bag.val || ''}
+                        value={bag.val || ""}
                         onChange={(e) => bag.set(parseInt(e.target.value) || 0)}
                         className="w-10 h-7 text-center text-sm font-bold bg-transparent border-none p-0 focus:ring-0 text-[var(--color-foreground)]"
                         placeholder="0"
@@ -342,8 +426,13 @@ export const MarketingWorkspace = ({
                 </div>
 
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-[10px] font-mono text-[var(--color-light-muted)]">AUTO-CALCULATED</span>
-                  <span className={`text-[18px] font-bold font-mono ${totalAmount > 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-muted)]'}`} style={{ fontFamily: 'JetBrains Mono' }}>
+                  <span className="text-[10px] font-mono text-[var(--color-light-muted)]">
+                    AUTO-CALCULATED
+                  </span>
+                  <span
+                    className={`text-[18px] font-bold font-mono ${totalAmount > 0 ? "text-[var(--color-success)]" : "text-[var(--color-muted)]"}`}
+                    style={{ fontFamily: "JetBrains Mono" }}
+                  >
                     {fmt(totalAmount)}
                   </span>
                 </div>
@@ -352,13 +441,15 @@ export const MarketingWorkspace = ({
                   onClick={handleAddEntry}
                   disabled={!isValid || submitting}
                   className={`w-full py-3 rounded font-bold font-mono text-[12px] flex items-center justify-center gap-2 transition-all focus:outline-none ${
-                    submitting ? 'opacity-80 cursor-wait bg-[var(--color-success)] text-[var(--color-obsidian)]' :
-                    !isValid ? 'bg-[var(--color-surface-2)] text-[var(--color-muted)] cursor-not-allowed' :
-                    'bg-[var(--color-success)] text-[var(--color-obsidian)] cursor-pointer hover:bg-opacity-90'
+                    submitting
+                      ? "opacity-80 cursor-wait bg-[var(--color-success)] text-[var(--color-obsidian)]"
+                      : !isValid
+                        ? "bg-[var(--color-surface-2)] text-[var(--color-muted)] cursor-not-allowed"
+                        : "bg-[var(--color-success)] text-[var(--color-obsidian)] cursor-pointer hover:bg-opacity-90"
                   }`}
                 >
                   {submitting && <Loader2 size={16} className="animate-spin" />}
-                  {submitting ? 'ADDING ENTRY...' : 'ADD ENTRY'}
+                  {submitting ? "ADDING ENTRY..." : "ADD ENTRY"}
                 </button>
               </div>
             </div>
@@ -367,20 +458,32 @@ export const MarketingWorkspace = ({
           {/* Expense Section */}
           <div className="space-y-4 pt-4 border-t border-[rgba(255,255,255,0.07)] md:border-none md:pt-0">
             <div className="border-b border-[rgba(255,255,255,0.07)] pb-1 mb-2">
-              <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: '#10B981', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              <span
+                style={{
+                  fontFamily: "JetBrains Mono",
+                  fontSize: 10,
+                  color: "#10B981",
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                }}
+              >
                 ▸ LOG EXPENSE
               </span>
             </div>
 
             <div className="flex space-x-2">
-              <select 
+              <select
                 value={expType}
                 onChange={(e) => setExpType(e.target.value)}
                 className={`flex-1 h-11 px-3 text-[13px] rounded bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] text-[var(--color-foreground)] font-sans ${mktgFocusClasses}`}
               >
-                {EXPENSE_CATEGORIES.map(e => <option key={e} value={e}>{e}</option>)}
+                {EXPENSE_CATEGORIES.map((e) => (
+                  <option key={e} value={e}>
+                    {e}
+                  </option>
+                ))}
               </select>
-              <input 
+              <input
                 type="number"
                 placeholder="Amount"
                 value={expAmount}
@@ -389,13 +492,13 @@ export const MarketingWorkspace = ({
               />
             </div>
             <div className="flex space-x-2">
-              <input 
+              <input
                 placeholder="Description (optional)"
                 value={expDesc}
                 onChange={(e) => setExpDesc(e.target.value)}
                 className={`flex-1 h-11 px-3 text-[13px] rounded bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] text-[var(--color-foreground)] font-sans ${mktgFocusClasses}`}
               />
-              <button 
+              <button
                 onClick={handleAddExpense}
                 disabled={!expAmount}
                 className="h-11 px-4 bg-[var(--color-surface-2)] text-[var(--color-foreground)] text-[12px] font-mono font-bold rounded disabled:opacity-50 cursor-pointer hover:bg-[var(--color-surface-3)] transition-colors"
@@ -406,12 +509,26 @@ export const MarketingWorkspace = ({
 
             <div className="bg-[rgba(255,255,255,0.03)] p-3 rounded mt-4 space-y-2">
               <div className="flex justify-between items-center text-[10px] font-mono uppercase">
-                <span className="text-[var(--color-muted)]">Expenses Today</span>
-                <span className="text-[var(--color-error)]" style={{ fontFamily: 'JetBrains Mono' }}>{fmt(totalExpenses)}</span>
+                <span className="text-[var(--color-muted)]">
+                  Expenses Today
+                </span>
+                <span
+                  className="text-[var(--color-error)]"
+                  style={{ fontFamily: "JetBrains Mono" }}
+                >
+                  {fmt(totalExpenses)}
+                </span>
               </div>
               <div className="flex justify-between items-center text-[11px] font-bold font-mono uppercase border-t border-[rgba(255,255,255,0.07)] pt-2">
-                <span className="text-[var(--color-light-muted)]">Balance to Remit</span>
-                <span className="text-[var(--color-success)]" style={{ fontFamily: 'JetBrains Mono' }}>{fmt(balanceToRemit)}</span>
+                <span className="text-[var(--color-light-muted)]">
+                  Balance to Remit
+                </span>
+                <span
+                  className="text-[var(--color-success)]"
+                  style={{ fontFamily: "JetBrains Mono" }}
+                >
+                  {fmt(balanceToRemit)}
+                </span>
               </div>
             </div>
           </div>
@@ -421,54 +538,114 @@ export const MarketingWorkspace = ({
         <aside className="space-y-6">
           <div className="space-y-3 sticky top-4">
             <div className="border-b border-[rgba(255,255,255,0.07)] pb-1 mb-2">
-              <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: '#10B981', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              <span
+                style={{
+                  fontFamily: "JetBrains Mono",
+                  fontSize: 10,
+                  color: "#10B981",
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                }}
+              >
                 ▸ TODAY'S RECORD
               </span>
             </div>
 
             <div className="flex w-full space-x-3">
               <div className="flex-1 bg-[rgba(16,185,129,0.05)] rounded border border-[rgba(16,185,129,0.2)] p-3 flex flex-col justify-between">
-                <div className="text-[20px] font-bold font-mono text-[var(--color-success)]" style={{ fontFamily: 'JetBrains Mono' }}>{fmt(totalSales)}</div>
-                <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase mt-1">Total Sales</div>
+                <div
+                  className="text-[20px] font-bold font-mono text-[var(--color-success)]"
+                  style={{ fontFamily: "JetBrains Mono" }}
+                >
+                  {fmt(totalSales)}
+                </div>
+                <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase mt-1">
+                  Total Sales
+                </div>
               </div>
               <div className="flex-1 bg-[var(--color-surface-1)] rounded border border-[rgba(255,255,255,0.07)] p-3 flex flex-col justify-between">
-                <div className="text-[20px] font-bold font-mono text-[var(--color-foreground)]" style={{ fontFamily: 'JetBrains Mono' }}>{marketingTxs.length}</div>
-                <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase mt-1">Customers</div>
+                <div
+                  className="text-[20px] font-bold font-mono text-[var(--color-foreground)]"
+                  style={{ fontFamily: "JetBrains Mono" }}
+                >
+                  {marketingTxs.length}
+                </div>
+                <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase mt-1">
+                  Customers
+                </div>
               </div>
             </div>
 
             <div className="bg-[var(--color-surface-1)] p-3 rounded flex justify-between space-x-4">
               <div className="flex-1 text-center border-r border-[rgba(255,255,255,0.05)]">
-                <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase">Cash</div>
-                <div className="text-[12px] font-bold font-mono text-[var(--color-success)] mt-1" style={{ fontFamily: 'JetBrains Mono' }}>{fmt(cashSales)}</div>
+                <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase">
+                  Cash
+                </div>
+                <div
+                  className="text-[12px] font-bold font-mono text-[var(--color-success)] mt-1"
+                  style={{ fontFamily: "JetBrains Mono" }}
+                >
+                  {fmt(cashSales)}
+                </div>
               </div>
               <div className="flex-1 text-center">
-                <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase">Transfer</div>
-                <div className="text-[12px] font-bold font-mono text-[var(--color-success)] mt-1" style={{ fontFamily: 'JetBrains Mono' }}>{fmt(transferSales)}</div>
+                <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase">
+                  Transfer
+                </div>
+                <div
+                  className="text-[12px] font-bold font-mono text-[var(--color-success)] mt-1"
+                  style={{ fontFamily: "JetBrains Mono" }}
+                >
+                  {fmt(transferSales)}
+                </div>
               </div>
             </div>
 
             {/* Entries Today */}
             <div className="pt-4 border-t border-[rgba(255,255,255,0.07)] mt-4">
               <div className="border-b border-[rgba(255,255,255,0.07)] pb-1 mb-2">
-                <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: '#10B981', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                <span
+                  style={{
+                    fontFamily: "JetBrains Mono",
+                    fontSize: 10,
+                    color: "#10B981",
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                  }}
+                >
                   ▸ ENTRIES TODAY
                 </span>
               </div>
-              
+
               {marketingTxs.length === 0 ? (
-                <div className="text-[11px] text-[var(--color-muted)] font-mono py-4 text-center border border-dashed border-[rgba(255,255,255,0.1)] rounded">No entries yet</div>
+                <div className="text-[11px] text-[var(--color-muted)] font-mono py-4 text-center border border-dashed border-[rgba(255,255,255,0.1)] rounded">
+                  No entries yet
+                </div>
               ) : (
                 <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-                  {marketingTxs.map(t => (
-                    <div key={t.id} className="flex justify-between items-center bg-[var(--color-surface-1)] p-3 rounded border border-[rgba(255,255,255,0.05)]">
+                  {marketingTxs.map((t) => (
+                    <div
+                      key={t.id}
+                      className="flex justify-between items-center bg-[var(--color-surface-1)] p-3 rounded border border-[rgba(255,255,255,0.05)]"
+                    >
                       <div className="flex-1 min-w-0 pr-3">
-                        <div className="text-[12px] font-bold text-[var(--color-foreground)] truncate">{t.name}</div>
-                        <div className="text-[10px] font-mono text-[var(--color-muted)]">{t.detail}</div>
+                        <div className="text-[12px] font-bold text-[var(--color-foreground)] truncate">
+                          {t.name}
+                        </div>
+                        <div className="text-[10px] font-mono text-[var(--color-muted)]">
+                          {t.detail}
+                        </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="text-[12px] font-bold font-mono text-[var(--color-success)]" style={{ fontFamily: 'JetBrains Mono' }}>{fmt(t.amount)}</div>
-                        <div className="text-[9px] font-mono text-[var(--color-muted)]">{t.mode} {t.bank ? `· ${t.bank}` : ''}</div>
+                        <div
+                          className="text-[12px] font-bold font-mono text-[var(--color-success)]"
+                          style={{ fontFamily: "JetBrains Mono" }}
+                        >
+                          {fmt(t.amount)}
+                        </div>
+                        <div className="text-[9px] font-mono text-[var(--color-muted)]">
+                          {t.mode} {t.bank ? `· ${t.bank}` : ""}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -476,7 +653,7 @@ export const MarketingWorkspace = ({
               )}
             </div>
 
-            <button 
+            <button
               onClick={() => setShowCloseModal(true)}
               className="w-full py-[14px] mt-4 bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)] text-[var(--color-success)] text-[12px] font-bold font-mono rounded border border-[rgba(16,185,129,0.2)] transition-colors cursor-pointer"
             >
@@ -484,108 +661,271 @@ export const MarketingWorkspace = ({
             </button>
           </div>
         </aside>
-
       </div>
 
       {showCloseModal && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundColor: 'rgba(0,0,0,0.85)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          padding: 16
-        }}>
-          <div style={{
-             background: 'var(--color-obsidian)',
-             width: '100%', maxWidth: 480,
-             borderRadius: 16,
-             border: '1px solid rgba(255,255,255,0.1)',
-             padding: 24,
-             position: 'relative'
-          }}>
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.85)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              background: "var(--color-obsidian)",
+              width: "100%",
+              maxWidth: 480,
+              borderRadius: 16,
+              border: "1px solid rgba(255,255,255,0.1)",
+              padding: 24,
+              position: "relative",
+            }}
+          >
             <button
-               onClick={() => setShowCloseModal(false)}
-               style={{ position: 'absolute', top: 16, right: 16, color: 'var(--color-muted)' }}
+              onClick={() => setShowCloseModal(false)}
+              style={{
+                position: "absolute",
+                top: 16,
+                right: 16,
+                color: "var(--color-muted)",
+              }}
             >
-               ×
+              ×
             </button>
-            <div style={{
-              fontSize: 12, fontFamily: 'monospace', color: '#10B981',
-              letterSpacing: '0.1em', marginBottom: 12, fontWeight: 'bold'
-            }}>▸ MARKETING DAILY CLOSE</div>
+            <div
+              style={{
+                fontSize: 12,
+                fontFamily: "monospace",
+                color: "#10B981",
+                letterSpacing: "0.1em",
+                marginBottom: 12,
+                fontWeight: "bold",
+              }}
+            >
+              ▸ MARKETING DAILY CLOSE
+            </div>
 
-            <div style={{ fontSize: 13, color: 'var(--color-muted)', marginBottom: 20 }}>
-              {new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}<br/>
+            <div
+              style={{
+                fontSize: 13,
+                color: "var(--color-muted)",
+                marginBottom: 20,
+              }}
+            >
+              {new Date().toLocaleDateString("en-GB", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+              <br />
               Agent: {user.name}
             </div>
 
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 16, marginBottom: 16 }}>
-              <div style={{ fontSize: 10, color: 'var(--color-light-muted)', marginBottom: 8, letterSpacing: '0.05em' }}>ENTRIES THIS SESSION</div>
-              <div className="flex justify-between" style={{ fontSize: 13, marginBottom: 4 }}>
-                <span className="text-[var(--color-muted)]">Customers served:</span>
-                <span className="text-[var(--color-foreground)]">{marketingTxs.length}</span>
+            <div
+              style={{
+                borderTop: "1px solid rgba(255,255,255,0.05)",
+                paddingTop: 16,
+                marginBottom: 16,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  color: "var(--color-light-muted)",
+                  marginBottom: 8,
+                  letterSpacing: "0.05em",
+                }}
+              >
+                ENTRIES THIS SESSION
+              </div>
+              <div
+                className="flex justify-between"
+                style={{ fontSize: 13, marginBottom: 4 }}
+              >
+                <span className="text-[var(--color-muted)]">
+                  Customers served:
+                </span>
+                <span className="text-[var(--color-foreground)]">
+                  {marketingTxs.length}
+                </span>
               </div>
               <div className="flex justify-between" style={{ fontSize: 13 }}>
-                <span className="text-[var(--color-muted)]">Routes covered:</span>
-                <span className="text-[var(--color-foreground)] text-right max-w-[200px] truncate">{[...new Set(marketingTxs.map(t => t.detail.split(' · ')[0]))].join(', ')}</span>
+                <span className="text-[var(--color-muted)]">
+                  Routes covered:
+                </span>
+                <span className="text-[var(--color-foreground)] text-right max-w-[200px] truncate">
+                  {[
+                    ...new Set(
+                      marketingTxs.map((t) => t.detail.split(" · ")[0]),
+                    ),
+                  ].join(", ")}
+                </span>
               </div>
             </div>
 
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 16, marginBottom: 16 }}>
-              <div style={{ fontSize: 10, color: 'var(--color-light-muted)', marginBottom: 8, letterSpacing: '0.05em' }}>REVENUE BREAKDOWN</div>
-              <div className="flex justify-between" style={{ fontSize: 13, marginBottom: 4 }}>
+            <div
+              style={{
+                borderTop: "1px solid rgba(255,255,255,0.05)",
+                paddingTop: 16,
+                marginBottom: 16,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  color: "var(--color-light-muted)",
+                  marginBottom: 8,
+                  letterSpacing: "0.05em",
+                }}
+              >
+                REVENUE BREAKDOWN
+              </div>
+              <div
+                className="flex justify-between"
+                style={{ fontSize: 13, marginBottom: 4 }}
+              >
                 <span className="text-[var(--color-muted)]">Total Sales:</span>
-                <span className="text-[var(--color-foreground)] font-mono font-bold">{fmt(totalSales)}</span>
+                <span className="text-[var(--color-foreground)] font-mono font-bold">
+                  {fmt(totalSales)}
+                </span>
               </div>
-              <div className="flex justify-between" style={{ fontSize: 13, marginBottom: 4 }}>
+              <div
+                className="flex justify-between"
+                style={{ fontSize: 13, marginBottom: 4 }}
+              >
                 <span className="text-[var(--color-muted)]">Cash Sales:</span>
-                <span className="text-[var(--color-success)] font-mono">{fmt(cashSales)}</span>
+                <span className="text-[var(--color-success)] font-mono">
+                  {fmt(cashSales)}
+                </span>
               </div>
               <div className="flex justify-between" style={{ fontSize: 13 }}>
-                <span className="text-[var(--color-muted)]">Transfer Sales:</span>
-                <span className="text-[var(--color-accent-blue)] font-mono">{fmt(transferSales)}</span>
+                <span className="text-[var(--color-muted)]">
+                  Transfer Sales:
+                </span>
+                <span className="text-[var(--color-accent-blue)] font-mono">
+                  {fmt(transferSales)}
+                </span>
               </div>
             </div>
 
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 16, marginBottom: 20 }}>
-              <div style={{ fontSize: 10, color: 'var(--color-light-muted)', marginBottom: 8, letterSpacing: '0.05em' }}>EXPENSES</div>
-              {expenses.length > 0 ? expenses.map((e, i) => (
-                <div key={i} className="flex justify-between" style={{ fontSize: 13, marginBottom: 4 }}>
-                  <span className="text-[var(--color-muted)]">{e.type}:</span>
-                  <span className="text-[var(--color-error)] font-mono">{fmt(e.amount)}</span>
+            <div
+              style={{
+                borderTop: "1px solid rgba(255,255,255,0.05)",
+                paddingTop: 16,
+                marginBottom: 20,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  color: "var(--color-light-muted)",
+                  marginBottom: 8,
+                  letterSpacing: "0.05em",
+                }}
+              >
+                EXPENSES
+              </div>
+              {expenses.length > 0 ? (
+                expenses.map((e, i) => (
+                  <div
+                    key={i}
+                    className="flex justify-between"
+                    style={{ fontSize: 13, marginBottom: 4 }}
+                  >
+                    <span className="text-[var(--color-muted)]">{e.type}:</span>
+                    <span className="text-[var(--color-error)] font-mono">
+                      {fmt(e.amount)}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "var(--color-muted)",
+                    fontStyle: "italic",
+                  }}
+                >
+                  No expenses logged.
                 </div>
-              )) : (
-                <div style={{ fontSize: 12, color: 'var(--color-muted)', fontStyle: 'italic' }}>No expenses logged.</div>
               )}
-              <div className="flex justify-between" style={{ fontSize: 13, marginTop: 8, paddingTop: 8, borderTop: '1px dashed rgba(255,255,255,0.1)' }}>
-                <span className="text-[var(--color-foreground)]">TOTAL EXPENSES:</span>
-                <span className="text-[var(--color-error)] font-mono font-bold">{fmt(totalExpenses)}</span>
+              <div
+                className="flex justify-between"
+                style={{
+                  fontSize: 13,
+                  marginTop: 8,
+                  paddingTop: 8,
+                  borderTop: "1px dashed rgba(255,255,255,0.1)",
+                }}
+              >
+                <span className="text-[var(--color-foreground)]">
+                  TOTAL EXPENSES:
+                </span>
+                <span className="text-[var(--color-error)] font-mono font-bold">
+                  {fmt(totalExpenses)}
+                </span>
               </div>
             </div>
 
-            <div style={{
-              background: 'rgba(16,185,129,0.1)', border: '1px solid #10B981',
-              borderRadius: 8, padding: 16, marginBottom: 24
-            }}>
+            <div
+              style={{
+                background: "rgba(16,185,129,0.1)",
+                border: "1px solid #10B981",
+                borderRadius: 8,
+                padding: 16,
+                marginBottom: 24,
+              }}
+            >
               <div className="flex justify-between items-center">
-                <span style={{ fontSize: 14, color: '#10B981', fontWeight: 'bold' }}>BALANCE TO REMIT:</span>
-                <span style={{ fontSize: 20, color: '#10B981', fontWeight: 'bold', fontFamily: 'monospace' }}>{fmt(balanceToRemit)}</span>
+                <span
+                  style={{ fontSize: 14, color: "#10B981", fontWeight: "bold" }}
+                >
+                  BALANCE TO REMIT:
+                </span>
+                <span
+                  style={{
+                    fontSize: 20,
+                    color: "#10B981",
+                    fontWeight: "bold",
+                    fontFamily: "monospace",
+                  }}
+                >
+                  {fmt(balanceToRemit)}
+                </span>
               </div>
-              <div style={{ fontSize: 11, color: 'rgba(16,185,129,0.7)', marginTop: 4 }}>(Cash collected minus expenses)</div>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "rgba(16,185,129,0.7)",
+                  marginTop: 4,
+                }}
+              >
+                (Cash collected minus expenses)
+              </div>
             </div>
 
             <div className="flex gap-3">
               <button
                 onClick={handleDownloadSummary}
                 style={{
-                  flex: 1, padding: 12, background: 'transparent',
-                  border: '1px solid rgba(16,185,129,0.4)', borderRadius: 8,
-                  color: '#10B981', fontSize: 11, fontFamily: 'monospace', fontWeight: 'bold',
-                  cursor: 'pointer'
+                  flex: 1,
+                  padding: 12,
+                  background: "transparent",
+                  border: "1px solid rgba(16,185,129,0.4)",
+                  borderRadius: 8,
+                  color: "#10B981",
+                  fontSize: 11,
+                  fontFamily: "monospace",
+                  fontWeight: "bold",
+                  cursor: "pointer",
                 }}
               >
                 DOWNLOAD SUMMARY PDF
@@ -593,10 +933,16 @@ export const MarketingWorkspace = ({
               <button
                 onClick={handleCloseDay}
                 style={{
-                  flex: 1, padding: 12, background: '#10B981',
-                  border: 'none', borderRadius: 8,
-                  color: '#000', fontSize: 11, fontFamily: 'monospace', fontWeight: 'bold',
-                  cursor: 'pointer'
+                  flex: 1,
+                  padding: 12,
+                  background: "#10B981",
+                  border: "none",
+                  borderRadius: 8,
+                  color: "#000",
+                  fontSize: 11,
+                  fontFamily: "monospace",
+                  fontWeight: "bold",
+                  cursor: "pointer",
                 }}
               >
                 CONFIRM & CLOSE DAY

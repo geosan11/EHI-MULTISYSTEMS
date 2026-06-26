@@ -1,6 +1,46 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap");
 @import "tailwindcss";
 
+@media print {
+  body > * {
+    display: none !important;
+  }
+
+  body > .print-container {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: white;
+    color: black;
+  }
+
+  /* Force clean printing */
+  .print-container div {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+
+  /* Helper utilities for print */
+  .print-text-black {
+    color: #000 !important;
+  }
+  .print-bg-white {
+    background: #fff !important;
+  }
+  .print-border-black {
+    border-color: #000 !important;
+  }
+}
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;

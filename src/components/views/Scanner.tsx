@@ -3,8 +3,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { QrCode, RefreshCw, Package, Plane, TrendingUp, ArrowDown, ArrowUp, List, CheckCircle } from 'lucide-react';
 import { User, ScanMode, ScanValidationResult, BatchScanItem, ScanResultType, ProofOfDelivery } from '../../lib/types';
 import { validateScan, logScanEvent } from '../../lib/scanLogic';
-import { WrongDestinationAlert, NotLoggedInAlert, AlreadyProcessedAlert, SuccessFlash } from '../ScanAlerts';
-import { ProofOfDeliveryForm } from './ProofOfDelivery';
+// imports removed
 
 import { ArrivalsView } from './ArrivalsView';
 
@@ -48,8 +47,7 @@ export const Scanner = ({
   const [mode, setMode] = useState<ScanMode>('ARRIVE');
   const [isScanning, setIsScanning] = useState(false);
   const [processing, setProcessing] = useState(false);
-  const [currentResult, setCurrentResult] = useState<ScanValidationResult | null>(null);
-  const [successFlash, setSuccessFlash] = useState<ScanValidationResult | null>(null);
+  // Unused state removed
   const [batchItems, setBatchItems] = useState<BatchScanItem[]>([]);
   const [showBatch, setShowBatch] = useState(false);
   const [manualRef, setManualRef] = useState('');
@@ -69,8 +67,28 @@ export const Scanner = ({
   }[]>([]);
   const [submittingBatch, setSubmittingBatch] = useState(false);
   const [showQueueSummary, setShowQueueSummary] = useState(false);
-  const [activeDeliverCargo, setActiveDeliverCargo] = useState<{awbNumber: string, consigneeName: string} | null>(null);
   const [showArrivalsView, setShowArrivalsView] = useState(false);
+
+  // New states for the slide-up popup
+  const [popup, setPopup] = useState<{
+    visible: boolean;
+    type: ScanResultType;
+    mode: ScanMode;
+    entryRef: string;
+    consignee: string;
+    hubName: string;
+    message: string;
+  }>({
+    visible: false,
+    type: 'ERROR',
+    mode: 'ARRIVE',
+    entryRef: '',
+    consignee: '',
+    hubName: '',
+    message: ''
+  });
+  const popupTimerRef = useRef<any>(null);
+  const lastScannedRef = useRef<{code: string, time: number}>({ code: '', time: 0 });
 
   const currentHub = user.hub;
   const batchSuccess = batchItems.filter(b => b.result.startsWith('SUCCESS')).length;
@@ -130,30 +148,34 @@ export const Scanner = ({
   };
 
   const processCode = useCallback(async (code: string) => {
+    const now = Date.now();
+    if (lastScannedRef.current.code === code && (now - lastScannedRef.current.time) < 1500) {
+      return;
+    }
+    lastScannedRef.current = { code, time: now };
+
     if (processingRef.current) return;
     processingRef.current = true;
     setProcessing(true);
 
     try {
       const result = await validateScan(code, mode, currentHub, transactions);
+      
+      // Clear previous popup timer if any
+      if (popupTimerRef.current) clearTimeout(popupTimerRef.current);
 
-      if (result.type === 'SUCCESS_DELIVER') {
+      let message = result.message || '';
+      
+      if (result.type === 'SUCCESS_DELIVER' || result.type === 'SUCCESS_ARRIVE' || result.type === 'SUCCESS_DEPART') {
         playBeep();
         
-        // Pause scanner video
-        document.querySelectorAll<HTMLVideoElement>('#qr-reader-div video').forEach(v => { v.pause(); });
-        setProcessing(false);
-        processingRef.current = false;
-        
-        setActiveDeliverCargo({
-          awbNumber: result.cargo?.awb || code,
-          consigneeName: result.cargo?.name || 'Unknown'
-        });
-        return;
-      }
-
-      if (result.type === 'SUCCESS_ARRIVE' || result.type === 'SUCCESS_DEPART') {
-        playBeep();
+        if (result.type === 'SUCCESS_DELIVER') {
+          message = 'Status updated to: DELIVERED';
+        } else if (result.type === 'SUCCESS_ARRIVE') {
+          message = 'Status updated to: ARRIVED';
+        } else if (result.type === 'SUCCESS_DEPART') {
+          message = 'Status updated to: IN TRANSIT';
+        }
         
         if (isBatchQueueMode) {
           // Check for duplicate in current batch queue to prevent double scanning
@@ -175,32 +197,17 @@ export const Scanner = ({
           });
 
           if (isDuplicate) {
-            if (showToast) {
-              showToast({
-                message: `${code} is already in the batch queue for ${mode}`,
-                type: 'warning'
-              });
-            }
-            setProcessing(false);
-            processingRef.current = false;
+            setPopup({
+              visible: true,
+              type: 'ALREADY_PROCESSED',
+              mode,
+              entryRef: code,
+              consignee: result.cargo?.name || 'Unknown',
+              hubName: currentHub,
+              message: `${code} is already in the batch queue for ${mode}`,
+            });
             return;
           }
-
-          if (showToast) {
-            showToast({
-              message: `Queued ${mode} scan for AWB ${code}`,
-              type: 'success'
-            });
-          }
-
-          // Show success flash briefly then auto-clear
-          setSuccessFlash(result);
-          setTimeout(() => {
-            setSuccessFlash(null);
-            processingRef.current = false;
-            setProcessing(false);
-          }, 1200);
-
         } else {
           // Log the event immediately to database
           await logScanEvent(
@@ -218,31 +225,44 @@ export const Scanner = ({
             result: result.type,
             time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
           }, ...prev]);
-
-          // Show success flash briefly then auto-clear
-          setSuccessFlash(result);
-          setTimeout(() => {
-            setSuccessFlash(null);
-            processingRef.current = false;
-            setProcessing(false);
-          }, 1500);
         }
-
-      } else {
-        // Error — show alert modal, pause scanner
-        document.querySelectorAll<HTMLVideoElement>(
-          '#qr-reader-div video'
-        ).forEach(v => { v.pause(); });
-        setCurrentResult(result);
-        setProcessing(false);
-        processingRef.current = false;
       }
+
+      setPopup({
+        visible: true,
+        type: result.type,
+        mode,
+        entryRef: result.cargo?.awb || code,
+        consignee: result.cargo?.name || 'Unknown',
+        hubName: currentHub,
+        message
+      });
+
+      // Auto dismiss popup after 2 seconds
+      popupTimerRef.current = setTimeout(() => {
+        setPopup(prev => ({ ...prev, visible: false }));
+      }, 2000);
+
     } catch (err) {
       console.error('Scan processing error:', err);
+      if (popupTimerRef.current) clearTimeout(popupTimerRef.current);
+      setPopup({
+        visible: true,
+        type: 'ERROR',
+        mode,
+        entryRef: code,
+        consignee: 'Unknown',
+        hubName: currentHub,
+        message: 'An unexpected error occurred while processing.'
+      });
+      popupTimerRef.current = setTimeout(() => {
+        setPopup(prev => ({ ...prev, visible: false }));
+      }, 2000);
+    } finally {
       setProcessing(false);
       processingRef.current = false;
     }
-  }, [mode, currentHub, user.name, isBatchQueueMode, showToast]);
+  }, [mode, currentHub, user.name, isBatchQueueMode, transactions]);
 
   const processCodeRef = useRef(processCode);
 
@@ -327,21 +347,14 @@ export const Scanner = ({
     setIsScanning(false);
     setProcessing(false);
     processingRef.current = false;
-    setCurrentResult(null);
-    setSuccessFlash(null);
+    setPopup(prev => ({ ...prev, visible: false }));
+    if (popupTimerRef.current) clearTimeout(popupTimerRef.current);
   }, []);
 
   // Resume scanner after alert dismissed
   const dismissAlert = useCallback(async () => {
-    setCurrentResult(null);
-    setActiveDeliverCargo(null);
     processingRef.current = false;
-    // Resume video playback directly
-    document.querySelectorAll<HTMLVideoElement>(
-      '#qr-reader-div video'
-    ).forEach(v => {
-      v.play().catch(() => { /* ignore autoplay errors */ });
-    });
+    setPopup(prev => ({ ...prev, visible: false }));
   }, []);
 
   const switchToArriveAndDismiss = useCallback(() => {
@@ -368,7 +381,7 @@ export const Scanner = ({
         scannerRef.current = null;
       }
       
-      // Step 2: Stop camera tracks directly
+      // Step 3: Stop camera tracks directly
       document.querySelectorAll<HTMLVideoElement>(
         '#qr-reader-div video'
       ).forEach(video => {
@@ -377,6 +390,8 @@ export const Scanner = ({
           video.srcObject = null;
         }
       });
+      
+      if (popupTimerRef.current) clearTimeout(popupTimerRef.current);
     };
   }, []);
 
@@ -834,57 +849,67 @@ export const Scanner = ({
         )}
       </div>
 
-      {/* Alert modals */}
-      {currentResult?.type === 'WRONG_DESTINATION' && (
-        <WrongDestinationAlert
-          result={currentResult}
-          onAcknowledge={dismissAlert}
-        />
-      )}
-      {currentResult?.type === 'NOT_LOGGED_IN' && (
-        <NotLoggedInAlert
-          result={currentResult}
-          mode={mode}
-          onOk={dismissAlert}
-          onSwitchToArrive={switchToArriveAndDismiss}
-          onSwitchToDepart={() => { setMode('DEPART'); dismissAlert(); }}
-        />
-      )}
-      {currentResult?.type === 'ALREADY_PROCESSED' && (
-        <AlreadyProcessedAlert
-          result={currentResult}
-          onOk={dismissAlert}
-        />
-      )}
-      {currentResult?.type === 'NOT_FOUND' && (
-        <NotLoggedInAlert
-          result={{ ...currentResult, message: currentResult.message }}
-          mode={mode}
-          onOk={dismissAlert}
-          onSwitchToArrive={dismissAlert}
-        />
-      )}
+      {/* --- SLIDE-UP SCAN RESULT POPUP --- */}
+      <div 
+        style={{
+          position: 'fixed',
+          bottom: 80, // Above bottom nav
+          left: 16,
+          right: 16,
+          backgroundColor: 'var(--color-surface-card)',
+          borderRadius: 'var(--radius-lg)',
+          boxShadow: 'var(--shadow-card)',
+          transform: popup.visible ? 'translateY(0)' : 'translateY(200%)',
+          transition: 'transform 200ms ease-out',
+          zIndex: 50,
+          borderLeftWidth: 4,
+          borderLeftStyle: 'solid',
+          borderLeftColor: popup.type.startsWith('SUCCESS') 
+            ? 'var(--color-success)' 
+            : popup.type === 'WRONG_DESTINATION' || popup.type === 'ALREADY_PROCESSED' 
+              ? 'var(--color-accent-amber)' 
+              : 'var(--color-error)'
+        }}
+        className="p-4"
+      >
+        {/* Row 1 — Status badge + scan mode */}
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xl">
+            {popup.mode === 'DEPART' ? '🛫' : popup.mode === 'ARRIVE' ? '🛬' : '✅'}
+          </span>
+          <span className="font-bold text-[13px] text-[var(--color-foreground)]">
+            {popup.mode === 'DEPART' 
+              ? `Departed ${popup.hubName}` 
+              : popup.mode === 'ARRIVE' 
+                ? `Arrived at ${popup.hubName}` 
+                : 'Delivered to Consignee'}
+          </span>
+        </div>
 
-      {/* Success flash */}
-      {successFlash && <SuccessFlash result={successFlash} />}
+        {/* Row 2 — Cargo identity */}
+        <div className="mb-3">
+          <div className="font-mono font-bold text-base text-[var(--color-foreground)] tracking-wide">
+            {popup.entryRef || '---'}
+          </div>
+          <div className="text-[11px] text-[var(--color-muted)] mt-1 truncate">
+            {popup.consignee || 'Unknown Consignee'}
+          </div>
+        </div>
 
-      {/* POD Overlay */}
-      {activeDeliverCargo && (
-        <ProofOfDeliveryForm
-          awbNumber={activeDeliverCargo.awbNumber}
-          consigneeName={activeDeliverCargo.consigneeName}
-          user={user}
-          onComplete={async (pod) => {
-            // Also log the final event in supabase tracking_events
-            await logScanEvent(activeDeliverCargo.awbNumber, 'DELIVER', currentHub, user.name, undefined);
-            if (showToast) {
-              showToast({ message: `Proof of Delivery saved for ${activeDeliverCargo.awbNumber}!`, type: 'success' });
-            }
-            dismissAlert();
+        {/* Row 3 — Status update line */}
+        <div 
+          className="text-[11px] font-mono font-bold mt-2"
+          style={{ 
+            color: popup.type.startsWith('SUCCESS') 
+              ? popup.mode === 'DEPART' ? 'var(--color-accent-cobalt)' : 'var(--color-success)'
+              : popup.type === 'WRONG_DESTINATION' || popup.type === 'ALREADY_PROCESSED' 
+                ? 'var(--color-accent-amber)' 
+                : 'var(--color-error)'
           }}
-          onCancel={dismissAlert}
-        />
-      )}
+        >
+          {popup.message || 'Error details missing'}
+        </div>
+      </div>
     </div>
   );
 };

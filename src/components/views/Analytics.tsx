@@ -131,7 +131,7 @@ export const Analytics = ({
     const vjExcessKg = vj.reduce((sum, t) => sum + (t.kg || 0), 0);
 
     const cash = periodFilteredTxs.reduce((sum, t) => sum + (t.mode === 'Cash' ? t.amount : 0), 0);
-    const transfer = periodFilteredTxs.reduce((sum, t) => sum + (t.mode === 'Transfer' || t.mode === 'Transfer-as-Cash' ? t.amount : 0), 0);
+    const transfer = periodFilteredTxs.reduce((sum, t) => sum + (t.mode === 'Transfer' || t.mode === 'POS' ? t.amount : 0), 0);
     const debt = periodFilteredTxs.reduce((sum, t) => sum + (t.mode === 'Debt' ? t.amount : 0), 0);
 
     // Find top route in today's transactions
