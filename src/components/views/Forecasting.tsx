@@ -47,10 +47,10 @@ export const Forecasting = ({
 
   // Heatmap route data representation
   const routesHeatmap = [
-    { route: 'Lagos - Abuja (ABV)', Mon: 'low', Tue: 'medium', Wed: 'high', Thu: 'medium', Fri: 'high', Sat: 'medium' },
-    { route: 'Lagos - Port Harcourt (PHC)', Mon: 'medium', Tue: 'low', Wed: 'high', Thu: 'medium', Fri: 'high', Sat: 'low' },
-    { route: 'Lagos - Benin (BNI)', Mon: 'low', Tue: 'medium', Wed: 'medium', Thu: 'low', Fri: 'medium', Sat: 'medium' },
-    { route: 'Lagos - Kano (KAN)', Mon: 'low', Tue: 'low', Wed: 'medium', Thu: 'high', Fri: 'low', Sat: 'low' }
+    { route: 'LOS/Lagos - ABV/Abuja', Mon: 'low', Tue: 'medium', Wed: 'high', Thu: 'medium', Fri: 'high', Sat: 'medium' },
+    { route: 'LOS/Lagos - PHC/Port Harcourt', Mon: 'medium', Tue: 'low', Wed: 'high', Thu: 'medium', Fri: 'high', Sat: 'low' },
+    { route: 'LOS/Lagos - BNI/Benin City', Mon: 'low', Tue: 'medium', Wed: 'medium', Thu: 'low', Fri: 'medium', Sat: 'medium' },
+    { route: 'LOS/Lagos - KAN/Kano', Mon: 'low', Tue: 'low', Wed: 'medium', Thu: 'high', Fri: 'low', Sat: 'low' }
   ];
 
   const handleGenerateForecast = async () => {

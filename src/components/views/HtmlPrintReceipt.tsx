@@ -65,7 +65,7 @@ export const HtmlPrintReceipt = ({ data }: { data: CargoReceiptData }) => {
       <div className="border-t border-black py-1 my-1 flex justify-between items-center">
         <span className="text-[8px] uppercase font-bold">Amount Charged:</span>
         <span className="text-[16px] font-bold tracking-tight">
-          NGN {data.amount.toLocaleString()}
+          ₦{data.amount.toLocaleString()}
         </span>
       </div>
 

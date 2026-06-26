@@ -32,50 +32,50 @@ export interface VJReceiptData {
 
 function formatNaira(n: number | string): string {
   const num = typeof n === 'string' ? parseFloat(n) : n;
-  return 'NGN ' + (num || 0).toLocaleString('en-NG', {
+  return '₦' + (num || 0).toLocaleString('en-NG', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 10, fontFamily: "Helvetica", backgroundColor: "#FFFFFF" },
+  page: { padding: 6, fontFamily: "Helvetica", backgroundColor: "#FFFFFF" },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   title: {
-    fontSize: 11,
+    fontSize: 10,
     color: "#000000",
     textTransform: "uppercase",
-    marginBottom: 6,
+    marginBottom: 4,
     alignSelf: "center",
     fontWeight: "bold",
     fontFamily: "Helvetica-Bold",
   },
   divider: {
-    marginVertical: 4,
-    borderBottomWidth: 1.5,
+    marginVertical: 2,
+    borderBottomWidth: 1,
     borderBottomColor: "#000000",
     borderBottomStyle: "dashed",
   },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   label: {
-    fontSize: 9,
+    fontSize: 8,
     color: "#000000",
     textTransform: "uppercase",
-    width: 70,
+    width: 60,
     fontWeight: "bold",
     fontFamily: "Helvetica-Bold",
   },
   value: {
-    fontSize: 10,
+    fontSize: 8,
     fontWeight: "bold",
     fontFamily: "Helvetica-Bold",
     color: "#000000",
@@ -83,48 +83,48 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   amountContainer: {
-    marginTop: 6,
-    padding: 6,
-    borderTopWidth: 2,
-    borderBottomWidth: 2,
+    marginTop: 4,
+    padding: 4,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
     borderColor: "#000000",
   },
   amountLabel: {
-    fontSize: 12,
+    fontSize: 10,
     color: "#000000",
     textTransform: "uppercase",
     fontWeight: "bold",
     fontFamily: "Helvetica-Bold",
   },
   amountValue: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: "bold",
     fontFamily: "Helvetica-Bold",
     color: "#000000",
     textAlign: "right",
   },
-  footerRow: { flexDirection: "row", justifyContent: "center", marginTop: 4 },
+  footerRow: { flexDirection: "row", justifyContent: "center", marginTop: 2 },
   footerText: {
-    fontSize: 8,
+    fontSize: 7,
     color: "#000000",
     textAlign: "center",
-    marginTop: 2,
+    marginTop: 1,
   },
   sectionTitle: {
-    fontSize: 10,
+    fontSize: 9,
     color: "#000000",
     fontWeight: "bold",
     fontFamily: "Helvetica-Bold",
-    marginBottom: 4,
+    marginBottom: 2,
     textTransform: "uppercase",
   },
-  qrContainer: { alignItems: "center", marginVertical: 4 },
-  qrImage: { width: 80, height: 80 },
+  qrContainer: { alignItems: "center", marginVertical: 2 },
+  qrImage: { width: 55, height: 55 },
 });
 
 const VJReceiptPDF = ({ data }: { data: VJReceiptData }) => (
   <Document>
-    <Page size={[226, 566]} style={styles.page}>
+    <Page size={[226, 800]} style={styles.page}>
       <View style={styles.headerRow}>
         <EHILogoPDF width={50} />
         <AirlineLogoPDF airline="ValueJet" width={50} />

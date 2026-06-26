@@ -35,50 +35,50 @@ export interface CargoReceiptData {
 
 function formatNaira(n: number | string): string {
   const num = typeof n === 'string' ? parseFloat(n) : n;
-  return 'NGN ' + (num || 0).toLocaleString('en-NG', {
+  return '₦' + (num || 0).toLocaleString('en-NG', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 10, fontFamily: "Helvetica", backgroundColor: "#FFFFFF" },
+  page: { padding: 6, fontFamily: "Helvetica", backgroundColor: "#FFFFFF" },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   title: {
-    fontSize: 12,
+    fontSize: 10,
     color: "#000000",
     textTransform: "uppercase",
-    marginBottom: 6,
+    marginBottom: 4,
     alignSelf: "center",
     fontWeight: "bold",
     fontFamily: "Helvetica-Bold",
   },
   divider: {
-    marginVertical: 4,
-    borderBottomWidth: 1.5,
+    marginVertical: 2,
+    borderBottomWidth: 1,
     borderBottomColor: "#000000",
     borderBottomStyle: "dashed",
   },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   label: {
-    fontSize: 9,
+    fontSize: 8,
     color: "#000000",
     textTransform: "uppercase",
-    width: 70,
+    width: 60,
     fontWeight: "bold",
     fontFamily: "Helvetica-Bold",
   },
   value: {
-    fontSize: 10,
+    fontSize: 8,
     fontWeight: "bold",
     fontFamily: "Helvetica-Bold",
     color: "#000000",
@@ -86,98 +86,98 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   amountContainer: {
-    marginTop: 6,
-    padding: 6,
-    borderTopWidth: 2,
-    borderBottomWidth: 2,
+    marginTop: 4,
+    padding: 4,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
     borderColor: "#000000",
   },
   amountLabel: {
-    fontSize: 12,
+    fontSize: 10,
     color: "#000000",
     textTransform: "uppercase",
     fontWeight: "bold",
     fontFamily: "Helvetica-Bold",
   },
   amountValue: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: "bold",
     fontFamily: "Helvetica-Bold",
     color: "#000000",
     textAlign: "right",
   },
-  footerRow: { flexDirection: "row", justifyContent: "center", marginTop: 4 },
+  footerRow: { flexDirection: "row", justifyContent: "center", marginTop: 2 },
   footerText: {
-    fontSize: 8,
+    fontSize: 7,
     color: "#000000",
     textAlign: "center",
-    marginTop: 2,
+    marginTop: 1,
   },
-  qrContainer: { alignItems: "center", marginVertical: 4 },
-  qrImage: { width: 80, height: 80 },
+  qrContainer: { alignItems: "center", marginVertical: 2 },
+  qrImage: { width: 55, height: 55 },
   pinContainer: {
-    marginTop: 4,
-    padding: 6,
-    borderWidth: 2,
+    marginTop: 2,
+    padding: 4,
+    borderWidth: 1,
     borderColor: "#000000",
     alignItems: "center",
   },
   pinLabel: {
-    fontSize: 11,
+    fontSize: 9,
     color: "#000000",
     fontWeight: "bold",
     fontFamily: "Helvetica-Bold",
     textTransform: "uppercase",
   },
   pinValue: {
-    fontSize: 24,
+    fontSize: 16,
     fontFamily: "Courier",
     fontWeight: "bold",
     color: "#000000",
-    letterSpacing: 4,
-    marginVertical: 4,
+    letterSpacing: 2,
+    marginVertical: 2,
   },
-  pinHelper: { fontSize: 8, color: "#000000", textAlign: "center" },
+  pinHelper: { fontSize: 7, color: "#000000", textAlign: "center" },
   tagContainer: { marginTop: 0, paddingTop: 0 },
   tagTitle: {
+    fontSize: 12,
+    fontWeight: "bold",
+    fontFamily: "Helvetica-Bold",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  tagRoute: {
     fontSize: 16,
     fontWeight: "bold",
     fontFamily: "Helvetica-Bold",
     textAlign: "center",
-    marginBottom: 6,
-  },
-  tagRoute: {
-    fontSize: 20,
-    fontWeight: "bold",
-    fontFamily: "Helvetica-Bold",
-    textAlign: "center",
-    marginVertical: 4,
+    marginVertical: 2,
   },
   tagAwb: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: "bold",
     fontFamily: "Helvetica-Bold",
     textAlign: "center",
-    marginVertical: 4,
+    marginVertical: 2,
   },
   tagDetailsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginVertical: 6,
+    marginVertical: 4,
   },
   tagDetailBox: {
     alignItems: "center",
-    padding: 4,
+    padding: 2,
     borderWidth: 1,
     borderColor: "#000",
     flex: 1,
-    marginHorizontal: 2,
+    marginHorizontal: 1,
   },
-  tagDetailLabel: { fontSize: 8, textTransform: "uppercase" },
-  tagDetailValue: { fontSize: 14, fontWeight: "bold", fontFamily: "Helvetica-Bold" },
+  tagDetailLabel: { fontSize: 7, textTransform: "uppercase" },
+  tagDetailValue: { fontSize: 12, fontWeight: "bold", fontFamily: "Helvetica-Bold" },
   stampBox: {
-    marginTop: 8,
-    height: 40,
+    marginTop: 4,
+    height: 30,
     borderWidth: 1,
     borderColor: "#000",
     borderStyle: "dashed",
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
 // Note: The entire receipt must render within 297mm height (A4) or 200mm (thermal)
 const CargoReceiptOnlyPDF = ({ data }: { data: CargoReceiptData }) => (
   <Document>
-    <Page size={[226, 566]} style={styles.page}>
+    <Page size={[226, 800]} style={styles.page}>
       {/* Logos Header */}
       <View style={styles.headerRow}>
         <EHILogoPDF width={50} />
@@ -335,11 +335,11 @@ const CargoWaybillOnlyPDF = ({ data }: { data: CargoReceiptData }) => {
 
           {data.qrCodeDataUrl ? (
             <View style={styles.qrContainer}>
-              <Image src={data.qrCodeDataUrl} style={{ width: 75, height: 75 }} />
+              <Image src={data.qrCodeDataUrl} style={styles.qrImage} />
             </View>
           ) : null}
 
-          <Text style={{ fontSize: 10, textAlign: 'center', marginBottom: 4, fontFamily: 'Courier' }}>REF: {data.entryRef}</Text>
+          <Text style={{ fontSize: 8, textAlign: 'center', marginBottom: 2, fontFamily: 'Courier' }}>REF: {data.entryRef}</Text>
 
           <Text style={styles.tagAwb}>AWB: {data.awbTagNumber}</Text>
 

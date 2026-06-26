@@ -120,12 +120,19 @@ export const ITDashboard = ({ user }: { user: User }) => {
 
   // Pull real logs from appLogger
   useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    
     import('../../lib/logger').then(({ appLogger }) => {
-      const unsubscribe = appLogger.subscribe((newLogs) => {
+      unsubscribe = appLogger.subscribe((newLogs) => {
         setLogs(newLogs as any); // Cast slightly because of local type but they match
       });
-      return unsubscribe;
     });
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, []);
 
   // Filter logs or bugs

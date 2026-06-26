@@ -99,9 +99,9 @@ export function buildValueJetWhatsApp(data: {
     `Ref: \`${data.ref}\`\n\n` +
     `👤 *Passenger:* ${data.passenger}\n` +
     `🛫 *Flight:* ${data.flight}\n\n` +
-    `⚖️ Total weight: ${data.totalKg.toFixed(1)} kg\n` +
+    `⚖️ Total weight: ${data.totalKg} kg\n` +
     `🟢 Free allowance: 20.0 kg\n` +
-    `🔴 Excess charged: ${data.excessKg.toFixed(1)} kg × ₦1,000\n\n` +
+    `🔴 Excess charged: ${data.excessKg} kg × ₦1,000\n\n` +
     `💰 *Amount: NGN ${Number(data.amount).toLocaleString('en-NG')}*\n` +
     `💳 *Payment:* ${data.mode}\n`;
 

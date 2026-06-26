@@ -58,21 +58,26 @@ export const Analytics = ({
 
   // List of active hubs for Multi-Hub
   const activeHubs = useMemo(() => [
-    { id: 'all',    name: 'All Hubs',              code: 'ALL', region: 'Nigeria' },
-    { id: 'los',    name: 'Lagos Air Cargo',        code: 'LOS', region: 'South West' },
-    { id: 'abv',    name: 'Abuja Air Cargo',        code: 'ABV', region: 'North Central' },
-    { id: 'phc',    name: 'Port Harcourt',          code: 'PHC', region: 'South South' },
+    { id: 'all',    name: 'All Hubs',               code: 'ALL', region: 'Nigeria' },
+    { id: 'los',    name: 'Lagos HQ',               code: 'LOS', region: 'South West' },
+    { id: 'abv',    name: 'Abuja Station',          code: 'ABV', region: 'North Central' },
+    { id: 'phc',    name: 'Port Harcourt Station',  code: 'PHC', region: 'South South' },
     { id: 'kan',    name: 'Kano Station',           code: 'KAN', region: 'North West' },
     { id: 'enu',    name: 'Enugu Station',          code: 'ENU', region: 'South East' },
-    { id: 'bni',    name: 'Benin City',             code: 'BNI', region: 'South South' },
-    { id: 'qrw',    name: 'Warri Station',          code: 'QRW', region: 'South South' },
     { id: 'abb',    name: 'Asaba Station',          code: 'ABB', region: 'South South' },
-    { id: 'qow',    name: 'Owerri Station',         code: 'QOW', region: 'South East' },
-    { id: 'kad',    name: 'Kaduna Station',         code: 'KAD', region: 'North West' },
-    { id: 'jos',    name: 'Jos Station',            code: 'JOS', region: 'North Central' },
-    { id: 'oni',    name: 'Onitsha Hub',            code: 'ONI', region: 'South East' },
-    { id: 'mkd',    name: 'Makurdi Station',        code: 'MKD', region: 'North Central' },
+    { id: 'akr',    name: 'Akure Station',          code: 'AKR', region: 'South West' },
+    { id: 'bcu',    name: 'Bauchi Station',         code: 'BCU', region: 'North East' },
+    { id: 'bni',    name: 'Benin City Station',     code: 'BNI', region: 'South South' },
+    { id: 'cbq',    name: 'Calabar Station',        code: 'CBQ', region: 'South South' },
+    { id: 'gmo',    name: 'Gombe Station',          code: 'GMO', region: 'North East' },
     { id: 'iba',    name: 'Ibadan Station',         code: 'IBA', region: 'South West' },
+    { id: 'ilr',    name: 'Ilorin Station',         code: 'ILR', region: 'North Central' },
+    { id: 'kad',    name: 'Kaduna Station',         code: 'KAD', region: 'North West' },
+    { id: 'miu',    name: 'Maiduguri Station',      code: 'MIU', region: 'North East' },
+    { id: 'qow',    name: 'Owerri Station',         code: 'QOW', region: 'South East' },
+    { id: 'quo',    name: 'Uyo Station',            code: 'QUO', region: 'South South' },
+    { id: 'qrw',    name: 'Warri (Osubi) Station',  code: 'QRW', region: 'South South' },
+    { id: 'yol',    name: 'Yola Station',           code: 'YOL', region: 'North East' },
   ], []);
 
   // Filtered transactions based on selected Hub

@@ -109,12 +109,14 @@ export const CargoForm = ({
     "intake" | "weighing" | "directory"
   >("intake");
 
+  const generateAwb = () => `AWB-${Math.floor(100000 + Math.random() * 900000)}`;
+
   // --- STANDARD RETAIL STATES ---
   const [serialNumber, setSerialNumber] = useState<number>(getLocalSerial);
   const [consignee, setConsignee] = useState(CORPORATE_CLIENTS[0] as string);
   const [airline, setAirline] = useState("Arik Air");
   const [customConsignee, setCustomConsignee] = useState("");
-  const [awb, setAwb] = useState("");
+  const [awb, setAwb] = useState(generateAwb());
   const [pcs, setPcs] = useState("1");
   const [kg, setKg] = useState("");
   const [route, setRoute] = useState(CARGO_ROUTES[0]);
@@ -258,13 +260,13 @@ export const CargoForm = ({
       {
         id: "rate_2",
         corporate_client_id: "corp_1",
-        route_name: "BNI/Benin",
+        route_name: "BNI/Benin City",
         rate_per_kg: 400,
       },
       {
         id: "rate_3",
         corporate_client_id: "corp_1",
-        route_name: "Lagos",
+        route_name: "LOS/Lagos",
         rate_per_kg: 350,
       },
       {
@@ -276,7 +278,7 @@ export const CargoForm = ({
       {
         id: "rate_5",
         corporate_client_id: "corp_2",
-        route_name: "BNI/Benin",
+        route_name: "BNI/Benin City",
         rate_per_kg: 420,
       },
       {
@@ -320,7 +322,7 @@ export const CargoForm = ({
           id: "CG-INT-315",
           consignee: "SAHCO",
           pieces: 8,
-          route: "BNI/Benin",
+          route: "BNI/Benin City",
           contentType: "Medical",
           airline: "United Nigeria",
           awb: "AWB-SAHC-15",
@@ -348,7 +350,7 @@ export const CargoForm = ({
     }
   }, [availableAirlines]);
 
-  const [intakeAwb, setIntakeAwb] = useState("");
+  const [intakeAwb, setIntakeAwb] = useState(generateAwb());
   const [intakePcs, setIntakePcs] = useState("1");
   const [intakeRoute, setIntakeRoute] = useState(CARGO_ROUTES[0]);
   const [intakeContentType, setIntakeContentType] = useState<string>(
@@ -419,7 +421,7 @@ export const CargoForm = ({
     updateLocalPendingIntakes(updated);
 
     // Clear and Toast
-    setIntakeAwb("");
+    setIntakeAwb(generateAwb());
     setIntakePcs("1");
     setIntakeSenderPhone("");
     setSuccessMessage(
@@ -433,7 +435,7 @@ export const CargoForm = ({
     if (!selectedIntake || !gateWeight) return;
     setIsWeighingSubmitting(true);
 
-    const weightNum = parseFloat(gateWeight) || 0;
+    const weightNum = Math.round(parseFloat(gateWeight)) || 0;
     if (weightNum <= 0) {
       alert("Please enter a valid verified weight in KG.");
       setIsWeighingSubmitting(false);
@@ -639,7 +641,7 @@ export const CargoForm = ({
     setConsignee(CORPORATE_CLIENTS[0] as string);
     setCustomConsignee("");
     setAirline("Arik Air");
-    setAwb("");
+    setAwb(generateAwb());
     setPcs("1");
     setKg("");
     setRoute(CARGO_ROUTES[0]);
@@ -671,7 +673,7 @@ export const CargoForm = ({
         consignee: successTx.name,
         awbTagNumber: successTx.awb_tag_number || awb,
         pieces: successTx.pieces || parseInt(pcs),
-        kg: successTx.kg || parseFloat(kg),
+        kg: successTx.kg || Math.round(parseFloat(kg)),
         route: successTx.detail.split(" · ")[4] || route,
         contentType: successTx.detail.split(" · ")[5] || contentType,
         amount: successTx.amount,
@@ -703,7 +705,7 @@ export const CargoForm = ({
         consignee: successTx.name,
         awbTagNumber: successTx.awb_tag_number || awb,
         pieces: successTx.pieces || parseInt(pcs),
-        kg: successTx.kg || parseFloat(kg),
+        kg: successTx.kg || Math.round(parseFloat(kg)),
         route: successTx.detail.split(" · ")[4] || route,
         contentType: successTx.detail.split(" · ")[5] || contentType,
         amount: successTx.amount,
@@ -735,7 +737,7 @@ export const CargoForm = ({
         consignee: successTx.name,
         awbTagNumber: successTx.awb_tag_number || awb,
         pieces: successTx.pieces || parseInt(pcs),
-        kg: successTx.kg || parseFloat(kg),
+        kg: successTx.kg || Math.round(parseFloat(kg)),
         route: successTx.detail.split(" · ")[4] || route,
         contentType: successTx.detail.split(" · ")[5] || contentType,
         amount: successTx.amount,
@@ -1052,19 +1054,14 @@ export const CargoForm = ({
               </div>
 
               <div>
-                {renderLabel(Hash, "AWB / Tag No")}
+                {renderLabel(Hash, "AWB / Tag No (Auto-generated)")}
                 <input
                   type="text"
-                  placeholder="e.g. 30795 or 31455-68"
                   value={awb}
-                  onChange={(e) => setAwb(e.target.value.toUpperCase())}
-                  className={`${formInputClass} font-mono`}
+                  readOnly
+                  className={`${formInputClass} font-mono bg-opacity-50 cursor-not-allowed`}
+                  style={{ backgroundColor: 'var(--color-surface-3)', color: 'var(--color-muted)' }}
                 />
-                {awb.includes("-") && (
-                  <div className="text-[11px] font-sans font-semibold text-[var(--color-accent-amber)] mt-1 text-right">
-                    Range detected
-                  </div>
-                )}
               </div>
 
               <div className="flex space-x-3">
@@ -1507,13 +1504,13 @@ export const CargoForm = ({
                   </div>
 
                   <div>
-                    {renderLabel(Hash, "AWB Tag / Waybill Number")}
+                    {renderLabel(Hash, "AWB Tag / Waybill Number (Auto-generated)")}
                     <input
                       type="text"
-                      placeholder="e.g. AWB-ARAM-924"
                       value={intakeAwb}
-                      onChange={(e) => setIntakeAwb(e.target.value)}
-                      className={`${formInputClass} font-mono`}
+                      readOnly
+                      className={`${formInputClass} font-mono bg-opacity-50 cursor-not-allowed`}
+                      style={{ backgroundColor: 'var(--color-surface-3)', color: 'var(--color-muted)' }}
                     />
                   </div>
 
@@ -1916,7 +1913,7 @@ export const CargoForm = ({
                                 : matchR
                                   ? matchR.rate_per_kg
                                   : 500;
-                              const weight = parseFloat(gateWeight) || 0;
+                              const weight = Math.round(parseFloat(gateWeight)) || 0;
                               return (weight * rate).toLocaleString("en-NG", {
                                 maximumFractionDigits: 2,
                               });

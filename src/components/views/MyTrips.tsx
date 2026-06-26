@@ -5,11 +5,13 @@ import { db } from '../../lib/db';
 import { Truck, Plus, ChevronDown, ChevronUp, MapPin } from 'lucide-react';
 
 const NIGERIAN_HUBS = [
-  'Lagos Air Cargo Station', 'Abuja Air Cargo Station',
+  'Lagos HQ', 'Abuja Station',
   'Port Harcourt Station', 'Kano Station', 'Enugu Station',
-  'Benin City Station', 'Warri Station', 'Asaba Station',
-  'Owerri Station', 'Kaduna Station', 'Jos Station',
-  'Onitsha Hub', 'Makurdi Station', 'Ibadan Station',
+  'Asaba Station', 'Akure Station', 'Bauchi Station',
+  'Benin City Station', 'Calabar Station', 'Gombe Station',
+  'Ibadan Station', 'Ilorin Station', 'Kaduna Station',
+  'Maiduguri Station', 'Owerri Station', 'Uyo Station',
+  'Warri (Osubi) Station', 'Yola Station'
 ];
 
 interface TripCardProps {

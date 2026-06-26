@@ -48,7 +48,7 @@ export async function writeWithOfflineSupport(
     } else {
       console.error('Supabase insert error (falling back to offline queue):', error);
       const errMsg = error.message || error.details || JSON.stringify(error);
-      appLogger.log('ERROR', 'SYNC', `Supabase upsert error on ${tableName}: ${errMsg}`);
+      appLogger.log('ERROR', 'SYNC', `Supabase upsert error on ${tableName}: ${errMsg} - Payload: ${JSON.stringify(supabasePayload)}`);
       return { success: false, offline: true, error: errMsg };
     }
   } catch (err) {

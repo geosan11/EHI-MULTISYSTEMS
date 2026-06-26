@@ -46,91 +46,91 @@ export interface MarketingDailySummaryData {
 
 function formatNaira(n: number | string): string {
   const num = typeof n === 'string' ? parseFloat(n) : n;
-  return 'NGN ' + (num || 0).toLocaleString('en-NG', {
+  return '₦' + (num || 0).toLocaleString('en-NG', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 15, fontFamily: "Helvetica", backgroundColor: "#FFFFFF" },
+  page: { padding: 6, fontFamily: "Helvetica", backgroundColor: "#FFFFFF" },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 15,
+    marginBottom: 4,
   },
   title: {
-    fontSize: 11,
+    fontSize: 10,
     color: "#000000",
     textTransform: "uppercase",
-    marginBottom: 15,
+    marginBottom: 4,
     alignSelf: "center",
     fontWeight: "bold",
   },
   divider: {
-    marginVertical: 6,
-    borderBottomWidth: 1.5,
+    marginVertical: 2,
+    borderBottomWidth: 1,
     borderBottomColor: "#000000",
     borderBottomStyle: "dashed",
   },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   label: {
-    fontSize: 9,
+    fontSize: 8,
     color: "#000000",
     textTransform: "uppercase",
-    width: 70,
+    width: 60,
     fontWeight: "bold",
   },
   value: {
-    fontSize: 10,
+    fontSize: 8,
     fontWeight: "bold",
     color: "#000000",
     flex: 1,
     textAlign: "right",
   },
   amountContainer: {
-    marginTop: 10,
-    padding: 8,
-    borderTopWidth: 2,
-    borderBottomWidth: 2,
+    marginTop: 4,
+    padding: 4,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
     borderColor: "#000000",
   },
   amountLabel: {
-    fontSize: 12,
+    fontSize: 10,
     color: "#000000",
     textTransform: "uppercase",
     fontWeight: "bold",
   },
   amountValue: {
-    fontSize: 18,
+    fontSize: 12,
     fontWeight: "bold",
     color: "#000000",
     textAlign: "right",
   },
-  footerRow: { flexDirection: "row", justifyContent: "center", marginTop: 10 },
+  footerRow: { flexDirection: "row", justifyContent: "center", marginTop: 4 },
   footerText: {
-    fontSize: 8,
+    fontSize: 7,
     color: "#000000",
     textAlign: "center",
-    marginTop: 10,
+    marginTop: 4,
   },
   sectionTitle: {
-    fontSize: 10,
+    fontSize: 9,
     color: "#000000",
     fontWeight: "bold",
-    marginBottom: 4,
+    marginBottom: 2,
     textTransform: "uppercase",
   },
 });
 
 const MarketingReceiptPDF = ({ data }: { data: MarketingReceiptData }) => (
   <Document>
-    <Page size={[226, 600]} style={styles.page}>
+    <Page size={[226, 800]} style={styles.page}>
       <View style={{ alignItems: "flex-start", marginBottom: 15 }}>
         <EHILogoPDF width={70} />
       </View>

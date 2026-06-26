@@ -3,16 +3,16 @@ import { PaymentMode, Transaction, User } from '../../lib/types';
 import { fmt, uid, tnow } from '../../lib/helpers';
 import { CheckCircle, Loader2 } from 'lucide-react';
 import { QRCode } from '../QRCode';
-import { motion } from 'motion/react';
 import { sendReceiptWhatsApp, buildValueJetWhatsApp } from '../../lib/notifications';
 import { PaymentNarrationBox } from '../PaymentNarrationBox';
+import { CARGO_ROUTES } from '../../lib/constants';
 
 const VJ_RATE_PER_KG = 1000;
 
 export const ValueJetForm = ({ onAddTx, user }: { onAddTx: (tx: Transaction) => void, user: User }) => {
   const [name, setName] = useState('');
   const [flight, setFlight] = useState('');
-  const [dest, setDest] = useState('');
+  const [dest, setDest] = useState(CARGO_ROUTES[0]);
   const [kg, setKg] = useState('');
   const [phone, setPhone] = useState('');
   const [mode, setMode] = useState<PaymentMode>('POS');
@@ -34,7 +34,7 @@ export const ValueJetForm = ({ onAddTx, user }: { onAddTx: (tx: Transaction) => 
     localStorage.getItem('ehi_vj_free_kg') || '20'
   );
 
-  const kgVal = parseFloat(kg) || 0;
+  const kgVal = Math.round(parseFloat(kg)) || 0;
   const excessKg = Math.max(0, kgVal - vjFreeAllowance);
   const totalAmount = excessKg * VJ_RATE_PER_KG;
 
@@ -48,7 +48,7 @@ export const ValueJetForm = ({ onAddTx, user }: { onAddTx: (tx: Transaction) => 
     const tx: Transaction = {
       id: uid('VJ'),
       name: name.trim(),
-      detail: `${flight.toUpperCase()} · +${excessKg.toFixed(1)}kg excess`,
+      detail: `${flight.toUpperCase()} · +${excessKg}kg excess`,
       amount: totalAmount,
       mode,
       paymentNarration: mode === 'Transfer' ? narrationCode : undefined,
@@ -165,15 +165,15 @@ export const ValueJetForm = ({ onAddTx, user }: { onAddTx: (tx: Transaction) => 
           <div className="w-full bg-[var(--color-obsidian)] rounded p-3 mb-4 text-left border border-[var(--color-border)]">
             <div className="flex justify-between items-center mb-2">
               <span className="text-[10px] font-mono text-[var(--color-muted)]">Total Weight</span>
-              <span className="text-[12px] font-mono text-[var(--color-foreground)]">{s.kgs.toFixed(1)} kg</span>
+              <span className="text-[12px] font-mono text-[var(--color-foreground)]">{s.kgs} kg</span>
             </div>
             <div className="flex justify-between items-center mb-2">
               <span className="text-[10px] font-mono text-[var(--color-muted)]">Free Allowance</span>
-              <span className="text-[12px] font-mono text-[var(--color-success)]">– {vjFreeAllowance.toFixed(1)} kg</span>
+              <span className="text-[12px] font-mono text-[var(--color-success)]">– {vjFreeAllowance} kg</span>
             </div>
             <div className="flex justify-between items-center pb-2 border-b border-[rgba(255,255,255,0.07)]">
               <span className="text-[10px] font-mono text-[var(--color-accent-cobalt)]">Excess Baggage</span>
-              <span className="text-[12px] font-bold font-mono text-[var(--color-accent-cobalt)]">{s.exc.toFixed(1)} kg</span>
+              <span className="text-[12px] font-bold font-mono text-[var(--color-accent-cobalt)]">{s.exc} kg</span>
             </div>
             
             <div className="flex justify-between items-end mt-3">
@@ -260,12 +260,18 @@ export const ValueJetForm = ({ onAddTx, user }: { onAddTx: (tx: Transaction) => 
             </div>
             <div className="space-y-1.5">
               <span className="text-[12px] font-sans font-semibold text-[var(--color-light-muted)] font-bold">Destination</span>
-              <input 
-                placeholder="e.g. Abuja"
+              <select
                 value={dest}
                 onChange={(e) => setDest(e.target.value)}
                 className={formInputClass}
-              />
+                style={{ appearance: "none" }}
+              >
+                {CARGO_ROUTES.map((route) => (
+                  <option key={route} value={route}>
+                    {route}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -274,8 +280,8 @@ export const ValueJetForm = ({ onAddTx, user }: { onAddTx: (tx: Transaction) => 
               <span className="text-[12px] font-sans font-semibold text-[var(--color-light-muted)]">Total Weight (KG)</span>
               <input 
                 type="number"
-                step="0.1"
-                placeholder="0.0"
+                step="1"
+                placeholder="0"
                 value={kg}
                 onChange={(e) => setKg(e.target.value)}
                 className={formInputClass}
@@ -355,9 +361,9 @@ export const ValueJetForm = ({ onAddTx, user }: { onAddTx: (tx: Transaction) => 
               <div style={{ fontSize: 13, fontFamily: 'monospace', lineHeight: 2.2, color: 'var(--color-foreground)' }}>
                 <div className="flex justify-between border-b border-[var(--color-border)] pb-1 mb-1"><span style={{ color: 'var(--color-muted)' }}>Passenger</span><span className="truncate ml-4 font-semibold text-[var(--color-foreground)]" style={{ maxWidth: '140px' }}>{name || '—'}</span></div>
                 <div className="flex justify-between border-b border-[var(--color-border)] pb-1 mb-1"><span style={{ color: 'var(--color-muted)' }}>Flight</span><span className="font-bold text-[var(--color-accent-cobalt)]">{flight.toUpperCase() || '—'}</span></div>
-                <div className="flex justify-between border-b border-[var(--color-border)] pb-1 mb-1"><span style={{ color: 'var(--color-muted)' }}>Total Weight</span><span className="font-semibold text-[var(--color-foreground)]">{kgVal.toFixed(1)} kg</span></div>
-                <div className="flex justify-between border-b border-[var(--color-border)] pb-1 mb-1"><span style={{ color: 'var(--color-muted)' }}>Free Limit</span><span className="font-semibold text-[var(--color-success)]">– {vjFreeAllowance.toFixed(1)} kg</span></div>
-                <div className="flex justify-between"><span style={{ color: 'var(--color-muted)' }}>Excess KG</span><span className={`font-bold ${excessKg > 0 ? 'text-[var(--color-accent-cobalt)]' : 'text-[var(--color-muted)]'}`}>{excessKg.toFixed(1)} kg</span></div>
+                <div className="flex justify-between border-b border-[var(--color-border)] pb-1 mb-1"><span style={{ color: 'var(--color-muted)' }}>Total Weight</span><span className="font-semibold text-[var(--color-foreground)]">{kgVal} kg</span></div>
+                <div className="flex justify-between border-b border-[var(--color-border)] pb-1 mb-1"><span style={{ color: 'var(--color-muted)' }}>Free Limit</span><span className="font-semibold text-[var(--color-success)]">– {vjFreeAllowance} kg</span></div>
+                <div className="flex justify-between"><span style={{ color: 'var(--color-muted)' }}>Excess KG</span><span className={`font-bold ${excessKg > 0 ? 'text-[var(--color-accent-cobalt)]' : 'text-[var(--color-muted)]'}`}>{excessKg} kg</span></div>
               </div>
 
               <div style={{
@@ -384,7 +390,7 @@ export const ValueJetForm = ({ onAddTx, user }: { onAddTx: (tx: Transaction) => 
                     fontSize: 10, fontFamily: 'monospace',
                     color: 'var(--color-muted)', marginTop: 6,
                   }}>
-                    {excessKg.toFixed(1)} kg × ₦1,000/kg
+                    {excessKg} kg × ₦1,000/kg
                   </div>
                 )}
               </div>

@@ -61,7 +61,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
     } else {
       const initialRates = [
         { id: 'rate_1', corporate_client_id: 'corp_1', route_name: 'ABV/Abuja', rate_per_kg: 600 },
-        { id: 'rate_2', corporate_client_id: 'corp_1', route_name: 'BNI/Benin', rate_per_kg: 400 },
+        { id: 'rate_2', corporate_client_id: 'corp_1', route_name: 'BNI/Benin City', rate_per_kg: 400 },
       ];
       setCorpRates(initialRates);
       localStorage.setItem('ehi_corporate_route_rates_v2', JSON.stringify(initialRates));

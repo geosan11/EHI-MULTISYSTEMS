@@ -121,11 +121,11 @@ export const Settings = ({
   const [pricing, setPricing] = useState(() => {
     const saved = localStorage.getItem('ehi_setting_pricing');
     return saved ? JSON.parse(saved) : [
-      { id: '1', route: 'Lagos - Abuja', bb: 18000, mb: 12000, sb: 7500 },
-      { id: '2', route: 'Lagos - Port Harcourt', bb: 22000, mb: 15000, sb: 9500 },
-      { id: '3', route: 'Abuja - Lagos', bb: 18000, mb: 12000, sb: 7500 },
-      { id: '4', route: 'Port Harcourt - Lagos', bb: 22000, mb: 15000, sb: 9500 },
-      { id: '5', route: 'Lagos - Enugu', bb: 19500, mb: 13000, sb: 8000 }
+      { id: '1', route: 'LOS/Lagos - ABV/Abuja', bb: 18000, mb: 12000, sb: 7500 },
+      { id: '2', route: 'LOS/Lagos - PHC/Port Harcourt', bb: 22000, mb: 15000, sb: 9500 },
+      { id: '3', route: 'ABV/Abuja - LOS/Lagos', bb: 18000, mb: 12000, sb: 7500 },
+      { id: '4', route: 'PHC/Port Harcourt - LOS/Lagos', bb: 22000, mb: 15000, sb: 9500 },
+      { id: '5', route: 'LOS/Lagos - ENU/Enugu', bb: 19500, mb: 13000, sb: 8000 }
     ];
   });
 
@@ -133,9 +133,25 @@ export const Settings = ({
   const [hubs, setHubs] = useState(() => {
     const saved = localStorage.getItem('ehi_setting_hubs');
     return saved ? JSON.parse(saved) : [
-      { id: 'hub-lagos', name: 'Lagos HQ', code: 'LOS', type: 'Head Office', active: true },
-      { id: 'hub-abuja', name: 'Abuja Station', code: 'ABV', type: 'Cargo Station', active: true },
-      { id: 'hub-ph', name: 'Port Harcourt Station', code: 'PHC', type: 'Cargo Station', active: true }
+      { id: 'hub-los', name: 'LOS/Lagos HQ', code: 'LOS', type: 'Head Office', active: true },
+      { id: 'hub-abv', name: 'ABV/Abuja Station', code: 'ABV', type: 'Cargo Station', active: true },
+      { id: 'hub-phc', name: 'PHC/Port Harcourt Station', code: 'PHC', type: 'Cargo Station', active: true },
+      { id: 'hub-kan', name: 'KAN/Kano Station', code: 'KAN', type: 'Cargo Station', active: true },
+      { id: 'hub-enu', name: 'ENU/Enugu Station', code: 'ENU', type: 'Cargo Station', active: true },
+      { id: 'hub-abb', name: 'ABB/Asaba Station', code: 'ABB', type: 'Cargo Station', active: true },
+      { id: 'hub-akr', name: 'AKR/Akure Station', code: 'AKR', type: 'Cargo Station', active: true },
+      { id: 'hub-bcu', name: 'BCU/Bauchi Station', code: 'BCU', type: 'Cargo Station', active: true },
+      { id: 'hub-bni', name: 'BNI/Benin City Station', code: 'BNI', type: 'Cargo Station', active: true },
+      { id: 'hub-cbq', name: 'CBQ/Calabar Station', code: 'CBQ', type: 'Cargo Station', active: true },
+      { id: 'hub-gmo', name: 'GMO/Gombe Station', code: 'GMO', type: 'Cargo Station', active: true },
+      { id: 'hub-iba', name: 'IBA/Ibadan Station', code: 'IBA', type: 'Cargo Station', active: true },
+      { id: 'hub-ilr', name: 'ILR/Ilorin Station', code: 'ILR', type: 'Cargo Station', active: true },
+      { id: 'hub-kad', name: 'KAD/Kaduna Station', code: 'KAD', type: 'Cargo Station', active: true },
+      { id: 'hub-miu', name: 'MIU/Maiduguri Station', code: 'MIU', type: 'Cargo Station', active: true },
+      { id: 'hub-qow', name: 'QOW/Owerri Station', code: 'QOW', type: 'Cargo Station', active: true },
+      { id: 'hub-quo', name: 'QUO/Uyo Station', code: 'QUO', type: 'Cargo Station', active: true },
+      { id: 'hub-qrw', name: 'QRW/Warri (Osubi) Station', code: 'QRW', type: 'Cargo Station', active: true },
+      { id: 'hub-yol', name: 'YOL/Yola Station', code: 'YOL', type: 'Cargo Station', active: true }
     ];
   });
 
