@@ -637,19 +637,26 @@ export const Scanner = ({
                 color: active ? activeColor : '#64748B',
                 boxShadow: active ? '0 2px 8px rgba(0,0,0,0.2)' : 'none',
                 cursor: 'pointer',
-                display: 'flex', alignItems: 'center',
-                justifyContent: 'center', gap: 6,
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                justifyContent: 'center', gap: 4,
                 transition: 'all 0.2s',
               }}
             >
-              <Icon size={16} />
-              <span style={{
-                fontFamily: 'monospace', fontSize: 13,
-                fontWeight: active ? 800 : 500,
-                letterSpacing: '0.04em',
-              }}>
-                {m}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Icon size={16} />
+                <span style={{
+                  fontFamily: 'monospace', fontSize: 13,
+                  fontWeight: active ? 800 : 500,
+                  letterSpacing: '0.04em',
+                }}>
+                  {m === 'ARRIVE' ? 'Arrive' : m === 'DEPART' ? 'Depart' : 'Delivers'}
+                </span>
+              </div>
+              {active && (
+                <span style={{ fontSize: 9, fontFamily: 'monospace', opacity: 0.7, textAlign: 'center', lineHeight: 1.3 }}>
+                  {m === 'ARRIVE' ? 'Cargo landed here' : m === 'DEPART' ? 'Sending to airline' : 'Handover to consignee'}
+                </span>
+              )}
             </button>
           );
         })}

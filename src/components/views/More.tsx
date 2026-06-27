@@ -19,24 +19,22 @@ import { AirlineCommissions } from './AirlineCommissions';
 import { useState } from 'react';
 import { User, TabView, Transaction, Expense } from '../../lib/types';
 import { fmt } from '../../lib/helpers';
-import { 
-  FileText, 
-  Activity, 
-  Database, 
-  Shield, 
-  Settings as SettingsIcon, 
-  LogOut, 
-  ArrowLeft, 
-  BarChart, 
-  Layers, 
-  Truck, 
-  Brain, 
-  ShieldAlert, 
-  Key, 
+import {
+  FileText,
+  Activity,
+  Database,
+  Shield,
+  Settings as SettingsIcon,
+  LogOut,
+  BarChart,
+  Layers,
+  Truck,
+  Brain,
+  ShieldAlert,
+  Key,
   DollarSign,
   History,
   MapPin,
-  Cpu,
   Percent
 } from 'lucide-react';
 
@@ -45,7 +43,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
   const [accountingView, setAccountingView] = useState(false);
   const [reportsView, setReportsView] = useState(false);
   const [settingsView, setSettingsView] = useState(false);
-  
+
   // Premium Enterprise modules views states
   const [bankReconView, setBankReconView] = useState(false);
   const [fleetView, setFleetView] = useState(false);
@@ -133,240 +131,214 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
   const canAccessAuditLog = user.role === 'super_admin' || user.role === 'auditor';
   const isSuperAdmin = user.role === 'super_admin';
 
+  const MenuItem = ({
+    icon: Icon,
+    title,
+    subtitle,
+    onClick,
+    disabled = false,
+  }: {
+    icon: any;
+    title: any;
+    subtitle: string;
+    onClick: () => void;
+    disabled?: boolean;
+  }) => (
+    <button
+      onClick={onClick}
+      className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${
+        disabled
+          ? 'opacity-40 cursor-not-allowed'
+          : 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group'
+      }`}
+    >
+      <Icon size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors shrink-0" />
+      <div className="text-left flex-1">
+        <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors flex items-center gap-1.5">
+          {title}
+        </div>
+        <div className="text-[10px] font-mono text-[var(--color-muted)]">{subtitle}</div>
+      </div>
+    </button>
+  );
+
+  const SectionLabel = ({ label }: { label: string }) => (
+    <div className="text-[9px] font-mono text-[var(--color-muted)] tracking-[0.12em] uppercase pt-4 pb-1.5 px-1">
+      ▸ {label}
+    </div>
+  );
+
   return (
-    <div className="p-4 space-y-3 pb-8 select-none">
-      
-      {/* EOD Button */}
-      <button 
-        onClick={() => setEodView(true)}
-        className="w-full bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)] transition-colors border border-[rgba(255,255,255,0.07)] hover:border-[var(--color-accent-amber)] rounded p-4 flex items-center space-x-3 cursor-pointer group"
-      >
-        <FileText size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
-        <div className="text-left flex-1">
-          <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">EOD Daily Close</div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">Generate and dispatch end of day reports</div>
-        </div>
-      </button>
+    <div className="p-4 pb-8 select-none">
 
-      {/* Bank Reconciliation (NEW Premium Module) */}
-      <button 
-        onClick={() => { if (canAccessRecon) setBankReconView(true); }}
-        className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${canAccessRecon ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
-      >
-        <Layers size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
-        <div className="text-left flex-1">
-          <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors flex items-center space-x-1.5">
-            <span>Bank Reconciliation</span>
-            <span className="text-[8px] font-mono bg-[rgba(255,255,255,0.1)] group-hover:bg-amber-500/10 text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] px-1.5 py-0.5 rounded tracking-wide font-black uppercase transition-colors">CSV AUTO</span>
-          </div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">Match bank deposits with system payment ledgers</div>
-        </div>
-      </button>
+      {/* Daily Operations */}
+      <SectionLabel label="Daily Operations" />
+      <div className="space-y-2">
+        <MenuItem
+          icon={FileText}
+          title="EOD Daily Close"
+          subtitle="Generate and dispatch end of day reports"
+          onClick={() => setEodView(true)}
+        />
+      </div>
 
-      {/* Fleet Management (NEW Premium Module) */}
-      <button 
-        onClick={() => { if (canAccessFleetAndForecast) setFleetView(true); }}
-        className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${canAccessFleetAndForecast ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
-      >
-        <Truck size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
-        <div className="text-left flex-1">
-          <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Fleet Management</div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">Vehicles registration, service scheduler, fuel expense log</div>
-        </div>
-      </button>
-
-      {/* Demand Forecasting (NEW Premium Module) */}
-      <button 
-        onClick={() => { if (canAccessFleetAndForecast) setForecastingView(true); }}
-        className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${canAccessFleetAndForecast ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
-      >
-        <Brain size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
-        <div className="text-left flex-1">
-          <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors flex items-center space-x-1.5">
-            <span>Demand Forecasting AI</span>
-            <span className="text-[8px] font-mono bg-[rgba(255,255,255,0.1)] group-hover:bg-amber-500/10 text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] px-1.5 py-0.5 rounded tracking-wide font-black uppercase transition-colors">Gemini Intel</span>
-          </div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">Capacity heatmap and busy periods projections</div>
-        </div>
-      </button>
-
-      {/* Fraud Safety Feed (NEW Premium Module) */}
-      <button 
-        onClick={() => { if (canAccessFraud) setFraudAlertsView(true); }}
-        className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${canAccessFraud ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
-      >
-        <ShieldAlert size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
-        <div className="text-left flex-1">
-          <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors flex items-center space-x-2">
-            <span>Fraud & Anomalies Feed</span>
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--color-muted)] group-hover:bg-amber-400 opacity-75 transition-colors"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--color-muted)] group-hover:bg-amber-500 transition-colors"></span>
+      {/* Finance */}
+      <SectionLabel label="Finance" />
+      <div className="space-y-2">
+        <MenuItem
+          icon={Layers}
+          title={
+            <span className="flex items-center gap-1.5">
+              Bank Reconciliation
+              <span className="text-[8px] font-mono bg-[rgba(255,255,255,0.1)] text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] px-1.5 py-0.5 rounded tracking-wide font-black uppercase transition-colors">CSV AUTO</span>
             </span>
-          </div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">Track sudden debt spikes and duplicated AWBs</div>
-        </div>
-      </button>
+          }
+          subtitle="Match bank deposits with system payment ledgers"
+          onClick={() => { if (canAccessRecon) setBankReconView(true); }}
+          disabled={!canAccessRecon}
+        />
+        <MenuItem
+          icon={Activity}
+          title="Transaction Ledger"
+          subtitle={`${transactions.length} total records logged`}
+          onClick={() => { if (canAccessAccounting) setLedgerView(true); }}
+          disabled={!canAccessAccounting}
+        />
+        <MenuItem
+          icon={Database}
+          title="Central Accounting ERP"
+          subtitle="Check balance sheets and cash flows dashboard"
+          onClick={() => { if (canAccessAccounting) setAccountingView(true); }}
+          disabled={!canAccessAccounting}
+        />
+        <MenuItem
+          icon={BarChart}
+          title="Advanced Reports"
+          subtitle="Operational audits and trend sheets"
+          onClick={() => { if (canAccessAccounting) setReportsView(true); }}
+          disabled={!canAccessAccounting}
+        />
+        <MenuItem
+          icon={Percent}
+          title="Airline Commissions"
+          subtitle="Set percentage cuts for partner airlines"
+          onClick={() => { if (canAccessAccounting) setAirlineCommissionsView(true); }}
+          disabled={!canAccessAccounting}
+        />
+      </div>
 
-      {/* Base Tracking list (Legacy) */}
-      <button 
-        onClick={() => { if (canAccessAccounting) setLedgerView(true); }}
-        className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${canAccessAccounting ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
-      >
-        <Activity size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
-        <div className="text-left flex-1">
-          <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Transaction Ledger</div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">{transactions.length} total records logged</div>
-        </div>
-      </button>
+      {/* Intelligence */}
+      <SectionLabel label="Intelligence" />
+      <div className="space-y-2">
+        <MenuItem
+          icon={Brain}
+          title={
+            <span className="flex items-center gap-1.5">
+              Demand Forecasting AI
+              <span className="text-[8px] font-mono bg-[rgba(255,255,255,0.1)] text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] px-1.5 py-0.5 rounded tracking-wide font-black uppercase transition-colors">Gemini Intel</span>
+            </span>
+          }
+          subtitle="Capacity heatmap and busy periods projections"
+          onClick={() => { if (canAccessFleetAndForecast) setForecastingView(true); }}
+          disabled={!canAccessFleetAndForecast}
+        />
+        <MenuItem
+          icon={ShieldAlert}
+          title={
+            <span className="flex items-center gap-2">
+              Fraud &amp; Anomalies Feed
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--color-muted)] group-hover:bg-amber-400 opacity-75 transition-colors"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--color-muted)] group-hover:bg-amber-500 transition-colors"></span>
+              </span>
+            </span>
+          }
+          subtitle="Track sudden debt spikes and duplicated AWBs"
+          onClick={() => { if (canAccessFraud) setFraudAlertsView(true); }}
+          disabled={!canAccessFraud}
+        />
+        <MenuItem
+          icon={History}
+          title="Revision Audit Log"
+          subtitle="Strict NDPR/Financial compliance trace log"
+          onClick={() => { if (canAccessAuditLog) setAuditLogView(true); }}
+          disabled={!canAccessAuditLog}
+        />
+      </div>
 
-      {/* Accounting (Accessible only to Accountants/Admins/Super Admins) */}
-      <button 
-        onClick={() => { if (canAccessAccounting) setAccountingView(true); }}
-        className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${canAccessAccounting ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
-      >
-        <Database size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
-        <div className="text-left flex-1">
-          <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Central Accounting ERP</div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">Check balance sheets and cash flows dashboard</div>
-        </div>
-      </button>
+      {/* Fleet & Logistics */}
+      <SectionLabel label="Fleet & Logistics" />
+      <div className="space-y-2">
+        <MenuItem
+          icon={Truck}
+          title="Fleet Management"
+          subtitle="Vehicles registration, service scheduler, fuel expense log"
+          onClick={() => { if (canAccessFleetAndForecast) setFleetView(true); }}
+          disabled={!canAccessFleetAndForecast}
+        />
+        <MenuItem
+          icon={Shield}
+          title="Proof of Delivery Log"
+          subtitle="GPS trace, signatures and photo evidence"
+          onClick={() => { if (canAccessFraud) setPodLogView(true); }}
+          disabled={!canAccessFraud}
+        />
+        <MenuItem
+          icon={MapPin}
+          title="Dispatch & Fleet Tracking"
+          subtitle="Live driver tracking on active routes"
+          onClick={() => { if (canAccessFleetAndForecast) setDispatchView(true); }}
+          disabled={!canAccessFleetAndForecast}
+        />
+      </div>
 
-      {/* Reports (Accessible only to Accountants/Admins/Super Admins) */}
-      <button 
-        onClick={() => { if (canAccessAccounting) setReportsView(true); }}
-        className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${canAccessAccounting ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
-      >
-        <BarChart size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
-        <div className="text-left flex-1">
-          <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Advanced Reports</div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">Operational audits and trend sheets</div>
-        </div>
-      </button>
+      {/* Administration */}
+      <SectionLabel label="Administration" />
+      <div className="space-y-2">
+        <MenuItem
+          icon={Key}
+          title="Partners API Keys & Webhooks"
+          subtitle="Key-hashes, scopes limit, and integration documentation"
+          onClick={() => { if (isSuperAdmin) setApiDashboardView(true); }}
+          disabled={!isSuperAdmin}
+        />
+        <MenuItem
+          icon={DollarSign}
+          title="Pricing & Rates Configuration"
+          subtitle="B2B client rates and retail standard tariffs"
+          onClick={() => { if (isSuperAdmin) setPricingView(true); }}
+          disabled={!isSuperAdmin}
+        />
+        <MenuItem
+          icon={SettingsIcon}
+          title="Platform Settings"
+          subtitle="Automation and route pricing configuration"
+          onClick={() => { if (isSuperAdmin) setSettingsView(true); }}
+          disabled={!isSuperAdmin}
+        />
+      </div>
 
-      {/* Proof of Delivery Log */}
-      <button 
-        onClick={() => { if (canAccessFraud) setPodLogView(true); }}
-        className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${canAccessFraud ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
-      >
-        <Shield size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
-        <div className="text-left flex-1">
-          <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Proof of Delivery Log</div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">GPS trace, signatures and photo evidence</div>
-        </div>
-      </button>
+      {/* Support & Account */}
+      <SectionLabel label="Support & Account" />
+      <div className="space-y-2">
+        <MenuItem
+          icon={ShieldAlert}
+          title="Help Desk & Issue Resolution"
+          subtitle="Report operational complaints or bugs"
+          onClick={() => setSupportView(true)}
+        />
 
-      {/* Audit Log Trail (NEW Premium Module) */}
-      <button 
-        onClick={() => { if (canAccessAuditLog) setAuditLogView(true); }}
-        className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${canAccessAuditLog ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
-      >
-        <History size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
-        <div className="text-left flex-1">
-          <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Revision Audit Log</div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">Strict NDPR/Financial compliance trace log</div>
-        </div>
-      </button>
-
-      {/* Dispatch Console */}
-      <button 
-        onClick={() => { if (canAccessFleetAndForecast) setDispatchView(true); }}
-        className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${canAccessFleetAndForecast ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
-      >
-        <MapPin size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
-        <div className="text-left flex-1">
-          <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Dispatch & Fleet Tracking</div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">Live driver tracking on active routes</div>
-        </div>
-      </button>
-
-      {/* API Dashboard Credentials (NEW Premium Module) */}
-      <button 
-        onClick={() => { if (isSuperAdmin) setApiDashboardView(true); }}
-        className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${isSuperAdmin ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
-      >
-        <Key size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
-        <div className="text-left flex-1">
-          <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Partners API Keys & Webhooks</div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">Key-hashes, scopes limit, and integration documentation</div>
-        </div>
-      </button>
-
-      {/* Pricing Configuration (Accessible to Super Admins only) */}
-      <button 
-        onClick={() => { if (isSuperAdmin) setPricingView(true); }}
-        className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${isSuperAdmin ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
-      >
-        <DollarSign size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
-        <div className="text-left flex-1">
-          <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Pricing & Rates Configuration</div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">B2B client rates and retail standard tariffs</div>
-        </div>
-      </button>
-
-      {/* Settings Console (Accessible to Super Admins only) */}
-      <button 
-        onClick={() => { if (isSuperAdmin) setSettingsView(true); }}
-        className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${isSuperAdmin ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
-      >
-        <SettingsIcon size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
-        <div className="text-left flex-1">
-          <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Platform Settings</div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">Automation and route pricing configuration</div>
-        </div>
-      </button>
-
-      {/* Airline Commissions Settings */}
-      <button 
-        onClick={() => { if (canAccessAccounting) setAirlineCommissionsView(true); }}
-        className={`w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] rounded p-4 flex items-center space-x-3 ${canAccessAccounting ? 'hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] cursor-pointer group' : 'opacity-40 cursor-not-allowed'}`}
-      >
-        <Percent size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
-        <div className="text-left flex-1">
-          <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Airline Commissions</div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">Set percentage cuts for partner airlines</div>
-        </div>
-      </button>
-
-      {/* IT Systems Debugging (Accessible to Admins and Super Admins) */}
-      {(user.role === 'admin' || isSuperAdmin) && (
-        <button 
-          onClick={() => { onChangeTab('IT Debug'); }}
-          className="w-full bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] rounded p-4 flex items-center space-x-3 cursor-pointer group"
+        <button
+          onClick={onLogout}
+          className="w-full mt-1 bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] hover:bg-[rgba(239,68,68,0.1)] hover:border-[rgba(239,68,68,0.3)] rounded p-4 flex items-center space-x-3 cursor-pointer group"
         >
-          <Cpu size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
+          <LogOut size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-error)] transition-colors shrink-0" />
           <div className="text-left flex-1">
-            <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">IT Systems Debugging & Fallbacks</div>
-            <div className="text-[10px] font-mono text-[var(--color-muted)]">Check real-time timeouts, database schemas, and offline logs</div>
+            <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-error)] transition-colors">Sign Out</div>
+            <div className="text-[10px] font-mono text-[var(--color-muted)] opacity-80">{user.name} &middot; {user.hub}</div>
           </div>
         </button>
-      )}
-
-      {/* Sign Out Trigger */}
-      <button 
-        onClick={() => setSupportView(true)}
-        className="w-full mt-4 bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] hover:bg-[var(--color-surface-2)] hover:border-[var(--color-accent-amber)] rounded p-4 flex items-center space-x-3 cursor-pointer group"
-      >
-        <ShieldAlert size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
-        <div className="text-left flex-1">
-          <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Help Desk & Issue Resolution</div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">Report operational complaints or bugs</div>
-        </div>
-      </button>
-
-      {/* Sign Out Trigger */}
-      <button 
-        onClick={() => {
-          onLogout();
-        }}
-        className="w-full mt-4 bg-[var(--color-surface-1)] transition-colors border border-[rgba(255,255,255,0.07)] hover:bg-[rgba(239,68,68,0.1)] hover:border-[rgba(239,68,68,0.3)] rounded p-4 flex items-center space-x-3 cursor-pointer group"
-      >
-        <LogOut size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
-        <div className="text-left flex-1">
-          <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors">Sign Out</div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)] opacity-80 group-hover:text-[var(--color-accent-amber)] transition-colors">{user.name} &middot; {user.hub}</div>
-        </div>
-      </button>
+      </div>
 
     </div>
   );

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { CheckCircle, AlertCircle, Clock, Info } from 'lucide-react';
+import { CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 
 export interface ToastProps {
   message: string;
@@ -19,7 +19,7 @@ export const Toast = ({ message, type, onClose }: ToastProps) => {
   const config = {
     success: { icon: CheckCircle, color: 'var(--color-success)', bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.3)' },
     error: { icon: AlertCircle, color: 'var(--color-error)', bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.3)' },
-    warning: { icon: Clock, color: 'var(--color-accent-amber)', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.3)' },
+    warning: { icon: AlertTriangle, color: 'var(--color-accent-amber)', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.3)' },
     info: { icon: Info, color: 'var(--color-accent-cobalt)', bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.3)' },
   };
 

@@ -34,7 +34,22 @@ export const Header = ({
       case 'admin': return 'Admin';
       case 'accountant': return 'Accountant';
       case 'auditor': return 'Auditor';
+      case 'driver': return 'Driver';
       default: return 'Agent';
+    }
+  };
+
+  const getRoleColor = (role: string): { bg: string; border: string; text: string } => {
+    switch(role) {
+      case 'super_admin': return { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.3)', text: 'var(--color-accent-amber)' };
+      case 'admin':       return { bg: 'rgba(59,130,246,0.12)', border: 'rgba(59,130,246,0.3)', text: 'var(--color-accent-cobalt)' };
+      case 'cargo_agent': return { bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.3)', text: 'var(--color-success)' };
+      case 'vj_agent':    return { bg: 'rgba(139,92,246,0.12)', border: 'rgba(139,92,246,0.3)', text: '#8b5cf6' };
+      case 'accountant':  return { bg: 'rgba(20,184,166,0.12)', border: 'rgba(20,184,166,0.3)', text: '#14b8a6' };
+      case 'auditor':     return { bg: 'rgba(249,115,22,0.12)', border: 'rgba(249,115,22,0.3)', text: '#f97316' };
+      case 'driver':      return { bg: 'rgba(100,116,139,0.12)', border: 'rgba(100,116,139,0.3)', text: '#64748b' };
+      case 'marketing_agent': return { bg: 'rgba(16,185,129,0.10)', border: 'rgba(16,185,129,0.25)', text: 'var(--color-success)' };
+      default:            return { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.2)', text: 'var(--color-accent-amber)' };
     }
   };
 
@@ -54,12 +69,12 @@ export const Header = ({
           <div>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 4,
-              background: 'rgba(245,158,11,0.12)',
-              border: '1px solid rgba(245,158,11,0.2)',
+              background: getRoleColor(user.role).bg,
+              border: `1px solid ${getRoleColor(user.role).border}`,
               borderRadius: 'var(--radius-full)',
               padding: '1px 8px', marginTop: 2,
             }}>
-              <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--color-accent-amber)' }}>
+              <span style={{ fontSize: 10, fontWeight: 600, color: getRoleColor(user.role).text }}>
                 {getRoleDisplay(user.role)}
               </span>
             </div>

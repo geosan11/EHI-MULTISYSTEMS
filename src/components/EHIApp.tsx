@@ -56,9 +56,18 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+
+    // Dashboard empty state CTA buttons dispatch this event
+    const handleEhiNav = (e: Event) => {
+      const tab = (e as CustomEvent).detail as TabView;
+      if (tab) setCurrentTab(tab);
+    };
+    window.addEventListener('ehi-nav', handleEhiNav);
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('ehi-nav', handleEhiNav);
     };
   }, [showToast]);
 

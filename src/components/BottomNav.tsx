@@ -1,22 +1,44 @@
 import { User, TabView } from '../lib/types';
-import { LayoutDashboard, Package, TrendingUp, Plane, QrCode, Cpu, MoreHorizontal, Truck, CreditCard } from 'lucide-react';
+import { LayoutDashboard, Package, TrendingUp, Plane, QrCode, MoreHorizontal, Truck } from 'lucide-react';
 
-export const BottomNav = ({ user, currentTab, onChangeTab }: { user: User; currentTab: TabView; onChangeTab: (t: TabView) => void }) => {
-  const allTabs: { id: TabView; title: string, icon: any; roles: string[] }[] = [
-    { id: 'Tower', title: 'Home', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'cargo_agent', 'vj_agent', 'accountant', 'auditor'] },
-    { id: 'Cargo', title: 'Cargo', icon: Package, roles: ['super_admin', 'admin', 'cargo_agent'] },
-    { id: 'Marketing', title: 'Marketing', icon: TrendingUp, roles: ['super_admin', 'admin', 'marketing_agent'] },
-    { id: 'VJ POS', title: 'ValueJet', icon: Plane, roles: ['super_admin', 'admin', 'vj_agent'] },
-    { id: 'MyTrips', title: 'My Trips', icon: Truck, roles: ['driver'] },
-    { id: 'Scan', title: 'Scanner', icon: QrCode, roles: ['super_admin', 'admin', 'cargo_agent', 'vj_agent', 'marketing_agent', 'driver'] },
-    { id: 'IT Debug', title: 'IT Debug', icon: Cpu, roles: ['super_admin', 'admin'] },
-    { id: 'Credit & Debit', title: 'Credit & Debit', icon: CreditCard, roles: ['super_admin', 'admin', 'accountant'] },
-    { id: 'More', title: 'More', icon: MoreHorizontal, roles: ['super_admin', 'admin', 'accountant', 'auditor'] },
-  ];
+export const BottomNav = ({ user, currentTab, onChangeTab }: {
+  user: User;
+  currentTab: TabView;
+  onChangeTab: (t: TabView) => void;
+}) => {
+  // Role-specific tab sets — max 5 items per role
+  const getTabsForRole = (role: string) => {
+    const home   = { id: 'Tower' as TabView, title: 'Dashboard', icon: LayoutDashboard };
+    const cargo  = { id: 'Cargo' as TabView, title: 'Cargo', icon: Package };
+    const mkt    = { id: 'Marketing' as TabView, title: 'Marketing', icon: TrendingUp };
+    const vj     = { id: 'VJ POS' as TabView, title: 'ValueJet', icon: Plane };
+    const scan   = { id: 'Scan' as TabView, title: 'Scanner', icon: QrCode };
+    const trips  = { id: 'MyTrips' as TabView, title: 'My Trips', icon: Truck };
+    const more   = { id: 'More' as TabView, title: 'More', icon: MoreHorizontal };
 
-  const visibleTabs = allTabs.filter(t => t.roles.includes(user.role));
+    switch (role) {
+      case 'cargo_agent':
+        return [home, cargo, scan, more];
+      case 'vj_agent':
+        return [home, vj, scan, more];
+      case 'marketing_agent':
+        return [home, mkt, scan, more];
+      case 'driver':
+        return [home, trips, scan];
+      case 'accountant':
+        return [home, scan, more];
+      case 'auditor':
+        return [home, scan, more];
+      case 'admin':
+        return [home, cargo, scan, more];
+      case 'super_admin':
+        return [home, cargo, vj, scan, more];
+      default:
+        return [home, scan, more];
+    }
+  };
 
-  const activeColor = 'var(--color-accent-amber)';
+  const tabs = getTabsForRole(user.role);
 
   return (
     <div
@@ -29,40 +51,44 @@ export const BottomNav = ({ user, currentTab, onChangeTab }: { user: User; curre
         height: 'calc(62px + env(safe-area-inset-bottom))',
       }}
     >
-      {visibleTabs.map(tab => {
+      {tabs.map(tab => {
         const isActive = currentTab === tab.id;
         const Icon = tab.icon;
         return (
           <button
             key={tab.id}
             onClick={() => onChangeTab(tab.id)}
-            className="group flex-1 h-full flex flex-col items-center justify-center relative gap-0.5 transition-colors hover:text-[var(--color-accent-amber)]"
-            style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+            className="group flex-1 h-full flex flex-col items-center justify-center gap-0.5 transition-colors relative"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', minWidth: 0 }}
           >
-            <div style={{ height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Icon
-                size={isActive ? 20 : 18}
-                strokeWidth={1.5}
-                style={{
-                  transition: 'all 0.2s',
-                  position: 'relative', zIndex: 1,
-                }}
-                className={isActive ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)]'}
+                size={isActive ? 21 : 19}
+                strokeWidth={isActive ? 2 : 1.5}
+                style={{ transition: 'all 0.2s' }}
+                className={isActive
+                  ? 'text-[var(--color-accent-amber)]'
+                  : 'text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)]'}
               />
             </div>
             <span
-              style={{
-                fontSize: 10, fontWeight: isActive ? 600 : 500,
-                transition: 'all 0.2s',
-              }}
-              className={isActive ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)]'}
+              style={{ fontSize: 10, fontWeight: isActive ? 700 : 500, transition: 'all 0.2s', letterSpacing: '0.01em' }}
+              className={isActive
+                ? 'text-[var(--color-accent-amber)]'
+                : 'text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)]'}
             >
               {tab.title}
             </span>
+            {isActive && (
+              <div style={{
+                position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+                width: 24, height: 2, background: 'var(--color-accent-amber)',
+                borderRadius: '2px 2px 0 0',
+              }} />
+            )}
           </button>
         );
       })}
     </div>
   );
 };
-

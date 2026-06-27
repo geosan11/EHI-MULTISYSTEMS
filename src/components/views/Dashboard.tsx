@@ -644,17 +644,52 @@ export const Dashboard = React.memo(
           className="flex-1 overflow-y-auto w-full no-scrollbar"
         >
           {allVisibleTx.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-8 py-16 text-center bg-[var(--color-surface-card)] rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] mt-2">
+            <div className="flex flex-col items-center justify-center p-8 py-12 text-center bg-[var(--color-surface-card)] rounded-xl border border-dashed border-[rgba(255,255,255,0.1)] mt-2">
               <Package2
                 size={36}
                 className="text-[#64748B] mb-3"
                 strokeWidth={1.5}
               />
-              <div className="text-[14px] font-medium text-[var(--color-foreground)] font-sans">
-                No activity yet today.
+              <div className="text-[14px] font-semibold text-[var(--color-foreground)] font-sans">
+                No activity yet today
               </div>
-              <div className="text-[13px] text-[var(--color-muted)] font-sans mt-0.5">
-                Entries will appear here.
+              <div className="text-[12px] text-[var(--color-muted)] font-sans mt-1 mb-4">
+                Start by logging a cargo, ValueJet or marketing entry
+              </div>
+              <div className="flex gap-2 flex-wrap justify-center">
+                {(user.role === 'super_admin' || user.role === 'admin' || user.role === 'cargo_agent') && (
+                  <button
+                    onClick={() => {
+                      const event = new CustomEvent('ehi-nav', { detail: 'Cargo' });
+                      window.dispatchEvent(event);
+                    }}
+                    className="px-3 py-1.5 bg-[rgba(245,158,11,0.1)] border border-[rgba(245,158,11,0.3)] text-[var(--color-accent-amber)] text-[11px] font-bold rounded-lg"
+                  >
+                    + Cargo Entry
+                  </button>
+                )}
+                {(user.role === 'super_admin' || user.role === 'admin' || user.role === 'vj_agent') && (
+                  <button
+                    onClick={() => {
+                      const event = new CustomEvent('ehi-nav', { detail: 'VJ POS' });
+                      window.dispatchEvent(event);
+                    }}
+                    className="px-3 py-1.5 bg-[rgba(59,130,246,0.1)] border border-[rgba(59,130,246,0.3)] text-[var(--color-accent-cobalt)] text-[11px] font-bold rounded-lg"
+                  >
+                    + ValueJet POS
+                  </button>
+                )}
+                {(user.role === 'super_admin' || user.role === 'admin' || user.role === 'marketing_agent') && (
+                  <button
+                    onClick={() => {
+                      const event = new CustomEvent('ehi-nav', { detail: 'Marketing' });
+                      window.dispatchEvent(event);
+                    }}
+                    className="px-3 py-1.5 bg-[rgba(16,185,129,0.1)] border border-[rgba(16,185,129,0.3)] text-[var(--color-success)] text-[11px] font-bold rounded-lg"
+                  >
+                    + Marketing
+                  </button>
+                )}
               </div>
             </div>
           ) : (

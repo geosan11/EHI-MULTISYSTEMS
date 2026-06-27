@@ -10,8 +10,6 @@ import {
   LogOut,
   Sun,
   Moon,
-  Cpu,
-  CreditCard,
 } from "lucide-react";
 import { User, TabView } from "../lib/types";
 import { Theme } from "../lib/useTheme";
@@ -58,7 +56,7 @@ export const SideNav = ({
     {
       id: "Tower",
       icon: LayoutDashboard,
-      label: "Control Tower",
+      label: "Dashboard",
       roles: [
         "super_admin",
         "admin",
@@ -100,18 +98,6 @@ export const SideNav = ({
       ],
     },
     { id: "MyTrips", icon: Truck, label: "My Trips", roles: ["driver"] },
-    {
-      id: "IT Debug",
-      icon: Cpu,
-      label: "IT Debug",
-      roles: ["super_admin", "admin"],
-    },
-    {
-      id: "Credit & Debit",
-      icon: CreditCard,
-      label: "Credit & Debit",
-      roles: ["super_admin", "admin", "accountant"],
-    },
     {
       id: "More",
       icon: MoreHorizontal,

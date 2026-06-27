@@ -146,6 +146,9 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
     }
   };
 
+  const [isLocking, setIsLocking] = useState(false);
+  const [showLockConfirm, setShowLockConfirm] = useState(false);
+
   const handleLockEOD = async () => {
     setIsGenerating(true);
     await supabase.from('eod_records').insert({
@@ -422,14 +425,49 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
             {isGenerating ? 'GENERATING...' : '⬇ DOWNLOAD REPORT'}
           </button>
         </div>
-        <button 
-          onClick={handleLockEOD}
+        <button
+          onClick={() => setShowLockConfirm(true)}
           className="ehi-btn-destructive ehi-btn"
         >
           <Lock size={16} className="mr-2" /> LOCK SYSTEM (EOD)
         </button>
         <button onClick={() => setStep(3)} className="w-full mt-2 h-10 text-[var(--color-muted)] text-[11px] font-bold font-mono underline hover:text-[var(--color-foreground)]">GO BACK</button>
       </div>
+
+      {showLockConfirm && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="ehi-card max-w-xs w-full p-5 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[rgba(239,68,68,0.15)] flex items-center justify-center shrink-0">
+                <Lock size={18} className="text-[var(--color-error)]" />
+              </div>
+              <div>
+                <p className="text-[14px] font-bold text-[var(--color-foreground)]">Lock End of Day?</p>
+                <p className="text-[11px] text-[var(--color-muted)] mt-0.5">This cannot be undone. All entries will be frozen.</p>
+              </div>
+            </div>
+            <div className="bg-[rgba(239,68,68,0.05)] border border-[rgba(239,68,68,0.2)] rounded-lg p-3">
+              <p className="text-[11px] font-mono text-[var(--color-muted)]">Net cash to remit: <span className="text-[var(--color-foreground)] font-bold">{fmt(Number(countedCash))}</span></p>
+              <p className="text-[11px] font-mono text-[var(--color-muted)] mt-1">Hub: <span className="text-[var(--color-foreground)]">{user.hub}</span></p>
+              <p className="text-[11px] font-mono text-[var(--color-muted)] mt-1">Agent: <span className="text-[var(--color-foreground)]">{user.name}</span></p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLockConfirm(false)}
+                className="flex-1 h-11 border border-[var(--color-border)] rounded-lg text-[12px] font-bold text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setShowLockConfirm(false); handleLockEOD(); }}
+                className="flex-1 h-11 bg-[var(--color-error)] text-white rounded-lg text-[12px] font-bold hover:bg-red-700 transition-colors"
+              >
+                Yes, Lock EOD
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
