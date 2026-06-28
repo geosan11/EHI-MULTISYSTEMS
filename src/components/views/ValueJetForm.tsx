@@ -48,14 +48,20 @@ export const ValueJetForm = ({ onAddTx, user }: { onAddTx: (tx: Transaction) => 
     const tx: Transaction = {
       id: uid('VJ'),
       name: name.trim(),
-      detail: `${flight.toUpperCase()} · +${excessKg}kg excess`,
+      detail: `${flight.toUpperCase()} · ${dest} · +${excessKg}kg excess`,
       amount: totalAmount,
       mode,
       paymentNarration: mode === 'Transfer' ? narrationCode : undefined,
       airline: 'ValueJet',
       time: tnow(),
       type: 'baggage',
-      status: 'Delivered'
+      status: 'Delivered',
+      // Explicit fields so EHIApp doesn't need to parse the detail string
+      destination: dest,
+      excessKg: excessKg,
+      totalKg: kgVal,
+      flight: flight.toUpperCase(),
+      kg: excessKg,
     };
 
     setSuccessTx({ tx, kgs: kgVal, exc: excessKg });

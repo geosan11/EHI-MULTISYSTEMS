@@ -146,6 +146,8 @@ export interface Transaction {
   isPending?: boolean;
   route?: string;
   bank?: string;
+  hub_id?: string;
+  hub?: string;
   // Cargo specifics
   awb_tag_number?: string;
   airline?: string;
@@ -154,7 +156,11 @@ export interface Transaction {
   kg?: number;
   contentType?: string;
   remarks?: string;
-  
+  // VJ specifics
+  destination?: string;
+  excessKg?: number;
+  totalKg?: number;
+  flight?: string;
   // Payment Validation
   paymentConfirmed?: boolean;
   confirmedAt?: string;

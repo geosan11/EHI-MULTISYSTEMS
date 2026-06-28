@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { User, Transaction } from '../../lib/types';
 import { fmt, uid } from '../../lib/helpers';
+import { supabase } from '../../lib/supabase';
 import { 
   TrendingUp, 
   Package, 
@@ -56,45 +57,32 @@ export const Analytics = ({
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [insightError, setInsightError] = useState<string | null>(null);
 
-  // List of active hubs for Multi-Hub
-  const activeHubs = useMemo(() => [
-    { id: 'all',    name: 'All Hubs',               code: 'ALL', region: 'Nigeria' },
-    { id: 'los',    name: 'Lagos HQ',               code: 'LOS', region: 'South West' },
-    { id: 'abv',    name: 'Abuja Station',          code: 'ABV', region: 'North Central' },
-    { id: 'phc',    name: 'Port Harcourt Station',  code: 'PHC', region: 'South South' },
-    { id: 'kan',    name: 'Kano Station',           code: 'KAN', region: 'North West' },
-    { id: 'enu',    name: 'Enugu Station',          code: 'ENU', region: 'South East' },
-    { id: 'abb',    name: 'Asaba Station',          code: 'ABB', region: 'South South' },
-    { id: 'akr',    name: 'Akure Station',          code: 'AKR', region: 'South West' },
-    { id: 'bcu',    name: 'Bauchi Station',         code: 'BCU', region: 'North East' },
-    { id: 'bni',    name: 'Benin City Station',     code: 'BNI', region: 'South South' },
-    { id: 'cbq',    name: 'Calabar Station',        code: 'CBQ', region: 'South South' },
-    { id: 'gmo',    name: 'Gombe Station',          code: 'GMO', region: 'North East' },
-    { id: 'iba',    name: 'Ibadan Station',         code: 'IBA', region: 'South West' },
-    { id: 'ilr',    name: 'Ilorin Station',         code: 'ILR', region: 'North Central' },
-    { id: 'kad',    name: 'Kaduna Station',         code: 'KAD', region: 'North West' },
-    { id: 'miu',    name: 'Maiduguri Station',      code: 'MIU', region: 'North East' },
-    { id: 'qow',    name: 'Owerri Station',         code: 'QOW', region: 'South East' },
-    { id: 'quo',    name: 'Uyo Station',            code: 'QUO', region: 'South South' },
-    { id: 'qrw',    name: 'Warri (Osubi) Station',  code: 'QRW', region: 'South South' },
-    { id: 'yol',    name: 'Yola Station',           code: 'YOL', region: 'North East' },
-  ], []);
+  // Load real hub list from Supabase
+  const [activeHubs, setActiveHubs] = useState<{ id: string; name: string; code: string; region: string }[]>([
+    { id: 'all', name: 'All Hubs', code: 'ALL', region: 'Nigeria' }
+  ]);
 
-  // Filtered transactions based on selected Hub
+  useEffect(() => {
+    supabase.from('hubs').select('id, name, code, state').order('name').then(({ data }) => {
+      if (data) {
+        setActiveHubs([
+          { id: 'all', name: 'All Hubs', code: 'ALL', region: 'Nigeria' },
+          ...data.map((h: any) => ({ id: h.id, name: h.name, code: h.code, region: h.state }))
+        ]);
+      }
+    });
+  }, []);
+
+  // Filtered transactions based on selected Hub using real hub_id
   const hubFilteredTxs = useMemo(() => {
     if (selectedHub === 'all') return transactions;
-    // Filter by transaction type based on which stream the hub supports
-    // Since hub data comes from user.hub in real mode,
-    // in demo mode show all transactions for 'all', stream-specific for others
-    const hubObj = activeHubs.find(h => h.id === selectedHub);
-    if (!hubObj) return transactions;
-    // In demo: each hub shows a consistent subset by hash of tx.id
+    // Match against real hub_id UUID stored on each transaction
     return transactions.filter(t => {
-      const charCode = t.id.charCodeAt(t.id.length - 1);
-      const hubIndex = activeHubs.findIndex(h => h.id === selectedHub);
-      return charCode % activeHubs.length === hubIndex % activeHubs.length;
+      if (t.hub_id) return t.hub_id === selectedHub;
+      // Fallback: match hub_code in transaction detail if hub_id not set
+      return false;
     });
-  }, [transactions, selectedHub, activeHubs]);
+  }, [transactions, selectedHub]);
 
   // Grouped Period Filtered Transactions
   const periodFilteredTxs = useMemo(() => {
@@ -181,19 +169,21 @@ export const Analytics = ({
     };
   }, [periodFilteredTxs]);
 
-  // Aggregate stats across simulated last 7 days for AreaChart
+  // Real hourly revenue chart based on actual created_at timestamps
   const revenueChartData = useMemo(() => {
     const hours = Array.from({ length: 12 }, (_, i) => {
       const h = 7 + i; // 7am to 7pm
       const label = h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`;
-      const txInHour = periodFilteredTxs.filter((_, idx) =>
-        idx % 12 === i
-      );
+      const txInHour = periodFilteredTxs.filter(t => {
+        if (!t.created_at) return false;
+        const txHour = new Date(t.created_at).getHours();
+        return txHour === h;
+      });
       return {
         time: label,
-        cargo: txInHour.filter(t => t.type === 'cargo').reduce((s, t) => s + t.amount, 0),
+        cargo:     txInHour.filter(t => t.type === 'cargo').reduce((s, t) => s + t.amount, 0),
         marketing: txInHour.filter(t => t.type === 'marketing').reduce((s, t) => s + t.amount, 0),
-        valuejet: txInHour.filter(t => t.type === 'baggage').reduce((s, t) => s + t.amount, 0),
+        valuejet:  txInHour.filter(t => t.type === 'baggage').reduce((s, t) => s + t.amount, 0),
       };
     });
     return hours;
@@ -226,16 +216,22 @@ export const Analytics = ({
     ].filter(d => d.value > 0);
   }, [periodFilteredTxs]);
 
-  // Top consignees list
+  // Top consignees computed from real transaction data
   const topConsignees = useMemo(() => {
-    return [
-      { name: 'Aramax Logistics', entries: 14, weight: 1430, revenue: stats.cargoRev * 0.35 + 245000, pct: 35 },
-      { name: 'SAHCO cargo', entries: 8, weight: 980, revenue: stats.cargoRev * 0.25 + 130000, pct: 25 },
-      { name: 'DHL Express Ltd', entries: 12, weight: 750, revenue: stats.cargoRev * 0.18 + 92000, pct: 18 },
-      { name: 'Globacom HQ', entries: 4, weight: 420, revenue: stats.cargoRev * 0.12 + 45000, pct: 12 },
-      { name: 'FedEx Red Star', entries: 6, weight: 310, revenue: stats.cargoRev * 0.10 + 25000, pct: 10 },
-    ].sort((a, b) => b.revenue - a.revenue);
-  }, [stats]);
+    const map: Record<string, { entries: number; weight: number; revenue: number }> = {};
+    periodFilteredTxs.filter(t => t.type === 'cargo').forEach(t => {
+      const key = t.name || 'Unknown';
+      if (!map[key]) map[key] = { entries: 0, weight: 0, revenue: 0 };
+      map[key].entries++;
+      map[key].weight += t.kg || 0;
+      map[key].revenue += t.amount;
+    });
+    const total = Object.values(map).reduce((s, v) => s + v.revenue, 0) || 1;
+    return Object.entries(map)
+      .map(([name, v]) => ({ name, ...v, pct: Math.round((v.revenue / total) * 100) }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 8);
+  }, [periodFilteredTxs]);
 
   // Trigger Gemini AI Insights from server proxy
   const fetchAIInsights = useCallback(async () => {

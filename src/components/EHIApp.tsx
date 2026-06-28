@@ -87,20 +87,13 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       try {
         const isAdmin = ['super_admin','admin','accountant','auditor'].includes(user.role);
 
-        const cargoQuery = supabase.from('cargo_entries').select('*').order('created_at', { ascending: false }).limit(500);
-        const vjQuery = supabase.from('manifests').select('*').order('created_at', { ascending: false }).limit(500);
-        const mktQuery = supabase.from('marketing_entries').select('*').order('created_at', { ascending: false }).limit(500);
-
-        if (!isAdmin && user.hub_id) {
-          cargoQuery.eq('hub_id', user.hub_id);
-          vjQuery.eq('hub_id', user.hub_id);
-          mktQuery.eq('hub_id', user.hub_id);
-        }
+        const addHubFilter = (q: any) =>
+          (!isAdmin && user.hub_id) ? q.eq('hub_id', user.hub_id) : q;
 
         const [cargoRes, vjRes, mktRes] = await Promise.all([
-          cargoQuery,
-          vjQuery,
-          mktQuery
+          addHubFilter(supabase.from('cargo_entries').select('*').order('created_at', { ascending: false }).limit(500)),
+          addHubFilter(supabase.from('manifests').select('*').order('created_at', { ascending: false }).limit(500)),
+          addHubFilter(supabase.from('marketing_entries').select('*').order('created_at', { ascending: false }).limit(500))
         ]);
 
         const allTx: Transaction[] = [];
@@ -121,7 +114,10 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               pieces: r.total_pcs,
               created_at: r.created_at,
               airline: r.airline,
-              bank: r.bank
+              bank: r.bank,
+              route: r.route,
+              hub_id: r.hub_id,
+              contentType: r.content_type,
             });
           });
         }
@@ -131,14 +127,20 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             allTx.push({
               id: r.transaction_id || r.id,
               name: r.passenger_name || 'VJ Passenger',
-              detail: `${r.pnr || ''} · ${r.destination || ''} · ${r.total_pcs || 1}pcs · ${r.excess_kg || r.total_kg || 0}kg`,
+              detail: `${r.flight_no || ''} · ${r.destination || ''} · ${r.excess_kg || 0}kg excess`,
               amount: r.amount || 0,
               mode: r.payment_mode || 'POS',
               time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
               type: 'baggage',
               status: 'Delivered',
               created_at: r.created_at,
-              bank: r.bank
+              bank: r.bank,
+              hub_id: r.hub_id,
+              destination: r.destination,
+              excessKg: r.excess_kg,
+              totalKg: r.total_kg,
+              flight: r.flight_no,
+              kg: r.excess_kg,
             });
           });
         }
@@ -155,7 +157,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               type: 'marketing',
               status: 'Intake',
               created_at: r.created_at,
-              bank: r.bank
+              bank: r.bank,
+              hub_id: r.hub_id,
+              route: r.route,
             });
           });
         }
@@ -352,27 +356,26 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         created_at: new Date().toISOString()
       };
     } else if (tx.type === 'baggage') {
-      const parts = tx.detail.split(' · ');
-      const pnr = parts[0] || '';
-      const dest = parts[1] || '';
-      const pcsStr = parts[2] || '';
-      const kgStr = parts[3] || '';
+      const excessKg  = Math.round(tx.excessKg || (tx as any).excessKg || 0);
+      const totalKg   = Math.round(tx.totalKg  || (tx as any).totalKg  || excessKg);
+      const dest      = tx.destination || (tx as any).destination || '';
+      const flightNo  = tx.flight      || (tx as any).flight      || tx.detail?.split(' · ')[0] || '';
 
       payload = {
         id: tx.id,
         transaction_id: tx.id,
         passenger_name: tx.name,
-        flight_no: (tx as any).flight || tx.detail?.split(' · ')[0] || 'Unknown',
-        excess_kg: Math.round(parseFloat(kgStr) || 0),
-        amount: tx.amount,
-        pnr: pnr,
+        flight_no: flightNo,
         destination: dest,
-        total_pcs: parseInt(pcsStr) || 1,
-        total_kg: Math.round(parseFloat(kgStr) || 0),
+        excess_kg: excessKg,
+        total_kg: totalKg,
+        free_allowance_kg: 20,
+        rate_per_kg: 1000,
+        amount: tx.amount,
         payment_mode: tx.mode,
         bank: tx.bank,
         hub_id: hubId,
-        entered_by: user.id && user.id.includes('-') && user.id.length > 30 ? user.id : undefined, // Ensure valid UUID
+        entered_by: user.id && user.id.includes('-') && user.id.length > 30 ? user.id : undefined,
         created_at: new Date().toISOString()
       };
     } else {
@@ -400,31 +403,28 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
   }, [user.hub_id, user.id, showToast]);
 
   const handleUpdateTx = useCallback(async (tx: Transaction) => {
-    setTransactions(prev =>
-      prev.map(t => t.id === tx.id ? tx : t)
-    );
+    setTransactions(prev => prev.map(t => t.id === tx.id ? tx : t));
+
     const table = tx.type === 'cargo' ? 'cargo_entries'
                 : tx.type === 'baggage' ? 'manifests'
                 : 'marketing_entries';
-    const updatePayload: any = {
-      receipt_mode: tx.mode,
+
+    // Each table uses different column names
+    const idCol      = table === 'manifests' ? 'transaction_id' : 'entry_ref';
+    const modeCol    = table === 'cargo_entries' ? 'receipt_mode' : 'payment_mode';
+
+    const updatePayload: Record<string, any> = {
+      [modeCol]: tx.mode,
       bank: tx.bank,
       status: tx.status,
     };
-    if (tx.paymentConfirmed !== undefined) {
-      updatePayload.payment_confirmed = tx.paymentConfirmed;
-    }
-    if (tx.posApprovalCode) {
-      updatePayload.pos_approval_code = tx.posApprovalCode;
-    }
-    const { error } = await supabase
-      .from(table)
-      .update(updatePayload)
-      .eq('entry_ref', tx.id);
+    if (tx.paymentConfirmed !== undefined) updatePayload.payment_confirmed = tx.paymentConfirmed;
+    if (tx.posApprovalCode)               updatePayload.pos_approval_code  = tx.posApprovalCode;
+    if (tx.confirmedBy)                   updatePayload.confirmed_by        = tx.confirmedBy;
+    if (tx.confirmedAt)                   updatePayload.confirmed_at        = tx.confirmedAt;
 
-    if (error) {
-      showToast({ message: `Update failed: ${error.message}`, type: 'error' });
-    }
+    const { error } = await supabase.from(table).update(updatePayload).eq(idCol, tx.id);
+    if (error) showToast({ message: `Update failed: ${error.message}`, type: 'error' });
   }, [showToast]);
 
   const handleAddExpense = useCallback(async (expense: Expense) => {
