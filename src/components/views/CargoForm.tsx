@@ -959,10 +959,11 @@ export const CargoForm = ({
 
   return (
     <div
-      className="p-4 pb-24 h-full"
-      style={{ width: "100%", boxSizing: "border-box" }}
+      className="overflow-y-auto pb-24"
+      style={{ width: "100%", boxSizing: "border-box", minHeight: 0, flex: 1 }}
     >
       {/* SECTION SELECTOR / HUB MODE NAVIGATION */}
+      <div className="px-4 pt-4">
       <div className="flex bg-[var(--color-obsidian)] rounded-lg p-1 border border-[var(--color-border)] mb-6 max-w-lg mx-auto">
         <button
           onClick={() => setActivePortal("retail")}
@@ -990,10 +991,11 @@ export const CargoForm = ({
           )}
         </button>
       </div>
+      </div>{/* end px-4 pt-4 wrapper */}
 
       {/* RETAIL CARGO LAYOUT */}
       {activePortal === "retail" && (
-        <div className="grid gap-6 md:grid-cols-[1fr_280px]">
+        <div className="p-4 grid gap-6 md:grid-cols-[1fr_280px] items-start">
           <div>
             <div className="flex flex-col mb-4">
               <h1 className="text-[18px] font-sans font-bold text-[var(--color-foreground)] leading-tight">
@@ -1421,7 +1423,7 @@ export const CargoForm = ({
 
       {/* CORPORATE SYSTEM PORTAL */}
       {activePortal === "corporate" && (
-        <div className="space-y-6">
+        <div className="space-y-6 p-4">
           {/* CORPORATE MENU ROUTING */}
           <div className="flex border-b border-[var(--color-border)] text-[13px] font-sans font-bold gap-4 py-1">
             <button

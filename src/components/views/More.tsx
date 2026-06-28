@@ -36,7 +36,8 @@ import {
   History,
   MapPin,
   Percent,
-  Users
+  Users,
+  Plane
 } from 'lucide-react';
 
 import { StaffManagement } from './StaffManagement';
@@ -188,6 +189,20 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
           subtitle="Generate and dispatch end of day reports"
           onClick={() => setEodView(true)}
         />
+        <MenuItem
+          icon={Activity}
+          title="Transaction Ledger"
+          subtitle={`${transactions.length} entries — view, search and export`}
+          onClick={() => setLedgerView(true)}
+        />
+        {(user.role === 'super_admin' || user.role === 'admin') && (
+          <MenuItem
+            icon={Plane}
+            title="ValueJet POS"
+            subtitle="Excess baggage counter — MMA2 terminal"
+            onClick={() => onChangeTab('VJ POS')}
+          />
+        )}
       </div>
 
       {/* Finance */}

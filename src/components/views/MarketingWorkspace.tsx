@@ -223,7 +223,7 @@ export const MarketingWorkspace = ({
 
   return (
     <div
-      className="p-4 h-full pb-12"
+      className="overflow-y-auto pb-24 p-4"
       style={{ width: "100%", boxSizing: "border-box" }}
     >
       {/* Workspace Header */}

@@ -503,9 +503,10 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
         <main
           className="flex-1 overflow-y-auto"
+          style={{ display: 'flex', flexDirection: 'column' }}
         >
           <div
-            className="mx-auto w-full"
+            className="mx-auto w-full flex-1 flex flex-col"
             style={{ maxWidth: 'var(--content-max-width)' }}
           >
             <ErrorBoundary>

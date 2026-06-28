@@ -17,6 +17,11 @@ export const BottomNav = ({ user, currentTab, onChangeTab }: {
     const more   = { id: 'More' as TabView, title: 'More', icon: MoreHorizontal };
 
     switch (role) {
+      case 'super_admin':
+        // All 3 revenue streams visible — VJ accessible via More
+        return [home, cargo, mkt, scan, more];
+      case 'admin':
+        return [home, cargo, mkt, scan, more];
       case 'cargo_agent':
         return [home, cargo, scan, more];
       case 'vj_agent':
@@ -29,10 +34,6 @@ export const BottomNav = ({ user, currentTab, onChangeTab }: {
         return [home, scan, more];
       case 'auditor':
         return [home, scan, more];
-      case 'admin':
-        return [home, cargo, scan, more];
-      case 'super_admin':
-        return [home, cargo, vj, scan, more];
       default:
         return [home, scan, more];
     }
