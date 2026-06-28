@@ -178,6 +178,30 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
       hub_id: user.hub_id,
       new_values: { gross_total: expectedTotals.grossTotal, net_cash: expectedTotals.netExpectedCash, date },
     }).catch(() => {});
+
+    // Send EOD summary to manager (fetch phone from settings or user's own phone)
+    const managerPhone = localStorage.getItem('ehi_manager_phone') || '';
+    if (managerPhone) {
+      fetch('/api/notify/eod-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          managerPhone,
+          hubName: user.hub,
+          date,
+          cargoTotal:    expectedTotals.cargoTotal,
+          vjTotal:       expectedTotals.vjTotal,
+          mktTotal:      expectedTotals.mktgTotal,
+          grossTotal:    expectedTotals.grossTotal,
+          cashTotal:     expectedTotals.cashTotal,
+          transferTotal: expectedTotals.transferTotal,
+          posTotal:      expectedTotals.posTotal,
+          debtTotal:     expectedTotals.debtTotal,
+          lockedBy:      user.name,
+        }),
+      }).catch(() => {});
+    }
+
     setIsGenerating(false);
     onEOD();
   };

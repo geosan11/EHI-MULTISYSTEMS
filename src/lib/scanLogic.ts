@@ -377,23 +377,49 @@ export async function logScanEvent(
   if (mode === 'DELIVER') newStatus = 'Delivered';
   if (!newStatus) return;
 
-  // Find which table the ref belongs to and update that table's status.
-  // cargo_entries uses entry_ref, manifests uses transaction_id, marketing uses entry_ref.
-  const cargoHit = await supabase.from('cargo_entries').select('entry_ref').eq('entry_ref', ref).limit(1).maybeSingle();
+  // Find which table the ref belongs to, update status, and collect phone numbers for notification
+  let consigneeName    = '';
+  let consigneePhone   = '';
+  let senderPhone      = '';
+  let pin: string | undefined;
+
+  const cargoHit = await supabase.from('cargo_entries').select('entry_ref, consignee_name, consignee_phone, sender_phone, pickup_pin').eq('entry_ref', ref).limit(1).maybeSingle();
   if (cargoHit.data) {
     await supabase.from('cargo_entries').update({ status: newStatus }).eq('entry_ref', ref);
-    return;
+    consigneeName  = cargoHit.data.consignee_name || '';
+    consigneePhone = cargoHit.data.consignee_phone || '';
+    senderPhone    = cargoHit.data.sender_phone || '';
+    pin            = cargoHit.data.pickup_pin || undefined;
+  } else {
+    const vjHit = await supabase.from('manifests').select('transaction_id, passenger_name, passenger_phone').eq('transaction_id', ref).limit(1).maybeSingle();
+    if (vjHit.data) {
+      await supabase.from('manifests').update({ status: newStatus }).eq('transaction_id', ref);
+      consigneeName  = vjHit.data.passenger_name || '';
+      consigneePhone = vjHit.data.passenger_phone || '';
+    } else {
+      const mktHit = await supabase.from('marketing_entries').select('entry_ref, customer_name, customer_phone').eq('entry_ref', ref).limit(1).maybeSingle();
+      if (mktHit.data) {
+        await supabase.from('marketing_entries').update({ status: newStatus }).eq('entry_ref', ref);
+        consigneeName  = mktHit.data.customer_name || '';
+        consigneePhone = mktHit.data.customer_phone || '';
+      }
+    }
   }
 
-  const vjHit = await supabase.from('manifests').select('transaction_id').eq('transaction_id', ref).limit(1).maybeSingle();
-  if (vjHit.data) {
-    await supabase.from('manifests').update({ status: newStatus }).eq('transaction_id', ref);
-    return;
-  }
-
-  const mktHit = await supabase.from('marketing_entries').select('entry_ref').eq('entry_ref', ref).limit(1).maybeSingle();
-  if (mktHit.data) {
-    await supabase.from('marketing_entries').update({ status: newStatus }).eq('entry_ref', ref);
-    return;
+  // Fire scan-status notification (no await — background)
+  if (consigneePhone || senderPhone) {
+    fetch('/api/notify/scan-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: mode,
+        cargoRef: ref,
+        consigneeName,
+        consigneePhone: consigneePhone || undefined,
+        senderPhone: senderPhone || undefined,
+        hubName: currentHub,
+        pin: mode === 'ARRIVE' ? pin : undefined,
+      }),
+    }).catch(() => { /* fire and forget */ });
   }
 }

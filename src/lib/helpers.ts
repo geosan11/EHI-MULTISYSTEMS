@@ -42,3 +42,105 @@ export const tnow = (): string => {
 export function generatePickupPin(): string {
   return String(Math.floor(10000 + Math.random() * 90000));
 }
+
+// ── DAILY ENTRIES CSV DOWNLOAD ────────────────────────────────
+export function downloadDailyCSV(
+  streamType: 'cargo' | 'baggage' | 'marketing',
+  transactions: any[],
+  hubName: string
+): void {
+  const today = new Date().toISOString().slice(0, 10);
+  const todayLabel = new Date().toLocaleDateString('en-NG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  const todayTx = transactions.filter(t => {
+    if (!t.created_at) return true;
+    return t.created_at.slice(0, 10) === today;
+  });
+
+  let headers: string[];
+  let rows: string[][];
+
+  if (streamType === 'cargo') {
+    headers = ['Ref', 'Time', 'Consignee', 'AWB/Tag', 'Airline', 'Route', 'Pieces', 'KG', 'Content', 'Amount', 'Mode', 'Bank', 'Status'];
+    rows = todayTx.map(t => {
+      const parts = t.detail?.split(' · ') || [];
+      return [
+        t.id,
+        t.time || '',
+        t.name || '',
+        t.awb_tag_number || parts[1] || '',
+        t.airline || parts[0] || '',
+        t.route || parts[4] || '',
+        String(t.pieces || parts[2]?.replace('pcs','') || ''),
+        String(t.kg || ''),
+        t.contentType || parts[5] || '',
+        String(t.amount || 0),
+        t.mode || '',
+        t.bank || '',
+        t.status || 'Intake',
+      ];
+    });
+  } else if (streamType === 'baggage') {
+    headers = ['Ref', 'Time', 'Passenger', 'PNR', 'Flight', 'Destination', 'Total KG', 'Excess KG', 'Amount', 'Mode', 'Bank'];
+    rows = todayTx.map(t => [
+      t.id,
+      t.time || '',
+      t.name || '',
+      t.pnr || '',
+      t.flight || '',
+      t.destination || '',
+      String(t.totalKg || ''),
+      String(t.excessKg || t.kg || ''),
+      String(t.amount || 0),
+      t.mode || '',
+      t.bank || '',
+    ]);
+  } else {
+    headers = ['Ref', 'Time', 'Customer', 'Phone', 'Route', 'Big Bags', 'Med Bags', 'Sm Bags', 'Amount', 'Mode', 'Bank'];
+    rows = todayTx.map(t => {
+      const bags = t.detail?.split(' · ')[1] || '';
+      const bb = bags.match(/(\d+)BB/)?.[1] || '';
+      const mb = bags.match(/(\d+)MB/)?.[1] || '';
+      const sb = bags.match(/(\d+)SB/)?.[1] || '';
+      return [
+        t.id,
+        t.time || '',
+        t.name || '',
+        '',
+        t.route || t.detail?.split(' · ')[0] || '',
+        bb, mb, sb,
+        String(t.amount || 0),
+        t.mode || '',
+        t.bank || '',
+      ];
+    });
+  }
+
+  // Escape CSV values
+  const esc = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+
+  const titleRow = `EHI Multisystems Nigeria Ltd — ${streamType === 'cargo' ? 'Cargo' : streamType === 'baggage' ? 'ValueJet' : 'Marketing'} Entries`;
+  const dateRow = `Hub: ${hubName} | Date: ${todayLabel}`;
+  const totalAmount = todayTx.reduce((s, t) => s + (t.amount || 0), 0);
+  const summaryRow = `Total Entries: ${todayTx.length} | Total Revenue: NGN ${totalAmount.toLocaleString('en-NG')}`;
+
+  const csvLines = [
+    esc(titleRow),
+    esc(dateRow),
+    esc(summaryRow),
+    '',
+    headers.map(esc).join(','),
+    ...rows.map(r => r.map(esc).join(',')),
+  ];
+
+  const csv = csvLines.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `EHI_${streamType}_${hubName.replace(/\s+/g,'_')}_${today}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

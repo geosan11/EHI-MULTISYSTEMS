@@ -113,6 +113,9 @@ export const Settings = ({
   const [notifyWhatsApp, setNotifyWhatsApp] = useState(() => {
     return localStorage.getItem('ehi_setting_notify_whatsapp') !== 'false';
   });
+  const [managerPhone, setManagerPhone] = useState(() =>
+    localStorage.getItem('ehi_manager_phone') || ''
+  );
   const [driveSync, setDriveSync] = useState(() => {
     return localStorage.getItem('ehi_setting_drive_sync') !== 'false';
   });
@@ -159,6 +162,10 @@ export const Settings = ({
   useEffect(() => {
     localStorage.setItem('ehi_setting_notify_whatsapp', String(notifyWhatsApp));
   }, [notifyWhatsApp]);
+
+  useEffect(() => {
+    if (managerPhone) localStorage.setItem('ehi_manager_phone', managerPhone);
+  }, [managerPhone]);
 
   useEffect(() => {
     localStorage.setItem('ehi_setting_drive_sync', String(driveSync));
@@ -481,6 +488,23 @@ export const Settings = ({
           >
             {notifyWhatsApp ? <ToggleRight size={38} className="text-[var(--color-success)]" /> : <ToggleLeft size={38} className="text-gray-600" />}
           </button>
+        </div>
+
+        {/* Manager Phone — receives EOD summary + alerts */}
+        <div className="border-t border-[rgba(255,255,255,0.05)] pt-3 space-y-1.5">
+          <div className="flex justify-between items-center">
+            <div>
+              <span className="text-[12px] font-bold text-[var(--color-foreground)] block">Manager Phone (WhatsApp/SMS)</span>
+              <span className="text-[9px] text-[var(--color-muted)] font-mono block">Receives EOD summary and fraud alerts after day lock</span>
+            </div>
+          </div>
+          <input
+            type="tel"
+            value={managerPhone}
+            onChange={e => setManagerPhone(e.target.value)}
+            placeholder="e.g. 08012345678 or +2348012345678"
+            className="ehi-input"
+          />
         </div>
 
         {/* Toggle Google Drive Sync */}

@@ -15,6 +15,7 @@ import {
   TrendingUp,
   Minus,
   ChevronRight,
+  Download,
 } from "lucide-react";
 import { QRCode } from "../QRCode";
 
@@ -192,8 +193,25 @@ export const TransactionLedger = ({
           <span className="text-[11px] font-mono">Back</span>
         </button>
         <span className="text-[10px] font-mono text-[var(--color-accent-amber)] tracking-widest font-bold">
-          ● MASTER LEDGER
+          {defaultTypeFilter === 'cargo' ? '● CARGO LEDGER'
+           : defaultTypeFilter === 'baggage' ? '● VALUEJET LEDGER'
+           : defaultTypeFilter === 'marketing' ? '● MARKETING LEDGER'
+           : '● MASTER LEDGER'}
+          {viewOnly && <span className="ml-2 text-[var(--color-muted)] tracking-normal normal-case">view only</span>}
         </span>
+        {/* Download today's entries as CSV */}
+        {defaultTypeFilter && (
+          <button
+            onClick={() => {
+              import('../../lib/helpers').then(({ downloadDailyCSV }) => {
+                downloadDailyCSV(defaultTypeFilter, transactions, user.hub || 'EHI Hub');
+              });
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-lg text-[10px] font-mono text-[var(--color-muted)] hover:text-[var(--color-success)] hover:border-[var(--color-success)] transition-colors ml-auto"
+          >
+            <Download size={11} /> Download Today
+          </button>
+        )}
       </div>
 
       {/* Summary Strip */}
