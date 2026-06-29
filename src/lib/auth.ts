@@ -159,6 +159,7 @@ export async function getSession(): Promise<UserProfile | null> {
         hub_type,
         active,
         hub_id,
+        can_edit_ledger,
         hubs (
           name,
           code,
@@ -183,8 +184,9 @@ export async function getSession(): Promise<UserProfile | null> {
       hub_code: Array.isArray(prof.hubs) ? prof.hubs[0]?.code : (prof.hubs?.code || 'HQ'),
       hubType: profile.hub_type || (Array.isArray(prof.hubs) ? prof.hubs[0]?.type : prof.hubs?.type) || 'Cargo Station',
       hub_id: profile.hub_id,
-      active: profile.active
-    };
+      active: profile.active,
+      can_edit_ledger: profile.can_edit_ledger ?? false,
+    } as any;
   } catch (err) {
     console.error('Failed to get session:', err);
     return null;

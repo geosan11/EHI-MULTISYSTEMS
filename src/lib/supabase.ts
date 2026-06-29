@@ -86,18 +86,32 @@ export async function testSupabaseConnection(): Promise<{
 }
 
 export async function fetchAndApplyServerConfig(): Promise<boolean> {
-  const currentUrl = localStorage.getItem('ehi_supabase_url');
-  if (currentUrl && currentUrl.includes('supabase.co')) {
-    return true; // Already configured
+  // Priority 1: Vite baked-in env vars (fastest, no network needed)
+  const viteUrl = (import.meta as any).env?.VITE_SUPABASE_URL;
+  const viteKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
+  if (viteUrl && viteKey && viteUrl.includes('supabase.co') && !viteUrl.includes('dummy')) {
+    localStorage.setItem('ehi_supabase_url', viteUrl);
+    localStorage.setItem('ehi_supabase_anon_key', viteKey);
+    reinitSupabase();
+    return true;
   }
 
+  // Priority 2: Already in localStorage from a previous session
+  const storedUrl = localStorage.getItem('ehi_supabase_url');
+  const storedKey = localStorage.getItem('ehi_supabase_anon_key');
+  if (storedUrl && storedKey && storedUrl.includes('supabase.co') && !storedUrl.includes('dummy')) {
+    reinitSupabase();
+    return true;
+  }
+
+  // Priority 3: Fetch from Express server (server reads process.env at runtime)
   try {
     const response = await fetch('/api/config', {
-      signal: AbortSignal.timeout(4000)
+      signal: AbortSignal.timeout(5000)
     });
-    
+
     if (!response.ok) return false;
-    
+
     const config = await response.json();
     if (config.configured && config.supabaseUrl && config.supabaseAnonKey) {
       localStorage.setItem('ehi_supabase_url', config.supabaseUrl);
@@ -106,8 +120,8 @@ export async function fetchAndApplyServerConfig(): Promise<boolean> {
       return true;
     }
     return false;
-  } catch (error) {
-    return false; // Silently fail and remain unconfigured
+  } catch {
+    return false;
   }
 }
 

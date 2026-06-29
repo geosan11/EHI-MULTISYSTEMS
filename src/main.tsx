@@ -6,7 +6,6 @@ import { cleanupOldPings } from './lib/privacy';
 import { fetchAndApplyServerConfig } from './lib/supabase';
 
 // Suppress Vite HMR WebSocket error in embedded previews
-// (AI Studio iframe blocks the WebSocket — not a production issue)
 window.addEventListener('unhandledrejection', (event) => {
   if (
     event.reason?.message?.includes('WebSocket') ||
@@ -19,10 +18,15 @@ window.addEventListener('unhandledrejection', (event) => {
 // Run data retention policies
 cleanupOldPings();
 
-fetchAndApplyServerConfig().catch(() => {});
-
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+// CRITICAL: Await Supabase config BEFORE mounting React.
+// Without this, getSession() fires against the dummy URL (race condition)
+// and users are shown the login screen even with a valid session.
+fetchAndApplyServerConfig()
+  .catch(() => {})
+  .finally(() => {
+    createRoot(document.getElementById('root')!).render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    );
+  });
