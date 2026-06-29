@@ -153,7 +153,8 @@ export const FraudAlerts = ({
   const reviewedAlerts = alerts.filter(a => a.reviewed);
 
   return (
-    <div className="flex flex-col h-full bg-[var(--color-obsidian)] p-4 text-[var(--color-foreground)] overflow-y-auto pb-[80px] font-sans">
+    <div className="flex flex-col h-full bg-[var(--color-obsidian)] overflow-y-auto pb-24 font-sans">
+      <div className="ehi-page-body px-4 pt-4 text-[var(--color-foreground)]">
       {/* Header back navigation */}
       <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2 mb-4">
         <button onClick={onBack} className="flex items-center space-x-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors">
@@ -337,6 +338,7 @@ export const FraudAlerts = ({
         </div>
       )}
 
+      </div>
     </div>
   );
 };

@@ -32,7 +32,8 @@ export const PODLog = ({ onBack }: { onBack: () => void }) => {
   );
 
   return (
-    <div className="p-4 pb-24 space-y-4 animate-in fade-in flex flex-col h-screen overflow-y-auto">
+    <div className="overflow-y-auto pb-24 animate-in fade-in">
+      <div className="ehi-page-body px-4 pt-4 space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-[var(--color-border)] pb-3">
         <button onClick={onBack} className="p-1 rounded hover:bg-[var(--color-surface-2)] text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors cursor-pointer border-none bg-transparent">
@@ -226,6 +227,7 @@ export const PODLog = ({ onBack }: { onBack: () => void }) => {
           </div>
         </div>
       )}
+      </div>{/* end ehi-page-body */}
     </div>
   );
 };

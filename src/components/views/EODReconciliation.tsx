@@ -508,17 +508,22 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
   const stepNames = ['Review', 'Count', 'Reconcile', 'Remit'];
 
   return (
-    <div className="flex flex-col h-full bg-[var(--color-obsidian)] p-4 relative text-[var(--color-foreground)] animate-in slide-in-from-right overflow-y-auto pb-[60px]">
-      <div className="flex items-center justify-between mb-4">
-        <button onClick={onBack} className="flex items-center space-x-2 text-[var(--color-light-muted)] w-max p-2 -ml-2 rounded hover:bg-[var(--color-surface-2)]">
+    <div className="flex flex-col h-full bg-[var(--color-obsidian)] overflow-y-auto">
+      {/* Sticky header */}
+      <div className="ehi-view-header">
+        <button onClick={onBack} className="flex items-center space-x-2 text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors">
           <ArrowLeft size={16} />
           <span className="text-[11px] font-mono">Back</span>
         </button>
+        <span className="text-[10px] font-mono text-[var(--color-accent-amber)] tracking-widest font-bold">● EOD RECONCILIATION</span>
+        <div className="w-16" />
       </div>
 
-      <div className="text-[16px] font-bold font-mono text-[var(--color-foreground)] mb-4 tracking-wide">
-        EOD Reconciliation
-      </div>
+      {/* Constrained content */}
+      <div className="ehi-page-body px-4 py-4 pb-24 relative text-[var(--color-foreground)] animate-in slide-in-from-right">
+        <div className="text-[15px] font-bold font-mono text-[var(--color-foreground)] mb-4 tracking-wide">
+          Daily Close — {user.hub}
+        </div>
 
       <div className="flex items-center justify-between mb-8 relative">
         <div className="absolute left-0 right-0 top-1/2 h-[1px] bg-[rgba(255,255,255,0.1)] -z-10" />
@@ -540,6 +545,7 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
       {isGenerating && (
         <LoadingState fullScreen message="GENERATING REPORT..." />
       )}
+      </div>{/* end ehi-page-body */}
     </div>
   );
 };

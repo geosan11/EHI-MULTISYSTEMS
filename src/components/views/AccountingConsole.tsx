@@ -140,7 +140,8 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
   const variance = physicalCount !== null ? physicalCount - expectedClosing : 0;
 
   return (
-    <div className="flex flex-col h-full bg-[var(--color-obsidian)] p-4 relative text-[var(--color-foreground)] animate-in slide-in-from-right overflow-y-auto">
+    <div className="flex flex-col h-full bg-[var(--color-obsidian)] overflow-y-auto animate-in slide-in-from-right">
+      <div className="ehi-page-body px-4 pt-4 relative text-[var(--color-foreground)]">
       <div className="flex items-center justify-between mb-4">
         <button onClick={onBack} className="flex items-center space-x-2 text-[var(--color-light-muted)] w-max p-2 -ml-2 rounded-xl hover:bg-[var(--color-surface-2)] transition-colors focus:outline-none">
           <ArrowLeft size={18} />
@@ -409,6 +410,7 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
            <div className="text-[13px] font-sans text-[var(--color-muted)]">Hub Remittances module will be available soon.</div>
         </div>
       )}
+      </div>{/* end ehi-page-body */}
     </div>
   );
 };

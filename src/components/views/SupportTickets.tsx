@@ -18,6 +18,7 @@ export interface Ticket {
 export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => void }) => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [priority, setPriority] = useState<'normal' | 'high' | 'critical'>('normal');
   const [isLoading, setIsLoading] = useState(true);
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
@@ -85,10 +86,13 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
       user_id: user.id,
       user_name: user.name,
       hub: user.hub,
+      hub_id: user.hub_id || null,
       subject: newTicket.subject,
       description: newTicket.description,
+      priority,
       status: 'open'
     });
+    setPriority('normal');
   };
 
   const handleUpdateStatus = async (id: string, newStatus: 'open' | 'in_progress' | 'resolved') => {
@@ -131,7 +135,8 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
       </div>
 
       {!isCreating && !selectedTicket ? (
-        <div className="p-4 flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto">
+          <div className="ehi-page-body px-4 py-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-[16px] font-bold font-sans text-white">Complain Box</h2>
             <button 
@@ -181,52 +186,56 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
               ))
             )}
           </div>
+          </div>
         </div>
       ) : isCreating ? (
-        <div className="p-4 flex-1 overflow-y-auto">
-          <h2 className="text-[16px] font-bold font-sans text-white mb-4">Report an Issue</h2>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-[11px] font-mono text-[var(--color-muted)] mb-1">Subject</label>
-              <input 
-                type="text" 
-                value={subject}
-                onChange={e => setSubject(e.target.value)}
-                placeholder="Brief summary of the issue..."
-                className="w-full bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2 text-[13px] text-white focus:outline-none focus:border-[var(--color-accent-amber)]"
-              />
+        <div className="flex-1 overflow-y-auto">
+          <div className="ehi-page-body px-4 py-4 space-y-4">
+            <div className="text-[12px] font-bold text-[var(--color-foreground)] font-sans">New Support Ticket</div>
+            <div className="space-y-1.5">
+              <label className="ehi-label">Subject</label>
+              <input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Brief description of the issue" className="ehi-input" />
             </div>
-            <div>
-              <label className="block text-[11px] font-mono text-[var(--color-muted)] mb-1">Description</label>
-              <textarea 
+            <div className="space-y-1.5">
+              <label className="ehi-label">Priority</label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['normal', 'high', 'critical'] as const).map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setPriority(p)}
+                    className={`py-2 rounded-lg text-[11px] font-bold font-mono uppercase transition-colors ${
+                      priority === p
+                        ? p === 'critical' ? 'bg-[rgba(239,68,68,0.2)] border border-[rgba(239,68,68,0.5)] text-[var(--color-error)]'
+                          : p === 'high' ? 'bg-[rgba(245,158,11,0.2)] border border-[rgba(245,158,11,0.5)] text-[var(--color-accent-amber)]'
+                          : 'bg-[rgba(16,185,129,0.15)] border border-[rgba(16,185,129,0.4)] text-[var(--color-success)]'
+                        : 'bg-[var(--color-surface-card)] border border-[var(--color-border)] text-[var(--color-muted)]'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="ehi-label">Description</label>
+              <textarea
                 value={description}
                 onChange={e => setDescription(e.target.value)}
-                placeholder="Detailed description of what happened..."
-                className="w-full h-32 bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2 text-[13px] text-white focus:outline-none focus:border-[var(--color-accent-amber)] resize-none"
+                rows={5}
+                placeholder="Describe the issue in detail — include steps to reproduce if applicable"
+                className="ehi-input resize-none"
               />
             </div>
-
-            <div className="flex gap-3 pt-2">
-              <button 
-                onClick={() => setIsCreating(false)}
-                className="flex-1 py-2 bg-[var(--color-surface-2)] text-white text-[12px] font-bold rounded-lg border border-[rgba(255,255,255,0.1)]"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={handleCreate}
-                disabled={!subject.trim() || !description.trim()}
-                className="flex-1 py-2 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[12px] font-bold rounded-lg disabled:opacity-50"
-              >
-                Submit Issue
-              </button>
+            <div className="flex gap-3">
+              <button onClick={() => { setIsCreating(false); setSubject(''); setDescription(''); setPriority('normal'); }} className="flex-1 h-11 border border-[var(--color-border)] rounded-lg text-[12px] font-bold text-[var(--color-muted)]">Cancel</button>
+              <button onClick={handleCreate} disabled={!subject.trim() || !description.trim()} className="flex-1 h-11 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg text-[12px] font-bold disabled:opacity-50">Submit Ticket</button>
             </div>
           </div>
         </div>
       ) : selectedTicket ? (
-        <div className="p-4 flex-1 overflow-y-auto">
-          <button 
+        <div className="flex-1 overflow-y-auto">
+          <div className="ehi-page-body px-4 py-4">
+          <button
             onClick={() => setSelectedTicket(null)}
             className="text-[11px] font-mono text-[var(--color-accent-amber)] hover:underline mb-4 inline-block"
           >
@@ -277,30 +286,25 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
             <div className="bg-[#111827] border border-[rgba(255,255,255,0.05)] rounded-lg p-4">
               <h3 className="text-[11px] font-mono text-[var(--color-muted)] uppercase mb-3">Admin Actions</h3>
               <div className="flex gap-2">
-                <button 
+                <button
                   onClick={() => handleUpdateStatus(selectedTicket.id, 'open')}
                   disabled={selectedTicket.status === 'open'}
                   className="flex-1 py-2 bg-[rgba(239,68,68,0.1)] text-red-400 text-[11px] font-bold rounded-lg border border-[rgba(239,68,68,0.2)] disabled:opacity-50"
-                >
-                  Mark Open
-                </button>
-                <button 
+                >Mark Open</button>
+                <button
                   onClick={() => handleUpdateStatus(selectedTicket.id, 'in_progress')}
                   disabled={selectedTicket.status === 'in_progress'}
                   className="flex-1 py-2 bg-[rgba(245,158,11,0.1)] text-amber-400 text-[11px] font-bold rounded-lg border border-[rgba(245,158,11,0.2)] disabled:opacity-50"
-                >
-                  In Progress
-                </button>
-                <button 
+                >In Progress</button>
+                <button
                   onClick={() => handleUpdateStatus(selectedTicket.id, 'resolved')}
                   disabled={selectedTicket.status === 'resolved'}
                   className="flex-1 py-2 bg-[rgba(16,185,129,0.1)] text-emerald-400 text-[11px] font-bold rounded-lg border border-[rgba(16,185,129,0.2)] disabled:opacity-50"
-                >
-                  Resolve
-                </button>
+                >Resolve</button>
               </div>
             </div>
           )}
+          </div>{/* end ehi-page-body */}
         </div>
       ) : null}
     </div>

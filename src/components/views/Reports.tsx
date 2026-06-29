@@ -194,7 +194,8 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
   // ── Render ───────────────────────────────────────
 
   return (
-    <div className="p-4 pb-24 space-y-4">
+    <div className="overflow-y-auto pb-24">
+      <div className="ehi-page-body px-4 pt-4 space-y-4">
       <div className="flex items-center gap-3 border-b border-[var(--color-border)] pb-2">
         {onBack && (
           <button onClick={onBack} className="p-1 rounded hover:bg-[var(--color-surface-2)] text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors cursor-pointer border-none bg-transparent">
@@ -323,6 +324,7 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

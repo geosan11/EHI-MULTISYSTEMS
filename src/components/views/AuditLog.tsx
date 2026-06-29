@@ -95,7 +95,8 @@ export const AuditLog = ({ onBack, user }: { onBack: () => void; user?: User }) 
   };
 
   return (
-    <div className="flex flex-col h-full bg-[var(--color-obsidian)] p-4 text-[var(--color-foreground)] overflow-y-auto pb-[80px]">
+    <div className="flex flex-col h-full bg-[var(--color-obsidian)] overflow-y-auto pb-24">
+      <div className="ehi-page-body px-4 pt-4 text-[var(--color-foreground)]">
       <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2 mb-4">
         <button onClick={onBack} className="flex items-center space-x-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors">
           <ArrowLeft size={16} /><span className="text-[11px] font-mono">Back</span>
@@ -184,6 +185,7 @@ export const AuditLog = ({ onBack, user }: { onBack: () => void; user?: User }) 
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

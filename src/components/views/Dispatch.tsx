@@ -59,7 +59,8 @@ export const Dispatch = ({ onBack }: { onBack: () => void }) => {
   }, []);
 
   return (
-    <div className="p-4 pb-24 space-y-4 animate-in fade-in h-full flex flex-col">
+    <div className="overflow-y-auto pb-24 animate-in fade-in flex flex-col">
+      <div className="ehi-page-body px-4 pt-4 space-y-4 flex flex-col flex-1">
       <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2">
         <div className="flex items-center gap-2">
           <button onClick={onBack} className="p-1 rounded hover:bg-[var(--color-surface-2)] text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors cursor-pointer border-none bg-transparent">
@@ -80,7 +81,7 @@ export const Dispatch = ({ onBack }: { onBack: () => void }) => {
           </div>
         ) : (
           activeTrips.map(trip => {
-            const timeAgo = trip.lastPingAt ? Math.floor((Date.now() - new Date(trip.lastPingAt).getTime()) / 60000) : null;
+            const timeAgo = trip.pings?.length ? Math.floor((Date.now() - new Date(trip.pings[trip.pings.length-1]?.timestamp || Date.now()).getTime()) / 60000) : null;
             let batteryColor = '#10B981'; // Green
             if (timeAgo !== null) {
               if (timeAgo > 5) batteryColor = '#F59E0B'; // Amber - 5+ mins
@@ -121,7 +122,7 @@ export const Dispatch = ({ onBack }: { onBack: () => void }) => {
                   <div className="text-[var(--color-light-muted)]">
                     <span className="font-bold text-[var(--color-foreground)]">{trip.cargoRefs.length}</span> items
                   </div>
-                  {trip.lastLatitude && (
+                  {trip.pings?.length > 0 && (
                     <div className="flex items-center gap-1 text-[var(--color-accent-amber)] font-mono text-[9px]">
                       <MapPin size={10} /> POS LOGGED
                     </div>
@@ -162,9 +163,12 @@ export const Dispatch = ({ onBack }: { onBack: () => void }) => {
 
             <div className="flex-1 relative bg-[var(--color-surface-2)]">
               {selectedTrip.pings.length > 0 ? (
-                <MapContainer 
-                  center={[selectedTrip.lastLatitude || selectedTrip.pings[selectedTrip.pings.length - 1].latitude, selectedTrip.lastLongitude || selectedTrip.pings[selectedTrip.pings.length - 1].longitude]} 
-                  zoom={13} 
+                <MapContainer
+                  center={[
+                    selectedTrip.pings[selectedTrip.pings.length - 1].latitude,
+                    selectedTrip.pings[selectedTrip.pings.length - 1].longitude
+                  ]}
+                  zoom={13}
                   style={{ height: '100%', width: '100%' }}
                 >
                   <TileLayer
@@ -177,11 +181,14 @@ export const Dispatch = ({ onBack }: { onBack: () => void }) => {
                     weight={4} 
                     opacity={0.8} 
                   />
-                  <Marker position={[selectedTrip.lastLatitude || selectedTrip.pings[selectedTrip.pings.length - 1].latitude, selectedTrip.lastLongitude || selectedTrip.pings[selectedTrip.pings.length - 1].longitude]}>
+                  <Marker position={[
+                    selectedTrip.pings[selectedTrip.pings.length - 1].latitude,
+                    selectedTrip.pings[selectedTrip.pings.length - 1].longitude
+                  ]}>
                     <Popup>
                       <div className="text-[12px] font-bold">{selectedTrip.driverName}</div>
                       <div className="text-[10px] text-gray-500">{selectedTrip.vehiclePlate}</div>
-                      <div className="text-[10px] text-gray-500 mt-1">Last Update: {new Date(selectedTrip.lastPingAt || '').toLocaleTimeString()}</div>
+                      <div className="text-[10px] text-gray-500 mt-1">Last ping: {new Date(selectedTrip.pings[selectedTrip.pings.length-1]?.timestamp || '').toLocaleTimeString()}</div>
                     </Popup>
                   </Marker>
                 </MapContainer>
@@ -200,6 +207,7 @@ export const Dispatch = ({ onBack }: { onBack: () => void }) => {
           </div>
         </div>
       )}
+      </div>{/* end ehi-page-body */}
     </div>
   );
 };

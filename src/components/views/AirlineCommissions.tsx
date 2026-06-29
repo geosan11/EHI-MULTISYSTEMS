@@ -1,58 +1,73 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Percent, Save, Building2, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Percent, Save, Building2, Plus, Trash2, Loader, Check } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+
+const DEFAULT_COMMISSIONS: Record<string, string> = {
+  'Arik Air':              '7',
+  'Green Africa Airways':  '6',
+  'United Nigeria Airlines': '6',
+};
 
 export const AirlineCommissions = ({ onBack }: { onBack: () => void }) => {
-  const [commissions, setCommissions] = useState<Record<string, string>>({
-    'ValueJet': '10',
-    'Ibom Air': '5',
-    'Air Peace': '5',
-    'Arik': '5',
-    'Green Africa': '5',
-    'United Nigeria': '5',
-    'OTHER': '5'
-  });
-  
+  const [commissions, setCommissions] = useState<Record<string, string>>(DEFAULT_COMMISSIONS);
   const [newAirline, setNewAirline] = useState('');
   const [newCommission, setNewCommission] = useState('5');
+  const [loading, setLoading] = useState(true);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('ehi_airline_commissions');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        const strParsed: Record<string, string> = {};
-        Object.entries(parsed).forEach(([k, v]) => {
-          strParsed[k] = String(v);
-        });
-        setCommissions(prev => ({ ...prev, ...strParsed }));
-      } catch (e) {
-        // ignore
-      }
-    } else {
-      // Save default on first load
-      handleSaveData(commissions);
-    }
+    supabase.from('pricing_config')
+      .select('config_value')
+      .eq('config_key', 'airline_commissions')
+      .single()
+      .then(({ data }) => {
+        if (data?.config_value) {
+          const parsed: Record<string, number> = data.config_value as any;
+          const asStr: Record<string, string> = {};
+          Object.entries(parsed).forEach(([k, v]) => { asStr[k] = String(v); });
+          setCommissions(asStr);
+          localStorage.setItem('ehi_airline_commissions', JSON.stringify(parsed));
+        } else {
+          const cached = localStorage.getItem('ehi_airline_commissions');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            const asStr: Record<string, string> = {};
+            Object.entries(parsed).forEach(([k, v]) => { asStr[k] = String(v); });
+            setCommissions(asStr);
+          }
+        }
+        setLoading(false);
+      }).catch(() => {
+        const cached = localStorage.getItem('ehi_airline_commissions');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          const asStr: Record<string, string> = {};
+          Object.entries(parsed).forEach(([k, v]) => { asStr[k] = String(v); });
+          setCommissions(asStr);
+        }
+        setLoading(false);
+      });
   }, []);
 
-  const handleSaveData = (data: Record<string, string>) => {
-    const parsedToNum: Record<string, number> = {};
-    Object.entries(data).forEach(([k, v]) => {
-      parsedToNum[k] = parseFloat(v) || 0;
-    });
-    localStorage.setItem('ehi_airline_commissions', JSON.stringify(parsedToNum));
+  const persist = async (data: Record<string, string>) => {
+    const numData: Record<string, number> = {};
+    Object.entries(data).forEach(([k, v]) => { numData[k] = parseFloat(v) || 0; });
+    localStorage.setItem('ehi_airline_commissions', JSON.stringify(numData));
+    await supabase.from('pricing_config').upsert({
+      config_key: 'airline_commissions',
+      config_value: numData,
+      description: 'Airline commission percentages',
+    }, { onConflict: 'config_key' });
   };
 
   const handleChange = (airline: string, value: string) => {
-    const updated = { ...commissions, [airline]: value };
-    setCommissions(updated);
-    handleSaveData(updated);
+    setCommissions(prev => ({ ...prev, [airline]: value }));
   };
 
   const handleAddAirline = () => {
     if (!newAirline.trim()) return;
     const updated = { ...commissions, [newAirline.trim()]: newCommission };
     setCommissions(updated);
-    handleSaveData(updated);
     setNewAirline('');
     setNewCommission('5');
   };
@@ -61,104 +76,116 @@ export const AirlineCommissions = ({ onBack }: { onBack: () => void }) => {
     const updated = { ...commissions };
     delete updated[airline];
     setCommissions(updated);
-    handleSaveData(updated);
   };
 
-  const handleSave = () => {
-    handleSaveData(commissions);
-    onBack();
+  const handleSave = async () => {
+    await persist(commissions);
+    setSaved(true);
+    setTimeout(() => { setSaved(false); onBack(); }, 800);
   };
 
   return (
-    <main className="flex-1 flex flex-col h-full bg-[var(--color-bg)] overflow-hidden">
+    <main className="flex flex-col h-full bg-[var(--color-obsidian)] overflow-y-auto">
       {/* Header */}
-      <div className="bg-[var(--color-surface-card)] border-b border-[var(--color-border)] p-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={onBack}
-            className="w-8 h-8 flex items-center justify-center bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] transition-colors rounded-lg group"
-          >
-            <ArrowLeft size={16} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
-          </button>
-          <div>
-            <h1 className="text-[16px] font-bold font-sans text-[var(--color-foreground)] tracking-tight">Airline Commissions</h1>
-            <p className="text-[11px] font-mono text-[var(--color-muted)] mt-0.5">Set percentage cut per airline</p>
-          </div>
+      <div className="ehi-view-header">
+        <button onClick={onBack} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[var(--color-surface-2)] transition-colors group">
+          <ArrowLeft size={16} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
+        </button>
+        <div className="text-center">
+          <div className="text-[12px] font-bold text-[var(--color-foreground)]">Airline Commissions</div>
+          <div className="text-[10px] font-mono text-[var(--color-muted)]">Synced across all devices</div>
         </div>
+        <button
+          onClick={handleSave}
+          disabled={saved}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[rgba(245,158,11,0.1)] border border-[rgba(245,158,11,0.3)] text-[var(--color-accent-amber)] text-[11px] font-bold rounded-lg hover:bg-[rgba(245,158,11,0.2)] transition-colors disabled:opacity-60"
+        >
+          {saved ? <><Check size={12} /> Saved</> : <><Save size={12} /> Save</>}
+        </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-lg p-3 mb-4">
-          <div className="text-[12px] font-bold font-sans text-[var(--color-foreground)] mb-2">Add New Airline</div>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Airline Name"
-              value={newAirline}
-              onChange={(e) => setNewAirline(e.target.value)}
-              className="flex-1 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg py-2 px-3 text-[13px] font-sans text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
-            />
-            <div className="relative w-20">
-              <input
-                type="number"
-                value={newCommission}
-                onChange={(e) => setNewCommission(e.target.value)}
-                className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg py-2 pl-2 pr-8 text-[13px] font-mono text-right text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
-                step="0.1"
-                min="0"
-                max="100"
-              />
-              <Percent size={12} strokeWidth={1.5} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-muted)] pointer-events-none" />
-            </div>
-            <button
-              onClick={handleAddAirline}
-              disabled={!newAirline.trim()}
-              className="px-3 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] disabled:opacity-50 border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] flex items-center justify-center transition-colors"
-            >
-              <Plus size={16} strokeWidth={1.5} />
-            </button>
+      <div className="ehi-page-body px-4 pt-4 pb-6 space-y-3">
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <Loader size={20} className="animate-spin text-[var(--color-accent-amber)]" />
           </div>
-        </div>
+        ) : (
+          <>
+            {/* Info banner */}
+            <div className="bg-[rgba(59,130,246,0.08)] border border-[rgba(59,130,246,0.2)] rounded-xl p-3">
+              <p className="text-[11px] text-[var(--color-accent-cobalt)] font-sans leading-relaxed">
+                Commissions are applied when generating reports and airline billing statements. Changes save to the database and take effect on all devices immediately.
+              </p>
+            </div>
 
-        {Object.entries(commissions).map(([airline, rate]) => (
-          <div key={airline} className="ehi-card p-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={() => handleDeleteAirline(airline)}
-                className="p-2 bg-[rgba(239,68,68,0.1)] hover:bg-[rgba(239,68,68,0.2)] rounded-lg text-[var(--color-error)] transition-colors group"
-                title={`Remove ${airline}`}
-              >
-                <Trash2 size={14} strokeWidth={1.5} />
-              </button>
-              <div className="p-2 bg-[var(--color-surface-2)] rounded-lg">
-                <Building2 size={16} strokeWidth={1.5} className="text-[var(--color-muted)]" />
+            {/* Add new airline */}
+            <div className="ehi-card p-4 space-y-3">
+              <div className="text-[11px] font-bold text-[var(--color-muted)] uppercase tracking-widest">Add Airline</div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Airline name"
+                  value={newAirline}
+                  onChange={(e) => setNewAirline(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddAirline()}
+                  className="flex-1 ehi-input"
+                />
+                <div className="relative w-24">
+                  <input
+                    type="number"
+                    value={newCommission}
+                    onChange={(e) => setNewCommission(e.target.value)}
+                    className="w-full ehi-input text-right pr-7"
+                    step="0.5" min="0" max="100"
+                  />
+                  <Percent size={11} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)] pointer-events-none" />
+                </div>
+                <button
+                  onClick={handleAddAirline}
+                  disabled={!newAirline.trim()}
+                  className="px-3 h-10 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg font-bold disabled:opacity-40 hover:opacity-90 transition-opacity"
+                >
+                  <Plus size={15} />
+                </button>
               </div>
-              <span className="font-sans font-bold text-[13px] text-[var(--color-foreground)]">{airline}</span>
             </div>
-            
-            <div className="relative w-24">
-              <input
-                type="number"
-                value={rate}
-                onChange={(e) => handleChange(airline, e.target.value)}
-                className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg py-2 pl-3 pr-9 text-[13px] font-mono text-right text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
-                step="0.1"
-                min="0"
-                max="100"
-              />
-              <Percent size={12} strokeWidth={1.5} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)] pointer-events-none" />
-            </div>
-          </div>
-        ))}
 
-        <div className="pt-4">
-          <button
-            onClick={handleSave}
-            className="w-full py-3 bg-[rgba(245,158,11,0.1)] hover:bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.2)] rounded-lg font-bold font-sans text-[13px] transition-colors flex justify-center items-center gap-2"
-          >
-            <Save size={16} strokeWidth={1.5} /> Save Settings
-          </button>
-        </div>
+            {/* Commission list */}
+            <div className="space-y-2">
+              {Object.entries(commissions).map(([airline, rate]) => (
+                <div key={airline} className="ehi-card p-3.5 flex items-center gap-3">
+                  <button
+                    onClick={() => handleDeleteAirline(airline)}
+                    className="p-1.5 bg-[rgba(239,68,68,0.08)] hover:bg-[rgba(239,68,68,0.18)] rounded-lg text-[var(--color-error)] transition-colors shrink-0"
+                  >
+                    <Trash2 size={13} strokeWidth={1.5} />
+                  </button>
+                  <div className="w-8 h-8 bg-[var(--color-surface-2)] rounded-lg flex items-center justify-center shrink-0">
+                    <Building2 size={15} strokeWidth={1.5} className="text-[var(--color-muted)]" />
+                  </div>
+                  <span className="flex-1 font-sans font-semibold text-[13px] text-[var(--color-foreground)]">{airline}</span>
+                  <div className="relative w-24 shrink-0">
+                    <input
+                      type="number"
+                      value={rate}
+                      onChange={(e) => handleChange(airline, e.target.value)}
+                      className="w-full ehi-input text-right pr-7 font-mono"
+                      step="0.5" min="0" max="100"
+                    />
+                    <Percent size={11} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)] pointer-events-none" />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={handleSave}
+              className="w-full h-12 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] font-bold text-[13px] rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+            >
+              {saved ? <><Check size={16} /> Saved to all devices</> : <><Save size={16} /> Save Commission Rates</>}
+            </button>
+          </>
+        )}
       </div>
     </main>
   );
