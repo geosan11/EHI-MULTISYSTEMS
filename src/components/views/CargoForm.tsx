@@ -231,7 +231,8 @@ export const CargoForm = ({
       }
     };
     loadAirlines();
-  }, [airline]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [successTx, setSuccessTx] = useState<Transaction | null>(null);
   const [submitting, setSubmitting] = useState(false);

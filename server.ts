@@ -29,27 +29,29 @@ const rateLimiter = (maxReqs: number, windowMs: number) => {
 async function requireAdminCaller(req: any, res: any): Promise<{ admin: any; supabaseUrl: string; serviceKey: string } | null> {
   const token = (req.headers['authorization'] || '').replace('Bearer ', '').trim();
   if (!token) { res.status(401).json({ error: 'Unauthorized' }); return null; }
-  
-  const supabaseUrl = req.headers['x-supabase-url'] || process.env.VITE_SUPABASE_URL;
+
+  // SECURITY: Never trust a client-supplied URL when authenticating with a server secret.
+  // Always use the server's own configured Supabase project — ignore any x-supabase-url header.
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  
-  if (!supabaseUrl || !serviceKey) { 
-    res.status(503).json({ error: 'Service key or Supabase URL not configured on server' }); 
-    return null; 
+
+  if (!supabaseUrl || !serviceKey) {
+    res.status(503).json({ error: 'Service key or Supabase URL not configured on server' });
+    return null;
   }
-  
+
   try {
     const { createClient } = await import('@supabase/supabase-js');
-    const admin = createClient(supabaseUrl as string, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+    const admin = createClient(supabaseUrl, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
     const { data: { user }, error } = await admin.auth.getUser(token);
-    
+
     if (error || !user) { res.status(401).json({ error: 'Invalid token' }); return null; }
-    
+
     const { data: profile } = await admin.from('user_profiles').select('role').eq('id', user.id).single();
     if (!profile || !['super_admin', 'admin'].includes(profile.role)) {
       res.status(403).json({ error: 'Forbidden' }); return null;
     }
-    return { admin, supabaseUrl: supabaseUrl as string, serviceKey };
+    return { admin, supabaseUrl, serviceKey };
   } catch (err: any) {
     res.status(500).json({ error: 'Auth check failed: ' + err.message }); return null;
   }
@@ -66,16 +68,12 @@ async function startServer() {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    res.setHeader('X-XSS-Protection', '0');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
     next();
   });
 
   const notifyLimiter = rateLimiter(30, 60_000);
   const adminLimiter = rateLimiter(10, 60_000);
-
-  app.get('/api/env-keys', (req, res) => {
-    res.json({ keys: Object.keys(process.env).filter(k => k.toLowerCase().includes('supa')) });
-  });
 
   // Supabase runtime config exposure
   app.get('/api/config', (req, res) => {
@@ -97,17 +95,6 @@ async function startServer() {
 
   // ── STAFF MANAGEMENT ─────────────────────────────────────────────
   // Requires SUPABASE_SERVICE_ROLE_KEY in environment
-  app.get('/api/test-cargo', async (req, res) => {
-    try {
-      const { createClient } = await import('@supabase/supabase-js');
-      const client = createClient(process.env.VITE_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-      const r = await client.from('cargo_entries').select('entry_ref,consignee_name,airline,awb_tag_number,total_pcs,total_kg,route,content_type,amount,payment_mode,created_at,status,bank,hub_id').limit(1);
-      res.json(r);
-    } catch (err: any) {
-      res.status(500).json({error: err.message});
-    }
-  });
-
   app.post('/api/admin/create-staff', adminLimiter, async (req, res) => {
     const adminCtx = await requireAdminCaller(req, res);
     if (!adminCtx) return;

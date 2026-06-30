@@ -86,19 +86,11 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
       };
 
       await db.proof_of_delivery.add(pod);
-      // Queue for sync
-      try {
-        await db.sync_queue.add({
-          table_name: 'proof_of_delivery',
-          record_id: pod.id,
-          action: 'INSERT',
-          payload: pod as any,
-          synced: 0,
-          created_at: new Date().toISOString(),
-        });
-      } catch(err) {
-        console.error(err);
-      }
+      // NOTE: Proof of Delivery is currently local-device-only. There is no
+      // `proof_of_delivery` table in Supabase yet, so we do not queue a sync
+      // attempt here — doing so would fail every time and spam the network.
+      // A dedicated Supabase table + sync mapping is needed before this can
+      // be made cross-device visible (tracked as a follow-up, not part of this fix).
       onComplete(pod);
     };
 

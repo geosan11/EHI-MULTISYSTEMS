@@ -427,14 +427,7 @@ export const Scanner = ({
     }
 
     const { ref, resultData } = pendingDelivery;
-    let actualPin = pendingDelivery.expectedPin;
-
-    if (!actualPin && resultData.cargo?.remark) {
-      try {
-        const parsed = JSON.parse(resultData.cargo.remark);
-        if (parsed && parsed.pin) actualPin = parsed.pin;
-      } catch (e) {}
-    }
+    const actualPin = pendingDelivery.expectedPin;
 
     if (pinInput !== actualPin) {
       if (showToast) showToast({ message: 'Incorrect PIN provided.', type: 'error' });

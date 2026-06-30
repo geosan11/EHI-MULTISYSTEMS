@@ -31,7 +31,7 @@ export const CreditDebit = ({ user, transactions: _propTransactions }: { user: U
 
         // Fetch Debts (all time)
         const [cargoDebts, vjDebts, mktDebts] = await Promise.all([
-          addHubFilter(supabase.from('cargo_entries').select('*').eq('payment_mode', 'Debt')),
+          addHubFilter(supabase.from('cargo_entries').select('*').eq('receipt_mode', 'Debt')),
           addHubFilter(supabase.from('manifests').select('*').eq('payment_mode', 'Debt')),
           addHubFilter(supabase.from('marketing_entries').select('*').eq('payment_mode', 'Debt'))
         ]);
@@ -63,7 +63,7 @@ export const CreditDebit = ({ user, transactions: _propTransactions }: { user: U
           cargoCreditsReq.data.forEach(r => {
             if (r.airline) {
               mappedCredits.push({
-                id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo', detail: `${r.awb_tag_number || ''}`, amount: r.amount || 0, mode: r.payment_mode, time: r.created_at, type: 'cargo', airline: r.airline, status: r.status || 'Intake'
+                id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo', detail: `${r.awb_tag_number || ''}`, amount: r.amount || 0, mode: r.receipt_mode, time: r.created_at, type: 'cargo', airline: r.airline, status: r.status || 'Intake'
               });
             }
           });

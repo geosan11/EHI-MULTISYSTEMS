@@ -144,13 +144,11 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
     try {
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token || '';
-      const url = localStorage.getItem('ehi_supabase_url') || (import.meta as any).env?.VITE_SUPABASE_URL || '';
       const res = await fetch('/api/admin/set-staff-active', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
+        headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
-          'x-supabase-url': url
         },
         body: JSON.stringify({ userId: member.id, active: !member.active }),
       });
