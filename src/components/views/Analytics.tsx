@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { User, Transaction } from '../../lib/types';
+import { User, Transaction, Expense } from '../../lib/types';
 import { fmt, uid } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
 import { 
@@ -38,10 +38,12 @@ interface GeminiInsight {
 
 export const Analytics = ({ 
   user, 
-  transactions 
+  transactions,
+  expenses = []
 }: { 
   user: User; 
   transactions: Transaction[];
+  expenses?: Expense[];
 }) => {
   const [period, setPeriod] = useState<'today' | 'week' | 'month' | 'quarter'>('today');
   const [selectedHub, setSelectedHub] = useState<string>('all');
@@ -109,6 +111,32 @@ export const Analytics = ({
     });
   }, [hubFilteredTxs, period]);
 
+  const periodFilteredExpenses = useMemo(() => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const monthAgo = new Date(today);
+    monthAgo.setMonth(monthAgo.getMonth() - 1);
+    const quarterAgo = new Date(today);
+    quarterAgo.setMonth(quarterAgo.getMonth() - 3);
+
+    return expenses.filter(e => {
+      let expDate = new Date();
+      if (e.time) {
+        if (/^\d{4}-\d{2}-\d{2}/.test(e.time)) {
+          expDate = new Date(e.time);
+        }
+      }
+      
+      if (period === 'today') return expDate >= today;
+      if (period === 'week') return expDate >= weekAgo;
+      if (period === 'month') return expDate >= monthAgo;
+      if (period === 'quarter') return expDate >= quarterAgo;
+      return true;
+    });
+  }, [expenses, period]);
+
   // Calculations for current period (Today state is live)
   const stats = useMemo(() => {
     const cargo = periodFilteredTxs.filter(t => t.type === 'cargo');
@@ -126,6 +154,8 @@ export const Analytics = ({
     const cash = periodFilteredTxs.reduce((sum, t) => sum + (t.mode === 'Cash' ? t.amount : 0), 0);
     const transfer = periodFilteredTxs.reduce((sum, t) => sum + (t.mode === 'Transfer' || t.mode === 'POS' ? t.amount : 0), 0);
     const debt = periodFilteredTxs.reduce((sum, t) => sum + (t.mode === 'Debt' ? t.amount : 0), 0);
+    
+    const totalExpenses = periodFilteredExpenses.reduce((sum, e) => sum + e.amount, 0);
 
     // Find top route in today's transactions
     const routesMap: Record<string, number> = {};
@@ -165,9 +195,10 @@ export const Analytics = ({
       cash,
       transfer,
       debt,
-      topRoute
+      topRoute,
+      totalExpenses
     };
-  }, [periodFilteredTxs]);
+  }, [periodFilteredTxs, periodFilteredExpenses]);
 
   // Real hourly revenue chart based on actual created_at timestamps
   const revenueChartData = useMemo(() => {
@@ -389,10 +420,24 @@ export const Analytics = ({
 
       {/* Grand Combined Revenue Card */}
       <div className="w-full bg-[rgba(16,185,129,0.04)] border border-[rgba(16,185,129,0.25)] rounded p-4 text-center">
-        <div className="text-[8px] font-mono text-[var(--color-success)] uppercase tracking-widest font-bold">● COMBINED PORTFOLIO REVENUE</div>
-        <div className="text-[26px] font-bold font-mono text-[var(--color-foreground)] mt-1.5">{fmt(stats.totalRev)}</div>
-        <div className="text-[8px] font-mono text-[var(--color-light-muted)] mt-1 uppercase">
-          Consolidated across all 3 streams for {period}
+        <div className="flex justify-between items-center px-2 md:px-8">
+          <div className="flex flex-col items-start">
+            <span className="text-[8px] font-mono text-[var(--color-error)] uppercase tracking-widest font-bold">● PAYABLES</span>
+            <span className="text-[16px] md:text-[20px] font-bold font-mono text-[var(--color-foreground)] mt-1">{fmt(stats.totalExpenses)}</span>
+          </div>
+
+          <div className="flex flex-col items-center">
+            <div className="text-[8px] font-mono text-[var(--color-success)] uppercase tracking-widest font-bold">● COMBINED PORTFOLIO REVENUE</div>
+            <div className="text-[20px] md:text-[26px] font-bold font-mono text-[var(--color-foreground)] mt-1.5">{fmt(stats.totalRev)}</div>
+            <div className="text-[8px] font-mono text-[var(--color-light-muted)] mt-1 uppercase hidden md:block">
+              Consolidated across all 3 streams for {period}
+            </div>
+          </div>
+
+          <div className="flex flex-col items-end">
+            <span className="text-[8px] font-mono text-[var(--color-accent-amber)] uppercase tracking-widest font-bold">● RECEIVABLES</span>
+            <span className="text-[16px] md:text-[20px] font-bold font-mono text-[var(--color-foreground)] mt-1">{fmt(stats.debt)}</span>
+          </div>
         </div>
       </div>
 

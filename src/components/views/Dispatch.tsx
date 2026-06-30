@@ -43,6 +43,7 @@ export const Dispatch = ({ onBack }: { onBack: () => void }) => {
               destination: t.destination || '', status: t.status,
               departureTime: t.departure_time || t.created_at,
               cargoRefs: t.cargo_refs || [], gpsTrackingEnabled: t.gps_enabled,
+              createdAt: t.created_at, userId: t.user_id,
               pings
             };
           }));

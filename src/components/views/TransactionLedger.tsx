@@ -66,6 +66,7 @@ export const TransactionLedger = ({
         ...t,
         source: "transaction" as const,
         raw: t,
+        _sortTime: t.created_at ? new Date(t.created_at).getTime() : 0,
       })),
       ...expenses.map((e) => ({
         id: e.id,
@@ -78,11 +79,21 @@ export const TransactionLedger = ({
         status: e.status || "N/A",
         source: "expense" as const,
         raw: e,
-        paymentConfirmed: e.posApprovalCode ? true : false, // or from actual e.paymentConfirmed if added
+        paymentConfirmed: e.posApprovalCode ? true : false,
         posApprovalCode: e.posApprovalCode,
+        _sortTime: e.time ? new Date(e.time).getTime() : 0,
       })),
     ];
-    return list.sort((a, b) => {
+    return list.sort((a: any, b: any) => {
+      const timeA = a._sortTime || 0;
+      const timeB = b._sortTime || 0;
+      
+      // If both have timestamps, sort descending
+      if (timeA && timeB) {
+        return timeB - timeA;
+      }
+      
+      // Fallback to alphabetical sorting by time string if both lack timestamps
       if (a.time > b.time) return -1;
       if (a.time < b.time) return 1;
       return 0;

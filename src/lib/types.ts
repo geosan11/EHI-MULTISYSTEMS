@@ -82,6 +82,7 @@ export interface ScanValidationResult {
     content: string;
     pieces?: number;
     kg?: number;
+    pickupPin?: string | null;
   };
   lastEvent?: {
     type: string;
@@ -143,7 +144,7 @@ export interface Transaction {
   time: string;
   created_at?: string;
   type: 'cargo' | 'baggage' | 'marketing';
-  status: 'Intake' | 'Departure' | 'In-Transit' | 'Arrived' | 'Delivered' | 'Pending' | 'Received' | 'Dispatched';
+  status: 'Intake' | 'Departure' | 'In-Transit' | 'Arrived' | 'Delivered' | 'Pending' | 'Received' | 'Dispatched' | 'Cancelled';
   isPending?: boolean;
   route?: string;
   bank?: string;

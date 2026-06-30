@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile, signIn } from '../lib/auth';
 import { EHILogo } from './EHILogo';
-import { getConnectionMode, testSupabaseConnection } from '../lib/supabase';
+import { getConnectionMode, testSupabaseConnection, supabase } from '../lib/supabase';
 
 type ConnStatus = 'checking' | 'live' | 'offline' | 'unconfigured';
 
@@ -11,6 +11,35 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
   const [error, setError]       = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [connStatus, setConnStatus] = useState<ConnStatus>('checking');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetSent, setResetSent] = useState(false);
+  const [resetSending, setResetSending] = useState(false);
+  const [resetError, setResetError] = useState('');
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetEmail.trim()) {
+      setResetError('Enter your email address.');
+      return;
+    }
+    setResetSending(true);
+    setResetError('');
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim().toLowerCase(), {
+        redirectTo: `${window.location.origin}/`,
+      });
+      if (error) {
+        setResetError(error.message || 'Could not send reset email. Try again.');
+      } else {
+        setResetSent(true);
+      }
+    } catch {
+      setResetError('Network error. Check your connection and try again.');
+    } finally {
+      setResetSending(false);
+    }
+  };
 
   useEffect(() => {
     // Quick connection probe on mount
@@ -136,7 +165,72 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
           >
             {isLoading ? 'Signing in…' : 'Sign In'}
           </button>
+
+          <button
+            type="button"
+            onClick={() => { setShowForgotPassword(true); setResetEmail(email); setResetSent(false); setResetError(''); }}
+            className="w-full text-center text-[12px] font-sans text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] transition-colors mt-1"
+          >
+            Forgot password?
+          </button>
         </form>
+
+        {showForgotPassword && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-[var(--color-obsidian)] border border-[var(--color-border)] rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+              <div className="p-5 border-b border-[var(--color-border)] bg-[var(--color-surface-card)]">
+                <div className="text-[15px] font-bold text-[var(--color-foreground)]">Reset Password</div>
+                <div className="text-[11px] text-[var(--color-muted)] mt-0.5">We'll email you a secure link to set a new password.</div>
+              </div>
+              <div className="p-5">
+                {resetSent ? (
+                  <div className="text-center py-4 space-y-3">
+                    <div className="text-[13px] text-[var(--color-success)] font-sans font-semibold">Reset link sent ✓</div>
+                    <p className="text-[11px] text-[var(--color-muted)] font-sans leading-relaxed">
+                      Check {resetEmail} for a password reset link. It may take a minute to arrive.
+                    </p>
+                    <button
+                      onClick={() => setShowForgotPassword(false)}
+                      className="w-full h-10 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[12px] font-bold rounded-lg mt-2"
+                    >
+                      Done
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleForgotPassword} className="space-y-3">
+                    <input
+                      type="email"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      placeholder="you@ehimultisystems.com"
+                      autoFocus
+                      className="w-full h-11 px-3 text-sm rounded-lg bg-[var(--color-surface-1)] text-[var(--color-foreground)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                    />
+                    {resetError && (
+                      <p className="text-[11px] text-[var(--color-error)] font-sans">{resetError}</p>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowForgotPassword(false)}
+                        className="flex-1 h-10 border border-[var(--color-border)] text-[var(--color-muted)] text-[12px] font-bold rounded-lg"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={resetSending}
+                        className="flex-1 h-10 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[12px] font-bold rounded-lg disabled:opacity-60"
+                      >
+                        {resetSending ? 'Sending…' : 'Send Reset Link'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="absolute bottom-6 left-0 right-0 text-center text-[11px] font-sans text-[var(--color-muted)]">
           EHI Multisystems Nigeria Ltd · MMA2, Ikeja, Lagos

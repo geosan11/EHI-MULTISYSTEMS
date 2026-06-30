@@ -97,11 +97,14 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           (!isAdmin && user.hub_id) ? q.eq('hub_id', user.hub_id) : q;
 
         const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
-        const [cargoRes, vjRes, mktRes] = await Promise.all([
-          addHubFilter(supabase.from('cargo_entries').select('entry_ref,id,consignee_name,airline,awb_tag_number,total_pcs,total_kg,route,content_type,amount,receipt_mode,payment_mode,created_at,status,bank,hub_id').gte('created_at', sevenDaysAgo).order('created_at', { ascending: false }).limit(500)),
-          addHubFilter(supabase.from('manifests').select('transaction_id,id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone').gte('created_at', sevenDaysAgo).order('created_at', { ascending: false }).limit(500)),
-          addHubFilter(supabase.from('marketing_entries').select('entry_ref,id,customer_name,route,qty_big_bag,qty_med_bag,qty_small_bag,amount_paid,payment_mode,created_at,hub_id,bank').gte('created_at', sevenDaysAgo).order('created_at', { ascending: false }).limit(500))
+        const [cargoRes, vjRes, mktRes, expRes] = await Promise.all([
+          addHubFilter(supabase.from('cargo_entries').select('entry_ref,consignee_name,airline,awb_tag_number,total_pcs,total_kg,route,content_type,amount,payment_mode,created_at,status,bank,hub_id').gte('created_at', sevenDaysAgo).order('created_at', { ascending: false }).limit(500)),
+          addHubFilter(supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone').gte('created_at', sevenDaysAgo).order('created_at', { ascending: false }).limit(500)),
+          addHubFilter(supabase.from('marketing_entries').select('entry_ref,customer_name,route,qty_big_bag,qty_med_bag,qty_small_bag,amount_paid,payment_mode,created_at,hub_id,bank').gte('created_at', sevenDaysAgo).order('created_at', { ascending: false }).limit(500)),
+          addHubFilter(supabase.from('expenses').select('*').gte('created_at', sevenDaysAgo).order('created_at', { ascending: false }).limit(500))
         ]);
+
+        if (cargoRes.error) console.error('Cargo fetch error:', cargoRes.error);
 
         const allTx: Transaction[] = [];
 
@@ -112,7 +115,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               name: r.consignee_name || 'Cargo',
               detail: `${r.airline || ''} · ${r.awb_tag_number || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}`,
               amount: r.amount || 0,
-              mode: r.receipt_mode || r.payment_mode || 'Cash',
+              mode: r.payment_mode || 'Cash',
               time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
               type: 'cargo',
               status: r.status || 'Intake',
@@ -172,6 +175,22 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           });
         }
 
+        if (expRes.data) {
+          const fetchedExpenses = expRes.data.map((e: any) => ({
+            id: e.id,
+            type: e.category || 'General',
+            amount: e.amount,
+            description: e.description,
+            time: e.created_at,
+            status: e.status || 'pending',
+          }));
+          setExpenses(prev => {
+            const combined = [...prev, ...fetchedExpenses];
+            const unique = combined.filter((v, i, a) => a.findIndex(x => x.id === v.id) === i);
+            return unique.sort((a, b) => new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime());
+          });
+        }
+
         allTx.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
         
         setTransactions(prev => {
@@ -219,7 +238,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             name: r.consignee_name || 'Cargo',
             detail: `${r.airline || ''} · ${r.awb_tag_number || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}`,
             amount: r.amount || 0,
-            mode: r.receipt_mode || r.payment_mode || 'Cash',
+            mode: r.payment_mode || 'Cash',
             time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
             type: 'cargo',
             status: r.status || 'Intake',
@@ -240,7 +259,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             t.id === (r.entry_ref || r.id) ? {
               ...t,
               status: r.status || t.status,
-              mode: r.receipt_mode || r.payment_mode || t.mode,
+              mode: r.payment_mode || t.mode,
               paymentConfirmed: r.payment_confirmed,
               posApprovalCode: r.pos_approval_code
             } : t
@@ -405,7 +424,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         content_type: content,
         awb_tag_number: awbFromDetail,
         amount: tx.amount,
-        receipt_mode: tx.mode,
+        payment_mode: tx.mode,
         bank: tx.bank,
         hub_id: hubId,
         airline: (tx as any).airline || parts[0] || 'Unknown',
@@ -474,7 +493,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
     // Each table uses different column names
     const idCol      = table === 'manifests' ? 'transaction_id' : 'entry_ref';
-    const modeCol    = table === 'cargo_entries' ? 'receipt_mode' : 'payment_mode';
+    const modeCol    = 'payment_mode';
 
     const updatePayload: Record<string, any> = {
       [modeCol]: tx.mode,
@@ -593,7 +612,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             <ErrorBoundary>
               {currentTab === 'Tower' && (
                 (user.role === 'super_admin' || user.role === 'admin' || user.role === 'accountant') ? (
-                  <Analytics user={user} transactions={transactions} />
+                  <Analytics user={user} transactions={transactions} expenses={expenses} />
                 ) : (
                   <Dashboard user={user} transactions={transactions} />
                 )

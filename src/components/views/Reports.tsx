@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { User, Transaction } from '../../lib/types';
 import { fmt } from '../../lib/helpers';
+import { supabase } from '../../lib/supabase';
 import { Calendar, FileText, Download, Printer, ChevronRight, Filter, Loader2, ArrowLeft } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -30,6 +31,17 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
   const [customFrom, setCustomFrom] = useState('');
   const [customTo,   setCustomTo]   = useState('');
   const [generating, setGenerating] = useState(false);
+  const [hubNames, setHubNames] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    supabase.from('hubs').select('id, name, code').then(({ data }) => {
+      if (data) {
+        const map: Record<string, string> = {};
+        data.forEach((h: any) => { map[h.id] = `${h.code}/${h.name}`; });
+        setHubNames(map);
+      }
+    });
+  }, []);
 
   // Compute date range
   const dateRange = useMemo(() => {
@@ -149,9 +161,23 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
   }, [filteredTx]);
 
   const hubReport = useMemo(() => {
-    // Group transactions by hub (in demo, all transactions belong to user.hub)
-    return [{ hub: user.hub, revenue: filteredTx.reduce((s,t) => s+t.amount, 0), entries: filteredTx.length }];
-  }, [filteredTx, user.hub]);
+    const byHub: Record<string, { revenue: number; entries: number }> = {};
+    filteredTx.forEach(t => {
+      // Fall back to the viewing user's own hub only when a transaction has no hub_id
+      // (legacy rows created before hub_id was tracked)
+      const key = t.hub_id || `unassigned:${user.hub}`;
+      if (!byHub[key]) byHub[key] = { revenue: 0, entries: 0 };
+      byHub[key].revenue += t.amount;
+      byHub[key].entries += 1;
+    });
+    return Object.entries(byHub)
+      .map(([key, d]) => ({
+        hub: key.startsWith('unassigned:') ? key.replace('unassigned:', '') : (hubNames[key] || 'Unknown Hub'),
+        revenue: d.revenue,
+        entries: d.entries,
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+  }, [filteredTx, user.hub, hubNames]);
 
   // ── Export functions ─────────────────────────────
 

@@ -16,12 +16,14 @@ export const AirlineCommissions = ({ onBack }: { onBack: () => void }) => {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    supabase.from('pricing_config')
-      .select('config_value')
-      .eq('config_key', 'airline_commissions')
-      .single()
-      .then(({ data }) => {
-        if (data?.config_value) {
+    const fetchCommissions = async () => {
+      try {
+        const { data, error } = await supabase.from('pricing_config')
+          .select('config_value')
+          .eq('config_key', 'airline_commissions')
+          .single();
+
+        if (data?.config_value && !error) {
           const parsed: Record<string, number> = data.config_value as any;
           const asStr: Record<string, string> = {};
           Object.entries(parsed).forEach(([k, v]) => { asStr[k] = String(v); });
@@ -36,8 +38,7 @@ export const AirlineCommissions = ({ onBack }: { onBack: () => void }) => {
             setCommissions(asStr);
           }
         }
-        setLoading(false);
-      }).catch(() => {
+      } catch (err) {
         const cached = localStorage.getItem('ehi_airline_commissions');
         if (cached) {
           const parsed = JSON.parse(cached);
@@ -45,8 +46,11 @@ export const AirlineCommissions = ({ onBack }: { onBack: () => void }) => {
           Object.entries(parsed).forEach(([k, v]) => { asStr[k] = String(v); });
           setCommissions(asStr);
         }
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+    fetchCommissions();
   }, []);
 
   const persist = async (data: Record<string, string>) => {

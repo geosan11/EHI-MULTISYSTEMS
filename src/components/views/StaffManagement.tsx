@@ -144,13 +144,25 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
     try {
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token || '';
+      const url = localStorage.getItem('ehi_supabase_url') || (import.meta as any).env?.VITE_SUPABASE_URL || '';
       const res = await fetch('/api/admin/set-staff-active', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 
+          'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${token}`,
+          'x-supabase-url': url
+        },
         body: JSON.stringify({ userId: member.id, active: !member.active }),
       });
       const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error);
+      if (!res.ok || data.error) {
+        if (res.status === 503) {
+          const { error } = await supabase.from('user_profiles').update({ active: !member.active }).eq('id', member.id);
+          if (error) throw new Error(`Backend not configured, direct DB update failed: ${error.message}`);
+        } else {
+          throw new Error(data.error);
+        }
+      }
       await loadData();
       setSuccess(`${member.name} ${!member.active ? 'activated' : 'deactivated'}.`);
     } catch (err: any) {

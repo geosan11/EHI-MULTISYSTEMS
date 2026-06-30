@@ -120,6 +120,7 @@ export const CargoForm = ({
   const [serialNumber, setSerialNumber] = useState<number>(getLocalSerial);
   const [consignee, setConsignee] = useState(CORPORATE_CLIENTS[0] as string);
   const [airline, setAirline] = useState("Arik Air");
+  const [customAirline, setCustomAirline] = useState("");
   const [customConsignee, setCustomConsignee] = useState("");
   const [awb, setAwb] = useState(generateAwb());
   const [pcs, setPcs] = useState("1");
@@ -150,26 +151,30 @@ export const CargoForm = ({
   );
 
   useEffect(() => {
-    supabase.from('standard_cargo_rates').select('route_name, rate_per_kg').then(({ data }) => {
-      if (data && data.length > 0) {
-        const rates: Record<string, number> = {};
-        data.forEach((r: any) => { rates[r.route_name] = Number(r.rate_per_kg); });
-        setStandardRates(rates);
-        localStorage.setItem("ehi_standard_cargo_rates", JSON.stringify(rates));
-      } else {
+    const fetchRates = async () => {
+      try {
+        const { data, error } = await supabase.from('standard_cargo_rates').select('route_name, rate_per_kg');
+        if (data && data.length > 0 && !error) {
+          const rates: Record<string, number> = {};
+          data.forEach((r: any) => { rates[r.route_name] = Number(r.rate_per_kg); });
+          setStandardRates(rates);
+          localStorage.setItem("ehi_standard_cargo_rates", JSON.stringify(rates));
+        } else {
+          const saved = localStorage.getItem("ehi_standard_cargo_rates");
+          if (saved) setStandardRates(JSON.parse(saved));
+          else {
+            const initial: Record<string, number> = {};
+            CARGO_ROUTES.forEach((r) => (initial[r] = 500));
+            setStandardRates(initial);
+            localStorage.setItem("ehi_standard_cargo_rates", JSON.stringify(initial));
+          }
+        }
+      } catch (err) {
         const saved = localStorage.getItem("ehi_standard_cargo_rates");
         if (saved) setStandardRates(JSON.parse(saved));
-        else {
-          const initial: Record<string, number> = {};
-          CARGO_ROUTES.forEach((r) => (initial[r] = 500));
-          setStandardRates(initial);
-          localStorage.setItem("ehi_standard_cargo_rates", JSON.stringify(initial));
-        }
       }
-    }).catch(() => {
-      const saved = localStorage.getItem("ehi_standard_cargo_rates");
-      if (saved) setStandardRates(JSON.parse(saved));
-    });
+    };
+    fetchRates();
   }, []);
 
   // Auto calculate amount for retail
@@ -185,28 +190,48 @@ export const CargoForm = ({
 
   const [availableAirlines, setAvailableAirlines] = useState<string[]>([
     "Arik Air",
-    "Green Africa",
-    "United Nigeria",
+    "Green Africa Airways",
+    "United Nigeria Airlines",
     "Other",
   ]);
 
   useEffect(() => {
-    const rawCommissions = localStorage.getItem("ehi_airline_commissions");
-    if (rawCommissions) {
+    const loadAirlines = async () => {
       try {
-        const parsed = JSON.parse(rawCommissions);
-        const keys = Object.keys(parsed);
-        if (keys.length > 0) {
-          setAvailableAirlines(keys);
-          if (!keys.includes(airline)) {
-            setAirline(keys[0]);
+        const { data, error } = await supabase.from('pricing_config')
+          .select('config_value')
+          .eq('config_key', 'airline_commissions')
+          .single();
+
+        if (data && data.config_value && !error) {
+          const parsed = data.config_value;
+          const keys = Object.keys(parsed);
+          if (keys.length > 0) {
+            setAvailableAirlines(keys);
+            if (!keys.includes(airline)) {
+              setAirline(keys[0]);
+            }
+            localStorage.setItem("ehi_airline_commissions", JSON.stringify(parsed));
+          }
+        } else {
+          const rawCommissions = localStorage.getItem("ehi_airline_commissions");
+          if (rawCommissions) {
+            const parsed = JSON.parse(rawCommissions);
+            const keys = Object.keys(parsed);
+            if (keys.length > 0) {
+              setAvailableAirlines(keys);
+              if (!keys.includes(airline)) {
+                setAirline(keys[0]);
+              }
+            }
           }
         }
       } catch (e) {
-        // ignore
+        // Ignore
       }
-    }
-  }, []);
+    };
+    loadAirlines();
+  }, [airline]);
 
   const [successTx, setSuccessTx] = useState<Transaction | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -541,20 +566,61 @@ export const CargoForm = ({
     if (!isRetailFormValid || submitting) return;
     setSubmitting(true);
 
+    const actualAirline = airline === "Other" && customAirline.trim() ? customAirline.trim() : airline;
+
+    // Check if new custom airline needs to be added to db and local state
+    if (airline === "Other" && actualAirline) {
+      if (!availableAirlines.includes(actualAirline)) {
+        const updatedAirlines = [...availableAirlines.filter(a => a !== "Other"), actualAirline, "Other"];
+        setAvailableAirlines(updatedAirlines);
+        
+        try {
+          const { data, error } = await supabase.from('pricing_config')
+            .select('config_value')
+            .eq('config_key', 'airline_commissions')
+            .single();
+
+          if (data && data.config_value && !error) {
+            const parsed = data.config_value as Record<string, number>;
+            parsed[actualAirline] = 5; // Default 5% commission
+            await supabase.from('pricing_config').upsert({
+              config_key: 'airline_commissions',
+              config_value: parsed,
+            }, { onConflict: 'config_key' });
+            localStorage.setItem("ehi_airline_commissions", JSON.stringify(parsed));
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+    }
+
     const pickupPin = generatePickupPin();
 
     const airlineCode = ({ 'Arik Air': 'AK', 'Green Africa': 'GA', 'Green Africa Airways': 'GA', 'United Nigeria': 'UN', 'United Nigeria Airlines': 'UN' } as Record<string, string>)[airline] || null;
 
     let resolvedAwb = awb;
     try {
-      const { data: rpcData } = await supabase.rpc('allocate_awb', { p_airline_code: airlineCode });
-      if (rpcData) resolvedAwb = rpcData;
-    } catch { /* fall back to form AWB */ }
+      if (user.hub_id && airlineCode) {
+        const { data: rpcData, error: rpcError } = await supabase.rpc('allocate_awb', {
+          p_hub_id: user.hub_id,
+          p_airline: airlineCode,
+        });
+        if (rpcError) {
+          console.warn('allocate_awb RPC failed, using form-entered AWB:', rpcError.message);
+        } else if (rpcData) {
+          resolvedAwb = rpcData;
+        }
+      }
+    } catch (err) {
+      console.warn('allocate_awb RPC threw, using form-entered AWB:', err);
+      /* fall back to form AWB */
+    }
 
     const nextSerial = incrementLocalSerial();
     setSerialNumber(nextSerial);
 
-    const summaryStr = `${airline} · ${resolvedAwb} · ${pcs}pcs · ${kg}KG · ${route} · ${contentType}`;
+    const summaryStr = `${actualAirline} · ${resolvedAwb} · ${pcs}pcs · ${kg}KG · ${route} · ${contentType}`;
 
     const tx: Transaction = {
       id: uid("CG"),
@@ -569,7 +635,7 @@ export const CargoForm = ({
       type: "cargo",
       status: "Intake",
       awb_tag_number: resolvedAwb,
-      airline: airline,
+      airline: actualAirline,
       pieces: parseInt(pcs) || 1,
       kg: Math.round(parseFloat(kg)) || 0,
       pickupPin,
@@ -618,6 +684,7 @@ export const CargoForm = ({
     setConsignee(CORPORATE_CLIENTS[0] as string);
     setCustomConsignee("");
     setAirline("Arik Air");
+    setCustomAirline("");
     setAwb(generateAwb());
     setPcs("1");
     setKg("");
@@ -1040,6 +1107,14 @@ export const CargoForm = ({
                     </option>
                   ))}
                 </select>
+                {airline === "Other" && (
+                  <input
+                    placeholder="Enter new airline name"
+                    value={customAirline}
+                    onChange={(e) => setCustomAirline(e.target.value)}
+                    className={`${formInputClass} mt-2`}
+                  />
+                )}
               </div>
 
               <div>

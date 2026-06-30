@@ -7,6 +7,8 @@ import { validateScan, logScanEvent } from '../../lib/scanLogic';
 
 import { ArrivalsView } from './ArrivalsView';
 
+import { ProofOfDeliveryForm } from './ProofOfDelivery';
+
 // Standard Web Audio API synthesizer for a subtle, high-pitched electronic confirmation blip
 const playBeep = () => {
   try {
@@ -96,6 +98,11 @@ export const Scanner = ({
   const [submittingBatch, setSubmittingBatch] = useState(false);
   const [showQueueSummary, setShowQueueSummary] = useState(false);
   const [showArrivalsView, setShowArrivalsView] = useState(false);
+  const [activePodCapture, setActivePodCapture] = useState<{ref: string, name: string, resultData: any} | null>(null);
+
+  // Delivery PIN states
+  const [pendingDelivery, setPendingDelivery] = useState<{ref: string, expectedPin: string | null, resultData: any} | null>(null);
+  const [pinInput, setPinInput] = useState('');
 
   // New states for the slide-up popup
   const [popup, setPopup] = useState<{
@@ -209,7 +216,10 @@ export const Scanner = ({
         playBeep();
         
         if (result.type === 'SUCCESS_DELIVER') {
-          message = 'Status updated to: DELIVERED';
+          setPendingDelivery({ ref: code, expectedPin: result.cargo?.pickupPin || null, resultData: result });
+          processingRef.current = false;
+          setProcessing(false);
+          return;
         } else if (result.type === 'SUCCESS_ARRIVE') {
           message = 'Status updated to: ARRIVED';
         } else if (result.type === 'SUCCESS_DEPART') {
@@ -408,6 +418,108 @@ export const Scanner = ({
     setManualRef('');
   };
 
+  const handleCommitDelivery = async () => {
+    if (!pendingDelivery) return;
+
+    if (!pinInput || pinInput.trim() === '') {
+      if (showToast) showToast({ message: 'Please enter the pickup PIN.', type: 'error' });
+      return;
+    }
+
+    const { ref, resultData } = pendingDelivery;
+    let actualPin = pendingDelivery.expectedPin;
+
+    if (!actualPin && resultData.cargo?.remark) {
+      try {
+        const parsed = JSON.parse(resultData.cargo.remark);
+        if (parsed && parsed.pin) actualPin = parsed.pin;
+      } catch (e) {}
+    }
+
+    if (pinInput !== actualPin) {
+      if (showToast) showToast({ message: 'Incorrect PIN provided.', type: 'error' });
+      return;
+    }
+    
+    // Switch to POD form
+    setActivePodCapture({ ref, name: resultData.cargo?.name || 'Unknown', resultData });
+    setPendingDelivery(null);
+    setPinInput('');
+  };
+
+  const handlePodComplete = async () => {
+    if (!activePodCapture) return;
+    const { ref, resultData } = activePodCapture;
+    const message = 'Status updated to: DELIVERED';
+
+    if (isBatchQueueMode) {
+      let isDuplicate = false;
+      setBatchQueue(prev => {
+        if (prev.some(item => item.ref === ref && item.mode === 'DELIVER')) {
+          isDuplicate = true;
+          return prev;
+        }
+        return [{
+          ref: ref,
+          name: resultData.cargo?.name || ref,
+          result: resultData.type,
+          mode: 'DELIVER',
+          destination: resultData.cargo?.destination,
+          time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+          kg: resultData.cargo?.kg,
+        }, ...prev];
+      });
+
+      if (isDuplicate) {
+        setPopup({
+          visible: true,
+          type: 'ALREADY_PROCESSED',
+          mode: 'DELIVER',
+          entryRef: ref,
+          consignee: resultData.cargo?.name || 'Unknown',
+          hubName: currentHub,
+          message: `${ref} is already in the batch queue for DELIVER`,
+        });
+        setActivePodCapture(null);
+        return;
+      }
+    } else {
+      await logScanEvent(
+        ref,
+        'DELIVER',
+        currentHub,
+        user.name,
+        resultData.cargo?.destination
+      );
+
+      setBatchItems(prev => [{
+        ref: ref,
+        name: resultData.cargo?.name || ref,
+        result: resultData.type,
+        time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })
+      }, ...prev].slice(0, 50));
+    }
+
+    setPopup({
+      visible: true,
+      type: resultData.type,
+      mode: 'DELIVER',
+      entryRef: ref,
+      consignee: resultData.cargo?.name || 'Unknown',
+      hubName: currentHub,
+      message
+    });
+
+    if (showToast) showToast({ message, type: 'success' });
+    
+    // Auto dismiss success popup
+    popupTimerRef.current = setTimeout(() => {
+      setPopup(prev => ({ ...prev, visible: false }));
+    }, 4000);
+
+    setActivePodCapture(null);
+  };
+
   // Stop scanner on unmount
   useEffect(() => {
     return () => {
@@ -437,6 +549,20 @@ export const Scanner = ({
   // Arrivals List View
   if (showArrivalsView) {
     return <ArrivalsView user={user} onBack={() => setShowArrivalsView(false)} />;
+  }
+
+  if (activePodCapture) {
+    return (
+      <div className="fixed inset-0 z-[150] bg-[var(--color-bg)] flex flex-col">
+        <ProofOfDeliveryForm
+          awbNumber={activePodCapture.ref}
+          consigneeName={activePodCapture.name}
+          user={user}
+          onComplete={handlePodComplete}
+          onCancel={() => setActivePodCapture(null)}
+        />
+      </div>
+    );
   }
 
   // Batch Queue Summary View
@@ -895,6 +1021,59 @@ export const Scanner = ({
           </div>
         )}
       </div>
+
+      {/* --- PIN MODAL FOR DELIVERY --- */}
+      {pendingDelivery && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          background: 'rgba(11,15,25,0.8)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 16
+        }}>
+          <div className="bg-[var(--color-surface-card)] rounded-[var(--radius-lg)] border border-[var(--color-border)] p-6 w-full max-w-[320px] shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="flex flex-col items-center mb-5">
+              <div className="w-12 h-12 bg-[rgba(168,85,247,0.1)] rounded-full flex items-center justify-center mb-3">
+                <CheckCircle size={24} color="#a855f7" />
+              </div>
+              <h2 className="text-[16px] font-sans font-bold text-[var(--color-foreground)] tracking-tight">Delivery Verification</h2>
+              <p className="text-[11px] font-mono text-[var(--color-muted)] text-center mt-1">
+                Enter the pickup PIN for:<br/>
+                <span className="text-[var(--color-accent-amber)] font-bold">{pendingDelivery.ref}</span>
+              </p>
+            </div>
+
+            <input
+              type="text"
+              autoFocus
+              value={pinInput}
+              onChange={e => setPinInput(e.target.value)}
+              placeholder="Enter 4-6 digit PIN"
+              className="ehi-input text-center text-lg tracking-widest font-mono mb-4"
+              maxLength={8}
+            />
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setPendingDelivery(null);
+                  setPinInput('');
+                }}
+                className="flex-1 py-3 bg-[var(--color-surface-2)] text-[var(--color-foreground)] text-[12px] font-mono font-bold rounded-[var(--radius-md)] cursor-pointer hover:bg-[var(--color-surface-3)] transition-colors"
+              >
+                CANCEL
+              </button>
+              <button
+                onClick={handleCommitDelivery}
+                disabled={!pinInput.trim()}
+                className="flex-1 py-3 bg-[#a855f7] text-white text-[12px] font-mono font-bold rounded-[var(--radius-md)] cursor-pointer hover:bg-opacity-90 transition-colors disabled:opacity-50"
+              >
+                CONFIRM
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- SLIDE-UP SCAN RESULT POPUP --- */}
       <div 

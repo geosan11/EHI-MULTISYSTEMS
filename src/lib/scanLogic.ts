@@ -169,6 +169,8 @@ export async function validateScan(
     content,
     pieces: cargo.total_pcs,
     kg: cargo.total_kg || cargo.gross_weight,
+    pickupPin: cargo.pickup_pin || null,
+    remark: cargo.remark || null,
   };
 
   // 2. Normalize hub name for comparison

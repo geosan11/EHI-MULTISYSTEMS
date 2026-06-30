@@ -37,7 +37,8 @@ import {
   MapPin,
   Percent,
   Users,
-  Plane
+  Plane,
+  CreditCard
 } from 'lucide-react';
 
 import { StaffManagement } from './StaffManagement';
@@ -208,6 +209,13 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
       {/* Finance */}
       <SectionLabel label="Finance" />
       <div className="space-y-2">
+        <MenuItem
+          icon={CreditCard}
+          title="Credit & Debit"
+          subtitle="View receivables and payables (Airline commissions)"
+          onClick={() => onChangeTab('Credit & Debit')}
+          disabled={!canAccessAccounting}
+        />
         <MenuItem
           icon={Layers}
           title={

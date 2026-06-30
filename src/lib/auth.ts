@@ -110,13 +110,42 @@ export interface CreateStaffPayload {
 export async function createStaffAccount(payload: CreateStaffPayload): Promise<{ id: string; email: string }> {
   const { data: sess } = await supabase.auth.getSession();
   const token = sess.session?.access_token || '';
+  const url = localStorage.getItem('ehi_supabase_url') || (import.meta as any).env?.VITE_SUPABASE_URL || '';
   const res = await fetch('/api/admin/create-staff', {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    headers: { 
+      'Content-Type': 'application/json', 
+      'Authorization': `Bearer ${token}`,
+      'x-supabase-url': url
+    },
     body:    JSON.stringify(payload),
   });
   const data = await res.json();
-  if (!res.ok || data.error) throw new Error(data.error || 'Failed to create account');
+  if (!res.ok || data.error) {
+    if (res.status === 503) {
+      // Fallback: If no service key on backend, try client-side signUp (requires email confirm to be off in Supabase)
+      const anonKey = localStorage.getItem('ehi_supabase_anon_key') || (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
+      if (!anonKey) throw new Error('Server not configured: Add SUPABASE_SERVICE_ROLE_KEY to Secrets, or configure anon key.');
+      
+      const { createClient } = await import('@supabase/supabase-js');
+      const tempClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
+      const { data: signUpData, error: signUpErr } = await tempClient.auth.signUp({
+        email: payload.email,
+        password: payload.password,
+        options: { data: { name: payload.name, role: payload.role, hub_type: payload.hub_type, hub_id: payload.hub_id } }
+      });
+      if (signUpErr) throw new Error(`Backend not configured, client signUp failed: ${signUpErr.message}`);
+      if (!signUpData.user) throw new Error('Signup failed: No user returned');
+      
+      // Update profile
+      await supabase.from('user_profiles').upsert({ 
+        id: signUpData.user.id, email: signUpData.user.email || payload.email, name: payload.name, role: payload.role, hub_id: payload.hub_id, hub_type: payload.hub_type, active: true 
+      });
+      
+      return { id: signUpData.user.id, email: signUpData.user.email || payload.email };
+    }
+    throw new Error(data.error || 'Failed to create account');
+  }
   return { id: data.id, email: data.email };
 }
 
@@ -139,11 +168,32 @@ export async function updateStaffProfile(
   userId: string,
   updates: { role?: string; hub_id?: string; hub_type?: string; active?: boolean; name?: string; phone?: string; can_edit_ledger?: boolean }
 ): Promise<void> {
-  const { error } = await supabase
-    .from('user_profiles')
-    .update(updates)
-    .eq('id', userId);
-  if (error) throw new Error(error.message);
+  const { data: sess } = await supabase.auth.getSession();
+  const token = sess.session?.access_token || '';
+  const url = localStorage.getItem('ehi_supabase_url') || (import.meta as any).env?.VITE_SUPABASE_URL || '';
+  
+  // Try using the backend first (needed to bypass RLS for roles)
+  const res = await fetch('/api/admin/update-staff', {
+    method:  'POST',
+    headers: { 
+      'Content-Type': 'application/json', 
+      'Authorization': `Bearer ${token}`,
+      'x-supabase-url': url
+    },
+    body:    JSON.stringify({ userId, updates }),
+  });
+  const data = await res.json();
+  
+  if (!res.ok || data.error) {
+    // If backend isn't configured, fallback to client-side supabase request
+    // This requires the user's role to be allowed to update user_profiles in RLS
+    if (res.status === 503) {
+      const { error } = await supabase.from('user_profiles').update(updates).eq('id', userId);
+      if (error) throw new Error(`Backend not configured, and direct DB update failed: ${error.message}`);
+      return;
+    }
+    throw new Error(data.error || 'Failed to update profile');
+  }
 }
 
 export async function getSession(): Promise<UserProfile | null> {
