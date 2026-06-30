@@ -825,7 +825,7 @@ export const CargoForm = ({
   };
 
   const formInputClass =
-    "w-full h-12 px-4 text-[14px] rounded-[var(--radius-sm)] bg-[var(--color-input-bg)] text-[var(--color-input-text)] border border-[var(--color-border)] font-sans focus:outline-none focus:border-[var(--color-accent-amber)] focus:ring-2 focus:ring-[var(--glow-amber)] transition-all";
+    "w-full h-12 px-4 text-[16px] rounded-[var(--radius-sm)] bg-[var(--color-input-bg)] text-[var(--color-input-text)] border border-[var(--color-border)] font-sans focus:outline-none focus:border-[var(--color-accent-amber)] focus:ring-2 focus:ring-[var(--glow-amber)] transition-all";
 
   const renderLabel = (icon: any, text: string) => {
     const Icon = icon;
@@ -1607,7 +1607,7 @@ export const CargoForm = ({
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       {renderLabel(Package, "Pcs (Boxes/Parcels)")}
                       <input
@@ -1634,7 +1634,7 @@ export const CargoForm = ({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       {renderLabel(Layers, "Cargo Content Type")}
                       <select

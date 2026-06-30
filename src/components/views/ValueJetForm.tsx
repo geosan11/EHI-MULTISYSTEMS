@@ -151,7 +151,7 @@ export const ValueJetForm = ({
     });
   };
 
-  const formInputClass = "w-full h-12 px-4 text-[14px] rounded-[var(--radius-sm)] bg-[var(--color-input-bg)] text-[var(--color-input-text)] border border-[var(--color-border)] font-sans focus:outline-none focus:border-[var(--color-accent-cobalt)] focus:ring-2 focus:ring-[var(--glow-cobalt)] transition-colors";
+  const formInputClass = "w-full h-12 px-4 text-[16px] rounded-[var(--radius-sm)] bg-[var(--color-input-bg)] text-[var(--color-input-text)] border border-[var(--color-border)] font-sans focus:outline-none focus:border-[var(--color-accent-cobalt)] focus:ring-2 focus:ring-[var(--glow-cobalt)] transition-colors";
 
   if (successTx) {
     const s = successTx;

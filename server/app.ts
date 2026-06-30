@@ -98,7 +98,7 @@ export function createApp() {
   app.post('/api/admin/create-staff', adminLimiter, async (req, res) => {
     const adminCtx = await requireAdminCaller(req, res);
     if (!adminCtx) return;
-    const { admin: adminClient } = adminCtx;
+    const { adminClient } = { adminClient: adminCtx.admin };
 
     const { name, email, password, role, hub_id, hub_type, phone } = req.body;
     if (!name || !email || !password || !role || !hub_id) {
@@ -203,10 +203,18 @@ export function createApp() {
     }
   });
 
+  // Catch-all for any /api/* path that didn't match a registered route above —
+  // without this, an unmatched sub-path falls through to Express's default
+  // 404 page (HTML, not JSON), which the client can't parse for a useful message.
   app.use('/api', (req, res) => {
     res.status(404).json({ error: `No API route matches ${req.method} ${req.originalUrl}` });
   });
 
+  // Global error handler — MUST be registered last, and MUST have exactly
+  // 4 parameters for Express to recognise it as an error handler. This is
+  // the final safety net: any error thrown anywhere above that wasn't
+  // caught by a route's own try/catch lands here instead of producing
+  // Express's raw, non-JSON default error response.
   app.use((err: any, req: any, res: any, next: any) => {
     console.error('Unhandled API error:', err);
     if (res.headersSent) return next(err);
