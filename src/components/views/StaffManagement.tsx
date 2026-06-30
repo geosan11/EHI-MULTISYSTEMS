@@ -163,7 +163,7 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
           const { error } = await supabase.from('user_profiles').update({ active: !member.active }).eq('id', member.id);
           if (error) throw new Error(`Backend not configured, direct DB update failed: ${error.message}`);
         } else {
-          throw new Error(data.error);
+          throw new Error(data.error || `Server returned error status ${res.status}`);
         }
       }
       await loadData();

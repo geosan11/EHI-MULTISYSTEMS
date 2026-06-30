@@ -22,6 +22,7 @@
     "dexie": "^4.4.4",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
+    "serverless-http": "^3.2.0",
     "html5-qrcode": "^2.3.8",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.546.0",
