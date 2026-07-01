@@ -370,7 +370,7 @@ export const MarketingWorkspace = ({
                   <MessageSquare size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
                   <input
                     type="tel"
-                    placeholder="Customer Phone (WhatsApp Receipt Required)"
+                    placeholder="Include country code for foreign customers (e.g. +44, +1, +233)"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className={`w-full h-11 pl-9 pr-3 text-sm rounded bg-[var(--color-surface-1)] border border-[rgba(255,255,255,0.07)] text-[var(--color-foreground)] font-sans ${mktgFocusClasses}`}

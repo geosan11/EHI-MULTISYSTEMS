@@ -153,7 +153,7 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
                 type="tel" 
                 value={receiverPhone} 
                 onChange={e => setReceiverPhone(e.target.value)} 
-                placeholder="Optional contact number" 
+                placeholder="Include country code for foreign customers (e.g. +44, +1, +233)" 
                 className="ehi-input" 
               />
             </div>

@@ -281,7 +281,7 @@ export const ValueJetForm = ({
             </span>
             <input
               type="tel"
-              placeholder="e.g. 08012345678"
+              placeholder="Include country code for foreign customers (e.g. +44, +1, +233)"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               className={formInputClass}

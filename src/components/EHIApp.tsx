@@ -673,7 +673,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         </main>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 w-full z-50 md:hidden block bg-[var(--color-nav-bg)]">
+      <div className="fixed bottom-0 left-0 right-0 w-full z-50 md:hidden block bg-[var(--color-nav-bg)] ehi-bottom-nav-wrapper">
         <BottomNav user={user} currentTab={currentTab} onChangeTab={setCurrentTab} />
       </div>
 

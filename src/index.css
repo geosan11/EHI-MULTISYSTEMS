@@ -506,9 +506,16 @@ button:active:not(:disabled) {
     max-width: 100% !important;
     padding-bottom: 0 !important;
   }
-  main {
-    padding-bottom: calc(62px + env(safe-area-inset-bottom)) !important;
-  }
+}
+
+main {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 0 !important;
+}
+
+.ehi-bottom-nav-wrapper {
+  padding-bottom: calc(62px + env(safe-area-inset-bottom)) !important;
 }
 
 @media (min-width: 768px) {

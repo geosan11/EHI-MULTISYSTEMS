@@ -1115,7 +1115,7 @@ export const CargoForm = ({
                   )}
                   <input
                     type="tel"
-                    placeholder="Consignee Phone (destination) (Optional)"
+                    placeholder="Include country code for foreign customers (e.g. +44, +1, +233)"
                     value={consigneePhone}
                     onChange={(e) => setConsigneePhone(e.target.value)}
                     className={formInputClass}
@@ -1354,7 +1354,7 @@ export const CargoForm = ({
                 )}
                 <input
                   type="tel"
-                  placeholder="e.g. 08012345678"
+                  placeholder="Include country code for foreign customers (e.g. +44, +1, +233)"
                   value={senderPhone}
                   onChange={(e) => setSenderPhone(e.target.value)}
                   className={formInputClass}
@@ -1656,7 +1656,7 @@ export const CargoForm = ({
                       )}
                       <input
                         type="tel"
-                        placeholder="e.g. 08011223344"
+                        placeholder="Include country code for foreign customers (e.g. +44, +1, +233)"
                         value={intakeSenderPhone}
                         onChange={(e) => setIntakeSenderPhone(e.target.value)}
                         className={formInputClass}
