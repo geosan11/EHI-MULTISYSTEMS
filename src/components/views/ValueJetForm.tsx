@@ -52,7 +52,7 @@ export const ValueJetForm = ({
   const parsedOverride = parseFloat(amountOverride) || 0;
   const totalAmount = amountOverride !== "" ? parsedOverride : minAmount;
 
-  const isValid = name.trim().length > 0 && flight.trim().length > 0 && kgVal > 0 && phone.trim().length > 0 && (amountOverride === "" || parsedOverride >= minAmount);
+  const isValid = name.trim().length > 0 && flight.trim().length > 0 && kgVal > 0 && (amountOverride === "" || parsedOverride >= minAmount);
 
   const handleSubmit = () => {
     if (!isValid || submitting) return;
@@ -301,7 +301,7 @@ export const ValueJetForm = ({
           <div className="space-y-1.5">
             <span className="text-[12px] font-sans font-semibold text-[var(--color-light-muted)] font-bold flex items-center gap-1.5">
               <MessageSquare size={14} className="text-[var(--color-accent-cobalt)]" />
-              Passenger Phone — WhatsApp Receipt (Required)
+              Passenger Phone — WhatsApp Receipt (Optional)
             </span>
             <input
               type="tel"
