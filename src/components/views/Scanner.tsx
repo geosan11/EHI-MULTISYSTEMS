@@ -6,6 +6,7 @@ import { validateScan, logScanEvent } from '../../lib/scanLogic';
 // imports removed
 
 import { ArrivalsView } from './ArrivalsView';
+import { IncomingToHub } from './IncomingToHub';
 
 import { ProofOfDeliveryForm } from './ProofOfDelivery';
 
@@ -97,6 +98,7 @@ export const Scanner = ({
   }[]>([]);
   const [submittingBatch, setSubmittingBatch] = useState(false);
   const [showQueueSummary, setShowQueueSummary] = useState(false);
+  const [showIncomingView, setShowIncomingView] = useState(false);
   const [showArrivalsView, setShowArrivalsView] = useState(false);
   const [activePodCapture, setActivePodCapture] = useState<{ref: string, name: string, resultData: any} | null>(null);
 
@@ -539,6 +541,10 @@ export const Scanner = ({
     };
   }, []);
 
+  if (showIncomingView) {
+    return <IncomingToHub user={user} onBack={() => setShowIncomingView(false)} />;
+  }
+
   // Arrivals List View
   if (showArrivalsView) {
     return <ArrivalsView user={user} onBack={() => setShowArrivalsView(false)} />;
@@ -718,6 +724,13 @@ export const Scanner = ({
           📍 {currentHub}
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowIncomingView(true)}
+            className="flex items-center gap-1.5 text-[11px] font-mono font-semibold text-[var(--color-accent-cobalt)] hover:text-[var(--color-foreground)] bg-[rgba(59,130,246,0.1)] hover:bg-[rgba(59,130,246,0.2)] border border-[rgba(59,130,246,0.2)] px-3 py-1.5 rounded-full transition-colors cursor-pointer"
+          >
+            <Plane size={12} />
+            Incoming
+          </button>
           <button
             onClick={() => setShowArrivalsView(true)}
             className="flex items-center gap-1.5 text-[11px] font-mono font-semibold text-[var(--color-success)] hover:text-[var(--color-foreground)] bg-[rgba(16,185,129,0.1)] hover:bg-[rgba(16,185,129,0.2)] border border-[rgba(16,185,129,0.2)] px-3 py-1.5 rounded-full transition-colors cursor-pointer"
