@@ -21,22 +21,39 @@ export const IncomingToHub = ({ user, onBack }: { user: User; onBack: () => void
   const fetchIncoming = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const isAdmin = ['super_admin', 'admin', 'accountant', 'auditor'].includes(user.role);
+
+      let q = supabase
         .from('cargo_entries')
         .select('entry_ref, id, consignee_name, route, total_pcs, total_kg, content_type, airline, awb_tag_number, created_at, status')
-        .eq('status', 'In-Transit')
-        .order('created_at', { ascending: false })
-        .limit(200);
+        .eq('status', 'In-Transit');
+
+      // route is free text (e.g. "Lagos", "Abuja - Zone 2"), not a hub_id
+      // foreign key, so there's no clean .eq() to scope this by destination.
+      // Applying the same fuzzy-word-match used in scanLogic.ts's
+      // isCorrectDestination check server-side via ilike, instead of
+      // fetching every in-transit row company-wide and filtering client-side
+      // -- that pattern leaked full cross-hub cargo details (consignee
+      // names, AWB numbers, routes) in the raw network response, same class
+      // of issue as the SupportTickets fix. Admin-tier roles still see
+      // everything, matching how the rest of the app scopes visibility.
+      if (!isAdmin) {
+        const hubWords = user.hub.toLowerCase().split(' ').filter(w => w.length > 3);
+        if (hubWords.length > 0) {
+          q = q.or(hubWords.map(w => `route.ilike.%${w}%`).join(','));
+        }
+      }
+
+      const { data, error } = await q.order('created_at', { ascending: false }).limit(200);
 
       if (error) { console.error('Incoming fetch error:', error); return; }
 
-      // route is free text (e.g. "Lagos", "Abuja - Zone 2"), not a hub_id
-      // foreign key, so destination matching happens client-side against
-      // the current hub's name -- same fuzzy-word-match approach already
-      // used in scanLogic.ts's isCorrectDestination check, kept consistent
-      // rather than inventing a different matching rule for this view.
+      // Belt-and-suspenders: keep the client-side match as a final check too,
+      // since ilike is a broader net than the exact substring check below,
+      // and this costs nothing now that the server-side query already did
+      // the heavy lifting of not shipping cross-hub data over the wire.
       const hubWords = user.hub.toLowerCase().split(' ').filter(w => w.length > 3);
-      const filtered = (data || []).filter(c => {
+      const filtered = isAdmin ? (data || []) : (data || []).filter(c => {
         const dest = (c.route || '').toLowerCase();
         return hubWords.some(w => dest.includes(w));
       });

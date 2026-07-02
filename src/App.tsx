@@ -12,11 +12,30 @@ const PublicTrackingPage = () => {
   const [ref, setRef] = useState(waybillId || '');
   const [searched, setSearched] = useState(!!waybillId);
   const [result, setResult] = useState<any>(null);
+  const [timeline, setTimeline] = useState<{ event_type: string; hub_name: string; created_at: string }[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const fetchTimeline = async (cargoRef: string) => {
+    // Explicit column list (public page): event_type/hub_name/created_at
+    // only. scanned_by_name (staff identity) and alert_reason/
+    // cargo_destination (internal ops detail from wrong-destination
+    // catches) are deliberately excluded from what a customer can see.
+    // .in() on event_type does the same exclusion at the query level,
+    // not just in rendering -- a WRONG_DESTINATION_ALERT should never
+    // reach this page's network response at all.
+    const { data } = await supabase
+      .from('tracking_events')
+      .select('event_type, hub_name, created_at')
+      .eq('cargo_ref', cargoRef)
+      .in('event_type', ['DEPART', 'ARRIVE', 'DELIVER'])
+      .order('created_at', { ascending: true });
+    setTimeline(data || []);
+  };
 
   const searchTracking = async (query: string) => {
     setLoading(true);
     setSearched(true);
+    setTimeline([]);
     
     // Check Cargo Entries
     // NOTE: explicit column list, not select('*') — this page is public and
@@ -40,6 +59,7 @@ const PublicTrackingPage = () => {
         pieces: c.total_pcs,
         status: c.status || 'Intake'
       });
+      fetchTimeline(c.entry_ref);
       setLoading(false);
       return;
     }
@@ -59,6 +79,7 @@ const PublicTrackingPage = () => {
         route: m.route,
         status: m.status || 'Intake'
       });
+      fetchTimeline(m.entry_ref);
       setLoading(false);
       return;
     }
@@ -80,6 +101,7 @@ const PublicTrackingPage = () => {
         pieces: v.total_pcs,
         status: v.status || 'Delivered'
       });
+      fetchTimeline(v.transaction_id);
       setLoading(false);
       return;
     }
@@ -278,6 +300,40 @@ const PublicTrackingPage = () => {
                   </div>
                 </div>
               </div>
+
+              {timeline.length > 0 && (
+                <div style={{ padding: '16px 20px', borderTop: '1px solid #F1F5F9' }}>
+                  <div style={{ fontSize: 9, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'monospace', marginBottom: 12 }}>
+                    Shipment history
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {timeline.map((ev, i) => {
+                      const label = ev.event_type === 'DEPART' ? 'Departed'
+                        : ev.event_type === 'ARRIVE' ? 'Arrived'
+                        : 'Delivered';
+                      const dotColor = ev.event_type === 'DELIVER' ? '#10B981'
+                        : ev.event_type === 'ARRIVE' ? '#F59E0B'
+                        : '#3B82F6';
+                      return (
+                        <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                          <div style={{
+                            width: 8, height: 8, borderRadius: '50%',
+                            background: dotColor, marginTop: 4, flexShrink: 0,
+                          }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: '#0F172A' }}>
+                              {label} — {ev.hub_name}
+                            </div>
+                            <div style={{ fontSize: 10, color: '#94A3B8', fontFamily: 'monospace', marginTop: 1 }}>
+                              {new Date(ev.created_at).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' })}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Footer */}
               <div style={{
