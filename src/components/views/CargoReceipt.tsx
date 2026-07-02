@@ -175,15 +175,6 @@ const styles = StyleSheet.create({
   },
   tagDetailLabel: { fontSize: 7, textTransform: "uppercase" },
   tagDetailValue: { fontSize: 12, fontWeight: "bold", fontFamily: "Helvetica-Bold" },
-  stampBox: {
-    marginTop: 4,
-    height: 30,
-    borderWidth: 1,
-    borderColor: "#000",
-    borderStyle: "dashed",
-    justifyContent: "center",
-    alignItems: "center",
-  }
 });
 
 // Note: The entire receipt must render within 297mm height (A4) or 200mm (thermal)
@@ -315,66 +306,79 @@ const CargoReceiptOnlyPDF = ({ data }: { data: CargoReceiptData }) => (
   </Document>
 );
 
-const CargoWaybillOnlyPDF = ({ data }: { data: CargoReceiptData }) => {
+const CargoWaybillTagPage = ({
+  data,
+  pieceIndex,
+  totalPieces,
+}: {
+  data: CargoReceiptData;
+  pieceIndex: number;
+  totalPieces: number;
+}) => {
   // Extract hub code from hub name for origin (first 3 chars or predefined logic)
   const originCode = (data.hubName || "LOS").substring(0, 3).toUpperCase();
   const destName = data.route || "DESTINATION";
-  
+
   return (
-    <Document>
-      <Page size="A6" style={styles.page}>
-        {/* --- TAG SECTION --- */}
-        <View style={styles.tagContainer}>
-          <View style={styles.headerRow}>
-            <EHILogoPDF width={40} />
-            <AirlineLogoPDF airline={data.airline} width={40} />
+    <Page size="A6" style={styles.page}>
+      {/* --- TAG SECTION --- */}
+      <View style={styles.tagContainer}>
+        <View style={styles.headerRow}>
+          <EHILogoPDF width={40} />
+          <AirlineLogoPDF airline={data.airline} width={40} />
+        </View>
+
+        <Text style={styles.tagTitle}>CARGO ROUTING TAG</Text>
+        <Text style={styles.tagRoute}>{originCode} → {destName}</Text>
+
+        {data.qrCodeDataUrl ? (
+          <View style={styles.qrContainer}>
+            <Image src={data.qrCodeDataUrl} style={styles.qrImage} />
           </View>
-          
-          <Text style={styles.tagTitle}>CARGO ROUTING TAG</Text>
-          <Text style={styles.tagRoute}>{originCode} → {destName}</Text>
+        ) : null}
 
-          {data.qrCodeDataUrl ? (
-            <View style={styles.qrContainer}>
-              <Image src={data.qrCodeDataUrl} style={styles.qrImage} />
-            </View>
-          ) : null}
+        <Text style={{ fontSize: 8, textAlign: 'center', marginBottom: 2, fontFamily: 'Courier' }}>REF: {data.entryRef}</Text>
 
-          <Text style={{ fontSize: 8, textAlign: 'center', marginBottom: 2, fontFamily: 'Courier' }}>REF: {data.entryRef}</Text>
+        <Text style={styles.tagAwb}>AWB: {data.awbTagNumber}</Text>
 
-          <Text style={styles.tagAwb}>AWB: {data.awbTagNumber}</Text>
-
-          <View style={styles.tagDetailsRow}>
-            <View style={styles.tagDetailBox}>
-              <Text style={styles.tagDetailLabel}>PIECES</Text>
-              <Text style={styles.tagDetailValue}>{data.pieces}</Text>
-            </View>
-            <View style={styles.tagDetailBox}>
-              <Text style={styles.tagDetailLabel}>WEIGHT (KG)</Text>
-              <Text style={styles.tagDetailValue}>{Math.round(data.kg)}</Text>
-            </View>
+        <View style={styles.tagDetailsRow}>
+          <View style={styles.tagDetailBox}>
+            <Text style={styles.tagDetailLabel}>PIECE</Text>
+            <Text style={styles.tagDetailValue}>{pieceIndex}/{totalPieces}</Text>
           </View>
-
-          <View style={styles.row}>
-            <Text style={styles.label}>Consignee:</Text>
-            <Text style={styles.value}>{data.consignee}</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Date:</Text>
-            <Text style={styles.value}>{data.date}</Text>
-          </View>
-
-          {data.pickupPin ? (
-            <View style={styles.pinContainer}>
-              <Text style={styles.pinLabel}>PICKUP PIN: <Text style={styles.pinValue}>{data.pickupPin.split('').join('  ')}</Text></Text>
-              <Text style={styles.pinHelper}>Consignee must present PIN</Text>
-            </View>
-          ) : null}
-
-          <View style={styles.stampBox}>
-            <Text style={{ fontSize: 10, color: "#9ca3af", fontWeight: "bold", fontFamily: "Helvetica-Bold" }}>HUB RECEIVING STAMP / SIGN</Text>
+          <View style={styles.tagDetailBox}>
+            <Text style={styles.tagDetailLabel}>WEIGHT (KG)</Text>
+            <Text style={styles.tagDetailValue}>{Math.round(data.kg)}</Text>
           </View>
         </View>
-      </Page>
+
+        <View style={styles.row}>
+          <Text style={styles.label}>Consignee:</Text>
+          <Text style={styles.value}>{data.consignee}</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Date:</Text>
+          <Text style={styles.value}>{data.date}</Text>
+        </View>
+
+        {data.pickupPin ? (
+          <View style={styles.pinContainer}>
+            <Text style={styles.pinLabel}>PICKUP PIN: <Text style={styles.pinValue}>{data.pickupPin.split('').join('  ')}</Text></Text>
+            <Text style={styles.pinHelper}>Consignee must present PIN</Text>
+          </View>
+        ) : null}
+      </View>
+    </Page>
+  );
+};
+
+const CargoWaybillOnlyPDF = ({ data }: { data: CargoReceiptData }) => {
+  const totalPieces = Math.max(1, Number(data.pieces) || 1);
+  return (
+    <Document>
+      {Array.from({ length: totalPieces }, (_, i) => (
+        <CargoWaybillTagPage key={i} data={data} pieceIndex={i + 1} totalPieces={totalPieces} />
+      ))}
     </Document>
   );
 };

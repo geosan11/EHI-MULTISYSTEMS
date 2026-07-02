@@ -181,17 +181,16 @@ export const Header = ({
                   </div>
                   <button
                     onClick={() => { setShowDropdown(false); onLogout(); }}
-                    className="group"
+                    className="group hover:bg-[rgba(239,68,68,0.05)] transition-colors"
                     style={{
                       width: '100%', padding: '12px 14px',
                       background: 'transparent', border: 'none',
                       display: 'flex', alignItems: 'center', gap: 10,
-                      cursor: 'pointer', color: 'var(--color-muted)',
-                      transition: 'background 0.15s',
+                      cursor: 'pointer', color: 'var(--color-error)',
                     }}
                   >
-                    <LogOut size={18} strokeWidth={1.5} className="group-hover:text-[var(--color-accent-amber)] transition-colors" />
-                    <span className="group-hover:text-[var(--color-accent-amber)] transition-colors" style={{ fontSize: 13, fontWeight: 500 }}>Sign Out</span>
+                    <LogOut size={18} strokeWidth={1.5} className="text-[var(--color-error)] shrink-0" />
+                    <span className="text-[var(--color-error)]" style={{ fontSize: 13, fontWeight: 500 }}>Sign Out</span>
                   </button>
                 </div>
               </>
