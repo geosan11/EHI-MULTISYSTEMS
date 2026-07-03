@@ -384,7 +384,7 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
           </div>
 
           {/* Report content area */}
-          <div className="ehi-card">
+          <div className="ehi-card p-4">
             <div className="text-[14px] font-bold text-[var(--color-foreground)] mb-3">
               {REPORT_TYPES.find(r => r.id === selectedReport)?.label}
             </div>

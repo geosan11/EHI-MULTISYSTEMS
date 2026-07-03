@@ -66,6 +66,9 @@ export const HtmlPrintWaybill = ({ data }: { data: CargoReceiptData }) => {
           Destination Stamp / Signature
         </span>
       </div>
+      <br />
+      <br />
+      <br />
     </div>
   );
 };

@@ -104,6 +104,9 @@ export const HtmlPrintReceipt = ({ data }: { data: CargoReceiptData }) => {
         <div className="text-[8px]">Logged by: {data.agentName}</div>
         <div className="text-[8px]">Powered by EHI Logistics Platform</div>
       </div>
+      <br />
+      <br />
+      <br />
     </div>
   );
 };

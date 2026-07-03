@@ -178,9 +178,17 @@ const styles = StyleSheet.create({
 });
 
 // Note: The entire receipt must render within 297mm height (A4) or 200mm (thermal)
-const CargoReceiptOnlyPDF = ({ data }: { data: CargoReceiptData }) => (
+const CargoReceiptOnlyPDF = ({ data }: { data: CargoReceiptData }) => {
+  let h = 210;
+  if (data.qrCodeDataUrl) h += 60;
+  if (data.pickupPin) h += 40;
+  if (data.bankName) h += 15;
+  if (data.paymentMode === "Transfer" && data.paymentNarration) h += 15;
+  if (data.remark) h += 25;
+
+  return (
   <Document>
-    <Page size={[226, 800]} style={styles.page}>
+    <Page size={[226, h]} style={styles.page}>
       {/* Logos Header */}
       <View style={styles.headerRow}>
         <EHILogoPDF width={50} />
@@ -304,7 +312,8 @@ const CargoReceiptOnlyPDF = ({ data }: { data: CargoReceiptData }) => (
       </View>
     </Page>
   </Document>
-);
+  );
+};
 
 const CargoWaybillTagPage = ({
   data,
@@ -319,8 +328,11 @@ const CargoWaybillTagPage = ({
   const originCode = (data.hubName || "LOS").substring(0, 3).toUpperCase();
   const destName = data.route || "DESTINATION";
 
+  let h = 130;
+  if (data.qrCodeDataUrl) h += 65;
+
   return (
-    <Page size="A6" style={styles.page}>
+    <Page size={[226, h]} style={styles.page}>
       {/* --- TAG SECTION --- */}
       <View style={styles.tagContainer}>
         <View style={styles.headerRow}>
@@ -360,13 +372,6 @@ const CargoWaybillTagPage = ({
           <Text style={styles.label}>Date:</Text>
           <Text style={styles.value}>{data.date}</Text>
         </View>
-
-        {data.pickupPin ? (
-          <View style={styles.pinContainer}>
-            <Text style={styles.pinLabel}>PICKUP PIN: <Text style={styles.pinValue}>{data.pickupPin.split('').join('  ')}</Text></Text>
-            <Text style={styles.pinHelper}>Consignee must present PIN</Text>
-          </View>
-        ) : null}
       </View>
     </Page>
   );

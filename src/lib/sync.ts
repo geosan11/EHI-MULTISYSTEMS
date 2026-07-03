@@ -79,7 +79,11 @@ export async function processSyncQueue(): Promise<number> {
       
       const { error } = await supabase
         .from(item.table_name)
-        .upsert(supabasePayload, { onConflict: item.table_name === 'manifests' ? 'transaction_id' : 'entry_ref' });
+        .upsert(supabasePayload, {
+          onConflict: item.table_name === 'manifests' ? 'transaction_id'
+            : item.table_name === 'expenses' ? 'id'
+            : 'entry_ref'
+        });
       if (!error) {
         await db.sync_queue.delete(item.id!);
         synced++;

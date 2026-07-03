@@ -128,9 +128,16 @@ const styles = StyleSheet.create({
   },
 });
 
-const MarketingReceiptPDF = ({ data }: { data: MarketingReceiptData }) => (
+const MarketingReceiptPDF = ({ data }: { data: MarketingReceiptData }) => {
+  let h = 200;
+  if (data.qrCodeDataUrl) h += 60;
+  if (data.bankName) h += 15;
+  if (data.paymentMode === "Transfer" && data.paymentNarration) h += 15;
+  if (data.remark) h += 20;
+
+  return (
   <Document>
-    <Page size={[226, 800]} style={styles.page}>
+    <Page size={[226, h]} style={styles.page}>
       <View style={{ alignItems: "flex-start", marginBottom: 15 }}>
         <EHILogoPDF width={70} />
       </View>
@@ -224,7 +231,8 @@ const MarketingReceiptPDF = ({ data }: { data: MarketingReceiptData }) => (
       </View>
     </Page>
   </Document>
-);
+  );
+};
 
 export const downloadMarketingReceipt = async (data: MarketingReceiptData) => {
   const blob = await pdf(<MarketingReceiptPDF data={data} />).toBlob();

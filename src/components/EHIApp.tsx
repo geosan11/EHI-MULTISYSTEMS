@@ -97,6 +97,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     const fetchInitial = async () => {
       try {
         const isAdmin = ['super_admin','admin','accountant','auditor'].includes(user.role);
+        // Deliberately narrower than isAdmin -- pickup PIN visibility is
+        // specifically admin/super_admin/accountant, not auditor.
+        const canSeePin = ['admin', 'super_admin', 'accountant'].includes(user.role);
 
         const addHubFilter = (q: any) =>
           (!isAdmin && user.hub_id) ? q.eq('hub_id', user.hub_id) : q;
@@ -110,7 +113,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         const endISO = endDate.toISOString();
 
         const [cargoRes, vjRes, mktRes, expRes] = await Promise.all([
-          addHubFilter(supabase.from('cargo_entries').select('entry_ref,consignee_name,airline,awb_tag_number,total_pcs,total_kg,route,content_type,amount,receipt_mode,created_at,status,bank,hub_id').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
+          addHubFilter(supabase.from('cargo_entries').select(`entry_ref,consignee_name,airline,awb_tag_number,total_pcs,total_kg,route,content_type,amount,receipt_mode,created_at,status,bank,hub_id${canSeePin ? ',pickup_pin' : ''}`).gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
           addHubFilter(supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
           addHubFilter(supabase.from('marketing_entries').select('entry_ref,customer_name,route,qty_big_bag,qty_med_bag,qty_small_bag,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,user_profiles(name)').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
           addHubFilter(supabase.from('expenses').select('*').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500))
@@ -134,6 +137,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               awb_tag_number: r.awb_tag_number,
               kg: r.total_kg,
               pieces: r.total_pcs,
+              pickupPin: r.pickup_pin || undefined,
               created_at: r.created_at,
               airline: r.airline,
               bank: r.bank,
@@ -239,6 +243,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     if (isOffline) return;
 
     const isAdmin = ['super_admin','admin','accountant','auditor'].includes(user.role);
+    const canSeePin = ['admin', 'super_admin', 'accountant'].includes(user.role);
     // Postgres changes filter — non-admins only receive their own hub's rows
     const hubFilter = (!isAdmin && user.hub_id) ? `hub_id=eq.${user.hub_id}` : undefined;
 
@@ -286,6 +291,10 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             hub_id: r.hub_id,
             route: r.route,
             airline: r.airline,
+            // Realtime sends the full row regardless of the original
+            // query's column list, so gate this client-side too --
+            // canSeePin is already in scope from the fetchInitial closure.
+            pickupPin: canSeePin ? (r.pickup_pin || undefined) : undefined,
           });
         }
       )

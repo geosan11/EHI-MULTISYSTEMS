@@ -964,7 +964,7 @@ export const Scanner = ({
       )}
 
       {/* Recent Scans List */}
-      <div className="ehi-card">
+      <div className="ehi-card p-3">
         <div className="flex items-center justify-between mb-3 border-b border-[var(--color-border)] pb-2">
           <div className="flex items-center gap-2 ml-1">
             <span className="text-[13px] font-sans font-bold text-[var(--color-foreground)] tracking-wide">Recent Scans</span>
@@ -1107,14 +1107,16 @@ export const Scanner = ({
         {/* Row 1 — Status badge + scan mode */}
         <div className="flex items-center gap-2 mb-3">
           <span className="text-xl">
-            {popup.mode === 'DEPART' ? '🛫' : popup.mode === 'ARRIVE' ? '🛬' : '✅'}
+            {popup.type === 'ALREADY_PROCESSED' ? '🔁' : popup.mode === 'DEPART' ? '🛫' : popup.mode === 'ARRIVE' ? '🛬' : '✅'}
           </span>
           <span className="font-bold text-[13px] text-[var(--color-foreground)]">
-            {popup.mode === 'DEPART' 
-              ? `Departed ${popup.hubName}` 
-              : popup.mode === 'ARRIVE' 
-                ? `Arrived at ${popup.hubName}` 
-                : 'Delivered to Consignee'}
+            {popup.type === 'ALREADY_PROCESSED'
+              ? 'Already Logged'
+              : popup.mode === 'DEPART' 
+                ? `Departed ${popup.hubName}` 
+                : popup.mode === 'ARRIVE' 
+                  ? `Arrived at ${popup.hubName}` 
+                  : 'Delivered to Consignee'}
           </span>
         </div>
 

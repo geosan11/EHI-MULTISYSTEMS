@@ -122,9 +122,15 @@ const styles = StyleSheet.create({
   qrImage: { width: 55, height: 55 },
 });
 
-const VJReceiptPDF = ({ data }: { data: VJReceiptData }) => (
+const VJReceiptPDF = ({ data }: { data: VJReceiptData }) => {
+  let h = 190;
+  if (data.qrCodeDataUrl) h += 60;
+  if (data.bankName) h += 15;
+  if (data.paymentMode === "Transfer" && data.paymentNarration) h += 15;
+
+  return (
   <Document>
-    <Page size={[226, 800]} style={styles.page}>
+    <Page size={[226, h]} style={styles.page}>
       <View style={styles.headerRow}>
         <EHILogoPDF width={50} />
         <AirlineLogoPDF airline="ValueJet" width={50} />
@@ -233,7 +239,8 @@ const VJReceiptPDF = ({ data }: { data: VJReceiptData }) => (
       </View>
     </Page>
   </Document>
-);
+  );
+};
 
 export const downloadVJReceipt = async (data: VJReceiptData) => {
   if (!data.qrCodeDataUrl) {

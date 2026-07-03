@@ -157,6 +157,7 @@ export interface Transaction {
   consignee?: string;
   pieces?: number;
   kg?: number;
+  pickupPin?: string;
   contentType?: string;
   remarks?: string;
   // VJ specifics

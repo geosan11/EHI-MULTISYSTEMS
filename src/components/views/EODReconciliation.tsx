@@ -386,7 +386,7 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
     <div className="animate-in slide-in-from-right space-y-6">
       <div className="text-[12px] font-mono text-[var(--color-muted)]">Variance Report</div>
       
-      <div className="ehi-card">
+      <div className="ehi-card p-4">
         <VarianceRow label="Net Cash" expected={expectedTotals.netExpectedCash} actual={Number(countedCash)} variance={cashVariance} />
         <VarianceRow label="Transfer" expected={expectedTotals.transferTotal} actual={Number(countedTransfer)} variance={transferVariance} />
         <VarianceRow label="POS" expected={expectedTotals.posTotal} actual={Number(countedPOS)} variance={posVariance} />

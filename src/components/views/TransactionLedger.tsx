@@ -185,6 +185,10 @@ export const TransactionLedger = ({
     (user.role === 'super_admin' || user.can_edit_ledger === true);
 
   const isAccountantOrAdmin = canEdit;
+  // Separate from canEdit -- PIN visibility is admin/super_admin/
+  // accountant regardless of the can_edit_ledger flag, which is a
+  // different, edit-specific permission.
+  const canSeePin = ['admin', 'super_admin', 'accountant'].includes(user.role);
 
   const unverifiedCash = filteredEntries.filter(e => e.mode === 'Cash' && !e.raw.paymentConfirmed);
   const unconfirmedTransfer = filteredEntries.filter(e => e.mode === 'Transfer' && !e.raw.paymentConfirmed);
@@ -437,6 +441,7 @@ export const TransactionLedger = ({
             <thead className="bg-[var(--color-surface-card)]">
               <tr className="text-[var(--color-muted)] border-b border-[var(--color-border)] uppercase">
                 {isAccountantOrAdmin && <th className="py-3 px-3 w-[36px]"></th>}
+                {canSeePin && <th className="py-3 px-2 w-[64px] font-medium">PIN</th>}
                 <th className="py-3 px-2 w-[90px] font-medium">ID</th>
                 <th className="py-3 px-2 w-[72px] font-medium">Date</th>
                 <th className="py-3 px-2 font-medium min-w-[120px]">Customer / Detail</th>
@@ -450,7 +455,7 @@ export const TransactionLedger = ({
               {filteredEntries.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={isAccountantOrAdmin ? 8 : 7}
+                    colSpan={isAccountantOrAdmin ? (canSeePin ? 9 : 8) : (canSeePin ? 8 : 7)}
                     className="py-8 text-center text-[var(--color-muted)]"
                   >
                     No entries found matching filters.
@@ -460,7 +465,7 @@ export const TransactionLedger = ({
                 <>
                   {rowVirtualizer.getVirtualItems().length > 0 && (
                     <tr style={{ height: rowVirtualizer.getVirtualItems()[0].start }}>
-                      <td colSpan={isAccountantOrAdmin ? 8 : 7} />
+                      <td colSpan={isAccountantOrAdmin ? (canSeePin ? 9 : 8) : (canSeePin ? 8 : 7)} />
                     </tr>
                   )}
                   {rowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -536,6 +541,11 @@ export const TransactionLedger = ({
                             )}
                           </div>
                         )}
+                      </td>
+                    )}
+                    {canSeePin && (
+                      <td className="py-2.5 px-3 font-mono text-[11px] text-[var(--color-accent-amber)]">
+                        {e.raw.pickupPin || '—'}
                       </td>
                     )}
                     {/* ID */}
@@ -614,7 +624,7 @@ export const TransactionLedger = ({
                     const lastItem = items[items.length - 1];
                     const paddingBottom = rowVirtualizer.getTotalSize() - (lastItem ? lastItem.end : 0);
                     return paddingBottom > 0 ? (
-                      <tr style={{ height: paddingBottom }}><td colSpan={isAccountantOrAdmin ? 8 : 7} /></tr>
+                      <tr style={{ height: paddingBottom }}><td colSpan={isAccountantOrAdmin ? (canSeePin ? 9 : 8) : (canSeePin ? 8 : 7)} /></tr>
                     ) : null;
                   })()}
                 </>

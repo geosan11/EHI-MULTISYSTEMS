@@ -549,7 +549,7 @@ export const ITDashboard = ({ user }: { user: User }) => {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="ehi-card"
+              className="ehi-card p-4"
             >
               <form onSubmit={handleAddBug} className="space-y-3">
                 <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2 mb-2">
@@ -958,7 +958,7 @@ export const ITDashboard = ({ user }: { user: User }) => {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="ehi-card"
+              className="ehi-card p-4"
             >
               <form onSubmit={handleAddProposal} className="space-y-3">
                 <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2 mb-2">
