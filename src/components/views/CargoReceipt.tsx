@@ -179,12 +179,19 @@ const styles = StyleSheet.create({
 
 // Note: The entire receipt must render within 297mm height (A4) or 200mm (thermal)
 const CargoReceiptOnlyPDF = ({ data }: { data: CargoReceiptData }) => {
-  let h = 210;
+  // Hand-calculated from the actual style values below (fontSize + typical
+  // line-height + margins, summed per row actually rendered) after the
+  // previous formula was confirmed -- via a real generated PDF -- to
+  // overflow onto a second page whenever QR + pickup PIN are both present,
+  // which is the normal case, not an edge case. Padded generously above
+  // the calculated minimum: a slightly-too-tall page wastes a small paper
+  // margin, but an undersized one produces a broken, split document.
+  let h = 300;
   if (data.qrCodeDataUrl) h += 60;
-  if (data.pickupPin) h += 40;
-  if (data.bankName) h += 15;
-  if (data.paymentMode === "Transfer" && data.paymentNarration) h += 15;
-  if (data.remark) h += 25;
+  if (data.pickupPin) h += 65;
+  if (data.bankName) h += 20;
+  if (data.paymentMode === "Transfer" && data.paymentNarration) h += 25;
+  if (data.remark) h += 35;
 
   return (
   <Document>
@@ -328,7 +335,10 @@ const CargoWaybillTagPage = ({
   const originCode = (data.hubName || "LOS").substring(0, 3).toUpperCase();
   const destName = data.route || "DESTINATION";
 
-  let h = 130;
+  // Same reasoning as CargoReceiptOnlyPDF's height fix -- confirmed via a
+  // real generated PDF that every tag page was overflowing onto a second
+  // page (6 pieces produced 12 pages, not 6).
+  let h = 210;
   if (data.qrCodeDataUrl) h += 65;
 
   return (
@@ -341,7 +351,7 @@ const CargoWaybillTagPage = ({
         </View>
 
         <Text style={styles.tagTitle}>CARGO ROUTING TAG</Text>
-        <Text style={styles.tagRoute}>{originCode} → {destName}</Text>
+        <Text style={styles.tagRoute}>{originCode} - {destName}</Text>
 
         {data.qrCodeDataUrl ? (
           <View style={styles.qrContainer}>
