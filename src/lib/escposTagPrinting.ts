@@ -2,6 +2,7 @@ import {
   encoder, INIT, CENTER, LEFT, TEXT_NORMAL, TEXT_DOUBLE_HEIGHT,
   BOLD_ON, BOLD_OFF, FEED_AND_CUT,
   concatChunks, brandingHeader, fieldRow, divider,
+  getAirlineLogoPath, imageToEscPosRaster,
 } from './escposShared';
 import { printViaBluetooth } from './escpos';
 
@@ -16,12 +17,22 @@ export interface CargoTagData {
   date?: string;
 }
 
-export function compileSingleTag(item: CargoTagData, width: '58mm' | '80mm'): Uint8Array {
+export async function compileSingleTag(item: CargoTagData, width: '58mm' | '80mm'): Promise<Uint8Array> {
   const maxChars = width === '58mm' ? 32 : 48;
   const chunks: Uint8Array[] = [
     new Uint8Array(INIT),
-    ...brandingHeader()
+    ...(await brandingHeader())
   ];
+
+  const airlineLogoPath = getAirlineLogoPath(item.airline || '');
+  if (airlineLogoPath) {
+    try {
+      chunks.push(await imageToEscPosRaster(airlineLogoPath, 120));
+      chunks.push(encoder.encode('\n'));
+    } catch {
+      // No airline logo available -- print without one rather than fail
+    }
+  }
 
   chunks.push(new Uint8Array(CENTER));
   chunks.push(new Uint8Array(TEXT_DOUBLE_HEIGHT), new Uint8Array(BOLD_ON));
@@ -47,7 +58,7 @@ export function compileSingleTag(item: CargoTagData, width: '58mm' | '80mm'): Ui
   return concatChunks(chunks);
 }
 
-export function compileCargoTagStream(tx: any, width: '58mm' | '80mm'): Uint8Array {
+export async function compileCargoTagStream(tx: any, width: '58mm' | '80mm'): Promise<Uint8Array> {
   const piecesCount = tx.pieces || 1;
   const tagChunks: Uint8Array[] = [];
   
@@ -62,13 +73,13 @@ export function compileCargoTagStream(tx: any, width: '58mm' | '80mm'): Uint8Arr
       hubName: tx.hubName,
       date: tx.date || new Date().toLocaleDateString('en-GB'),
     };
-    tagChunks.push(compileSingleTag(tagData, width));
+    tagChunks.push(await compileSingleTag(tagData, width));
   }
   
   return concatChunks(tagChunks);
 }
 
 export async function printBluetoothTag(tx: any, width: '58mm' | '80mm'): Promise<void> {
-  const bytes = compileCargoTagStream(tx, width);
+  const bytes = await compileCargoTagStream(tx, width);
   await printViaBluetooth(bytes);
 }

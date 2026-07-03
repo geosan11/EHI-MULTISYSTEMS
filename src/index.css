@@ -2,6 +2,12 @@
 @import "tailwindcss";
 
 @media print {
+  html, body {
+    position: relative !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
   body > * {
     display: none !important;
   }
@@ -199,13 +205,15 @@
   box-sizing: border-box;
 }
 
+html,
 body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: fixed;
   margin: 0;
   padding: 0;
-  overflow-x: hidden;
-  overscroll-behavior-y: none;
-}
-html {
+  overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
 }
 

@@ -346,21 +346,30 @@ export const MarketingWorkspace = ({
                 </button>
                 <button
                   onClick={() => {
-                    let bagsList: string[] = [];
-                    if (bb > 0) bagsList.push(`${bb} BB`);
-                    if (mb > 0) bagsList.push(`${mb} MB`);
-                    if (sb > 0) bagsList.push(`${sb} SB`);
-                    
-                    import('../../lib/escposReceipts').then(m => m.printBluetoothReceipt({
-                      entryRef: successTx.id,
-                      hubName: 'Marketing Desk',
-                      name: successTx.name,
-                      route: route,
-                      destination: bagsList.join(' · '),
-                      amount: successTx.amount,
-                      paymentMode: successTx.mode,
-                      bank: successTx.bank
-                    }, 'marketing'));
+                    import('../../lib/escposMarketingPrinting').then(async (m) => {
+                      // Build the MarketingReceiptPrintData object
+                      // Note: Default to 80mm printer width since there is no form width selector, 
+                      // but this could eventually read from the same preference settings.
+                      const printData = {
+                        entryRef: successTx.id,
+                        date: new Date().toLocaleDateString("en-GB"),
+                        agentName: user.name,
+                        customerName: successTx.name,
+                        phone: phone || undefined,
+                        route: route,
+                        bigBags: bb,
+                        medBags: mb,
+                        smallBags: sb,
+                        amount: successTx.amount,
+                        paymentMode: successTx.mode,
+                        paymentNarration: successTx.paymentNarration,
+                        bankName: bank || undefined,
+                        trackingUrl: `https://ehimultisystems.com/track/${successTx.id}`,
+                      };
+                      const bytes = await m.compileMarketingReceiptStream(printData, '80mm');
+                      const { printViaBluetooth } = await import('../../lib/escpos');
+                      await printViaBluetooth(bytes);
+                    });
                   }}
                   className="flex-1 py-3 bg-[var(--color-success)] text-[#0D1117] text-[11px] font-bold font-mono rounded cursor-pointer flex flex-col justify-center items-center leading-none hover:bg-opacity-95 border-none"
                 >

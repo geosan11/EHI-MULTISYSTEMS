@@ -235,19 +235,31 @@ export const ValueJetForm = ({
             </button>
             <button
               onClick={() => {
-                import('../../lib/escposReceipts').then(m => m.printBluetoothReceipt({
-                  entryRef: s.tx.id,
-                  hubName: 'ValueJet Counter',
-                  name: s.tx.name,
-                  flight: flight.toUpperCase(),
-                  destination: dest,
-                  totalBaggage: s.kgs,
-                  freeAllowance: vjFreeAllowance,
-                  excessKg: s.exc,
-                  amount: s.tx.amount,
-                  paymentMode: s.tx.mode,
-                  pnr: pnr.trim().toUpperCase(),
-                }, 'valuejet'));
+                import('../../lib/escposVJPrinting').then(async (m) => {
+                  // Build the VJReceiptPrintData object
+                  // Note: Default to 80mm printer width since there is no form width selector, 
+                  // but this could eventually read from the same preference settings.
+                  const printData = {
+                    entryRef: s.tx.id,
+                    date: new Date().toLocaleDateString('en-GB'),
+                    originState: user.hub || 'Lagos',
+                    agentName: user.name || 'VJ Agent',
+                    passengerName: s.tx.name,
+                    flight: flight.toUpperCase(),
+                    destination: dest || 'Unknown',
+                    totalPieces: s.pcs,
+                    totalWeightKg: s.kgs,
+                    freeAllowanceKg: vjFreeAllowance,
+                    excessChargeKg: s.exc,
+                    ratePerKg: vjRatePerKg,
+                    amount: s.tx.amount,
+                    paymentMode: s.tx.mode,
+                    trackingUrl: `https://ehimultisystems.com/track/${s.tx.id}`,
+                  };
+                  const bytes = await m.compileVJReceiptStream(printData, '80mm');
+                  const { printViaBluetooth } = await import('../../lib/escpos');
+                  await printViaBluetooth(bytes);
+                });
               }}
               className="flex-1 py-3 bg-[var(--color-accent-cobalt)] text-white text-[11px] font-bold font-mono rounded cursor-pointer flex flex-col justify-center items-center leading-none hover:bg-opacity-95 border-none"
             >

@@ -22,9 +22,9 @@ export interface VJReceiptPrintData {
   trackingUrl: string;
 }
 
-export function compileVJReceiptStream(data: VJReceiptPrintData, width: '58mm' | '80mm'): Uint8Array {
+export async function compileVJReceiptStream(data: VJReceiptPrintData, width: '58mm' | '80mm'): Promise<Uint8Array> {
   const maxChars = width === '58mm' ? 32 : 48;
-  const chunks: Uint8Array[] = [new Uint8Array(INIT), ...brandingHeader()];
+  const chunks: Uint8Array[] = [new Uint8Array(INIT), ...(await brandingHeader())];
 
   chunks.push(new Uint8Array(TEXT_DOUBLE_HEIGHT), new Uint8Array(BOLD_ON));
   chunks.push(encoder.encode("EXCESS BAGGAGE RECEIPT\n"));
