@@ -23,12 +23,13 @@ export const ValueJetForm = ({
   const [flight, setFlight] = useState('');
   const [dest, setDest] = useState(CARGO_ROUTES[0]);
   const [kg, setKg] = useState('');
+  const [pcs, setPcs] = useState('');
   const [phone, setPhone] = useState('');
   const [mode, setMode] = useState<PaymentMode>('POS');
   const [amountOverride, setAmountOverride] = useState<string>('');
   const [narrationCode, setNarrationCode] = useState<string>('');
 
-  const [successTx, setSuccessTx] = useState<{ tx: Transaction, kgs: number, exc: number } | null>(null);
+  const [successTx, setSuccessTx] = useState<{ tx: Transaction, kgs: number, exc: number, pcs: number } | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -49,6 +50,7 @@ export const ValueJetForm = ({
   );
 
   const kgVal = Math.round(parseFloat(kg)) || 0;
+  const pcsVal = Math.max(1, parseInt(pcs) || 1);
   const excessKg = Math.max(0, kgVal - vjFreeAllowance);
   const minAmount = excessKg * vjRatePerKg;
   const parsedOverride = parseFloat(amountOverride) || 0;
@@ -64,7 +66,7 @@ export const ValueJetForm = ({
     const tx: Transaction = {
       id: uid('VJ'),
       name: name.trim(),
-      detail: `${flight.toUpperCase()} · ${dest} · +${excessKg}kg excess`,
+      detail: `${flight.toUpperCase()} · ${dest} · ${pcsVal}pcs · +${excessKg}kg excess`,
       amount: totalAmount,
       mode,
       paymentNarration: mode === 'Transfer' ? narrationCode : undefined,
@@ -78,11 +80,12 @@ export const ValueJetForm = ({
       flight: flight.toUpperCase(),
       pnr: pnr.trim().toUpperCase() || undefined,
       kg: excessKg,
+      pieces: pcsVal,
     } as any;
     // Attach phone for EHIApp to write to passenger_phone column
     (tx as any).phone = phone.trim() || undefined;
 
-    setSuccessTx({ tx, kgs: kgVal, exc: excessKg });
+    setSuccessTx({ tx, kgs: kgVal, exc: excessKg, pcs: pcsVal });
     setSubmitting(false);
 
     onAddTx(tx);
@@ -95,6 +98,7 @@ export const ValueJetForm = ({
           ref: tx.id,
           passenger: name.trim(),
           flight: flight.toUpperCase(),
+          totalPieces: pcsVal,
           totalKg: kgVal,
           excessKg,
           amount: totalAmount,
@@ -110,6 +114,7 @@ export const ValueJetForm = ({
     setFlight('');
     setDest(CARGO_ROUTES[0]);
     setKg('');
+    setPcs('');
     setAmountOverride('');
     setPhone('');
     setSuccessTx(null);
@@ -126,6 +131,7 @@ export const ValueJetForm = ({
         passengerName: successTx.tx.name,
         flightNumber: flight.toUpperCase(),
         destination: dest || 'Unknown',
+        totalPieces: successTx.pcs,
         totalBaggage: successTx.kgs,
         freeAllowance: vjFreeAllowance,
         excessKg: successTx.exc,
@@ -149,6 +155,7 @@ export const ValueJetForm = ({
       passengerName: successTx.tx.name,
       flightNumber: flight.toUpperCase(),
       destination: dest || 'Unknown',
+      totalPieces: successTx.pcs,
       totalBaggage: successTx.kgs,
       freeAllowance: vjFreeAllowance,
       excessKg: successTx.exc,
@@ -364,7 +371,19 @@ export const ValueJetForm = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <span className="text-[12px] font-sans font-semibold text-[var(--color-light-muted)]">Total Pieces</span>
+              <input 
+                type="number"
+                step="1"
+                min="1"
+                placeholder="1"
+                value={pcs}
+                onChange={(e) => setPcs(e.target.value)}
+                className={formInputClass}
+              />
+            </div>
             <div className="space-y-1.5">
               <span className="text-[12px] font-sans font-semibold text-[var(--color-light-muted)]">Total Weight (KG)</span>
               <input 

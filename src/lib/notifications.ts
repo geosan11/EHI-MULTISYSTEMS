@@ -86,6 +86,7 @@ export function buildValueJetWhatsApp(data: {
   ref: string;
   passenger: string;
   flight: string;
+  totalPieces: number;
   totalKg: number;
   excessKg: number;
   amount: number;
@@ -99,6 +100,7 @@ export function buildValueJetWhatsApp(data: {
     `Ref: \`${data.ref}\`\n\n` +
     `👤 *Passenger:* ${data.passenger}\n` +
     `🛫 *Flight:* ${data.flight}\n\n` +
+    `🎒 Total pieces: ${data.totalPieces || 1} pcs\n` +
     `⚖️ Total weight: ${data.totalKg} kg\n` +
     `🟢 Free allowance: 20.0 kg\n` +
     `🔴 Excess charged: ${data.excessKg} kg × ₦1,000\n\n` +

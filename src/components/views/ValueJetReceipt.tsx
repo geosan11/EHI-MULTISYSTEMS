@@ -19,6 +19,7 @@ export interface VJReceiptData {
   passengerName: string;
   flightNumber: string;
   destination: string;
+  totalPieces: number;
   totalBaggage: number;
   freeAllowance: number;
   excessKg: number;
@@ -32,7 +33,7 @@ export interface VJReceiptData {
 
 function formatNaira(n: number | string): string {
   const num = typeof n === 'string' ? parseFloat(n) : n;
-  return '₦' + (num || 0).toLocaleString('en-NG', {
+  return 'NGN ' + (num || 0).toLocaleString('en-NG', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
@@ -123,10 +124,10 @@ const styles = StyleSheet.create({
 });
 
 const VJReceiptPDF = ({ data }: { data: VJReceiptData }) => {
-  let h = 190;
+  let h = 270;
   if (data.qrCodeDataUrl) h += 60;
-  if (data.bankName) h += 15;
-  if (data.paymentMode === "Transfer" && data.paymentNarration) h += 15;
+  if (data.bankName) h += 20;
+  if (data.paymentMode === "Transfer" && data.paymentNarration) h += 25;
 
   return (
   <Document>
@@ -180,6 +181,10 @@ const VJReceiptPDF = ({ data }: { data: VJReceiptData }) => {
 
       <View style={styles.divider} />
       <Text style={styles.sectionTitle}>BAGGAGE BREAKDOWN</Text>
+      <View style={styles.row}>
+        <Text style={styles.label}>Total pieces:</Text>
+        <Text style={styles.value}>{data.totalPieces || 1} PCS</Text>
+      </View>
       <View style={styles.row}>
         <Text style={styles.label}>Total weight:</Text>
         <Text style={styles.value}>{Math.round(data.totalBaggage)} KG</Text>

@@ -57,7 +57,7 @@ const VJLedgerPDF = ({ data }: { data: VJLedgerReportData }) => {
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 }}>
             <Text style={{ fontSize: 9, fontWeight: 'bold' }}>Total Entries: {data.transactions.length}</Text>
-            <Text style={{ fontSize: 9, fontWeight: 'bold' }}>Total Amount: ₦{totalAmount.toLocaleString('en-NG')}</Text>
+            <Text style={{ fontSize: 9, fontWeight: 'bold' }}>Total Amount: NGN {totalAmount.toLocaleString('en-NG')}</Text>
           </View>
         </View>
 
@@ -69,9 +69,10 @@ const VJLedgerPDF = ({ data }: { data: VJLedgerReportData }) => {
             <View style={styles.tableColHeaderNarrow}><Text style={styles.tableCellHeader}>FLIGHT</Text></View>
             <View style={styles.tableColHeader}><Text style={styles.tableCellHeader}>DESTINATION</Text></View>
             <View style={styles.tableColHeader}><Text style={styles.tableCellHeader}>PNR</Text></View>
+            <View style={styles.tableColHeaderNarrow}><Text style={styles.tableCellHeader}>PCS</Text></View>
             <View style={styles.tableColHeaderNarrow}><Text style={styles.tableCellHeader}>TOTAL KG</Text></View>
             <View style={styles.tableColHeaderNarrow}><Text style={styles.tableCellHeader}>EXCESS</Text></View>
-            <View style={styles.tableColHeader}><Text style={styles.tableCellHeader}>AMOUNT (₦)</Text></View>
+            <View style={styles.tableColHeader}><Text style={styles.tableCellHeader}>AMOUNT (NGN)</Text></View>
             <View style={styles.tableColHeader}><Text style={styles.tableCellHeader}>MODE</Text></View>
           </View>
           
@@ -83,6 +84,7 @@ const VJLedgerPDF = ({ data }: { data: VJLedgerReportData }) => {
               <View style={styles.tableColNarrow}><Text style={styles.tableCell}>{t.flight || '-'}</Text></View>
               <View style={styles.tableCol}><Text style={styles.tableCell}>{t.destination || '-'}</Text></View>
               <View style={styles.tableCol}><Text style={styles.tableCell}>{t.pnr || '-'}</Text></View>
+              <View style={styles.tableColNarrow}><Text style={styles.tableCell}>{t.pieces || '-'}</Text></View>
               <View style={styles.tableColNarrow}><Text style={styles.tableCell}>{t.totalKg || '-'}</Text></View>
               <View style={styles.tableColNarrow}><Text style={styles.tableCell}>{t.excessKg || '-'}</Text></View>
               <View style={styles.tableCol}><Text style={styles.tableCell}>{t.amount.toLocaleString('en-NG')}</Text></View>

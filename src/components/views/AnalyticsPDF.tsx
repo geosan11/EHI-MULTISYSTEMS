@@ -47,7 +47,7 @@ const AnalyticsPDF = ({ data }: { data: AnalyticsReportData }) => {
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 }}>
             <Text style={{ fontSize: 9, fontWeight: 'bold' }}>Total Entries: {data.transactions.length}</Text>
-            <Text style={{ fontSize: 9, fontWeight: 'bold' }}>Total Amount: ₦{totalAmount.toLocaleString('en-NG')}</Text>
+            <Text style={{ fontSize: 9, fontWeight: 'bold' }}>Total Amount: NGN {totalAmount.toLocaleString('en-NG')}</Text>
           </View>
         </View>
 
@@ -58,7 +58,7 @@ const AnalyticsPDF = ({ data }: { data: AnalyticsReportData }) => {
             <View style={styles.tableColHeaderNarrow}><Text style={styles.tableCellHeader}>TYPE</Text></View>
             <View style={styles.tableColHeaderWide}><Text style={styles.tableCellHeader}>ROUTE / DETAIL</Text></View>
             <View style={styles.tableColHeaderNarrow}><Text style={styles.tableCellHeader}>AWB / TAG</Text></View>
-            <View style={styles.tableColHeader}><Text style={styles.tableCellHeader}>AMOUNT (₦)</Text></View>
+            <View style={styles.tableColHeader}><Text style={styles.tableCellHeader}>AMOUNT (NGN)</Text></View>
             <View style={styles.tableColHeader}><Text style={styles.tableCellHeader}>MODE</Text></View>
             <View style={styles.tableColHeaderNarrow}><Text style={styles.tableCellHeader}>STATUS</Text></View>
           </View>

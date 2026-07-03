@@ -10,6 +10,7 @@ import {
 import QRCode from "qrcode";
 import { EHILogoPDF } from "../EHILogoPDF";
 import { AirlineLogoPDF } from "../AirlineLogoPDF";
+import { getHubCode, getCityName } from "../../lib/helpers";
 
 export interface CargoReceiptData {
   entryRef: string;
@@ -35,7 +36,7 @@ export interface CargoReceiptData {
 
 function formatNaira(n: number | string): string {
   const num = typeof n === 'string' ? parseFloat(n) : n;
-  return '₦' + (num || 0).toLocaleString('en-NG', {
+  return 'NGN ' + (num || 0).toLocaleString('en-NG', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
@@ -331,9 +332,9 @@ const CargoWaybillTagPage = ({
   pieceIndex: number;
   totalPieces: number;
 }) => {
-  // Extract hub code from hub name for origin (first 3 chars or predefined logic)
-  const originCode = (data.hubName || "LOS").substring(0, 3).toUpperCase();
-  const destName = data.route || "DESTINATION";
+  // Extract hub code from hub name using the new robust helper
+  const originCode = getHubCode(data.hubName);
+  const destName = getCityName(data.route);
 
   // Same reasoning as CargoReceiptOnlyPDF's height fix -- confirmed via a
   // real generated PDF that every tag page was overflowing onto a second

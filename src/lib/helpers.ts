@@ -1,4 +1,4 @@
-import { PRICING } from './constants.js';
+import { PRICING, CARGO_ROUTES } from './constants.js';
 import { Transaction, PaymentMode } from './types.js';
 
 export const fmt = (amount: number) => {
@@ -10,9 +10,28 @@ export const fmt = (amount: number) => {
   }).format(amount).replace('NGN', '₦');
 };
 
-export const generatePaymentNarration = (hubCode: string, serial: string | number): string => {
-  let code = (hubCode || 'XXX').toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 3);
-  if (code.length < 2) code = code.padEnd(3, 'X');
+export function getHubCode(hubName: string | null | undefined): string {
+  if (!hubName) return 'XXX';
+  const normalized = hubName.toLowerCase();
+  for (const route of CARGO_ROUTES) {
+    if (route === 'Other') continue;
+    const [code, city] = route.split('/');
+    if (normalized.includes(city.toLowerCase()) || normalized.includes(code.toLowerCase())) {
+      return code.toUpperCase();
+    }
+  }
+  return hubName.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 3).padEnd(3, 'X');
+}
+
+export function getCityName(routeStr: string | null | undefined): string {
+  if (!routeStr) return 'UNKNOWN';
+  if (routeStr === 'Other') return 'Other';
+  const parts = routeStr.split('/');
+  return parts.length > 1 ? parts[1] : routeStr;
+}
+
+export const generatePaymentNarration = (hubName: string, serial: string | number): string => {
+  let code = getHubCode(hubName);
   const d = new Date();
   const yymmdd = [
     d.getFullYear().toString().slice(2),
@@ -81,7 +100,7 @@ export function downloadDailyCSV(
       ];
     });
   } else if (streamType === 'baggage') {
-    headers = ['Ref', 'Time', 'Passenger', 'PNR', 'Flight', 'Destination', 'Total KG', 'Excess KG', 'Amount', 'Mode', 'Bank'];
+    headers = ['Ref', 'Time', 'Passenger', 'PNR', 'Flight', 'Destination', 'PCS', 'Total KG', 'Excess KG', 'Amount', 'Mode', 'Bank'];
     rows = todayTx.map(t => [
       t.id,
       t.time || '',
@@ -89,6 +108,7 @@ export function downloadDailyCSV(
       t.pnr || '',
       t.flight || '',
       t.destination || '',
+      String(t.pieces || ''),
       String(t.totalKg || ''),
       String(t.excessKg || t.kg || ''),
       String(t.amount || 0),

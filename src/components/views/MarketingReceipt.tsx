@@ -22,6 +22,8 @@ export interface MarketingReceiptData {
   paymentMode: string;
   paymentNarration?: string;
   bankName?: string;
+  qrCodeDataUrl?: string;
+  remark?: string;
 }
 
 export interface MarketingDailySummaryData {
@@ -46,7 +48,7 @@ export interface MarketingDailySummaryData {
 
 function formatNaira(n: number | string): string {
   const num = typeof n === 'string' ? parseFloat(n) : n;
-  return '₦' + (num || 0).toLocaleString('en-NG', {
+  return 'NGN ' + (num || 0).toLocaleString('en-NG', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
@@ -129,11 +131,11 @@ const styles = StyleSheet.create({
 });
 
 const MarketingReceiptPDF = ({ data }: { data: MarketingReceiptData }) => {
-  let h = 200;
+  let h = 280;
   if (data.qrCodeDataUrl) h += 60;
-  if (data.bankName) h += 15;
-  if (data.paymentMode === "Transfer" && data.paymentNarration) h += 15;
-  if (data.remark) h += 20;
+  if (data.bankName) h += 20;
+  if (data.paymentMode === "Transfer" && data.paymentNarration) h += 25;
+  if (data.remark) h += 30;
 
   return (
   <Document>
