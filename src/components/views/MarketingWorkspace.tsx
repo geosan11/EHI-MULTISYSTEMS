@@ -69,6 +69,15 @@ export const MarketingWorkspace = ({
   const [successTx, setSuccessTx] = useState<Transaction | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (successTx) {
+      document.querySelectorAll('.overflow-y-auto, main').forEach(el => {
+        el.scrollTop = 0;
+      });
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }, [successTx]);
+
   // Expense State
   const [expType, setExpType] = useState<string>(EXPENSE_CATEGORIES[0]);
   const [expAmount, setExpAmount] = useState("");
@@ -273,7 +282,7 @@ export const MarketingWorkspace = ({
         {/* Left Column - Forms */}
         <div className="space-y-6">
           {successTx ? (
-            <div className="bg-[rgba(16,185,129,0.05)] border border-[rgba(16,185,129,0.2)] rounded p-4 flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-[rgba(16,185,129,0.05)] border border-[rgba(16,185,129,0.2)] rounded p-6 md:p-8 flex flex-col animate-in fade-in zoom-in-95 duration-200">
               <div className="flex justify-center animate-pulse">
                 <CheckCircle
                   size={32}

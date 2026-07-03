@@ -1,7 +1,7 @@
 import {
   encoder, INIT, CENTER, LEFT, TEXT_NORMAL, TEXT_DOUBLE_HEIGHT,
   BOLD_ON, BOLD_OFF, FEED_AND_CUT,
-  concatChunks, brandingHeader, fieldRow, divider,
+  concatChunks, qrCommands, brandingHeader, fieldRow, divider,
 } from './escposShared';
 
 export interface MarketingReceiptPrintData {
@@ -18,6 +18,7 @@ export interface MarketingReceiptPrintData {
   paymentMode: string;
   paymentNarration?: string;
   bankName?: string;
+  trackingUrl: string;
 }
 
 export function compileMarketingReceiptStream(data: MarketingReceiptPrintData, width: '58mm' | '80mm'): Uint8Array {
@@ -27,9 +28,11 @@ export function compileMarketingReceiptStream(data: MarketingReceiptPrintData, w
   chunks.push(new Uint8Array(TEXT_DOUBLE_HEIGHT), new Uint8Array(BOLD_ON));
   chunks.push(encoder.encode("MARKETING SALES RECEIPT\n"));
   chunks.push(new Uint8Array(BOLD_OFF), new Uint8Array(TEXT_NORMAL));
+
+  chunks.push(...qrCommands(data.trackingUrl));
+
   chunks.push(new Uint8Array(LEFT));
   chunks.push(encoder.encode(divider(maxChars)));
-
   chunks.push(encoder.encode(fieldRow('REF:', data.entryRef, maxChars)));
   chunks.push(encoder.encode(fieldRow('DATE:', data.date, maxChars)));
   chunks.push(encoder.encode(fieldRow('AGENT:', data.agentName, maxChars)));

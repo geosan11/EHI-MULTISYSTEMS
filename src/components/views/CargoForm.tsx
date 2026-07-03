@@ -241,6 +241,15 @@ export const CargoForm = ({
   const [successTx, setSuccessTx] = useState<Transaction | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (successTx) {
+      document.querySelectorAll('.overflow-y-auto, main').forEach(el => {
+        el.scrollTop = 0;
+      });
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }, [successTx]);
+
   // --- B2B CORPORATE PERSISTED STATES ---
   const [corpClients, setCorpClients] = useState<CorporateClient[]>(() => {
     const saved = localStorage.getItem("ehi_corporate_clients_v2");
@@ -866,7 +875,7 @@ export const CargoForm = ({
     };
 
     return (
-      <div className="p-4 space-y-4 max-w-md mx-auto">
+      <div className="p-4 space-y-4 max-w-xl mx-auto w-full">
         <div className="border-b border-[var(--color-border)] pb-2 mb-2">
           <span className="text-[14px] font-sans font-semibold text-[var(--color-foreground)]">
             Cargo Receipt Portal
