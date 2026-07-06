@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { QrCode, RefreshCw, Package, Plane, TrendingUp, ArrowDown, ArrowUp, List, CheckCircle } from 'lucide-react';
 import { User, ScanMode, ScanValidationResult, BatchScanItem, ScanResultType, ProofOfDelivery } from '../../lib/types';
-import { validateScan, logScanEvent } from '../../lib/scanLogic';
-// imports removed
+import { validateScan, logScanEvent, fetchCargoByRef } from '../../lib/scanLogic';
+import { supabase } from '../../lib/supabase';
 
 import { ArrivalsView } from './ArrivalsView';
 import { IncomingToHub } from './IncomingToHub';
@@ -126,6 +126,13 @@ export const Scanner = ({
   const [showArrivalsView, setShowArrivalsView] = useState(false);
   const [activePodCapture, setActivePodCapture] = useState<{ref: string, name: string, resultData: any} | null>(null);
 
+  // Cargo tracking history
+  const [showTrackView, setShowTrackView] = useState(false);
+  const [trackRef, setTrackRef] = useState('');
+  const [trackLoading, setTrackLoading] = useState(false);
+  const [trackCargo, setTrackCargo] = useState<any>(null);
+  const [trackEvents, setTrackEvents] = useState<any[]>([]);
+
   // Delivery PIN states
   const [pendingDelivery, setPendingDelivery] = useState<{ref: string, expectedPin: string | null, resultData: any} | null>(null);
   const [pinInput, setPinInput] = useState('');
@@ -158,52 +165,74 @@ export const Scanner = ({
     .filter(item => item.result === 'SUCCESS_ARRIVE' || item.result === 'SUCCESS_DEPART' || item.result === 'SUCCESS_DELIVER')
     .slice(0, 10);
 
+  const handleTrackLookup = async (ref?: string) => {
+    const query = (ref || trackRef).trim().toUpperCase();
+    if (!query) return;
+    setTrackRef(query);
+    setTrackLoading(true);
+    setTrackCargo(null);
+    setTrackEvents([]);
+    setShowTrackView(true);
+    try {
+      const [cargo, eventsRes] = await Promise.all([
+        fetchCargoByRef(query),
+        supabase
+          .from('tracking_events')
+          .select('*')
+          .eq('cargo_ref', query)
+          .order('created_at', { ascending: true }),
+      ]);
+      setTrackCargo(cargo || null);
+      setTrackEvents(eventsRes.data || []);
+    } catch (err) {
+      console.error('Track lookup error:', err);
+    } finally {
+      setTrackLoading(false);
+    }
+  };
+
   const handleConfirmSubmitBatch = async (itemsToSubmit = batchQueue) => {
     if (itemsToSubmit.length === 0) return;
     setSubmittingBatch(true);
 
     try {
-      // Loop through all items and commit them to supabase
-      await Promise.all(itemsToSubmit.map(item => 
-        logScanEvent(
-          item.ref,
-          item.mode,
-          currentHub,
-          user.name,
-          item.destination
+      const results = await Promise.allSettled(
+        itemsToSubmit.map(item =>
+          logScanEvent(item.ref, item.mode, currentHub, user.name, item.destination)
         )
-      ));
+      );
 
-      // Add to session logs so they display in recent successfully scanned logs list
-      const newlyLoggedItems: BatchScanItem[] = itemsToSubmit.map(item => ({
-        ref: item.ref,
-        name: item.name,
-        result: item.result,
-        time: item.time
-      }));
+      const succeeded = results.filter(r => r.status === 'fulfilled');
+      const failed = results.filter(r => r.status === 'rejected');
+
+      // Add only the successfully logged items to the session history
+      const newlyLoggedItems: BatchScanItem[] = itemsToSubmit
+        .filter((_, i) => results[i].status === 'fulfilled')
+        .map(item => ({ ref: item.ref, name: item.name, result: item.result, time: item.time }));
 
       setBatchItems(prev => [...newlyLoggedItems, ...prev]);
 
-      if (showToast) {
-        showToast({
-          message: `Successfully logged batch of ${itemsToSubmit.length} scans to database!`,
-          type: 'success'
-        });
-      }
-
-      setBatchQueue([]);
-      localStorage.removeItem(BATCH_QUEUE_KEY);
-      setShowQueueSummary(false);
-    } catch (error) {
-      console.error('Failed to submit batch scans:', error);
-      if (showToast) {
-        showToast({
-          message: 'Failed to submit batch scans. Please try again.',
-          type: 'error'
-        });
+      if (failed.length === 0) {
+        if (showToast) showToast({ message: `Batch committed — ${succeeded.length} scans logged.`, type: 'success' });
+        setBatchQueue([]);
+        localStorage.removeItem(BATCH_QUEUE_KEY);
+        setShowQueueSummary(false);
       } else {
-        alert('Failed to submit batch scans. Please try again.');
+        // Keep only the failed items in the queue so the agent can retry
+        const failedRefs = new Set(
+          itemsToSubmit.filter((_, i) => results[i].status === 'rejected').map(item => item.ref)
+        );
+        setBatchQueue(prev => prev.filter(item => failedRefs.has(item.ref)));
+        if (showToast) {
+          showToast({
+            message: `${succeeded.length} logged, ${failed.length} failed — failed items remain in queue.`,
+            type: 'error'
+          });
+        }
       }
+    } catch (error) {
+      console.error('Batch submit error:', error);
+      if (showToast) showToast({ message: 'Batch submit failed. Please try again.', type: 'error' });
     } finally {
       setSubmittingBatch(false);
     }
@@ -221,9 +250,6 @@ export const Scanner = ({
     setProcessing(true);
 
     try {
-      // User-requested 2-second delay to simulate verification and show location / alert
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
       const result = await validateScan(code, mode, currentHub, transactions);
       
       // Clear previous popup timer if any
@@ -233,12 +259,23 @@ export const Scanner = ({
       
       if (result.type === 'WRONG_DESTINATION') {
         playWarningBeep();
+        // Wrong-destination alert must be manually dismissed — do not auto-close
+        setPopup({
+          visible: true,
+          type: result.type,
+          mode,
+          entryRef: result.cargo?.awb || code,
+          consignee: result.cargo?.name || 'Unknown',
+          hubName: currentHub,
+          message: result.message || ''
+        });
         if (showToast) {
           showToast({
             message: `ALERT: Wrong station detected! ${result.message}`,
             type: 'error'
           });
         }
+        return;
       } else if (result.type === 'SUCCESS_DELIVER' || result.type === 'SUCCESS_ARRIVE' || result.type === 'SUCCESS_DEPART') {
         playBeep();
         
@@ -573,6 +610,136 @@ export const Scanner = ({
   // Arrivals List View
   if (showArrivalsView) {
     return <ArrivalsView user={user} onBack={() => setShowArrivalsView(false)} />;
+  }
+
+  // Tracking history view
+  if (showTrackView) {
+    const statusColor = (type: string) =>
+      type === 'ARRIVE' ? 'var(--color-success)' :
+      type === 'DEPART' ? 'var(--color-accent-cobalt)' :
+      type === 'DELIVER' ? '#a855f7' :
+      'var(--color-error)';
+    const statusLabel = (type: string) =>
+      type === 'ARRIVE' ? '▼ ARRIVED' :
+      type === 'DEPART' ? '▲ DEPARTED' :
+      type === 'DELIVER' ? '✓ DELIVERED' :
+      '⚠ ALERT';
+
+    return (
+      <div className="p-4 pb-20 space-y-4">
+        <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-3">
+          <button
+            onClick={() => setShowTrackView(false)}
+            className="text-[11px] font-mono text-[var(--color-muted)] flex items-center gap-1 hover:text-[var(--color-foreground)] transition-colors cursor-pointer border-none bg-transparent"
+          >
+            ← BACK TO SCANNER
+          </button>
+          <span className="text-[10px] font-mono text-[var(--color-accent-amber)] uppercase tracking-wider font-bold">
+            ● CARGO TRACKING
+          </span>
+        </div>
+
+        {/* Search box */}
+        <div className="flex gap-2">
+          <input
+            value={trackRef}
+            onChange={e => setTrackRef(e.target.value.toUpperCase())}
+            onKeyDown={e => e.key === 'Enter' && handleTrackLookup()}
+            placeholder="Enter AWB / tag ref..."
+            className="ehi-input"
+          />
+          <button
+            onClick={() => handleTrackLookup()}
+            disabled={!trackRef.trim() || trackLoading}
+            className="h-11 px-4 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[11px] font-mono font-bold rounded disabled:opacity-50 border-none cursor-pointer"
+          >
+            {trackLoading ? '...' : 'SEARCH'}
+          </button>
+        </div>
+
+        {trackLoading && (
+          <div className="flex justify-center py-10">
+            <RefreshCw size={22} className="animate-spin text-[var(--color-accent-amber)]" />
+          </div>
+        )}
+
+        {!trackLoading && trackRef && !trackCargo && trackEvents.length === 0 && (
+          <div className="text-center py-10 text-[var(--color-muted)] text-[12px] font-mono border border-dashed border-[var(--color-border)] rounded-xl">
+            No records found for {trackRef}
+          </div>
+        )}
+
+        {/* Cargo info card */}
+        {trackCargo && (
+          <div className="ehi-card p-4 space-y-2">
+            <div className="text-[15px] font-bold text-[var(--color-foreground)]">
+              {trackCargo.consignee_name || trackCargo.passenger_name || trackCargo.customer_name || 'Unknown Consignee'}
+            </div>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-mono text-[var(--color-muted)]">
+              <span>REF: <span className="text-[var(--color-accent-amber)]">{trackRef}</span></span>
+              {trackCargo.route && <span>ROUTE: {trackCargo.route}</span>}
+              {trackCargo.total_pcs && <span>{trackCargo.total_pcs} PCS</span>}
+              {trackCargo.total_kg && <span>{trackCargo.total_kg} KG</span>}
+              {trackCargo.airline && <span>✈ {trackCargo.airline}</span>}
+            </div>
+            {trackCargo.status && (
+              <div className="text-[10px] font-mono font-bold uppercase tracking-wider mt-1"
+                style={{ color: trackCargo.status === 'Delivered' ? 'var(--color-success)' : 'var(--color-accent-amber)' }}>
+                Current status: {trackCargo.status}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Event timeline */}
+        {trackEvents.length > 0 && (
+          <div className="space-y-0">
+            <div className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wider mb-3">
+              Event Timeline ({trackEvents.length} events)
+            </div>
+            <div className="relative">
+              {/* Vertical line */}
+              <div className="absolute left-[11px] top-4 bottom-4 w-px bg-[var(--color-border)]" />
+              <div className="space-y-3">
+                {trackEvents.map((ev, i) => {
+                  const isLast = i === trackEvents.length - 1;
+                  const color = statusColor(ev.event_type);
+                  return (
+                    <div key={ev.id || i} className="flex gap-4 items-start relative">
+                      <div
+                        className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center border-2 z-10"
+                        style={{ background: 'var(--color-obsidian)', borderColor: color }}
+                      >
+                        <div className="w-2 h-2 rounded-full" style={{ background: color }} />
+                      </div>
+                      <div className={`ehi-card p-3 flex-1 ${isLast ? 'border-[var(--color-accent-amber)]/30' : ''}`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-mono font-bold uppercase tracking-wider" style={{ color }}>
+                            {statusLabel(ev.event_type)}
+                          </span>
+                          <span className="text-[10px] font-mono text-[var(--color-muted)] shrink-0">
+                            {new Date(ev.created_at).toLocaleString('en-NG', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <div className="text-[12px] font-sans text-[var(--color-foreground)] mt-0.5">{ev.hub_name}</div>
+                        {ev.scanned_by_name && (
+                          <div className="text-[10px] font-mono text-[var(--color-muted)] mt-0.5">by {ev.scanned_by_name}</div>
+                        )}
+                        {ev.event_type === 'WRONG_DESTINATION_ALERT' && ev.alert_reason && (
+                          <div className="text-[10px] font-mono text-[var(--color-error)] mt-1 bg-[rgba(239,68,68,0.07)] px-2 py-1 rounded">
+                            {ev.alert_reason}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   }
 
   if (activePodCapture) {
@@ -964,9 +1131,21 @@ export const Scanner = ({
         <button
           onClick={handleManualLookup}
           disabled={!manualRef.trim() || processing}
-          className="h-11 px-4 bg-[var(--color-surface-2)] text-[var(--color-foreground)] text-[11px] font-mono rounded disabled:opacity-50 border border-[var(--color-border)] cursor-pointer hover:bg-[var(--color-surface-3)] transition-colors"
+          className="h-11 px-4 bg-[var(--color-surface-2)] text-[var(--color-foreground)] text-[11px] font-mono rounded disabled:opacity-50 border border-[var(--color-border)] cursor-pointer hover:bg-[var(--color-surface-3)] transition-colors shrink-0"
         >
           LOOKUP
+        </button>
+        <button
+          onClick={() => {
+            if (manualRef.trim()) {
+              handleTrackLookup(manualRef.trim());
+            } else {
+              setShowTrackView(true);
+            }
+          }}
+          className="h-11 px-4 bg-[rgba(245,158,11,0.12)] text-[var(--color-accent-amber)] text-[11px] font-mono rounded border border-[rgba(245,158,11,0.3)] cursor-pointer hover:bg-[rgba(245,158,11,0.2)] transition-colors shrink-0"
+        >
+          TRACK
         </button>
       </div>
 
@@ -1106,68 +1285,197 @@ export const Scanner = ({
         </div>
       )}
 
-      {/* --- SLIDE-UP SCAN RESULT POPUP --- */}
-      <div 
+      {/* --- SCAN RESULT POPUP --- */}
+      {/* Backdrop for WRONG_DESTINATION — requires manual dismiss */}
+      {popup.visible && popup.type === 'WRONG_DESTINATION' && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 49, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(3px)' }}
+          onClick={dismissAlert}
+        />
+      )}
+      <div
         style={{
           position: 'fixed',
-          bottom: 80, // Above bottom nav
-          left: 16,
-          right: 16,
-          backgroundColor: 'var(--color-surface-card)',
-          borderRadius: 'var(--radius-lg)',
-          boxShadow: 'var(--shadow-card)',
-          transform: popup.visible ? 'translateY(0)' : 'translateY(200%)',
-          transition: 'transform 200ms ease-out',
+          bottom: popup.type === 'WRONG_DESTINATION' ? '50%' : 80,
+          transform: popup.type === 'WRONG_DESTINATION'
+            ? (popup.visible ? 'translate(-50%, 50%)' : 'translate(-50%, 120%)')
+            : (popup.visible ? 'translateY(0)' : 'translateY(200%)'),
+          left: popup.type === 'WRONG_DESTINATION' ? '50%' : 16,
+          right: popup.type === 'WRONG_DESTINATION' ? 'auto' : 16,
+          width: popup.type === 'WRONG_DESTINATION' ? 'calc(100vw - 32px)' : 'auto',
+          maxWidth: popup.type === 'WRONG_DESTINATION' ? 380 : 'none',
           zIndex: 50,
-          borderLeftWidth: 4,
-          borderLeftStyle: 'solid',
-          borderLeftColor: popup.type.startsWith('SUCCESS') 
-            ? 'var(--color-success)' 
-            : popup.type === 'WRONG_DESTINATION' || popup.type === 'ALREADY_PROCESSED' 
-              ? 'var(--color-accent-amber)' 
-              : 'var(--color-error)'
+          transition: 'transform 220ms cubic-bezier(0.34,1.56,0.64,1), bottom 220ms ease, opacity 220ms',
+          opacity: popup.visible ? 1 : 0,
+          pointerEvents: popup.visible ? 'auto' : 'none',
         }}
-        className="p-4"
       >
-        {/* Row 1 — Status badge + scan mode */}
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-xl">
-            {popup.type === 'ALREADY_PROCESSED' ? '🔁' : popup.mode === 'DEPART' ? '🛫' : popup.mode === 'ARRIVE' ? '🛬' : '✅'}
-          </span>
-          <span className="font-bold text-[13px] text-[var(--color-foreground)]">
-            {popup.type === 'ALREADY_PROCESSED'
-              ? 'Already Logged'
-              : popup.mode === 'DEPART' 
-                ? `Departed ${popup.hubName}` 
-                : popup.mode === 'ARRIVE' 
-                  ? `Arrived at ${popup.hubName}` 
-                  : 'Delivered to Consignee'}
-          </span>
-        </div>
+        {(() => {
+          const isSuccess = popup.type.startsWith('SUCCESS');
+          const isWrongDest = popup.type === 'WRONG_DESTINATION';
+          const isAlready = popup.type === 'ALREADY_PROCESSED';
+          const isError = popup.type === 'NOT_FOUND' || popup.type === 'ERROR' || popup.type === 'NOT_LOGGED_IN';
 
-        {/* Row 2 — Cargo identity */}
-        <div className="mb-3">
-          <div className="font-mono font-bold text-base text-[var(--color-foreground)] tracking-wide">
-            {popup.entryRef || '---'}
-          </div>
-          <div className="text-[11px] text-[var(--color-muted)] mt-1 truncate">
-            {popup.consignee || 'Unknown Consignee'}
-          </div>
-        </div>
+          const accentColor = isSuccess
+            ? (popup.mode === 'DEPART' ? '#3B82F6' : popup.mode === 'DELIVER' ? '#a855f7' : '#10B981')
+            : isWrongDest ? '#EF4444'
+            : isAlready ? '#F59E0B'
+            : '#EF4444';
 
-        {/* Row 3 — Status update line */}
-        <div 
-          className="text-[11px] font-mono font-bold mt-2"
-          style={{ 
-            color: popup.type.startsWith('SUCCESS') 
-              ? popup.mode === 'DEPART' ? 'var(--color-accent-cobalt)' : 'var(--color-success)'
-              : popup.type === 'WRONG_DESTINATION' || popup.type === 'ALREADY_PROCESSED' 
-                ? 'var(--color-accent-amber)' 
-                : 'var(--color-error)'
-          }}
-        >
-          {popup.message || 'Error details missing'}
-        </div>
+          const bigIcon = isWrongDest ? '⚠' : isAlready ? '↩' : isError ? '✕'
+            : popup.mode === 'ARRIVE' ? '▼' : popup.mode === 'DEPART' ? '▲' : '✓';
+
+          const headline = isWrongDest
+            ? 'WRONG STATION'
+            : isAlready
+              ? 'ALREADY LOGGED'
+              : isError
+                ? (popup.type === 'NOT_FOUND' ? 'NOT FOUND' : 'SCAN ERROR')
+                : popup.mode === 'ARRIVE'
+                  ? 'ARRIVED'
+                  : popup.mode === 'DEPART'
+                    ? 'DEPARTED'
+                    : 'DELIVERED';
+
+          return (
+            <div style={{
+              background: isWrongDest
+                ? 'linear-gradient(135deg, #1a0505 0%, #1c0808 100%)'
+                : isAlready
+                  ? 'linear-gradient(135deg, #1a1200 0%, #1c1400 100%)'
+                  : isError
+                    ? 'linear-gradient(135deg, #110505 0%, #180606 100%)'
+                    : popup.mode === 'DEPART'
+                      ? 'linear-gradient(135deg, #050d1a 0%, #070f1f 100%)'
+                      : popup.mode === 'DELIVER'
+                        ? 'linear-gradient(135deg, #0f0518 0%, #120620 100%)'
+                        : 'linear-gradient(135deg, #031209 0%, #051510 100%)',
+              border: `2px solid ${accentColor}`,
+              borderRadius: 16,
+              boxShadow: `0 0 32px ${accentColor}33, 0 8px 32px rgba(0,0,0,0.6)`,
+              padding: '20px 20px 16px',
+              position: 'relative',
+              overflow: 'hidden',
+            }}>
+              {/* Glow pulse behind icon */}
+              <div style={{
+                position: 'absolute', top: -24, right: -24,
+                width: 100, height: 100, borderRadius: '50%',
+                background: accentColor,
+                opacity: 0.08,
+                filter: 'blur(24px)',
+              }} />
+
+              {/* Top row: icon + headline + dismiss */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                {/* Big status icon circle */}
+                <div style={{
+                  width: 48, height: 48, borderRadius: '50%',
+                  background: `${accentColor}22`,
+                  border: `2px solid ${accentColor}66`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  <span style={{ fontSize: 22, color: accentColor, fontWeight: 900, lineHeight: 1 }}>
+                    {bigIcon}
+                  </span>
+                </div>
+
+                {/* Headline + hub */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontSize: 20, fontWeight: 900, color: accentColor,
+                    fontFamily: 'monospace', letterSpacing: '0.05em', lineHeight: 1.1,
+                  }}>
+                    {headline}
+                  </div>
+                  <div style={{
+                    fontSize: 11, color: 'rgba(255,255,255,0.45)',
+                    fontFamily: 'monospace', marginTop: 2, letterSpacing: '0.04em',
+                  }}>
+                    {popup.hubName}
+                  </div>
+                </div>
+
+                {/* Dismiss button (always visible for WRONG_DESTINATION, others auto-dismiss) */}
+                {(isWrongDest || isAlready || isError) && (
+                  <button
+                    onClick={dismissAlert}
+                    style={{
+                      width: 28, height: 28, borderRadius: '50%',
+                      background: 'rgba(255,255,255,0.07)',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      color: 'rgba(255,255,255,0.5)',
+                      fontSize: 14, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div style={{ height: 1, background: `${accentColor}30`, marginBottom: 12 }} />
+
+              {/* Cargo info */}
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+                <div style={{
+                  fontFamily: 'monospace', fontSize: 15, fontWeight: 800,
+                  color: 'rgba(255,255,255,0.9)', letterSpacing: '0.04em',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {popup.entryRef || '---'}
+                </div>
+              </div>
+              <div style={{
+                fontSize: 13, color: 'rgba(255,255,255,0.65)',
+                fontFamily: 'sans-serif', overflow: 'hidden',
+                textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                marginBottom: isWrongDest ? 10 : 0,
+              }}>
+                {popup.consignee || 'Unknown Consignee'}
+              </div>
+
+              {/* Message — shown boldly for WRONG_DESTINATION, subtly for others */}
+              {popup.message && (
+                <div style={{
+                  marginTop: 8,
+                  padding: isWrongDest ? '10px 12px' : '6px 10px',
+                  background: `${accentColor}18`,
+                  borderRadius: 8,
+                  fontSize: isWrongDest ? 13 : 11,
+                  fontFamily: 'monospace',
+                  color: isWrongDest ? accentColor : 'rgba(255,255,255,0.5)',
+                  fontWeight: isWrongDest ? 700 : 400,
+                  lineHeight: 1.4,
+                }}>
+                  {popup.message}
+                </div>
+              )}
+
+              {/* WRONG_DESTINATION: Switch to ARRIVE shortcut */}
+              {isWrongDest && (
+                <button
+                  onClick={switchToArriveAndDismiss}
+                  style={{
+                    marginTop: 12, width: '100%',
+                    padding: '11px',
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    borderRadius: 10, cursor: 'pointer',
+                    color: 'rgba(255,255,255,0.7)',
+                    fontSize: 12, fontFamily: 'monospace', fontWeight: 700,
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  Switch to ARRIVE mode instead
+                </button>
+              )}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

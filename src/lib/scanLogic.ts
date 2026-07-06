@@ -211,7 +211,7 @@ export async function validateScan(
   // 3. Check if this hub is the final destination
   const isCorrectDestination =
     destLower.includes(hubWords[0]) ||
-    hubWords.some(w => w.length > 3 && destLower.includes(w));
+    hubWords.some(w => w.length >= 3 && destLower.includes(w));
 
   // 4. ARRIVE MODE validation
   if (mode === 'ARRIVE') {
