@@ -66,6 +66,158 @@ const playWarningBeep = () => {
   }
 };
 
+function getBrowserCameraInstructions(): { browser: string; steps: string[] } {
+  const ua = navigator.userAgent;
+  const isSafari = /Safari/.test(ua) && !/Chrome/.test(ua);
+  const isFirefox = /Firefox/.test(ua);
+  const isEdge = /Edg\//.test(ua);
+  const isMobile = /iPhone|iPad|Android/.test(ua);
+
+  if (isSafari && isMobile) {
+    return {
+      browser: 'Safari (iOS)',
+      steps: [
+        'Open the iOS Settings app',
+        'Scroll down and tap Safari',
+        'Tap Camera → Allow',
+        'Return here and tap Try Again',
+      ],
+    };
+  }
+  if (isSafari) {
+    return {
+      browser: 'Safari',
+      steps: [
+        'In the menu bar, go to Safari → Settings',
+        'Click the Websites tab',
+        'Select Camera on the left',
+        "Set this site's permission to Allow",
+        'Return here and tap Try Again',
+      ],
+    };
+  }
+  if (isFirefox) {
+    return {
+      browser: 'Firefox',
+      steps: [
+        'Click the camera/lock icon in the address bar',
+        'Next to Camera, click the × to clear the block',
+        'Reload this page, then tap Start Scanner',
+      ],
+    };
+  }
+  if (isEdge) {
+    return {
+      browser: 'Edge',
+      steps: [
+        'Click the lock icon in the address bar',
+        'Click Site permissions → Camera → Allow',
+        'Return here and tap Try Again',
+      ],
+    };
+  }
+  // Chrome (desktop or Android)
+  if (isMobile) {
+    return {
+      browser: 'Chrome (Android)',
+      steps: [
+        'Tap the lock icon in the address bar',
+        'Tap Site settings → Camera → Allow',
+        'Return here and tap Try Again',
+      ],
+    };
+  }
+  return {
+    browser: 'Chrome',
+    steps: [
+      'Click the lock icon in the address bar',
+      'Click Site settings → Camera → Allow',
+      'Return here and tap Try Again',
+    ],
+  };
+}
+
+function CameraPermissionDenied({ onRetry }: { onRetry: () => void }) {
+  const { browser, steps } = getBrowserCameraInstructions();
+
+  const handleRetry = async () => {
+    // Check if the user has re-enabled the permission before attempting to start
+    try {
+      const status = await navigator.permissions.query({ name: 'camera' as PermissionName });
+      if (status.state === 'denied') {
+        // Still blocked — don't start, just re-render the same panel
+        return;
+      }
+    } catch {
+      // Permissions API not supported (Safari) — try starting anyway
+    }
+    onRetry();
+  };
+
+  return (
+    <div style={{
+      background: 'rgba(239,68,68,0.06)',
+      border: '1.5px solid rgba(239,68,68,0.25)',
+      borderRadius: 12,
+      padding: '20px 18px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 14,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: '50%',
+          background: 'rgba(239,68,68,0.12)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          <span style={{ fontSize: 18 }}>🚫</span>
+        </div>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-error)', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Camera Access Blocked
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 3, fontFamily: 'monospace' }}>
+            {browser} needs permission to use your camera
+          </div>
+        </div>
+      </div>
+
+      <div style={{ paddingLeft: 2 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8, fontFamily: 'monospace' }}>
+          To fix this:
+        </div>
+        <ol style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {steps.map((step, i) => (
+            <li key={i} style={{ fontSize: 12, color: 'var(--color-foreground)', fontFamily: 'monospace', lineHeight: 1.5 }}>
+              {step}
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <button
+        onClick={handleRetry}
+        style={{
+          background: 'var(--color-surface-2)',
+          border: '1px solid var(--color-border)',
+          borderRadius: 8,
+          padding: '10px 0',
+          color: 'var(--color-foreground)',
+          fontSize: 12,
+          fontWeight: 700,
+          fontFamily: 'monospace',
+          cursor: 'pointer',
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
+        }}
+      >
+        Try Again
+      </button>
+    </div>
+  );
+}
+
 export const Scanner = ({
   user,
   transactions,
@@ -78,7 +230,7 @@ export const Scanner = ({
   const [mode, setMode] = useState<ScanMode>('DEPART');
   const [isScanning, setIsScanning] = useState(false);
   const [processing, setProcessing] = useState(false);
-  // Unused state removed
+  const [permissionDenied, setPermissionDenied] = useState(false);
   const [batchItems, setBatchItems] = useState<BatchScanItem[]>([]);
   const [showBatch, setShowBatch] = useState(false);
   const [manualRef, setManualRef] = useState('');
@@ -391,6 +543,7 @@ export const Scanner = ({
 
   // Start camera scanner — just flips the flag; the effect below does the real work
   const startScanner = useCallback(() => {
+    setPermissionDenied(false);
     setIsScanning(true);
   }, []);
 
@@ -416,7 +569,8 @@ export const Scanner = ({
       const name: string = err?.name || (typeof err === 'string' ? err : '');
       let msg = 'Camera failed to start. Tap again to retry.';
       if (name.includes('NotAllowed') || name.includes('PermissionDenied')) {
-        msg = 'Camera permission denied. Open browser Settings → Site permissions → Camera and allow access.';
+        setPermissionDenied(true);
+        return; // persistent UI panel handles it — no toast needed
       } else if (name.includes('NotFound') || name.includes('DevicesNotFound')) {
         msg = 'No camera detected on this device.';
       } else if (name.includes('NotReadable') || name.includes('TrackStart') || name.includes('Abort')) {
@@ -1106,6 +1260,8 @@ export const Scanner = ({
             Stop Camera
           </button>
         </div>
+      ) : permissionDenied ? (
+        <CameraPermissionDenied onRetry={startScanner} />
       ) : (
         <button
           onClick={startScanner}
