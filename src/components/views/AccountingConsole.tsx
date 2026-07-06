@@ -13,12 +13,13 @@ export interface AccountingConsoleProps {
   expenses: Expense[];
   onBack: () => void;
   onAddExpense: (exp: Expense) => void;
+  onUpdateExpense?: (expenseId: string, decision: 'approved' | 'rejected') => void;
   onUpdateTx?: (id: string, update: Partial<Transaction>) => void;
   onOpenBankRecon: () => void;
   onFullUpdateTx?: (tx: Transaction) => void;
 }
 
-export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddExpense, onUpdateTx, onOpenBankRecon, onFullUpdateTx }: AccountingConsoleProps) => {
+export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddExpense, onUpdateExpense, onUpdateTx, onOpenBankRecon, onFullUpdateTx }: AccountingConsoleProps) => {
   const [activeTab, setActiveTab] = useState<'Summary' | 'Cash Register' | 'Credit Sales' | 'Expenses' | 'Remittances' | 'Payment Validation'>('Summary');
   const [period, setPeriod] = useState<'Today' | 'This Week' | 'This Month' | 'Custom'>('Today');
 
@@ -44,9 +45,11 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
     });
 
     const fExp = expenses.filter(e => {
-      // Assuming expenses have a created_at or we just use today if missing
-      // If Expense type doesn't have created_at, it will fall back to today
-      return true; // For now keep all expenses or we can add created_at logic to expenses too
+      const d = e.created_at ? new Date(e.created_at) : today;
+      if (period === 'Today') return d >= today;
+      if (period === 'This Week') return d >= weekAgo;
+      if (period === 'This Month') return d >= monthAgo;
+      return true;
     });
 
     return { filteredTx: fTx, filteredExp: fExp };
@@ -134,8 +137,15 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
     }
   };
 
-  const regReceipts = transactions.filter(t => t.mode === 'Cash').reduce((sum, t) => sum + t.amount, 0);
-  const regPayments = expenses.filter(e => e.amount > 0).reduce((sum, e) => sum + e.amount, 0); // Mock all expenses as cash for now
+  // Scoped to the register's own date (regDate), not the whole history --
+  // otherwise this silently accumulates every transaction/expense ever
+  // logged since go-live, making the EOD variance meaningless.
+  const regReceipts = transactions
+    .filter(t => t.mode === 'Cash' && t.created_at && t.created_at.split('T')[0] === regDate)
+    .reduce((sum, t) => sum + t.amount, 0);
+  const regPayments = expenses
+    .filter(e => e.amount > 0 && e.created_at && e.created_at.split('T')[0] === regDate)
+    .reduce((sum, e) => sum + e.amount, 0); // Mock all expenses as cash for now
   const expectedClosing = (openingBalance || 0) + regReceipts - regPayments;
   const variance = physicalCount !== null ? physicalCount - expectedClosing : 0;
 
@@ -401,7 +411,7 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
           }}
         />
       )}
-      {activeTab === 'Expenses' && <ExpensesTab expenses={expenses} user={user} onAddExpense={onAddExpense} />}
+      {activeTab === 'Expenses' && <ExpensesTab expenses={expenses} user={user} onAddExpense={onAddExpense} onUpdateExpense={onUpdateExpense} />}
       {activeTab === 'Payment Validation' && <PaymentValidation transactions={transactions} onUpdateTx={onFullUpdateTx!} />}
       {activeTab === 'Remittances' && (
         <div className="flex flex-col items-center justify-center p-8 py-16 text-center bg-[var(--color-surface-card)] rounded-xl border border-dashed border-[var(--color-surface-2)] mt-4">

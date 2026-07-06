@@ -3,7 +3,7 @@ import { Expense, User } from '../../lib/types';
 import { fmt, uid, tnow } from '../../lib/helpers';
 import { Car, Truck, Bus, Box, Briefcase, Download, Plus, AlertCircle, Edit2, CheckCircle, XCircle } from 'lucide-react';
 
-export const ExpensesTab = ({ expenses = [], user, period = 'today', onAddExpense }: { expenses?: Expense[], user?: User, period?: string, onAddExpense?: (e: Expense) => void }) => {
+export const ExpensesTab = ({ expenses = [], user, period = 'today', onAddExpense, onUpdateExpense }: { expenses?: Expense[], user?: User, period?: string, onAddExpense?: (e: Expense) => void, onUpdateExpense?: (expenseId: string, decision: 'approved' | 'rejected') => void }) => {
   
   const [showForm, setShowForm] = useState(true);
   const [category, setCategory] = useState<string>('Cars');
@@ -74,6 +74,7 @@ export const ExpensesTab = ({ expenses = [], user, period = 'today', onAddExpens
       amount: numAmt,
       description: desc + (subCategory ? ` - ${subCategory}` : ''),
       time: tnow(),
+      created_at: new Date().toISOString(),
       status
     };
 
@@ -268,13 +269,26 @@ export const ExpensesTab = ({ expenses = [], user, period = 'today', onAddExpens
                         </>
                       )}
                     </div>
-                    
+
+                    {e.status === 'approved' && e.approvedBy && (
+                      <div className="text-[10px] font-sans text-[var(--color-muted)] mt-1">Approved by {e.approvedBy}</div>
+                    )}
+                    {e.status === 'rejected' && e.rejectedBy && (
+                      <div className="text-[10px] font-sans text-[var(--color-muted)] mt-1">Rejected by {e.rejectedBy}</div>
+                    )}
+
                     {e.status === 'pending' && (user?.role === 'super_admin' || user?.role === 'admin') && (
                       <div className="flex space-x-2 mt-3 pt-3 border-t border-[var(--color-border)]">
-                        <button className="flex-1 py-1.5 bg-[rgba(16,185,129,0.1)] hover:bg-[rgba(16,185,129,0.2)] text-[var(--color-success)] text-[11px] font-sans font-bold rounded flex justify-center items-center space-x-1 transition-colors">
+                        <button
+                          onClick={() => onUpdateExpense?.(e.id, 'approved')}
+                          className="flex-1 py-1.5 bg-[rgba(16,185,129,0.1)] hover:bg-[rgba(16,185,129,0.2)] text-[var(--color-success)] text-[11px] font-sans font-bold rounded flex justify-center items-center space-x-1 transition-colors"
+                        >
                           <CheckCircle size={12}/> <span>Approve</span>
                         </button>
-                        <button className="flex-1 py-1.5 bg-[rgba(239,68,68,0.1)] hover:bg-[rgba(239,68,68,0.2)] text-[var(--color-error)] text-[11px] font-sans font-bold rounded flex justify-center items-center space-x-1 transition-colors">
+                        <button
+                          onClick={() => onUpdateExpense?.(e.id, 'rejected')}
+                          className="flex-1 py-1.5 bg-[rgba(239,68,68,0.1)] hover:bg-[rgba(239,68,68,0.2)] text-[var(--color-error)] text-[11px] font-sans font-bold rounded flex justify-center items-center space-x-1 transition-colors"
+                        >
                           <XCircle size={12}/> <span>Reject</span>
                         </button>
                       </div>

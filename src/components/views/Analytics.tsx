@@ -177,10 +177,13 @@ export const Analytics = ({
     // Real airline payables: for each cargo entry with an airline, we owe the
     // airline (100% - our commission %) of the amount. This is the same
     // calculation CreditDebit.tsx uses for "Total Due to Airlines".
+    // Rate is the one locked in on the transaction at entry time -- only
+    // transactions logged before that field existed fall back to the
+    // current live config, since they have no other rate on record.
     const airlinePayables = cargo.reduce((sum, t) => {
       if (!t.airline) return sum;
       const normalizedAirline = normalizeAirlineName(t.airline);
-      const commRate = airlineCommissions[normalizedAirline] || 0;
+      const commRate = t.commissionRate ?? airlineCommissions[normalizedAirline] ?? 0;
       return sum + t.amount * (1 - commRate / 100);
     }, 0);
 

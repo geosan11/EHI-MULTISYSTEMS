@@ -64,7 +64,7 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
           cargoCreditsReq.data.forEach(r => {
             if (r.airline) {
               mappedCredits.push({
-                id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo', detail: `${r.awb_tag_number || ''}`, amount: r.amount || 0, mode: r.receipt_mode, time: r.created_at, type: 'cargo', airline: normalizeAirlineName(r.airline), status: r.status || 'Intake'
+                id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo', detail: `${r.awb_tag_number || ''}`, amount: r.amount || 0, mode: r.receipt_mode, time: r.created_at, type: 'cargo', airline: normalizeAirlineName(r.airline), commissionRate: r.commission_rate ?? undefined, status: r.status || 'Intake'
               });
             }
           });
@@ -108,7 +108,7 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
       const airline = normalizeAirlineName(tx.airline) || 'Unknown';
       const normalizedCommissions: Record<string, number> = {};
       Object.entries(commissions).forEach(([k, v]) => { normalizedCommissions[normalizeAirlineName(k)] = v; });
-      const commRate = normalizedCommissions[airline] || 0;
+      const commRate = tx.commissionRate ?? normalizedCommissions[airline] ?? 0;
       const weOwe = tx.amount * (1 - commRate / 100);
       summary[airline] = (summary[airline] || 0) + weOwe;
     });
@@ -254,7 +254,7 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
               <h3 className="text-[11px] font-mono text-[var(--color-muted)] uppercase tracking-wider pl-1">Detailed Remittances</h3>
               {credits.map((tx, i) => {
                 const normalizedAirline = normalizeAirlineName(tx.airline);
-                const commRate = commissions[normalizedAirline] ?? commissions[tx.airline!] ?? 0;
+                const commRate = tx.commissionRate ?? commissions[normalizedAirline] ?? commissions[tx.airline!] ?? 0;
                 const weOwe = tx.amount * (1 - commRate / 100);
                 return (
                   <div key={i} className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg p-4 hover:border-[var(--color-surface-2)] transition-colors">

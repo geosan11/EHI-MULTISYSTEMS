@@ -158,7 +158,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         const endISO = endDate.toISOString();
 
         const [cargoRes, vjRes, mktRes, expRes] = await Promise.all([
-          addHubFilter(supabase.from('cargo_entries').select(`entry_ref,consignee_name,airline,awb_tag_number,total_pcs,total_kg,route,content_type,amount,receipt_mode,created_at,status,bank,hub_id${canSeePin ? ',pickup_pin' : ''}`).gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
+          addHubFilter(supabase.from('cargo_entries').select(`entry_ref,consignee_name,airline,commission_rate,awb_tag_number,total_pcs,total_kg,route,content_type,amount,receipt_mode,created_at,status,bank,hub_id${canSeePin ? ',pickup_pin' : ''}`).gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
           addHubFilter(supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
           addHubFilter(supabase.from('marketing_entries').select('entry_ref,customer_name,route,qty_big_bag,qty_med_bag,qty_small_bag,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,user_profiles(name)').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
           addHubFilter(supabase.from('expenses').select('*').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500))
@@ -185,6 +185,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               pickupPin: r.pickup_pin || undefined,
               created_at: r.created_at,
               airline: r.airline,
+              commissionRate: r.commission_rate ?? undefined,
               bank: r.bank,
               route: r.route,
               hub_id: r.hub_id,
@@ -248,6 +249,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             amount: e.amount,
             description: e.description,
             time: e.created_at,
+            created_at: e.created_at,
             status: e.status || 'pending',
             logged_by: e.logged_by || undefined,
           }));
@@ -543,6 +545,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         bank: tx.bank,
         hub_id: hubId,
         airline: (tx as any).airline || parts[0] || 'Unknown',
+        commission_rate: (tx as any).commissionRate ?? null,
         remark: (tx as any).remarks || null,
         pickup_pin: (tx as any).pickupPin || null,
         consignee_phone: (tx as any).consigneePhone || null,
@@ -668,6 +671,25 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       showToast({ message: `Failed to save expense: ${error}`, type: 'error' });
     }
   }, [user.hub, user.hub_id, user.id, user.name, showToast]);
+
+  const handleUpdateExpense = useCallback(async (expenseId: string, decision: 'approved' | 'rejected') => {
+    const nowIso = new Date().toISOString();
+    const patch = decision === 'approved'
+      ? { status: 'approved' as const, approvedBy: user.name, approvedAt: nowIso }
+      : { status: 'rejected' as const, rejectedBy: user.name, rejectedAt: nowIso };
+
+    setExpenses(prev => prev.map(e => e.id === expenseId ? { ...e, ...patch } : e));
+
+    const { error } = await supabase.from('expenses').update(
+      decision === 'approved'
+        ? { status: 'approved', approved_by: user.name, approved_at: nowIso }
+        : { status: 'rejected', rejected_by: user.name, rejected_at: nowIso }
+    ).eq('id', expenseId);
+
+    if (error) {
+      showToast({ message: `Failed to save decision: ${error.message}`, type: 'error' });
+    }
+  }, [user.name, showToast]);
 
   const handleToggleWifi = useCallback(() => {
     setIsOffline(prev => {
@@ -826,6 +848,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                    onFullUpdateTx={handleUpdateTx}
                    onChangeTab={setCurrentTab}
                    onAddExpense={handleAddExpense}
+                   onUpdateExpense={handleUpdateExpense}
                    dateRange={globalDateRange}
                    onDateRangeChange={setGlobalDateRange}
                    onEOD={handleEOD}

@@ -91,6 +91,7 @@ export interface ScanValidationResult {
     time: string;
     by: string;
   };
+  previousHub?: string;
   currentHub: string;
   message?: string;
 }
@@ -105,6 +106,10 @@ export interface TrackingEvent {
   notes?: string;
   cargo_destination?: string;
   alert_reason?: string;
+  previous_hub?: string;
+  resolved?: boolean;
+  resolved_by?: string;
+  resolved_at?: string;
   created_at: string;
 }
 
@@ -157,6 +162,10 @@ export interface Transaction {
   // Cargo specifics
   awb_tag_number?: string;
   airline?: string;
+  // Commission % locked in at entry time -- must not be recomputed later
+  // against a since-changed pricing_config rate (that would silently
+  // rewrite historical airline payables).
+  commissionRate?: number;
   consignee?: string;
   pieces?: number;
   kg?: number;
@@ -207,10 +216,15 @@ export interface Expense {
   amount: number;
   description: string;
   time: string;
+  created_at?: string;
   status?: 'pending' | 'approved' | 'rejected';
   mode?: string;
   posApprovalCode?: string;
   logged_by?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedBy?: string;
+  rejectedAt?: string;
 }
 
 export type TabView = 'Tower' | 'Cargo' | 'VJ POS' | 'Marketing' | 'Scan' | 'Incoming' | 'IncomingToHub' | 'More' | 'MyTrips' | 'IT Debug' | 'Credit & Debit' | 'AirlineLogos' | 'DataImport' | 'AirlineLedger' | 'WeightManifest';

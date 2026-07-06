@@ -6,7 +6,8 @@ import {
   BANKS,
   CARGO_ROUTES,
 } from "../../lib/constants";
-import { fmt, uid, tnow, generatePickupPin } from "../../lib/helpers";
+import { fmt, uid, tnow, generatePickupPin, normalizeAirlineName } from "../../lib/helpers";
+import { isTagAlreadyDelivered } from "../../lib/scanLogic";
 import {
   CheckCircle,
   Loader2,
@@ -77,19 +78,29 @@ const LOCAL_SERIAL_KEY = () => {
 };
 
 function getLocalSerial(): number {
-  const stored = localStorage.getItem(LOCAL_SERIAL_KEY());
-  return stored ? parseInt(stored) : 1;
+  try {
+    if (typeof window === "undefined" || !window.localStorage) return 1;
+    const stored = localStorage.getItem(LOCAL_SERIAL_KEY());
+    return stored ? parseInt(stored) : 1;
+  } catch (e) {
+    return 1;
+  }
 }
 
 function incrementLocalSerial(): number {
   const key = LOCAL_SERIAL_KEY();
-  const next = getLocalSerial() + 1;
-  localStorage.setItem(key, String(next));
+  try {
+    if (typeof window === "undefined" || !window.localStorage) return getLocalSerial();
+    const next = getLocalSerial() + 1;
+    localStorage.setItem(key, String(next));
 
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
-  localStorage.removeItem(`ehi_cargo_serial_${yesterday}`);
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+    localStorage.removeItem(`ehi_cargo_serial_${yesterday}`);
 
-  return next;
+    return next;
+  } catch (e) {
+    return getLocalSerial();
+  }
 }
 
 import { QRCode } from "../QRCode";
@@ -246,15 +257,68 @@ export const CargoForm = ({
 
   // --- B2B CORPORATE PERSISTED STATES ---
   const [corpClients, setCorpClients] = useState<CorporateClient[]>(() => {
-    const saved = localStorage.getItem("ehi_corporate_clients_v2");
-    if (saved) return JSON.parse(saved);
-    return [];
+    try {
+      if (typeof window === "undefined" || !window.localStorage) return [];
+      const saved = localStorage.getItem("ehi_corporate_clients_v2");
+      if (saved) return JSON.parse(saved);
+      return [];
+    } catch (e) {
+      return [];
+    }
   });
 
   const [corpRates, setCorpRates] = useState<CorporateRouteRate[]>(() => {
-    const saved = localStorage.getItem("ehi_corporate_route_rates_v2");
-    if (saved) return JSON.parse(saved);
-    const initial = [
+    try {
+      if (typeof window === "undefined" || !window.localStorage) {
+        const initial = [
+          {
+            id: "rate_1",
+            corporate_client_id: "corp_1",
+            route_name: "ABV/Abuja",
+            rate_per_kg: 600,
+          },
+          {
+            id: "rate_2",
+            corporate_client_id: "corp_1",
+            route_name: "BNI/Benin City",
+            rate_per_kg: 400,
+          },
+          {
+            id: "rate_3",
+            corporate_client_id: "corp_1",
+            route_name: "LOS/Lagos",
+            rate_per_kg: 350,
+          },
+          {
+            id: "rate_4",
+            corporate_client_id: "corp_2",
+            route_name: "ABV/Abuja",
+            rate_per_kg: 500,
+          },
+          {
+            id: "rate_5",
+            corporate_client_id: "corp_2",
+            route_name: "BNI/Benin City",
+            rate_per_kg: 420,
+          },
+          {
+            id: "rate_6",
+            corporate_client_id: "corp_3",
+            route_name: "ABV/Abuja",
+            rate_per_kg: 650,
+          },
+          {
+            id: "rate_7",
+            corporate_client_id: "corp_3",
+            route_name: "PHC/Port Harcourt",
+            rate_per_kg: 750,
+          },
+        ];
+        return initial;
+      }
+      const saved = localStorage.getItem("ehi_corporate_route_rates_v2");
+      if (saved) return JSON.parse(saved);
+      const initial = [
       {
         id: "rate_1",
         corporate_client_id: "corp_1",
@@ -298,18 +362,30 @@ export const CargoForm = ({
         rate_per_kg: 750,
       },
     ];
-    localStorage.setItem(
-      "ehi_corporate_route_rates_v2",
-      JSON.stringify(initial),
-    );
+    try {
+      localStorage.setItem(
+        "ehi_corporate_route_rates_v2",
+        JSON.stringify(initial),
+      );
+    } catch (e) {
+      /* ignore */
+    }
     return initial;
+    } catch (e) {
+      return [];
+    }
   });
 
   const [pendingIntakes, setPendingIntakes] = useState<PendingWeighingIntake[]>(
     () => {
-      const saved = localStorage.getItem("ehi_pending_intakes_v2");
-      if (saved) return JSON.parse(saved);
-      return [];
+      try {
+        if (typeof window === "undefined" || !window.localStorage) return [];
+        const saved = localStorage.getItem("ehi_pending_intakes_v2");
+        if (saved) return JSON.parse(saved);
+        return [];
+      } catch (e) {
+        return [];
+      }
     },
   );
 
@@ -466,6 +542,18 @@ export const CargoForm = ({
     // Build central ledger transaction record (Debt contract)
     const finalTxDetail = `${selectedIntake.airline} · ${selectedIntake.awb} · ${selectedIntake.pieces}pcs · ${weightNum}KG · ${selectedIntake.route} · ${selectedIntake.contentType}`;
 
+    // Lock in the commission rate at entry time (see retail submit path for why).
+    let gateWeighCommissionRate = 0;
+    try {
+      const rawCommissions = localStorage.getItem("ehi_airline_commissions");
+      if (rawCommissions && selectedIntake.airline) {
+        const parsed = JSON.parse(rawCommissions) as Record<string, number>;
+        gateWeighCommissionRate = parsed[normalizeAirlineName(selectedIntake.airline)] ?? parsed[selectedIntake.airline] ?? 0;
+      }
+    } catch (e) {
+      // Ignore -- gateWeighCommissionRate stays 0
+    }
+
     const txEntry: Transaction = {
       id: uid("CG"),
       name: selectedIntake.consignee,
@@ -478,6 +566,7 @@ export const CargoForm = ({
       status: "Intake",
       awb_tag_number: selectedIntake.awb,
       airline: selectedIntake.airline,
+      commissionRate: gateWeighCommissionRate,
       pieces: selectedIntake.pieces,
       kg: weightNum,
     };
@@ -632,6 +721,19 @@ export const CargoForm = ({
 
     const pickupPin = generatePickupPin();
 
+    // Lock in the commission rate at entry time so a later change to
+    // pricing_config can't silently rewrite historical airline payables.
+    let commissionRate = 0;
+    try {
+      const rawCommissions = localStorage.getItem("ehi_airline_commissions");
+      if (rawCommissions) {
+        const parsed = JSON.parse(rawCommissions) as Record<string, number>;
+        commissionRate = parsed[normalizeAirlineName(actualAirline)] ?? parsed[actualAirline] ?? 0;
+      }
+    } catch (e) {
+      // Ignore -- commissionRate stays 0
+    }
+
     const airlineCode = ({ 'Arik Air': 'AK', 'Green Africa': 'GA', 'Green Africa Airways': 'GA', 'United Nigeria': 'UN', 'United Nigeria Airlines': 'UN' } as Record<string, string>)[airline] || null;
 
     let resolvedAwb = awb;
@@ -650,6 +752,17 @@ export const CargoForm = ({
     } catch (err) {
       console.warn('allocate_awb RPC threw, using form-entered AWB:', err);
       /* fall back to form AWB */
+    }
+
+    // Block reusing a tag whose previous consignment already completed
+    // delivery -- a duplicated physical tag makes two shipments share one
+    // tracking history and is a common consign-fraud pattern.
+    if (await isTagAlreadyDelivered(resolvedAwb)) {
+      alert(
+        `${resolvedAwb} was already delivered on a previous consignment. This tag cannot be reused -- generate a new one.`,
+      );
+      setSubmitting(false);
+      return;
     }
 
     const nextSerial = incrementLocalSerial();
@@ -671,6 +784,7 @@ export const CargoForm = ({
       status: "Intake",
       awb_tag_number: resolvedAwb,
       airline: actualAirline,
+      commissionRate,
       pieces: parseInt(pcs) || 1,
       kg: Math.round(parseFloat(kg)) || 0,
       pickupPin,
@@ -1067,7 +1181,7 @@ export const CargoForm = ({
   return (
     <div
       className="pb-24"
-      style={{ width: "100%", boxSizing: "border-box" }}
+      style={{ width: "100%", boxSizing: "border-box", transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}
     >
       {/* SECTION SELECTOR / HUB MODE NAVIGATION */}
       <div className="px-4 pt-4">
