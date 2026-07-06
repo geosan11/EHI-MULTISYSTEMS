@@ -36,7 +36,7 @@ export interface MarketingDailySummaryData {
   entries: Array<{
     customerName: string;
     route: string;
-    bags: string; // e.g. "2BB 1MB"
+    bags: string;
     amount: number;
     paymentMode: string;
     bank?: string;
@@ -63,21 +63,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 4,
+    marginBottom: 0,
   },
-  title: {
-    fontSize: 10,
-    color: "#000000",
-    textTransform: "uppercase",
-    marginBottom: 4,
-    alignSelf: "center",
+  headerBorder: {
+    borderBottomWidth: 2,
+    borderBottomColor: "#000000",
+    marginBottom: 0,
+  },
+  titleBar: {
+    backgroundColor: "#000000",
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    marginBottom: 3,
+  },
+  titleText: {
+    fontSize: 9,
+    color: "#FFFFFF",
+    textAlign: "center",
     fontWeight: "bold",
+    fontFamily: "Helvetica-Bold",
+    textTransform: "uppercase",
   },
   divider: {
-    marginVertical: 2,
+    marginVertical: 3,
     borderBottomWidth: 1,
     borderBottomColor: "#000000",
-    borderBottomStyle: "dashed",
   },
   row: {
     flexDirection: "row",
@@ -85,169 +95,212 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   label: {
-    fontSize: 8,
-    color: "#000000",
+    fontSize: 7,
+    color: "#777777",
     textTransform: "uppercase",
     width: 60,
-    fontWeight: "bold",
+    fontFamily: "Helvetica",
   },
   value: {
     fontSize: 8,
     fontWeight: "bold",
+    fontFamily: "Helvetica-Bold",
     color: "#000000",
     flex: 1,
     textAlign: "right",
   },
-  amountContainer: {
-    marginTop: 4,
-    padding: 4,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: "#000000",
-  },
-  amountLabel: {
-    fontSize: 10,
-    color: "#000000",
-    textTransform: "uppercase",
+  awbValue: {
+    fontSize: 8,
     fontWeight: "bold",
-  },
-  amountValue: {
-    fontSize: 12,
-    fontWeight: "bold",
+    fontFamily: "Courier-Bold",
     color: "#000000",
+    flex: 1,
     textAlign: "right",
   },
-  footerRow: { flexDirection: "row", justifyContent: "center", marginTop: 4 },
-  footerText: {
+  sectionHeader: {
+    backgroundColor: "#F5F5F5",
+    padding: 3,
+    marginTop: 6,
+    marginBottom: 3,
+  },
+  sectionHeaderText: {
     fontSize: 7,
+    fontWeight: "bold",
+    fontFamily: "Helvetica-Bold",
+    textTransform: "uppercase",
+    color: "#333333",
+  },
+  bagRow: {
+    flexDirection: "row",
+    marginVertical: 4,
+  },
+  bagBox: {
+    borderWidth: 1,
+    borderColor: "#000000",
+    flex: 1,
+    margin: 1,
+    padding: 4,
+    alignItems: "center",
+  },
+  bagCount: {
+    fontSize: 18,
+    fontWeight: "bold",
+    fontFamily: "Helvetica-Bold",
     color: "#000000",
-    textAlign: "center",
+  },
+  bagLabel: {
+    fontSize: 7,
+    textTransform: "uppercase",
+    color: "#777777",
+    fontFamily: "Helvetica",
+  },
+  amountBox: {
+    backgroundColor: "#000000",
+    padding: 6,
     marginTop: 4,
   },
-  sectionTitle: {
-    fontSize: 9,
-    color: "#000000",
-    fontWeight: "bold",
-    marginBottom: 2,
+  amountBoxLabel: {
+    fontSize: 7,
+    color: "#FFFFFF",
     textTransform: "uppercase",
+    fontFamily: "Helvetica",
+  },
+  amountBoxValue: {
+    fontSize: 16,
+    fontWeight: "bold",
+    fontFamily: "Courier-Bold",
+    color: "#FFFFFF",
+    marginVertical: 2,
+  },
+  amountBoxSub: {
+    fontSize: 8,
+    color: "#FFFFFF",
+    fontFamily: "Helvetica",
+  },
+  footerText: {
+    fontSize: 7,
+    color: "#888888",
+    textAlign: "center",
+    marginTop: 1,
   },
 });
 
 const MarketingReceiptPDF = ({ data }: { data: MarketingReceiptData }) => {
-  let h = 280;
-  if (data.qrCodeDataUrl) h += 60;
-  if (data.bankName) h += 20;
-  if (data.paymentMode === "Transfer" && data.paymentNarration) h += 25;
-  if (data.remark) h += 30;
+  let h = 290;
+  if (data.awbTagNumber) h += 14;
+  if (data.phone) h += 14;
+  if (data.airline) h += 14;
+  if (data.bankName) h += 14;
+  if (data.paymentMode === "Transfer" && data.paymentNarration) h += 14;
+  if (data.remark) h += 28;
 
   return (
   <Document>
     <Page size={[226, h]} style={styles.page}>
-      {/* Header: EHI logo left, airline logo right */}
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-        <EHILogoPDF width={70} />
-        {data.airline && <AirlineLogoPDF airline={data.airline} width={55} />}
+      <View style={[styles.headerRow, styles.headerBorder]}>
+        <EHILogoPDF width={60} />
+        {data.airline && <AirlineLogoPDF airline={data.airline} width={60} />}
       </View>
-      <Text style={styles.title}>FIELD MARKETING RECEIPT</Text>
 
-      <View style={styles.divider} />
+      <View style={styles.titleBar}>
+        <Text style={styles.titleText}>FIELD MARKETING RECEIPT</Text>
+      </View>
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionHeaderText}>TRANSACTION INFO</Text>
+      </View>
 
       <View style={styles.row}>
-        <Text style={styles.label}>Ref:</Text>
+        <Text style={styles.label}>Ref</Text>
         <Text style={styles.value}>{data.entryRef}</Text>
       </View>
-      {data.awbTagNumber && (
+      {data.awbTagNumber ? (
         <View style={styles.row}>
-          <Text style={styles.label}>AWB:</Text>
-          <Text style={styles.value}>{data.awbTagNumber}</Text>
+          <Text style={styles.label}>AWB</Text>
+          <Text style={styles.awbValue}>{data.awbTagNumber}</Text>
         </View>
-      )}
+      ) : null}
       <View style={styles.row}>
-        <Text style={styles.label}>Date:</Text>
+        <Text style={styles.label}>Date</Text>
         <Text style={styles.value}>{data.date}</Text>
       </View>
       <View style={styles.row}>
-        <Text style={styles.label}>Agent:</Text>
+        <Text style={styles.label}>Agent</Text>
         <Text style={styles.value}>{data.agentName}</Text>
       </View>
 
-      <View style={styles.divider} />
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionHeaderText}>CUSTOMER DETAILS</Text>
+      </View>
 
       <View style={styles.row}>
-        <Text style={styles.label}>CUSTOMER:</Text>
+        <Text style={styles.label}>Customer</Text>
         <Text style={styles.value}>{data.customerName}</Text>
       </View>
       {data.phone ? (
         <View style={styles.row}>
-          <Text style={styles.label}>Phone:</Text>
+          <Text style={styles.label}>Phone</Text>
           <Text style={styles.value}>{data.phone}</Text>
         </View>
       ) : null}
       <View style={styles.row}>
-        <Text style={styles.label}>Route:</Text>
+        <Text style={styles.label}>Route</Text>
         <Text style={styles.value}>{data.route}</Text>
       </View>
-      {data.airline && (
+      {data.airline ? (
         <View style={styles.row}>
-          <Text style={styles.label}>Airline:</Text>
+          <Text style={styles.label}>Airline</Text>
           <Text style={styles.value}>{data.airline}</Text>
         </View>
-      )}
+      ) : null}
 
-      <View style={styles.divider} />
-      <Text style={styles.sectionTitle}>BAG BREAKDOWN</Text>
-
-      <View style={styles.row}>
-        <Text style={styles.label}>BB (Big):</Text>
-        <Text style={styles.value}>{data.bigBags}</Text>
-      </View>
-      <View style={styles.row}>
-        <Text style={styles.label}>MB (Med):</Text>
-        <Text style={styles.value}>{data.medBags}</Text>
-      </View>
-      <View style={styles.row}>
-        <Text style={styles.label}>SB (Small):</Text>
-        <Text style={styles.value}>{data.smallBags}</Text>
-      </View>
-
-      <View style={styles.divider} />
-
-      <View style={styles.amountContainer}>
+      {data.remark ? (
         <View style={styles.row}>
-          <Text style={styles.amountLabel}>TOTAL:</Text>
-          <Text style={styles.amountValue}>
-            {formatNaira(data.amount)}
-          </Text>
+          <Text style={styles.label}>Remark</Text>
+          <Text style={styles.value}>{data.remark}</Text>
         </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Payment:</Text>
-          <Text style={styles.value}>{data.paymentMode}</Text>
+      ) : null}
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionHeaderText}>BAG BREAKDOWN</Text>
+      </View>
+
+      <View style={styles.bagRow}>
+        <View style={styles.bagBox}>
+          <Text style={styles.bagCount}>{data.bigBags}</Text>
+          <Text style={styles.bagLabel}>BB</Text>
         </View>
-        {data.bankName ? (
-          <View style={styles.row}>
-            <Text style={styles.label}>Bank:</Text>
-            <Text style={styles.value}>{data.bankName}</Text>
-          </View>
-        ) : null}
+        <View style={styles.bagBox}>
+          <Text style={styles.bagCount}>{data.medBags}</Text>
+          <Text style={styles.bagLabel}>MB</Text>
+        </View>
+        <View style={styles.bagBox}>
+          <Text style={styles.bagCount}>{data.smallBags}</Text>
+          <Text style={styles.bagLabel}>SB</Text>
+        </View>
+      </View>
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionHeaderText}>PAYMENT</Text>
+      </View>
+
+      <View style={styles.amountBox}>
+        <Text style={styles.amountBoxLabel}>TOTAL AMOUNT</Text>
+        <Text style={styles.amountBoxValue}>{formatNaira(data.amount)}</Text>
+        <Text style={styles.amountBoxSub}>
+          {data.paymentMode}{data.bankName ? ` • ${data.bankName}` : ''}
+        </Text>
         {data.paymentMode === "Transfer" && data.paymentNarration ? (
-          <View style={styles.row}>
-            <Text style={styles.label}>Bank Transfer Narration:</Text>
-            <Text style={styles.value}>{data.paymentNarration}</Text>
-          </View>
+          <Text style={[styles.amountBoxSub, { marginTop: 2 }]}>
+            Narration: {data.paymentNarration}
+          </Text>
         ) : null}
       </View>
 
-      <View style={styles.divider} />
+      <View style={[styles.divider, { marginTop: 6 }]} />
 
-      <View style={styles.footerRow}>
-        <Text style={styles.footerText}>EHI Multisystems Nigeria Limited</Text>
-      </View>
-      <View style={styles.footerRow}>
-        <Text style={styles.footerText}>Track your cargo: ehimultisystems.com</Text>
-      </View>
-      <View style={styles.footerRow}>
-        <Text style={styles.footerText}>{data.entryRef} • {data.date}</Text>
-      </View>
+      <Text style={styles.footerText}>ehimultisystems.com</Text>
+      <Text style={styles.footerText}>{data.entryRef} • {data.date}</Text>
     </Page>
   </Document>
   );

@@ -41,7 +41,10 @@ import {
   CreditCard,
   Terminal,
   ChevronRight,
-  PackageCheck
+  PackageCheck,
+  Upload,
+  BookOpen,
+  ClipboardList,
 } from 'lucide-react';
 
 import { StaffManagement } from './StaffManagement';
@@ -340,6 +343,32 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
           subtitle="Live driver tracking on active routes"
           onClick={() => { if (canAccessFleetAndForecast) setDispatchView(true); }}
           disabled={!canAccessFleetAndForecast}
+        />
+      </div>
+
+      {/* Data */}
+      <SectionLabel label="Data & Records" />
+      <div>
+        <MenuItem
+          icon={BookOpen}
+          title="Airline Balance Ledger"
+          subtitle="Per-airline running Credit / Debit / Cheque Raise ledger"
+          onClick={() => onChangeTab('AirlineLedger')}
+          disabled={!canAccessAccounting}
+        />
+        <MenuItem
+          icon={ClipboardList}
+          title="Weight Manifest"
+          subtitle="Daily dispatch weight tracking per flight and route"
+          onClick={() => onChangeTab('WeightManifest')}
+          disabled={!['super_admin','admin','cargo_agent','office_work'].includes(user.role)}
+        />
+        <MenuItem
+          icon={Upload}
+          title="Import Historical Data"
+          subtitle="Bulk import ledger records from CSV spreadsheets"
+          onClick={() => onChangeTab('DataImport')}
+          disabled={!isSuperAdmin && user.role !== 'admin'}
         />
       </div>
 

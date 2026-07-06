@@ -50,20 +50,35 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 4,
   },
-  title: {
-    fontSize: 10,
-    color: "#000000",
-    textTransform: "uppercase",
-    marginBottom: 4,
-    alignSelf: "center",
+  headerBorder: {
+    borderBottomWidth: 2,
+    borderBottomColor: "#000000",
+    marginBottom: 0,
+  },
+  titleBar: {
+    backgroundColor: "#000000",
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    marginBottom: 3,
+  },
+  titleText: {
+    fontSize: 9,
+    color: "#FFFFFF",
+    textAlign: "center",
     fontWeight: "bold",
     fontFamily: "Helvetica-Bold",
+    textTransform: "uppercase",
+  },
+  originLine: {
+    fontSize: 8,
+    color: "#555555",
+    textAlign: "center",
+    marginBottom: 4,
   },
   divider: {
-    marginVertical: 2,
+    marginVertical: 3,
     borderBottomWidth: 1,
     borderBottomColor: "#000000",
-    borderBottomStyle: "dashed",
   },
   row: {
     flexDirection: "row",
@@ -71,12 +86,11 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   label: {
-    fontSize: 8,
-    color: "#000000",
+    fontSize: 7,
+    color: "#777777",
     textTransform: "uppercase",
     width: 60,
-    fontWeight: "bold",
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Helvetica",
   },
   value: {
     fontSize: 8,
@@ -86,110 +100,164 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: "right",
   },
-  amountContainer: {
-    marginTop: 4,
-    padding: 4,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: "#000000",
+  sectionHeader: {
+    backgroundColor: "#F5F5F5",
+    padding: 3,
+    marginTop: 6,
+    marginBottom: 3,
   },
-  amountLabel: {
-    fontSize: 10,
-    color: "#000000",
+  sectionHeaderText: {
+    fontSize: 7,
+    fontWeight: "bold",
+    fontFamily: "Helvetica-Bold",
     textTransform: "uppercase",
-    fontWeight: "bold",
-    fontFamily: "Helvetica-Bold",
+    color: "#333333",
   },
-  amountValue: {
-    fontSize: 12,
+  amountBox: {
+    backgroundColor: "#000000",
+    padding: 6,
+    marginTop: 4,
+  },
+  amountBoxLabel: {
+    fontSize: 7,
+    color: "#FFFFFF",
+    textTransform: "uppercase",
+    fontFamily: "Helvetica",
+  },
+  amountBoxValue: {
+    fontSize: 16,
     fontWeight: "bold",
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Courier-Bold",
+    color: "#FFFFFF",
+    marginVertical: 2,
+  },
+  amountBoxSub: {
+    fontSize: 8,
+    color: "#FFFFFF",
+    fontFamily: "Helvetica",
+  },
+  qrContainer: { alignItems: "center", marginVertical: 4 },
+  qrImage: { width: 64, height: 64 },
+  pinContainer: {
+    borderWidth: 2,
+    borderColor: "#000000",
+    alignItems: "center",
+    padding: 6,
+    marginVertical: 4,
+  },
+  pinLabel: {
+    fontSize: 7,
+    color: "#777777",
+    textTransform: "uppercase",
+    fontFamily: "Helvetica",
+  },
+  pinValue: {
+    fontSize: 18,
+    fontFamily: "Courier-Bold",
+    fontWeight: "bold",
     color: "#000000",
-    textAlign: "right",
+    letterSpacing: 3,
+    marginVertical: 3,
   },
-  footerRow: { flexDirection: "row", justifyContent: "center", marginTop: 2 },
+  pinHelper: { fontSize: 7, color: "#555555", textAlign: "center" },
   footerText: {
     fontSize: 7,
-    color: "#000000",
+    color: "#888888",
     textAlign: "center",
     marginTop: 1,
   },
-  qrContainer: { alignItems: "center", marginVertical: 2 },
-  qrImage: { width: 55, height: 55 },
-  pinContainer: {
-    marginTop: 2,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: "#000000",
-    alignItems: "center",
+  tagContainer: { marginTop: 0, paddingTop: 0 },
+  tagBar: {
+    backgroundColor: "#000000",
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    marginBottom: 4,
   },
-  pinLabel: {
+  tagBarText: {
     fontSize: 9,
-    color: "#000000",
+    color: "#FFFFFF",
+    textAlign: "center",
     fontWeight: "bold",
     fontFamily: "Helvetica-Bold",
     textTransform: "uppercase",
   },
-  pinValue: {
-    fontSize: 16,
-    fontFamily: "Courier",
-    fontWeight: "bold",
-    color: "#000000",
-    letterSpacing: 2,
-    marginVertical: 2,
-  },
-  pinHelper: { fontSize: 7, color: "#000000", textAlign: "center" },
-  tagContainer: { marginTop: 0, paddingTop: 0 },
-  tagTitle: {
-    fontSize: 12,
-    fontWeight: "bold",
-    fontFamily: "Helvetica-Bold",
-    textAlign: "center",
-    marginBottom: 4,
-  },
   tagRoute: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: "bold",
     fontFamily: "Helvetica-Bold",
     textAlign: "center",
-    marginVertical: 2,
+    marginVertical: 6,
   },
   tagAwb: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: "bold",
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Courier-Bold",
     textAlign: "center",
-    marginVertical: 2,
+    borderWidth: 1,
+    borderColor: "#000000",
+    padding: 4,
+    marginVertical: 4,
+  },
+  tagRef: {
+    fontSize: 7,
+    fontFamily: "Courier",
+    textAlign: "center",
+    color: "#666666",
   },
   tagDetailsRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     marginVertical: 4,
   },
   tagDetailBox: {
     alignItems: "center",
-    padding: 2,
-    borderWidth: 1,
-    borderColor: "#000",
+    padding: 4,
+    borderWidth: 2,
+    borderColor: "#000000",
     flex: 1,
-    marginHorizontal: 1,
+    margin: 2,
   },
-  tagDetailLabel: { fontSize: 7, textTransform: "uppercase" },
-  tagDetailValue: { fontSize: 12, fontWeight: "bold", fontFamily: "Helvetica-Bold" },
+  tagDetailLabel: {
+    fontSize: 7,
+    textTransform: "uppercase",
+    color: "#777777",
+  },
+  tagDetailValue: {
+    fontSize: 18,
+    fontWeight: "bold",
+    fontFamily: "Helvetica-Bold",
+  },
+  tagInfoRow: {
+    flexDirection: "row",
+    marginBottom: 3,
+  },
+  tagInfoLabel: {
+    fontSize: 8,
+    fontWeight: "bold",
+    fontFamily: "Helvetica-Bold",
+    width: 55,
+  },
+  tagInfoValue: {
+    fontSize: 8,
+    fontFamily: "Helvetica",
+    flex: 1,
+  },
+  tagBottomBar: {
+    backgroundColor: "#000000",
+    paddingVertical: 4,
+    marginTop: 6,
+  },
+  tagBottomBarText: {
+    fontSize: 7,
+    color: "#FFFFFF",
+    textAlign: "center",
+    fontFamily: "Helvetica",
+  },
 });
 
-// Note: The entire receipt must render within 297mm height (A4) or 200mm (thermal)
 const CargoReceiptOnlyPDF = ({ data }: { data: CargoReceiptData }) => {
-  // Hand-calculated from the actual style values below (fontSize + typical
-  // line-height + margins, summed per row actually rendered) after the
-  // previous formula was confirmed -- via a real generated PDF -- to
-  // overflow onto a second page whenever QR + pickup PIN are both present,
-  // which is the normal case, not an edge case. Padded generously above
-  // the calculated minimum: a slightly-too-tall page wastes a small paper
-  // margin, but an undersized one produces a broken, split document.
-  let h = 300;
-  if (data.qrCodeDataUrl) h += 60;
-  if (data.pickupPin) h += 65;
+  let h = 310;
+  if (data.qrCodeDataUrl) h += 70;
+  if (data.pickupPin) h += 70;
   if (data.bankName) h += 20;
   if (data.paymentMode === "Transfer" && data.paymentNarration) h += 25;
   if (data.remark) h += 35;
@@ -197,13 +265,16 @@ const CargoReceiptOnlyPDF = ({ data }: { data: CargoReceiptData }) => {
   return (
   <Document>
     <Page size={[226, h]} style={styles.page}>
-      {/* Logos Header */}
-      <View style={styles.headerRow}>
-        <EHILogoPDF width={50} />
-        <AirlineLogoPDF airline={data.airline} width={50} />
+      <View style={[styles.headerRow, styles.headerBorder]}>
+        <EHILogoPDF width={60} />
+        <AirlineLogoPDF airline={data.airline} width={60} />
       </View>
-      <Text style={styles.title}>CARGO ENTRY RECEIPT</Text>
-      <Text style={{ fontSize: 10, textAlign: 'center', marginBottom: 6 }}>Origin: {data.hubName}</Text>
+
+      <View style={styles.titleBar}>
+        <Text style={styles.titleText}>CARGO ENTRY RECEIPT</Text>
+      </View>
+
+      <Text style={styles.originLine}>Origin: {data.hubName}</Text>
 
       {data.qrCodeDataUrl ? (
         <View style={styles.qrContainer}>
@@ -215,109 +286,86 @@ const CargoReceiptOnlyPDF = ({ data }: { data: CargoReceiptData }) => {
         <View style={styles.pinContainer}>
           <Text style={styles.pinLabel}>PICKUP PIN</Text>
           <Text style={styles.pinValue}>{data.pickupPin}</Text>
-          <Text style={styles.pinHelper}>
-            Share this PIN with the consignee.
-          </Text>
-          <Text style={styles.pinHelper}>
-            They must present it to collect cargo.
-          </Text>
+          <Text style={styles.pinHelper}>Share this PIN with the consignee.</Text>
+          <Text style={styles.pinHelper}>They must present it to collect cargo.</Text>
         </View>
       ) : null}
 
       <View style={styles.divider} />
 
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionHeaderText}>SHIPMENT DETAILS</Text>
+      </View>
+
       <View style={styles.row}>
-        <Text style={styles.label}>Entry Ref:</Text>
+        <Text style={styles.label}>Entry Ref</Text>
         <Text style={styles.value}>{data.entryRef}</Text>
       </View>
       <View style={styles.row}>
-        <Text style={styles.label}>S/N:</Text>
+        <Text style={styles.label}>S/N</Text>
         <Text style={styles.value}>Entry #{data.serialNumber}</Text>
       </View>
       <View style={styles.row}>
-        <Text style={styles.label}>Date:</Text>
+        <Text style={styles.label}>Date</Text>
         <Text style={styles.value}>{data.date}</Text>
       </View>
-
-      <View style={styles.divider} />
-
       <View style={styles.row}>
-        <Text style={styles.label}>Airline:</Text>
+        <Text style={styles.label}>Airline</Text>
         <Text style={styles.value}>{data.airline}</Text>
       </View>
       <View style={styles.row}>
-        <Text style={styles.label}>AWB/Tag:</Text>
+        <Text style={styles.label}>AWB/Tag</Text>
         <Text style={styles.value}>{data.awbTagNumber}</Text>
       </View>
       <View style={styles.row}>
-        <Text style={styles.label}>Consignee:</Text>
+        <Text style={styles.label}>Consignee</Text>
         <Text style={styles.value}>{data.consignee}</Text>
       </View>
       <View style={styles.row}>
-        <Text style={styles.label}>Route:</Text>
+        <Text style={styles.label}>Route</Text>
         <Text style={styles.value}>{data.route}</Text>
       </View>
       <View style={styles.row}>
-        <Text style={styles.label}>Content:</Text>
+        <Text style={styles.label}>Content</Text>
         <Text style={styles.value}>{data.contentType}</Text>
       </View>
       <View style={styles.row}>
-        <Text style={styles.label}>Pieces:</Text>
+        <Text style={styles.label}>Pieces</Text>
         <Text style={styles.value}>{data.pieces}</Text>
       </View>
       <View style={styles.row}>
-        <Text style={styles.label}>Weight:</Text>
+        <Text style={styles.label}>Weight</Text>
         <Text style={styles.value}>{Math.round(data.kg)} KG</Text>
       </View>
 
-      <View style={styles.divider} />
-
-      <View style={styles.amountContainer}>
-        <View style={styles.row}>
-          <Text style={styles.amountLabel}>AMOUNT:</Text>
-          <Text style={styles.amountValue}>
-            {formatNaira(data.amount)}
-          </Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Payment:</Text>
-          <Text style={styles.value}>{data.paymentMode}</Text>
-        </View>
-        {data.bankName ? (
-          <View style={styles.row}>
-            <Text style={styles.label}>Bank:</Text>
-            <Text style={styles.value}>{data.bankName}</Text>
-          </View>
-        ) : null}
-        {data.paymentMode === "Transfer" && data.paymentNarration ? (
-          <View style={styles.row}>
-            <Text style={styles.label}>Bank Transfer Narration:</Text>
-            <Text style={styles.value}>{data.paymentNarration}</Text>
-          </View>
-        ) : null}
-      </View>
-
-      <View style={styles.divider} />
-
       {data.remark ? (
-        <>
-          <View style={styles.row}>
-            <Text style={styles.label}>Remark:</Text>
-            <Text style={styles.value}>{data.remark}</Text>
-          </View>
-          <View style={styles.divider} />
-        </>
+        <View style={styles.row}>
+          <Text style={styles.label}>Remark</Text>
+          <Text style={styles.value}>{data.remark}</Text>
+        </View>
       ) : null}
 
-      <View style={styles.footerRow}>
-        <Text style={styles.footerText}>EHI Multisystems Nigeria Limited</Text>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionHeaderText}>PAYMENT</Text>
       </View>
-      <View style={styles.footerRow}>
-        <Text style={styles.footerText}>Track your cargo: ehimultisystems.com</Text>
+
+      <View style={styles.amountBox}>
+        <Text style={styles.amountBoxLabel}>TOTAL AMOUNT</Text>
+        <Text style={styles.amountBoxValue}>{formatNaira(data.amount)}</Text>
+        <Text style={styles.amountBoxSub}>
+          {data.paymentMode}{data.bankName ? ` • ${data.bankName}` : ''}
+        </Text>
+        {data.paymentMode === "Transfer" && data.paymentNarration ? (
+          <Text style={[styles.amountBoxSub, { marginTop: 2 }]}>
+            Narration: {data.paymentNarration}
+          </Text>
+        ) : null}
       </View>
-      <View style={styles.footerRow}>
-        <Text style={styles.footerText}>{data.entryRef} • {data.date}</Text>
-      </View>
+
+      <View style={[styles.divider, { marginTop: 6 }]} />
+
+      <Text style={styles.footerText}>ehimultisystems.com</Text>
+      <Text style={styles.footerText}>{data.entryRef} • {data.date}</Text>
     </Page>
   </Document>
   );
@@ -332,37 +380,35 @@ const CargoWaybillTagPage = ({
   pieceIndex: number;
   totalPieces: number;
 }) => {
-  // Extract hub code from hub name using the new robust helper
   const originCode = getHubCode(data.hubName);
   const destName = getCityName(data.route);
 
-  // Same reasoning as CargoReceiptOnlyPDF's height fix -- confirmed via a
-  // real generated PDF that every tag page was overflowing onto a second
-  // page (6 pieces produced 12 pages, not 6).
-  let h = 210;
-  if (data.qrCodeDataUrl) h += 65;
+  let h = 230;
+  if (data.qrCodeDataUrl) h += 80;
 
   return (
     <Page size={[226, h]} style={styles.page}>
-      {/* --- TAG SECTION --- */}
       <View style={styles.tagContainer}>
         <View style={styles.headerRow}>
-          <EHILogoPDF width={40} />
-          <AirlineLogoPDF airline={data.airline} width={40} />
+          <EHILogoPDF width={45} />
+          <AirlineLogoPDF airline={data.airline} width={45} />
         </View>
 
-        <Text style={styles.tagTitle}>CARGO ROUTING TAG</Text>
-        <Text style={styles.tagRoute}>{originCode} - {destName}</Text>
+        <View style={styles.tagBar}>
+          <Text style={styles.tagBarText}>CARGO ROUTING TAG</Text>
+        </View>
+
+        <Text style={styles.tagRoute}>{originCode} → {destName}</Text>
+
+        <Text style={styles.tagAwb}>{data.awbTagNumber}</Text>
 
         {data.qrCodeDataUrl ? (
           <View style={styles.qrContainer}>
-            <Image src={data.qrCodeDataUrl} style={styles.qrImage} />
+            <Image src={data.qrCodeDataUrl} style={{ width: 70, height: 70 }} />
           </View>
         ) : null}
 
-        <Text style={{ fontSize: 8, textAlign: 'center', marginBottom: 2, fontFamily: 'Courier' }}>REF: {data.entryRef}</Text>
-
-        <Text style={styles.tagAwb}>AWB: {data.awbTagNumber}</Text>
+        <Text style={styles.tagRef}>REF: {data.entryRef}</Text>
 
         <View style={styles.tagDetailsRow}>
           <View style={styles.tagDetailBox}>
@@ -375,13 +421,17 @@ const CargoWaybillTagPage = ({
           </View>
         </View>
 
-        <View style={styles.row}>
-          <Text style={styles.label}>Consignee:</Text>
-          <Text style={styles.value}>{data.consignee}</Text>
+        <View style={styles.tagInfoRow}>
+          <Text style={styles.tagInfoLabel}>Consignee:</Text>
+          <Text style={styles.tagInfoValue}>{data.consignee}</Text>
         </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Date:</Text>
-          <Text style={styles.value}>{data.date}</Text>
+        <View style={styles.tagInfoRow}>
+          <Text style={styles.tagInfoLabel}>Date:</Text>
+          <Text style={styles.tagInfoValue}>{data.date}</Text>
+        </View>
+
+        <View style={styles.tagBottomBar}>
+          <Text style={styles.tagBottomBarText}>EHI MULTISYSTEMS NIGERIA LIMITED</Text>
         </View>
       </View>
     </Page>
@@ -412,12 +462,9 @@ export const printCargoReceipt = async (data: CargoReceiptData) => {
   }
   const blob = await pdf(<CargoReceiptOnlyPDF data={data} />).toBlob();
   const url = URL.createObjectURL(blob);
-  // Open in new tab and trigger print
   const printWindow = window.open(url);
   if (printWindow) {
-    printWindow.onload = () => {
-      // Browsers often have built-in PDF viewers that handle printing
-    };
+    printWindow.onload = () => {};
   }
 };
 

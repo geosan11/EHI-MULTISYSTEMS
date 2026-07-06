@@ -149,27 +149,22 @@ export async function ehiSvgToRaster(widthDots: number): Promise<Uint8Array> {
 
 // Every document type calls this for its header -- change it once,
 // every receipt/tag updates together, instead of three drifting copies.
+// Uses the actual ehi-logo.png at threshold 200 so the amber MULTISYSTEMS
+// banner prints as a solid black rectangle with white text -- exactly the
+// "background" effect on thermal paper. The PNG already contains all text
+// (EHI, MULTISYSTEMS, NIGERIA LIMITED) so no separate text lines needed.
 export async function brandingHeader(logoWidthDots = 160): Promise<Uint8Array[]> {
   const chunks: Uint8Array[] = [new Uint8Array(CENTER)];
   try {
-    const logoRaster = await ehiSvgToRaster(logoWidthDots);
+    const logoRaster = await imageToEscPosRaster(ehiLogoFile, logoWidthDots, 200);
     chunks.push(logoRaster);
-    chunks.push(encoder.encode('\n'));
+    chunks.push(encoder.encode('\n\n'));
   } catch {
-    try {
-      const logoRaster = await imageToEscPosRaster(ehiLogoFile, logoWidthDots, 160);
-      chunks.push(logoRaster);
-      chunks.push(encoder.encode('\n'));
-    } catch {
-      chunks.push(new Uint8Array(TEXT_DOUBLE_HEIGHT), new Uint8Array(BOLD_ON));
-      chunks.push(encoder.encode("EHI\n"));
-      chunks.push(new Uint8Array(BOLD_OFF), new Uint8Array(TEXT_NORMAL));
-    }
+    chunks.push(new Uint8Array(BOLD_ON));
+    chunks.push(encoder.encode("EHI MULTISYSTEMS\n"));
+    chunks.push(new Uint8Array(BOLD_OFF));
+    chunks.push(encoder.encode("NIGERIA LIMITED\n\n"));
   }
-  chunks.push(new Uint8Array(REVERSE_ON));
-  chunks.push(encoder.encode(" MULTISYSTEMS \n"));
-  chunks.push(new Uint8Array(REVERSE_OFF));
-  chunks.push(encoder.encode("NIGERIA LIMITED\n\n"));
   return chunks;
 }
 
@@ -188,15 +183,12 @@ export async function brandingHeaderWithAirline(
   if (!airlineUrl) return brandingHeader(widthDots);
 
   const chunks: Uint8Array[] = [new Uint8Array(CENTER)];
-  const logoH = Math.round(widthDots * 0.38); // proportional height
+  const logoH = Math.round(widthDots * 0.52);
   const halfW = Math.floor(widthDots / 2);
-
-  const ehiBlob = new Blob([EHI_SVG], { type: 'image/svg+xml' });
-  const ehiUrl = URL.createObjectURL(ehiBlob);
 
   try {
     const [ehiImg, airlineImg] = await Promise.all([
-      loadImageElement(ehiUrl),
+      loadImageElement(ehiLogoFile),
       loadImageElement(airlineUrl),
     ]);
 
@@ -216,8 +208,8 @@ export async function brandingHeaderWithAirline(
       ehiW, ehiH);
 
     // Thin separator line between logos
-    ctx.fillStyle = '#cccccc';
-    ctx.fillRect(halfW - 1, 8, 1, logoH - 16);
+    ctx.fillStyle = '#aaaaaa';
+    ctx.fillRect(halfW - 1, 6, 1, logoH - 12);
 
     // Airline logo on right half — same fit logic
     const alAspect = airlineImg.width / airlineImg.height;
@@ -227,23 +219,22 @@ export async function brandingHeaderWithAirline(
       halfW + Math.floor((halfW - alW) / 2), Math.floor((logoH - alH) / 2),
       alW, alH);
 
+    // Use threshold 200 so amber areas (MULTISYSTEMS banner in EHI logo) print as solid black
     const dataUrl = canvas.toDataURL('image/png');
-    const raster = await imageToEscPosRaster(dataUrl, widthDots, 160);
+    const raster = await imageToEscPosRaster(dataUrl, widthDots, 200);
     chunks.push(raster);
     chunks.push(encoder.encode('\n'));
 
   } catch {
-    // Either logo failed to load — fall back to EHI-only header
-    URL.revokeObjectURL(ehiUrl);
     return brandingHeader(widthDots);
   }
 
-  URL.revokeObjectURL(ehiUrl);
-
+  // The composite image contains the EHI logo scaled to the left half;
+  // the MULTISYSTEMS banner is small at that scale, so print it full-width below.
   chunks.push(new Uint8Array(REVERSE_ON));
-  chunks.push(encoder.encode(" MULTISYSTEMS \n"));
+  chunks.push(encoder.encode(" EHI MULTISYSTEMS NIGERIA LIMITED \n"));
   chunks.push(new Uint8Array(REVERSE_OFF));
-  chunks.push(encoder.encode("NIGERIA LIMITED\n\n"));
+  chunks.push(encoder.encode('\n'));
   return chunks;
 }
 

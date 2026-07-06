@@ -136,7 +136,7 @@ async function compileSingleMarketingTag(item: MarketingTagData, width: '58mm' |
   chunks.push(encoder.encode(divider(maxChars, '=')));
   chunks.push(new Uint8Array(CENTER));
   chunks.push(new Uint8Array(TEXT_DOUBLE_HEIGHT), new Uint8Array(BOLD_ON));
-  chunks.push(encoder.encode(`${item.bagType} — ${item.pieceNo}\n`));
+  chunks.push(encoder.encode(`${item.bagType} - ${item.pieceNo}\n`));
   chunks.push(new Uint8Array(BOLD_OFF), new Uint8Array(TEXT_NORMAL));
   chunks.push(encoder.encode(`${item.bagTypeFull}\n`));
   chunks.push(encoder.encode(divider(maxChars, '=')));

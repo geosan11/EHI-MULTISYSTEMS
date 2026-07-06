@@ -1063,53 +1063,6 @@ export const CargoForm = ({
             New Entry
           </button>
 
-          <div className="flex gap-2 mt-2.5">
-            <button
-              onClick={handleDownloadReceipt}
-              style={{
-                flex: 1,
-                padding: "11px",
-                background: "transparent",
-                border: "1.5px solid rgba(245,158,11,0.3)",
-                borderRadius: "var(--radius-sm)",
-                cursor: "pointer",
-                fontSize: 11,
-                fontFamily: "monospace",
-                fontWeight: 700,
-                color: "var(--color-accent-amber)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-              }}
-            >
-              ↓ Download PDF
-            </button>
-            <button
-              onClick={async () => {
-                const { printCargoReceipt } = await import('../../lib/escpos');
-                printCargoReceipt && printCargoReceipt(submittedEntry as any);
-              }}
-              style={{
-                flex: 1,
-                padding: "11px",
-                background: "transparent",
-                border: "1.5px solid rgba(245,158,11,0.5)",
-                borderRadius: "var(--radius-sm)",
-                cursor: "pointer",
-                fontSize: 11,
-                fontFamily: "monospace",
-                fontWeight: 700,
-                color: "var(--color-accent-amber)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-              }}
-            >
-              🖨️ Print Receipt
-            </button>
-          </div>
         </div>
       </div>
     );

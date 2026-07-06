@@ -21,6 +21,9 @@ import { MyTrips as MyTripsRaw } from './views/MyTrips';
 import { ITDashboard as ITDashboardRaw } from './views/ITDashboard';
 import { CreditDebit as CreditDebitRaw } from './views/CreditDebit';
 import { AirlineLogoManager } from './views/AirlineLogoManager';
+import { DataImport } from './views/DataImport';
+import { AirlineLedger } from './views/AirlineLedger';
+import { WeightManifest } from './views/WeightManifest';
 
 import { ErrorBoundary } from './ErrorBoundary';
 
@@ -811,6 +814,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               {currentTab === 'IT Debug' && <ITDashboard user={user} onBack={() => setCurrentTab('More')} />}
               {currentTab === 'Credit & Debit' && <CreditDebit user={user} transactions={transactions} onBack={() => setCurrentTab('More')} />}
               {currentTab === 'AirlineLogos' && <AirlineLogoManager user={user} onBack={() => setCurrentTab('More')} />}
+              {currentTab === 'DataImport' && <DataImport user={user} onBack={() => setCurrentTab('More')} />}
+              {currentTab === 'AirlineLedger' && <AirlineLedger user={user} onBack={() => setCurrentTab('More')} />}
+              {currentTab === 'WeightManifest' && <WeightManifest user={user} onBack={() => setCurrentTab('More')} />}
               {currentTab === 'More' && (
                 <More 
                    user={user} 

@@ -213,7 +213,7 @@ export interface Expense {
   logged_by?: string;
 }
 
-export type TabView = 'Tower' | 'Cargo' | 'VJ POS' | 'Marketing' | 'Scan' | 'Incoming' | 'IncomingToHub' | 'More' | 'MyTrips' | 'IT Debug' | 'Credit & Debit' | 'AirlineLogos';
+export type TabView = 'Tower' | 'Cargo' | 'VJ POS' | 'Marketing' | 'Scan' | 'Incoming' | 'IncomingToHub' | 'More' | 'MyTrips' | 'IT Debug' | 'Credit & Debit' | 'AirlineLogos' | 'DataImport' | 'AirlineLedger' | 'WeightManifest';
 
 export interface AppState {
   user: User | null;

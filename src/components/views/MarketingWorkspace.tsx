@@ -486,6 +486,7 @@ export const MarketingWorkspace = ({
                         paymentMode: successTx.mode,
                         paymentNarration: successTx.paymentNarration,
                         bankName: bank || undefined,
+                        airline: successTx.airline,
                         trackingUrl: `https://ehimultisystems.com/track/${successTx.id}`,
                       };
                       const bytes = await m.compileMarketingReceiptStream(printData, '58mm');
