@@ -38,14 +38,10 @@ import {
   Rocket,
   Zap,
 } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
 import {
   sendReceiptWhatsApp,
   buildCargoWhatsApp,
 } from "../../lib/notifications";
-import { createPortal } from "react-dom";
-import { HtmlPrintReceipt } from "./HtmlPrintReceipt";
-import { HtmlPrintWaybill } from "./HtmlPrintWaybill";
 import { supabase } from "../../lib/supabase";
 
 interface CorporateClient {
@@ -900,7 +896,7 @@ export const CargoForm = ({
           </span>
         </div>
 
-        <div className="bg-[rgba(16,185,129,0.05)] border border-[var(--color-success)] rounded-[var(--radius-md)] text-center p-8 flex flex-col items-center animate-in fade-in zoom-in-95 duration-200">
+        <div className="bg-[rgba(16,185,129,0.05)] border border-[var(--color-success)] rounded-[var(--radius-md)] text-center p-8 flex flex-col items-center">
           <CheckCircle
             size={40}
             className="text-[var(--color-success)] mb-3"
@@ -1354,7 +1350,7 @@ export const CargoForm = ({
               </div>
 
               {mode === "Transfer" && (
-                <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                <div>
                   {renderLabel(Landmark, "Bank")}
                   <select
                     value={bank}
@@ -1372,7 +1368,7 @@ export const CargoForm = ({
               )}
 
               {mode === "POS" && (
-                <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                <div>
                   {renderLabel(CreditCard, "POS Terminal / Bank")}
                   <select
                     value={bank}
@@ -1611,7 +1607,7 @@ export const CargoForm = ({
                 </div>
 
                 {successMessage && (
-                  <div className="p-3 mb-4 text-[12px] font-sans font-bold text-[#fafafa] bg-emerald-950 border border-emerald-500 rounded flex items-center gap-2 animate-bounce">
+                  <div className="p-3 mb-4 text-[12px] font-sans font-bold text-[#fafafa] bg-emerald-950 border border-emerald-500 rounded flex items-center gap-2">
                     <CheckCircle size={14} /> {successMessage}
                   </div>
                 )}

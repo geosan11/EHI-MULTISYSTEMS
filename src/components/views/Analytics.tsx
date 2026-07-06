@@ -786,11 +786,10 @@ export const Analytics = ({
         <div className="bg-[rgba(16,185,129,0.08)] border-b border-[var(--color-border)] p-3 flex justify-between items-center">
           <div className="flex items-center space-x-1.5">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--color-success)] opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--color-success)]"></span>
             </span>
             <span className="text-[10px] font-mono text-[var(--color-foreground)] tracking-[0.05em] uppercase font-bold flex items-center gap-1.5">
-              <Sparkles size={11} className="text-[var(--color-success)] animate-pulse" />
+              <Sparkles size={11} className="text-[var(--color-success)]" />
               AI INSIGHTS & AUDIT LOG
             </span>
           </div>
