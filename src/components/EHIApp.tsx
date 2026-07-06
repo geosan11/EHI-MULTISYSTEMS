@@ -720,7 +720,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       width: '100vw',
       maxWidth: '100vw',
       background: 'var(--color-background)',
-      overflow: 'hidden',
+      overflowX: 'clip',
       fontFamily: "'Inter', system-ui, sans-serif",
     }}>
       <SideNav
@@ -739,7 +739,6 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           display: 'flex',
           flexDirection: 'column',
           minWidth: 0,
-          overflow: 'hidden',
         }}
       >
         {/* Header — mobile only */}

@@ -559,7 +559,6 @@ main {
   flex: 1;
   min-width: 0;
   width: 100%;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
