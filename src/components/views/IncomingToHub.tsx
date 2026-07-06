@@ -8,10 +8,10 @@ function timeSince(dateStr: string): string {
   const hours = Math.floor(diffMs / 3600000);
   if (hours < 1) {
     const mins = Math.max(1, Math.floor(diffMs / 60000));
-    return `${mins}m ago`;
+    return `${mins}m`;
   }
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
 }
 
 export const IncomingToHub = ({ user, onBack }: { user: User; onBack: () => void }) => {
@@ -111,8 +111,13 @@ export const IncomingToHub = ({ user, onBack }: { user: User; onBack: () => void
                   {c.route || '—'} &nbsp;·&nbsp; {c.total_pcs || '?'} pcs &nbsp;·&nbsp; {c.total_kg || '?'} kg &nbsp;·&nbsp; {c.content_type || 'Package'}
                 </div>
               </div>
-              <div className="shrink-0 flex items-center gap-1.5 text-[var(--color-accent-cobalt)] text-[11px] font-bold font-mono">
-                <Package size={14} /> {timeSince(c.created_at)}
+              <div className="shrink-0 flex flex-col items-end gap-0.5">
+                <div className="flex items-center gap-1 text-[var(--color-accent-cobalt)] text-[11px] font-bold font-mono">
+                  <Package size={12} /> IN TRANSIT
+                </div>
+                <div className="text-[10px] font-mono text-[var(--color-muted)]">
+                  dispatched {timeSince(c.created_at)} ago
+                </div>
               </div>
             </div>
           ))}

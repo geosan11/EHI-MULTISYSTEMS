@@ -38,11 +38,14 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
         const { data, error } = await q;
         if (!error && data) setCargoList(data);
       } else {
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
         let q = supabase
           .from('cargo_entries')
           .select('entry_ref, id, consignee_name, route, total_pcs, total_kg, pin_used_at, released_by, status, created_at, hub_id, awb_tag_number')
           .eq('status', 'Delivered')
           .not('pin_used_at', 'is', null)
+          .gte('pin_used_at', todayStart.toISOString())
           .order('pin_used_at', { ascending: false })
           .limit(100);
 

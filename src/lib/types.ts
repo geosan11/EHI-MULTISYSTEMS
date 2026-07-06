@@ -98,11 +98,13 @@ export interface ScanValidationResult {
 export interface TrackingEvent {
   id: string;
   cargo_ref: string;
-  event_type: 'ARRIVE' | 'DEPART' | 'WRONG_DESTINATION_ALERT';
+  event_type: 'ARRIVE' | 'DEPART' | 'DELIVER' | 'WRONG_DESTINATION_ALERT';
   hub_name: string;
+  hub_id?: string;
   scanned_by_name: string;
   notes?: string;
   cargo_destination?: string;
+  alert_reason?: string;
   created_at: string;
 }
 

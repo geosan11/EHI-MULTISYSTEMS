@@ -167,12 +167,14 @@ export const Scanner = ({
 
   const handleTrackLookup = async (ref?: string) => {
     const query = (ref || trackRef).trim().toUpperCase();
-    if (!query) return;
+    // Stop camera before switching to tracking view
+    if (isScanning) await stopScanner();
     setTrackRef(query);
     setTrackLoading(true);
     setTrackCargo(null);
     setTrackEvents([]);
     setShowTrackView(true);
+    if (!query) return;
     try {
       const [cargo, eventsRes] = await Promise.all([
         fetchCargoByRef(query),
@@ -485,19 +487,21 @@ export const Scanner = ({
   const handleCommitDelivery = async () => {
     if (!pendingDelivery) return;
 
-    if (!pinInput || pinInput.trim() === '') {
-      if (showToast) showToast({ message: 'Please enter the pickup PIN.', type: 'error' });
-      return;
-    }
-
     const { ref, resultData } = pendingDelivery;
     const actualPin = pendingDelivery.expectedPin;
 
-    if (pinInput !== actualPin) {
-      if (showToast) showToast({ message: 'Incorrect PIN provided.', type: 'error' });
-      return;
+    // If cargo has no PIN assigned, skip PIN check entirely
+    if (actualPin !== null) {
+      if (!pinInput || pinInput.trim() === '') {
+        if (showToast) showToast({ message: 'Please enter the pickup PIN.', type: 'error' });
+        return;
+      }
+      if (pinInput.trim() !== actualPin) {
+        if (showToast) showToast({ message: 'Incorrect PIN — check with the consignee.', type: 'error' });
+        return;
+      }
     }
-    
+
     // Switch to POD form
     setActivePodCapture({ ref, name: resultData.cargo?.name || 'Unknown', resultData });
     setPendingDelivery(null);
@@ -1322,20 +1326,24 @@ export const Scanner = ({
             : isAlready ? '#F59E0B'
             : '#EF4444';
 
-          const bigIcon = isWrongDest ? '⚠' : isAlready ? '↩' : isError ? '✕'
+          const bigIcon = isWrongDest ? '⚠' : isAlready ? '↩'
+            : popup.type === 'NOT_LOGGED_IN' ? '⟳'
+            : isError ? '✕'
             : popup.mode === 'ARRIVE' ? '▼' : popup.mode === 'DEPART' ? '▲' : '✓';
 
           const headline = isWrongDest
             ? 'WRONG STATION'
             : isAlready
               ? 'ALREADY LOGGED'
-              : isError
-                ? (popup.type === 'NOT_FOUND' ? 'NOT FOUND' : 'SCAN ERROR')
-                : popup.mode === 'ARRIVE'
-                  ? 'ARRIVED'
-                  : popup.mode === 'DEPART'
-                    ? 'DEPARTED'
-                    : 'DELIVERED';
+              : popup.type === 'NOT_LOGGED_IN'
+                ? 'ARRIVE FIRST'
+                : isError
+                  ? (popup.type === 'NOT_FOUND' ? 'NOT FOUND' : 'SCAN ERROR')
+                  : popup.mode === 'ARRIVE'
+                    ? 'ARRIVED'
+                    : popup.mode === 'DEPART'
+                      ? 'DEPARTED'
+                      : 'DELIVERED';
 
           return (
             <div style={{
