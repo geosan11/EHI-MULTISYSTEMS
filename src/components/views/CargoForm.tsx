@@ -797,6 +797,7 @@ export const CargoForm = ({
       kg: Math.round(parseFloat(kg)) || 0,
       pickupPin,
       consigneePhone: consigneePhone.trim(),
+      // TODO: capture client_type at entry
     } as Transaction;
 
     onAddTx(tx);

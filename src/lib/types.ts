@@ -195,6 +195,7 @@ export interface Transaction {
   // Partial debt repayment tracking (cargo/VJ/marketing debts)
   amountPaid?: number;
   paymentHistory?: { amount: number; mode: 'Cash' | 'Transfer'; by: string; at: string }[];
+  clientType?: 'Corporate' | 'Individual';
 }
 
 export interface ParsedBankAlert {

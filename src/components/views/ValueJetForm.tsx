@@ -92,6 +92,7 @@ export const ValueJetForm = ({
       pnr: pnr.trim().toUpperCase() || undefined,
       kg: excessKg,
       pieces: pcsVal,
+      // TODO: capture client_type at entry
     } as any;
     // Attach phone for EHIApp to write to passenger_phone column
     (tx as any).phone = phone.trim() || undefined;
