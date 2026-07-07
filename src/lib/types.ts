@@ -192,6 +192,9 @@ export interface Transaction {
   // client required, matching the paper ledger's free-text debtor names)
   debtPaid?: boolean;
   debtPaidAt?: string;
+  // Partial debt repayment tracking (cargo/VJ/marketing debts)
+  amountPaid?: number;
+  paymentHistory?: { amount: number; mode: 'Cash' | 'Transfer'; by: string; at: string }[];
 }
 
 export interface ParsedBankAlert {

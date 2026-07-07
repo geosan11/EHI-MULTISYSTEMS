@@ -172,9 +172,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         const endISO = endDate.toISOString();
 
         const [cargoRes, vjRes, mktRes, packageRes, expRes] = await Promise.all([
-          addHubFilter(supabase.from('cargo_entries').select(`entry_ref,consignee_name,airline,commission_rate,awb_tag_number,total_pcs,total_kg,route,content_type,amount,receipt_mode,created_at,status,bank,hub_id${canSeePin ? ',pickup_pin' : ''}`).gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
-          addHubFilter(supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
-          addHubFilter(supabase.from('marketing_entries').select('entry_ref,customer_name,route,qty_big_bag,qty_med_bag,qty_small_bag,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,user_profiles(name)').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
+          addHubFilter(supabase.from('cargo_entries').select(`entry_ref,consignee_name,airline,commission_rate,awb_tag_number,total_pcs,total_kg,route,content_type,amount,receipt_mode,created_at,status,bank,hub_id,amount_paid,payment_history${canSeePin ? ',pickup_pin' : ''}`).gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
+          addHubFilter(supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs,amount_paid,payment_history').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
+          addHubFilter(supabase.from('marketing_entries').select('entry_ref,customer_name,route,qty_big_bag,qty_med_bag,qty_small_bag,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,user_profiles(name),debt_amount_paid,payment_history').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
           addHubFilter(supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,created_at,hub_id').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
           addHubFilter(supabase.from('expenses').select('*').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500))
         ]);
@@ -205,6 +205,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               route: r.route,
               hub_id: r.hub_id,
               contentType: r.content_type,
+              amountPaid: r.amount_paid || 0,
+              paymentHistory: r.payment_history || [],
             });
           });
         }
@@ -230,6 +232,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               pnr: r.pnr || undefined,
               kg: r.excess_kg,
               pieces: r.total_pcs,
+              amountPaid: r.amount_paid || 0,
+              paymentHistory: r.payment_history || [],
             });
           });
         }
@@ -253,6 +257,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               hub_id: r.hub_id,
               route: r.route,
               enteredByName: enteredByName || undefined,
+              amountPaid: r.debt_amount_paid || 0,
+              paymentHistory: r.payment_history || [],
             });
           });
         }
@@ -695,6 +701,13 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     if (tx.posApprovalCode)               updatePayload.pos_approval_code  = tx.posApprovalCode;
     if (tx.confirmedBy)                   updatePayload.confirmed_by        = tx.confirmedBy;
     if (tx.confirmedAt)                   updatePayload.confirmed_at        = tx.confirmedAt;
+    // marketing_entries already has an amount_paid column holding the sale
+    // amount itself (see 20260710_debt_payment_columns.sql) -- debt
+    // repayment tracking for that table lives in debt_amount_paid instead
+    // so it doesn't clobber the real sale amount.
+    const amountPaidCol = table === 'marketing_entries' ? 'debt_amount_paid' : 'amount_paid';
+    if (tx.amountPaid !== undefined)     updatePayload[amountPaidCol] = tx.amountPaid;
+    if (tx.paymentHistory !== undefined) updatePayload.payment_history = tx.paymentHistory;
 
     const { error } = await supabase.from(table).update(updatePayload).eq(idCol, tx.id);
     if (error) showToast({ message: `Update failed: ${error.message}`, type: 'error' });

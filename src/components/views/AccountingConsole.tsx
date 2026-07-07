@@ -144,9 +144,16 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
   // Scoped to the register's own date (regDate), not the whole history --
   // otherwise this silently accumulates every transaction/expense ever
   // logged since go-live, making the EOD variance meaningless.
+  // A debt payment leaves the parent transaction's mode as 'Debt'/'Debt Paid'
+  // (never 'Cash'), so today's cash recovered against an old debt would be
+  // invisible to a mode-only filter -- pull it from paymentHistory instead.
+  const debtCashRecoveredToday = transactions.reduce((sum, t) => {
+    const todays = (t.paymentHistory || []).filter(p => p.mode === 'Cash' && p.at.split('T')[0] === regDate);
+    return sum + todays.reduce((s, p) => s + p.amount, 0);
+  }, 0);
   const regReceipts = transactions
     .filter(t => t.mode === 'Cash' && t.created_at && t.created_at.split('T')[0] === regDate)
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + t.amount, 0) + debtCashRecoveredToday;
   // Only approved expenses actually left the register -- a pending or
   // rejected expense hasn't (or won't) be paid out, so counting it here
   // would falsely shrink the expected closing balance.

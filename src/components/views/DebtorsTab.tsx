@@ -24,22 +24,24 @@ export const DebtorsTab = ({ transactions = [], user, onUpdateTx }: { transactio
     return Math.max(0, Math.floor((Date.now() - created) / 86400000));
   };
 
-  const debts = transactions.filter(t => t.mode === 'Debt' || t.mode?.includes('Debt')).map(t => {
-    const ageInDays = realAgeInDays(t);
-    let bucket: 'current' | 'overdue' | 'critical' | 'writeoff-risk' = 'current';
-    if (ageInDays > 90) bucket = 'writeoff-risk';
-    else if (ageInDays > 60) bucket = 'critical';
-    else if (ageInDays > 30) bucket = 'overdue';
+  const debts = transactions
+    .filter(t => t.mode === 'Debt' || t.mode?.includes('Debt'))
+    .map(t => {
+      const ageInDays = realAgeInDays(t);
+      let bucket: 'current' | 'overdue' | 'critical' | 'writeoff-risk' = 'current';
+      if (ageInDays > 90) bucket = 'writeoff-risk';
+      else if (ageInDays > 60) bucket = 'critical';
+      else if (ageInDays > 30) bucket = 'overdue';
 
-    return {
-      ...t,
-      clientType: ['Aramex', 'SAHCO', 'GlobaCom', 'ZeemMax', 'Slot', 'Salco', 'Slot Nigeria'].includes(t.name) ? 'Corporate' : 'Individual',
-      ageInDays,
-      agingBucket: bucket,
-      balance: t.amount,
-      payments: []
-    };
-  });
+      return {
+        ...t,
+        clientType: ['Aramex', 'SAHCO', 'GlobaCom', 'ZeemMax', 'Slot', 'Salco', 'Slot Nigeria'].includes(t.name) ? 'Corporate' : 'Individual',
+        ageInDays,
+        agingBucket: bucket,
+        balance: t.amount - (t.amountPaid || 0),
+      };
+    })
+    .filter(d => d.balance > 0);
 
   let visibleDebts = debts;
   if (filter !== 'All') {
@@ -83,8 +85,21 @@ export const DebtorsTab = ({ transactions = [], user, onUpdateTx }: { transactio
   };
 
   const handleRecordPayment = (id: string) => {
+    const debt = debts.find(d => d.id === id);
+    if (!debt) return;
+    const paidNow = parseFloat(paymentAmount);
+    if (!paidNow || paidNow <= 0) return;
+    const cappedPaid = Math.min(paidNow, debt.balance);
+    const newAmountPaid = (debt as any).amountPaid ? (debt as any).amountPaid + cappedPaid : cappedPaid;
+    const historyEntry = { amount: cappedPaid, mode: paymentMode, by: user?.name || 'Unknown', at: new Date().toISOString() };
+    const newHistory = [...(((debt as any).paymentHistory) || []), historyEntry];
+    const remaining = debt.balance - cappedPaid;
     if (onUpdateTx) {
-        onUpdateTx(id, { mode: 'Debt Paid' });
+      onUpdateTx(id, {
+        amountPaid: newAmountPaid,
+        paymentHistory: newHistory,
+        mode: remaining <= 0 ? 'Debt Paid' : 'Debt'
+      } as any);
     }
     setShowPaymentForm(null);
     setPaymentAmount('');
@@ -135,19 +150,26 @@ export const DebtorsTab = ({ transactions = [], user, onUpdateTx }: { transactio
               </thead>
               <tbody>
                 <tr className="border-b border-gray-200">
-                  <td className="py-3 text-[13px] text-gray-700">01 Jun 2026</td>
-                  <td className="py-3 text-[13px] text-gray-900">Opening Balance</td>
-                  <td className="py-3 text-[13px] font-mono text-gray-700 text-right">-</td>
-                  <td className="py-3 text-[13px] font-mono text-gray-700 text-right">-</td>
-                  <td className="py-3 text-[13px] font-mono font-medium text-gray-900 text-right">0</td>
-                </tr>
-                <tr className="border-b border-gray-200">
                   <td className="py-3 text-[13px] text-gray-700">{statementPrint.time}</td>
                   <td className="py-3 text-[13px] text-gray-900">{statementPrint.detail}</td>
                   <td className="py-3 text-[13px] font-mono text-gray-900 text-right">{fmt(statementPrint.amount).replace('₦','')}</td>
                   <td className="py-3 text-[13px] font-mono text-gray-700 text-right">-</td>
                   <td className="py-3 text-[13px] font-mono font-medium text-gray-900 text-right">{fmt(statementPrint.amount).replace('₦','')}</td>
                 </tr>
+                {((statementPrint as any).paymentHistory || []).reduce((rows: JSX.Element[], p: { amount: number; mode: string; at: string }, idx: number, arr: any[]) => {
+                  const paidSoFar = arr.slice(0, idx + 1).reduce((s, x) => s + x.amount, 0);
+                  const runningBalance = statementPrint.amount - paidSoFar;
+                  rows.push(
+                    <tr key={idx} className="border-b border-gray-200">
+                      <td className="py-3 text-[13px] text-gray-700">{new Date(p.at).toLocaleDateString('en-GB')}</td>
+                      <td className="py-3 text-[13px] text-gray-900">Payment received ({p.mode})</td>
+                      <td className="py-3 text-[13px] font-mono text-gray-700 text-right">-</td>
+                      <td className="py-3 text-[13px] font-mono text-gray-900 text-right">{fmt(p.amount).replace('₦','')}</td>
+                      <td className="py-3 text-[13px] font-mono font-medium text-gray-900 text-right">{fmt(runningBalance).replace('₦','')}</td>
+                    </tr>
+                  );
+                  return rows;
+                }, [])}
               </tbody>
             </table>
             </div>
@@ -156,7 +178,7 @@ export const DebtorsTab = ({ transactions = [], user, onUpdateTx }: { transactio
               <div className="w-[300px]">
                 <div className="flex justify-between py-2 border-b border-gray-200 text-[14px]">
                   <span className="font-sans font-medium text-gray-600">Total Outstanding:</span>
-                  <span className="font-mono font-bold text-red-600">{fmt(statementPrint.amount)}</span>
+                  <span className="font-mono font-bold text-red-600">{fmt((statementPrint as any).balance ?? statementPrint.amount)}</span>
                 </div>
               </div>
             </div>
@@ -287,7 +309,7 @@ export const DebtorsTab = ({ transactions = [], user, onUpdateTx }: { transactio
                              </div>
                              <div>
                                <div className="text-[11px] font-sans text-[var(--color-muted)] mb-1">Original Date</div>
-                               <div className="text-[13px] font-sans text-[var(--color-foreground)]">{d.time} (Simulated)</div>
+                               <div className="text-[13px] font-sans text-[var(--color-foreground)]">{d.time}</div>
                              </div>
                            </div>
 
