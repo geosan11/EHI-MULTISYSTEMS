@@ -172,8 +172,8 @@ export const BulkStaffImport = ({ hubCodes, onClose, onImported }: Props) => {
                 )}
               </div>
 
-              <div className="max-h-80 overflow-y-auto border border-[var(--color-border)] rounded-lg">
-                <table className="w-full text-left font-mono text-[11px]">
+              <div className="max-h-80 overflow-y-auto overflow-x-auto border border-[var(--color-border)] rounded-lg">
+                <table className="w-full min-w-[680px] text-left font-mono text-[11px]">
                   <thead className="bg-[var(--color-surface-2)] sticky top-0">
                     <tr className="text-[var(--color-muted)] uppercase">
                       <th className="py-2 px-2 w-[36px]"></th>
@@ -262,8 +262,8 @@ export const BulkStaffImport = ({ hubCodes, onClose, onImported }: Props) => {
               )}
 
               {failedResults.length > 0 && (
-                <div className="max-h-60 overflow-y-auto border border-[var(--color-border)] rounded-lg">
-                  <table className="w-full text-left font-mono text-[11px]">
+                <div className="max-h-60 overflow-y-auto overflow-x-auto border border-[var(--color-border)] rounded-lg">
+                  <table className="w-full min-w-[480px] text-left font-mono text-[11px]">
                     <thead className="bg-[var(--color-surface-2)] sticky top-0">
                       <tr className="text-[var(--color-muted)] uppercase">
                         <th className="py-2 px-2">Row</th>

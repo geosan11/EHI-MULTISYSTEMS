@@ -403,7 +403,7 @@ export const BankReconciliation = ({
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="bg-[var(--color-surface-card)] border border-[rgba(255,255,255,0.07)] p-4 rounded-xl">
               <span className="text-[12px] font-sans font-medium text-[var(--color-muted)] block">Statement Credits</span>
               <span className="text-[20px] font-bold font-mono text-[var(--color-foreground)] mt-1 block">{fmt(totalCredits)}</span>

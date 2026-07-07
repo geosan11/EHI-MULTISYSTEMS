@@ -685,7 +685,7 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
                       </div>
                     </div>
 
-                    <div className="flex sm:flex-row md:flex-col gap-2 shrink-0 md:w-[170px]">
+                    <div className="flex flex-col gap-2 shrink-0 md:w-[170px]">
                       <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase mb-1 hidden md:block">UPDATE WORKFLOW:</div>
                       
                       <div className="flex items-center gap-1.5 w-full">

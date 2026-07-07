@@ -497,7 +497,7 @@ const CustomerReportView = ({ data }: { data: any[] }) => (
 
 const DebtorReportView = ({ data }: { data: any }) => (
   <div className="space-y-4">
-    <div className="grid grid-cols-4 gap-2">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
       {Object.entries(data.buckets).map(([bucket, amount]) => (
         <div key={bucket} className="p-2.5 bg-[var(--color-surface-2)] rounded-[var(--radius-sm)] text-center border border-[var(--color-border)]">
           <div className="text-[9px] text-[var(--color-muted)] uppercase tracking-wider font-bold mb-1">{bucket}</div>

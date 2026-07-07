@@ -307,7 +307,7 @@ export const Dashboard = React.memo(
                 {fmt(grossTotal)}
               </span>
             </div>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {[
                 { label: "Cash",     value: cashTotal,     color: "var(--color-success)" },
                 { label: "Transfer", value: transferTotal, color: "var(--color-accent-cobalt)" },

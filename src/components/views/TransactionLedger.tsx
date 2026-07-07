@@ -395,7 +395,7 @@ export const TransactionLedger = ({
           </span>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center flex-wrap gap-3">
           {defaultTypeFilter === 'baggage' && (
             <div className="flex items-center gap-2">
               <select
@@ -590,6 +590,7 @@ export const TransactionLedger = ({
       {/* Table Container */}
       <div ref={tableRef} className="flex-1 overflow-auto p-4 pb-20 relative">
         <div className="ehi-card overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-left font-mono text-[10px]">
             <thead className="bg-[var(--color-surface-card)]">
               <tr className="text-[var(--color-muted)] border-b border-[var(--color-border)] uppercase">
@@ -784,6 +785,7 @@ export const TransactionLedger = ({
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 

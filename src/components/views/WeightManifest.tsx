@@ -247,7 +247,7 @@ export const WeightManifest = ({ user, onBack }: { user: User; onBack: () => voi
         />
       </div>
 
-      <div className="px-4 pt-3 pb-2 grid grid-cols-4 gap-2 flex-shrink-0">
+      <div className="px-4 pt-3 pb-2 grid grid-cols-2 md:grid-cols-4 gap-2 flex-shrink-0">
         <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg px-3 py-2">
           <div className="flex items-center gap-1.5 mb-0.5">
             <Package size={10} className="text-[var(--color-muted)]" />
