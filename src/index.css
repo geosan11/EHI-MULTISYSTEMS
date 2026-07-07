@@ -117,14 +117,19 @@
 }
 
 :root.light {
-  --color-obsidian: #f5f7fa;
-  --color-surface-1: #ffffff;
-  --color-surface-2: #f0f3f8;
-  --color-surface-3: #e5eaf2;
-  --color-surface-card: #ffffff;
-  --color-nav-bg: #ffffff;
-  --color-background: #f5f7fa;
-  --color-input-bg: #ffffff;
+  /* The page canvas sits a clear step below card/nav surfaces instead of
+     near-white-on-white -- that's what reads as "glare" at a glance. Cards
+     and the nav also drop from stark #ffffff to a faint cool-tinted white
+     so no single surface is pure #fff; shadow/border strength is bumped
+     slightly to compensate for the reduced contrast between layers. */
+  --color-obsidian: #e7ebf1;
+  --color-surface-1: #fdfdfe;
+  --color-surface-2: #eef1f6;
+  --color-surface-3: #e1e6ee;
+  --color-surface-card: #fcfdfe;
+  --color-nav-bg: #fbfcfe;
+  --color-background: #e7ebf1;
+  --color-input-bg: #fdfdfe;
   --color-input-text: #111827;
 
   --color-accent-amber: #d97706;
@@ -143,14 +148,14 @@
   --color-muted: #9ca3af;
   --color-light-muted: #6b7280;
 
-  --color-border: rgba(0, 0, 0, 0.09);
-  --color-border-strong: rgba(0, 0, 0, 0.16);
-  --color-nav-border: rgba(0, 0, 0, 0.09);
+  --color-border: rgba(0, 0, 0, 0.11);
+  --color-border-strong: rgba(0, 0, 0, 0.18);
+  --color-nav-border: rgba(0, 0, 0, 0.1);
   --color-overlay: rgba(0, 0, 0, 0.55);
 
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.06);
-  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
-  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.07), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.07);
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.09), 0 2px 8px rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.06);
   --shadow-nav: 0 -4px 16px rgba(0, 0, 0, 0.08), 0 -1px 0 rgba(0, 0, 0, 0.07);
   --shadow-dropdown:
     0 8px 32px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.08),

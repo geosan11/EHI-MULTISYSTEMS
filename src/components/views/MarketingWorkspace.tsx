@@ -56,7 +56,11 @@ export const MarketingWorkspace = ({
     });
   }, []);
 
-  const generateMktAwb = () => `AWB-MK-${Math.floor(100000 + Math.random() * 900000)}`;
+  // Marketing entries aren't airway bills -- this is just a printable tag
+  // reference, distinct from the entry's own system ref (successTx.id).
+  // Naming it "AWB" (as the UI used to) was misleading, so it's generated
+  // and labeled as a plain Tag Ref instead.
+  const generateMktAwb = () => `TAG-MK-${Math.floor(100000 + Math.random() * 900000)}`;
   const [awb, setAwb] = useState(generateMktAwb);
 
   // Available airlines — loaded from Supabase Storage (uploaded via AirlineLogoManager)
@@ -395,7 +399,7 @@ export const MarketingWorkspace = ({
 
               <div className="bg-[var(--color-obsidian)] rounded p-3 mb-4 space-y-2 border border-[var(--color-border)]">
                 <div className="flex justify-between border-b border-[var(--color-border)] pb-1">
-                  <span className="text-[10px] font-mono text-[var(--color-muted)]">AWB</span>
+                  <span className="text-[10px] font-mono text-[var(--color-muted)]">Tag Ref</span>
                   <span className="text-[11px] font-mono text-[var(--color-success)] font-bold">
                     {successTx.awb_tag_number}
                   </span>
@@ -574,9 +578,9 @@ export const MarketingWorkspace = ({
               </div>
 
               <div className="space-y-3">
-                {/* Auto-generated AWB — read-only, regenerates on New Entry */}
+                {/* Auto-generated tag ref — read-only, regenerates on New Entry */}
                 <div className="flex items-center justify-between px-3 h-9 rounded bg-[var(--color-surface-1)] border border-[rgba(16,185,129,0.2)]">
-                  <span className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wider">AWB</span>
+                  <span className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Tag Ref</span>
                   <span className="text-[11px] font-mono text-[var(--color-success)] font-bold">{awb}</span>
                 </div>
                 <select

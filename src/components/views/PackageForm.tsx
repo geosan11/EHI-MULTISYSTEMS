@@ -21,13 +21,27 @@ export const PackageForm = ({
   onAddExpense: (exp: Expense) => void;
   onShowHistory?: () => void;
 }) => {
-  const [destinations, setDestinations] = useState<string[]>([]);
+  // Destinations are the live hub list from Supabase (not a hardcoded
+  // constant) so a new hub added in Settings shows up here immediately --
+  // each option is prefixed with its IATA-style hub code for consistency
+  // with the Cargo/ValueJet route pickers. Cached to localStorage for an
+  // instant first paint / offline fallback while the fetch is in flight.
+  const HUB_DEST_CACHE_KEY = 'ehi_hub_destinations';
+  const [destinations, setDestinations] = useState<string[]>(() => {
+    try {
+      const cached = localStorage.getItem(HUB_DEST_CACHE_KEY);
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
   useEffect(() => {
-    supabase.from('hubs').select('name').order('name').then(({ data }) => {
-      if (data && data.length > 0) {
-        const names = data.map((h: any) => h.name);
-        setDestinations(names);
-        setDestination(prev => prev || names[0]);
+    supabase.from('hubs').select('name, code').eq('active', true).order('name').then(({ data, error }) => {
+      if (data && !error && data.length > 0) {
+        const formatted = data.map((h: any) => `${h.code}/${h.name}`);
+        setDestinations(formatted);
+        setDestination(prev => prev || formatted[0]);
+        try { localStorage.setItem(HUB_DEST_CACHE_KEY, JSON.stringify(formatted)); } catch {}
       }
     });
   }, []);
@@ -46,7 +60,7 @@ export const PackageForm = ({
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [destination, setDestination] = useState<string>("");
+  const [destination, setDestination] = useState<string>(() => destinations[0] || "");
   const [contentType, setContentType] = useState<'Package' | 'Parcel'>('Package');
   const [amount, setAmount] = useState("");
   const [mode, setMode] = useState<string>("Cash");

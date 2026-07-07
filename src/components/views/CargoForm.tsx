@@ -1240,7 +1240,7 @@ export const CargoForm = ({
               {onShowHistory && (
                 <button
                   onClick={onShowHistory}
-                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 border border-[var(--color-border)] rounded-lg text-[11px] font-mono text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:border-[var(--color-accent-amber)] transition-colors"
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-surface-2)] border border-[var(--color-border-strong)] rounded-lg text-[11px] font-mono font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-surface-3)] hover:border-[var(--color-accent-amber)] hover:text-[var(--color-accent-amber)] transition-colors shadow-[var(--shadow-xs)]"
                 >
                   <ClipboardList size={14} /> <span>History</span>
                 </button>
@@ -2226,7 +2226,7 @@ export const CargoForm = ({
                   </div>
                 )}
 
-                <div className="bg-[var(--color-surface-2)] p-4 rounded border border-[var(--color-border)]">
+                <div className="bg-[var(--color-surface-2)] p-4 rounded border border-[var(--color-border)] mt-4">
                   <h5 className="text-[12px] font-bold text-[var(--color-foreground)] mb-2 flex items-center gap-1">
                     <ShieldAlert size={14} className="text-yellow-600" />
                     B2B Scaling Rules

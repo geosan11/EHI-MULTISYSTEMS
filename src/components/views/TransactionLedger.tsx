@@ -590,7 +590,7 @@ export const TransactionLedger = ({
       {/* Table Container */}
       <div ref={tableRef} className="flex-1 overflow-auto p-4 pb-20 relative">
         <div className="ehi-card overflow-hidden shadow-sm">
-          <table className="w-full text-left font-mono text-[10px]">
+          <table className="w-full min-w-[720px] text-left font-mono text-[10px]">
             <thead className="bg-[var(--color-surface-card)]">
               <tr className="text-[var(--color-muted)] border-b border-[var(--color-border)] uppercase">
                 {isAccountantOrAdmin && <th className="py-3 px-3 w-[36px]"></th>}
@@ -829,7 +829,7 @@ export const TransactionLedger = ({
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-6">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
               {/* Customer Section */}
               <section>
                 <h4 className="text-[10px] font-mono text-[var(--color-muted)] uppercase mb-2">Details</h4>
@@ -851,7 +851,7 @@ export const TransactionLedger = ({
               {/* Payment Section */}
               <section>
                 <h4 className="text-[10px] font-mono text-[var(--color-muted)] uppercase mb-2">Payment Info</h4>
-                <div className="bg-[var(--color-surface-1)] rounded-lg p-4 border border-[var(--color-border)] space-y-3">
+                <div className="bg-[var(--color-surface-1)] rounded-lg p-3 border border-[var(--color-border)] space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="text-[12px] text-[var(--color-muted)]">Amount</span>
                     <span className={`text-xl font-bold font-mono ${viewingDetail.source === 'expense' ? 'text-[var(--color-error)]' : 'text-[var(--color-success)]'}`}>

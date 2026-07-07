@@ -112,7 +112,7 @@ export default function TagPrintHistory({ user }: { user: User }) {
 
       <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full min-w-[760px] text-left border-collapse">
             <thead>
               <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface-2)]">
                 <th className="px-4 py-3 text-[12px] font-sans font-semibold text-[var(--color-muted)] uppercase tracking-wider">Date & Time</th>

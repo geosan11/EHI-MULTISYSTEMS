@@ -1171,7 +1171,7 @@ export const Scanner = ({
   }
 
   return (
-    <div className="p-4 pb-20 space-y-4">
+    <div className="p-4 space-y-4" style={{ paddingBottom: 'calc(96px + env(safe-area-inset-bottom))' }}>
 
       {/* Section header */}
       <div className="text-[9px] font-mono text-[var(--color-muted)] tracking-[0.12em] uppercase border-b border-[rgba(255,255,255,0.07)] pb-2">
@@ -1179,35 +1179,35 @@ export const Scanner = ({
       </div>
 
       {/* Hub indicator */}
-      <div className="flex items-center justify-between">
-        <div className="text-[10px] font-mono text-[var(--color-accent-amber)]">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-[10px] font-mono text-[var(--color-accent-amber)] truncate">
           📍 {currentHub}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('ehi-nav', { detail: 'IncomingToHub' }))}
-            className="flex items-center gap-1.5 text-[11px] font-mono font-semibold text-[var(--color-accent-cobalt)] hover:text-[var(--color-foreground)] bg-[rgba(59,130,246,0.1)] hover:bg-[rgba(59,130,246,0.2)] border border-[rgba(59,130,246,0.2)] px-3 py-1.5 rounded-full transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-mono font-semibold text-[var(--color-accent-cobalt)] hover:text-[var(--color-foreground)] bg-[rgba(59,130,246,0.1)] hover:bg-[rgba(59,130,246,0.2)] border border-[rgba(59,130,246,0.2)] px-2.5 py-1.5 rounded-full transition-colors cursor-pointer whitespace-nowrap"
           >
             <Plane size={12} />
             Incoming
           </button>
           <button
             onClick={() => setShowArrivalsView(true)}
-            className="flex items-center gap-1.5 text-[11px] font-mono font-semibold text-[var(--color-success)] hover:text-[var(--color-foreground)] bg-[rgba(16,185,129,0.1)] hover:bg-[rgba(16,185,129,0.2)] border border-[rgba(16,185,129,0.2)] px-3 py-1.5 rounded-full transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-mono font-semibold text-[var(--color-success)] hover:text-[var(--color-foreground)] bg-[rgba(16,185,129,0.1)] hover:bg-[rgba(16,185,129,0.2)] border border-[rgba(16,185,129,0.2)] px-2.5 py-1.5 rounded-full transition-colors cursor-pointer whitespace-nowrap"
           >
             <ArrowDown size={12} />
-            Hub Arrivals
+            Arrivals
           </button>
           <button
             onClick={() => setShowWrongDestView(true)}
-            className="flex items-center gap-1.5 text-[11px] font-mono font-semibold text-[var(--color-error)] hover:text-[var(--color-foreground)] bg-[rgba(239,68,68,0.1)] hover:bg-[rgba(239,68,68,0.2)] border border-[rgba(239,68,68,0.2)] px-3 py-1.5 rounded-full transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-mono font-semibold text-[var(--color-error)] hover:text-[var(--color-foreground)] bg-[rgba(239,68,68,0.1)] hover:bg-[rgba(239,68,68,0.2)] border border-[rgba(239,68,68,0.2)] px-2.5 py-1.5 rounded-full transition-colors cursor-pointer whitespace-nowrap"
           >
             ⚠ Alerts
           </button>
           {batchItems.length > 0 && (
             <button
               onClick={() => setShowBatch(true)}
-              className="flex items-center gap-1.5 text-[10px] font-mono text-[var(--color-light-muted)] border-none bg-transparent cursor-pointer"
+              className="flex items-center gap-1.5 text-[10px] font-mono text-[var(--color-light-muted)] border-none bg-transparent cursor-pointer whitespace-nowrap"
             >
               <List size={11} />
               {batchSuccess} ✓ {batchAlerts > 0 && <span className="text-[var(--color-error)]">| {batchAlerts} alerts</span>}

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Theme } from '../lib/useTheme';
 
-import { EHILogo } from './EHILogo';
+import ehiLogo from '../assets/branding/ehi-logo.png';
 
 export const Header = ({ 
   user, 
@@ -63,9 +63,14 @@ export const Header = ({
     >
       <div className="flex items-center justify-between px-4 py-3 min-h-[60px]">
 
-        {/* Brand */}
+        {/* Brand -- the real logo asset (same file SideNav uses on desktop) */}
         <div className="flex items-center gap-2.5 ehi-header-brand">
-          <EHILogo width={100} height={40} />
+          <img
+            src={ehiLogo}
+            alt="EHI Multisystems"
+            style={{ height: 40, width: 'auto', objectFit: 'contain' }}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
           <div>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 4,

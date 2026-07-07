@@ -157,16 +157,17 @@ export const SideNav = ({
       >
         <div
           className={`flex items-center cursor-pointer hover:opacity-80 transition-opacity ${isExpanded ? "gap-3" : "justify-center w-full"}`}
-          style={{ minHeight: 40 }}
+          style={{ minHeight: 48 }}
           onClick={handleToggleExpand}
         >
           <div
             style={{
-              width: 36,
-              height: 36,
-              borderRadius: 9,
+              width: 46,
+              height: 46,
+              borderRadius: 12,
               background: "rgba(245,158,11,0.12)",
-              border: "1px solid rgba(245,158,11,0.2)",
+              border: "1px solid rgba(245,158,11,0.25)",
+              boxShadow: "0 2px 10px rgba(245,158,11,0.15)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -176,14 +177,14 @@ export const SideNav = ({
             <img
               src={ehiLogo}
               alt="EHI"
-              style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 7 }}
+              style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 10 }}
               onError={(e) => {
                 // Falls back to the original text treatment if the file is
                 // missing or fails to load, rather than showing a broken image icon
                 (e.target as HTMLImageElement).style.display = 'none';
                 const fallback = document.createElement('span');
                 fallback.textContent = 'EHI';
-                fallback.style.cssText = "font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;color:#F59E0B;";
+                fallback.style.cssText = "font-family:'JetBrains Mono',monospace;font-weight:800;font-size:14px;color:#F59E0B;";
                 (e.target as HTMLImageElement).parentElement?.appendChild(fallback);
               }}
             />
@@ -203,22 +204,24 @@ export const SideNav = ({
             <div
               style={{
                 fontFamily: "'JetBrains Mono', monospace",
-                fontSize: 11,
-                fontWeight: 800,
+                fontSize: 15,
+                fontWeight: 900,
                 color: "var(--color-foreground, #F1F5F9)",
-                letterSpacing: "0.04em",
+                letterSpacing: "0.03em",
+                lineHeight: 1.1,
               }}
             >
               MULTISYSTEMS
             </div>
             <div
               style={{
-                fontSize: 8,
+                fontSize: 9,
+                fontWeight: 700,
                 fontFamily: "monospace",
-                color: "var(--color-muted, #64748B)",
-                letterSpacing: "0.1em",
+                color: "var(--color-accent-amber)",
+                letterSpacing: "0.12em",
                 textTransform: "uppercase",
-                marginTop: 1,
+                marginTop: 3,
               }}
             >
               Logistics Platform

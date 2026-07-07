@@ -218,7 +218,7 @@ const MarketingReceiptPDF = ({ data }: { data: MarketingReceiptData }) => {
       </View>
       {data.awbTagNumber ? (
         <View style={styles.row}>
-          <Text style={styles.label}>AWB</Text>
+          <Text style={styles.label}>Tag Ref</Text>
           <Text style={styles.awbValue}>{data.awbTagNumber}</Text>
         </View>
       ) : null}
