@@ -65,16 +65,21 @@ INSERT INTO corporate_clients (id, company_name, contact_phone, accumulated_mont
 ('da09de12-f0ef-4f11-bc66-3d719e782ea2', 'ZeemMax', '08044556677', 0.00)
 ON CONFLICT (company_name) DO NOTHING;
 
--- Seed custom route-specific rates
-INSERT INTO corporate_route_rates (corporate_client_id, route_name, rate_per_kg) VALUES
--- Aramex Rates
-('a37bfa51-ef78-43f1-bdca-b96ab3201402', 'ABV/Abuja', 600.00),
-('a37bfa51-ef78-43f1-bdca-b96ab3201402', 'BNI/Benin', 400.00),
-('a37bfa51-ef78-43f1-bdca-b96ab3201402', 'Lagos', 350.00),
--- SAHCO Rates
-('f021adff-89d2-4fe0-94f7-33a59df74fa2', 'ABV/Abuja', 500.00),
-('f021adff-89d2-4fe0-94f7-33a59df74fa2', 'BNI/Benin', 420.00),
--- GlobaCom Rates
-('3be177df-9831-419b-a01f-0e86a0ffccca', 'ABV/Abuja', 650.00),
-('3be177df-9831-419b-a01f-0e86a0ffccca', 'PHC/Port Harcourt', 750.00)
+-- Seed custom route-specific rates. Looked up by company_name rather than
+-- hardcoded id: if a client row already existed under a different id before
+-- this migration ran, the ON CONFLICT (company_name) DO NOTHING above skips
+-- inserting these literal ids, and a hardcoded corporate_client_id here would
+-- then violate the FK against whatever id the pre-existing row actually has.
+INSERT INTO corporate_route_rates (corporate_client_id, route_name, rate_per_kg)
+SELECT c.id, r.route_name, r.rate_per_kg
+FROM (VALUES
+  ('Aramex', 'ABV/Abuja', 600.00),
+  ('Aramex', 'BNI/Benin', 400.00),
+  ('Aramex', 'Lagos', 350.00),
+  ('SAHCO', 'ABV/Abuja', 500.00),
+  ('SAHCO', 'BNI/Benin', 420.00),
+  ('GlobaCom', 'ABV/Abuja', 650.00),
+  ('GlobaCom', 'PHC/Port Harcourt', 750.00)
+) AS r(company_name, route_name, rate_per_kg)
+JOIN corporate_clients c ON c.company_name = r.company_name
 ON CONFLICT (corporate_client_id, route_name) DO NOTHING;
