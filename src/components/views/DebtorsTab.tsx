@@ -114,7 +114,9 @@ export const DebtorsTab = ({ transactions = [], user, onUpdateTx }: { transactio
       {statementPrint && (
         <div className="fixed inset-0 z-50 bg-[var(--color-obsidian)] flex flex-col p-4 overflow-y-auto">
           <div className="flex justify-between items-center mb-6">
-            <button onClick={() => setStatementPrint(null)} className="text-[13px] font-sans font-medium text-[var(--color-muted)]">Close</button>
+            <button onClick={() => setStatementPrint(null)} className="flex items-center space-x-2 bg-[var(--color-surface-1)] border border-[var(--color-border-strong)] px-4 py-2 rounded-lg text-[13px] font-sans font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-2)] transition-colors">
+              <span>Close</span>
+            </button>
              <button onClick={() => window.print()} className="flex items-center space-x-2 bg-[var(--color-surface-2)] px-4 py-2 rounded-lg text-[13px] font-sans font-medium text-[var(--color-foreground)]">
               <Printer size={16} />
               <span>Print / Export PDF</span>
