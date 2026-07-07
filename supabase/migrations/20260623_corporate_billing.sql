@@ -29,6 +29,13 @@ ALTER TABLE corporate_clients ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(50)
 ALTER TABLE corporate_clients ADD COLUMN IF NOT EXISTS accumulated_monthly_debt NUMERIC(12, 2) DEFAULT 0.00 NOT NULL;
 ALTER TABLE corporate_clients ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL;
 
+-- The pre-existing table may predate the inline UNIQUE on company_name
+-- too (CREATE TABLE IF NOT EXISTS above wouldn't have added it), and the
+-- seed INSERT below needs an actual unique constraint/index to match
+-- against for its ON CONFLICT (company_name) clause -- otherwise Postgres
+-- errors with "no unique or exclusion constraint matching ON CONFLICT".
+CREATE UNIQUE INDEX IF NOT EXISTS corporate_clients_company_name_key ON corporate_clients (company_name);
+
 -- 2. Corporate Route Rates Table (Mapping Custom Contract Rates)
 CREATE TABLE IF NOT EXISTS corporate_route_rates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -41,6 +48,11 @@ CREATE TABLE IF NOT EXISTS corporate_route_rates (
 
 ALTER TABLE corporate_route_rates ADD COLUMN IF NOT EXISTS rate_per_kg NUMERIC(10, 2) NOT NULL DEFAULT 0;
 ALTER TABLE corporate_route_rates ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL;
+
+-- Same reasoning as corporate_clients above -- guarantee a unique index
+-- exists to match the seed INSERT's ON CONFLICT target, regardless of
+-- whether the inline CONSTRAINT ran (table may have pre-existed).
+CREATE UNIQUE INDEX IF NOT EXISTS corporate_route_rates_client_route_key ON corporate_route_rates (corporate_client_id, route_name);
 
 -- ==========================================
 -- SEED SAMPLE CORPORATE DATA FOR THE CLIENTS
@@ -65,4 +77,4 @@ INSERT INTO corporate_route_rates (corporate_client_id, route_name, rate_per_kg)
 -- GlobaCom Rates
 ('3be177df-9831-419b-a01f-0e86a0ffccca', 'ABV/Abuja', 650.00),
 ('3be177df-9831-419b-a01f-0e86a0ffccca', 'PHC/Port Harcourt', 750.00)
-ON CONFLICT ON CONSTRAINT unique_corporate_route DO NOTHING;
+ON CONFLICT (corporate_client_id, route_name) DO NOTHING;
