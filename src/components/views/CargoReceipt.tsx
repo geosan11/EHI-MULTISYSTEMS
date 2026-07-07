@@ -255,7 +255,9 @@ const styles = StyleSheet.create({
 });
 
 const CargoReceiptOnlyPDF = ({ data }: { data: CargoReceiptData }) => {
-  let h = 310;
+  // +45 to accommodate the larger header logos (now sized to fill each
+  // half of the page width instead of a small centered logo).
+  let h = 355;
   if (data.qrCodeDataUrl) h += 70;
   if (data.pickupPin) h += 70;
   if (data.bankName) h += 20;
@@ -266,8 +268,8 @@ const CargoReceiptOnlyPDF = ({ data }: { data: CargoReceiptData }) => {
   <Document>
     <Page size={[226, h]} style={styles.page}>
       <View style={[styles.headerRow, styles.headerBorder]}>
-        <EHILogoPDF width={60} />
-        <AirlineLogoPDF airline={data.airline} width={60} />
+        <EHILogoPDF width={105} />
+        <AirlineLogoPDF airline={data.airline} width={105} />
       </View>
 
       <View style={styles.titleBar}>
@@ -383,15 +385,16 @@ const CargoWaybillTagPage = ({
   const originCode = getHubCode(data.hubName);
   const destName = getCityName(data.route);
 
-  let h = 230;
+  // +45 to accommodate the larger header logos (see note above).
+  let h = 275;
   if (data.qrCodeDataUrl) h += 80;
 
   return (
     <Page size={[226, h]} style={styles.page}>
       <View style={styles.tagContainer}>
         <View style={styles.headerRow}>
-          <EHILogoPDF width={45} />
-          <AirlineLogoPDF airline={data.airline} width={45} />
+          <EHILogoPDF width={105} />
+          <AirlineLogoPDF airline={data.airline} width={105} />
         </View>
 
         <View style={styles.tagBar}>

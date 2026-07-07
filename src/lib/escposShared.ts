@@ -183,14 +183,29 @@ export async function brandingHeaderWithAirline(
   if (!airlineUrl) return brandingHeader(widthDots);
 
   const chunks: Uint8Array[] = [new Uint8Array(CENTER)];
-  const logoH = Math.round(widthDots * 0.52);
   const halfW = Math.floor(widthDots / 2);
+  // Tiny gap either side of the divider line so neither logo overlaps it.
+  const logoSlotW = halfW - 2;
 
   try {
     const [ehiImg, airlineImg] = await Promise.all([
       loadImageElement(ehiLogoFile),
       loadImageElement(airlineUrl),
     ]);
+
+    // Each logo fills its entire half -- from the center split out to the
+    // paper's outer margin -- instead of a small logo centered with
+    // padding on both sides. Height is derived from each logo's own aspect
+    // ratio at that width, and the canvas grows to fit the taller one.
+    const ehiAspect = ehiImg.width / ehiImg.height;
+    const alAspect = airlineImg.width / airlineImg.height;
+    const ehiW = logoSlotW;
+    const ehiH = ehiW / ehiAspect;
+    const alW = logoSlotW;
+    const alH = alW / alAspect;
+    // Safety cap for unusually tall (portrait-ish) logos -- real wordmark
+    // logos land well under this, so it won't affect normal prints.
+    const logoH = Math.min(Math.ceil(Math.max(ehiH, alH)) + 8, Math.round(widthDots * 0.75));
 
     const canvas = document.createElement('canvas');
     canvas.width = widthDots;
@@ -199,25 +214,15 @@ export async function brandingHeaderWithAirline(
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, widthDots, logoH);
 
-    // EHI on left half — scale to fit, keep aspect ratio, centre in cell
-    const ehiAspect = ehiImg.width / ehiImg.height;
-    const ehiH = Math.min(logoH - 6, (halfW - 10) / ehiAspect);
-    const ehiW = ehiH * ehiAspect;
-    ctx.drawImage(ehiImg,
-      Math.floor((halfW - ehiW) / 2), Math.floor((logoH - ehiH) / 2),
-      ehiW, ehiH);
+    // EHI flush against the left margin, spanning to the center split
+    ctx.drawImage(ehiImg, 0, Math.floor((logoH - Math.min(ehiH, logoH)) / 2), ehiW, Math.min(ehiH, logoH));
 
     // Thin separator line between logos
     ctx.fillStyle = '#aaaaaa';
-    ctx.fillRect(halfW - 1, 6, 1, logoH - 12);
+    ctx.fillRect(halfW, 4, 1, logoH - 8);
 
-    // Airline logo on right half — same fit logic
-    const alAspect = airlineImg.width / airlineImg.height;
-    const alH = Math.min(logoH - 6, (halfW - 10) / alAspect);
-    const alW = alH * alAspect;
-    ctx.drawImage(airlineImg,
-      halfW + Math.floor((halfW - alW) / 2), Math.floor((logoH - alH) / 2),
-      alW, alH);
+    // Airline flush against the right margin, spanning from the split
+    ctx.drawImage(airlineImg, widthDots - alW, Math.floor((logoH - Math.min(alH, logoH)) / 2), alW, Math.min(alH, logoH));
 
     // Use threshold 200 so amber areas (MULTISYSTEMS banner in EHI logo) print as solid black
     const dataUrl = canvas.toDataURL('image/png');

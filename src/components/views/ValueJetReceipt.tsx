@@ -124,7 +124,8 @@ const styles = StyleSheet.create({
 });
 
 const VJReceiptPDF = ({ data }: { data: VJReceiptData }) => {
-  let h = 270;
+  // +45 to accommodate the larger header logos (see CargoReceipt.tsx note).
+  let h = 315;
   if (data.qrCodeDataUrl) h += 60;
   if (data.bankName) h += 20;
   if (data.paymentMode === "Transfer" && data.paymentNarration) h += 25;
@@ -133,8 +134,8 @@ const VJReceiptPDF = ({ data }: { data: VJReceiptData }) => {
   <Document>
     <Page size={[226, h]} style={styles.page}>
       <View style={styles.headerRow}>
-        <EHILogoPDF width={50} />
-        <AirlineLogoPDF airline="ValueJet" width={50} />
+        <EHILogoPDF width={105} />
+        <AirlineLogoPDF airline="ValueJet" width={105} />
       </View>
       <Text style={styles.title}>EXCESS BAGGAGE RECEIPT</Text>
       <Text style={{ fontSize: 10, textAlign: 'center', marginBottom: 6 }}>Origin: {data.hubName}</Text>

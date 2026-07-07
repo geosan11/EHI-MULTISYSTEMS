@@ -186,7 +186,9 @@ const styles = StyleSheet.create({
 });
 
 const MarketingReceiptPDF = ({ data }: { data: MarketingReceiptData }) => {
-  let h = 290;
+  // +45 to accommodate the larger header logos (now sized to fill each
+  // half of the page width instead of a small centered logo).
+  let h = 335;
   if (data.awbTagNumber) h += 14;
   if (data.phone) h += 14;
   if (data.airline) h += 14;
@@ -198,8 +200,8 @@ const MarketingReceiptPDF = ({ data }: { data: MarketingReceiptData }) => {
   <Document>
     <Page size={[226, h]} style={styles.page}>
       <View style={[styles.headerRow, styles.headerBorder]}>
-        <EHILogoPDF width={60} />
-        {data.airline && <AirlineLogoPDF airline={data.airline} width={60} />}
+        <EHILogoPDF width={105} />
+        {data.airline && <AirlineLogoPDF airline={data.airline} width={105} />}
       </View>
 
       <View style={styles.titleBar}>
