@@ -59,7 +59,7 @@ export const ExpensesTab = ({ expenses = [], user, period = 'today', onAddExpens
     }
   };
 
-  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalExpenses = expenses.filter(e => (e.status || 'approved') === 'approved').reduce((sum, e) => sum + e.amount, 0);
 
   const handleLog = () => {
     const numAmt = parseFloat(amount);
@@ -170,7 +170,7 @@ export const ExpensesTab = ({ expenses = [], user, period = 'today', onAddExpens
          <div className="space-y-4">
            {categories.map(c => {
              const budget = budgets[c];
-             const spent = expenses.filter(e => e.type === c).reduce((sum, e) => sum + e.amount, 0);
+             const spent = expenses.filter(e => e.type === c && (e.status || 'approved') === 'approved').reduce((sum, e) => sum + e.amount, 0);
              const pct = budget ? (spent / budget) * 100 : 0;
              
              let barColor = 'bg-[var(--color-success)]';

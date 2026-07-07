@@ -65,7 +65,11 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
   const mktgTotal = mktgTx.reduce((sum, t) => sum + t.amount, 0);
 
   const grandRevenue = cargoTotal + vjTotal + mktgTotal;
-  const totalExpenses = filteredExp.reduce((sum, e) => sum + e.amount, 0);
+  // Only approved spend counts as real outflow. Pending/rejected expenses
+  // must not distort Net Revenue.
+  const approvedExp = filteredExp.filter(e => (e.status || 'approved') === 'approved');
+  const totalExpenses = approvedExp.reduce((sum, e) => sum + e.amount, 0);
+  const pendingExpTotal = filteredExp.filter(e => e.status === 'pending').reduce((sum, e) => sum + e.amount, 0);
   const netRevenue = grandRevenue - totalExpenses;
 
   const cashTotal = filteredTx.reduce((sum, t) => sum + (t.mode === 'Cash' ? t.amount : 0), 0);
@@ -147,8 +151,8 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
   // rejected expense hasn't (or won't) be paid out, so counting it here
   // would falsely shrink the expected closing balance.
   const regPayments = expenses
-    .filter(e => e.amount > 0 && e.status === 'approved' && e.created_at && e.created_at.split('T')[0] === regDate)
-    .reduce((sum, e) => sum + e.amount, 0); // Mock all expenses as cash for now
+    .filter(e => (e.status || 'approved') === 'approved' && e.mode === 'Cash' && e.created_at && e.created_at.split('T')[0] === regDate)
+    .reduce((sum, e) => sum + e.amount, 0);
   const expectedClosing = (openingBalance || 0) + regReceipts - regPayments;
   const variance = physicalCount !== null ? physicalCount - expectedClosing : 0;
 
@@ -241,7 +245,12 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
               <span className="text-[15px] font-mono text-[var(--color-foreground)]">{fmt(grandRevenue)}</span>
             </div>
             <div className="flex justify-between items-center mb-4 border-b border-[var(--color-border)] pb-4">
-              <span className="text-[13px] font-sans text-[var(--color-muted)]">Total Expenses</span>
+              <div>
+                <span className="text-[13px] font-sans text-[var(--color-muted)]">Total Expenses</span>
+                {pendingExpTotal > 0 && (
+                  <div className="text-[11px] font-sans text-[var(--color-muted)] mt-0.5">{fmt(pendingExpTotal)} pending approval — not yet included above</div>
+                )}
+              </div>
               <span className="text-[15px] font-mono text-[var(--color-error)]">-{fmt(totalExpenses)}</span>
             </div>
              <div className="flex justify-between items-center">
