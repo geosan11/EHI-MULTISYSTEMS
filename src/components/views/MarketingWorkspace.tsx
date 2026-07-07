@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { User, Transaction, Expense } from "../../lib/types";
 import { PRICING, BANKS, EXPENSE_CATEGORIES, AIRLINES } from "../../lib/constants";
-import { fmt, uid, tnow } from "../../lib/helpers";
+import { fmt, uid, tnow, getHubCode } from "../../lib/helpers";
 import { Plus, CheckCircle, Loader2, ClipboardList, MessageSquare, Printer, Minus, TrendingDown, BarChart2 } from "lucide-react";
 import { motion } from "motion/react";
 import { supabase } from "../../lib/supabase";
@@ -58,10 +58,25 @@ export const MarketingWorkspace = ({
 
   // Marketing entries aren't airway bills -- this is just a printable tag
   // reference, distinct from the entry's own system ref (successTx.id).
-  // Naming it "AWB" (as the UI used to) was misleading, so it's generated
-  // and labeled as a plain Tag Ref instead.
-  const generateMktAwb = () => `TAG-MK-${Math.floor(100000 + Math.random() * 900000)}`;
-  const [awb, setAwb] = useState(generateMktAwb);
+  // It used to be a client-random 6-digit number (no server uniqueness
+  // guarantee, no hub identity), the same gap cargo's AWB had before
+  // next_awb_number() was introduced. Reuses that same atomic per-key
+  // counter here, keyed with a "-MK" suffix so marketing tags run on
+  // their own independent sequence per hub instead of interleaving with
+  // that hub's cargo AWB numbers.
+  const [awb, setAwb] = useState('');
+  const fetchNextTag = async () => {
+    const hubCode = getHubCode(user.hub_code || user.hub);
+    const { data: seq, error } = await supabase.rpc('next_awb_number', { p_hub_code: `${hubCode}-MK` });
+    if (!error && seq) {
+      setAwb(`TAG-${hubCode}-MK-${String(seq).padStart(6, '0')}`);
+    } else {
+      // Offline / RPC failure fallback -- still usable, just not
+      // server-guaranteed unique.
+      setAwb(`TAG-${hubCode}-MK-${Math.floor(100000 + Math.random() * 900000)}`);
+    }
+  };
+  useEffect(() => { fetchNextTag(); }, []);
 
   // Available airlines — loaded from Supabase Storage (uploaded via AirlineLogoManager)
   const [availableAirlines, setAvailableAirlines] = useState<string[]>(
@@ -129,7 +144,7 @@ export const MarketingWorkspace = ({
   const parsedOverride = parseFloat(amountOverride) || 0;
   const totalAmount = amountOverride !== "" ? parsedOverride : minAmount;
 
-  const isValid = name.trim().length > 0 && totalAmount > 0 && (amountOverride === "" || parsedOverride >= minAmount);
+  const isValid = !!awb && name.trim().length > 0 && totalAmount > 0 && (amountOverride === "" || parsedOverride >= minAmount);
 
   // "Less Transfer" — daily adjustment for 3rd-party/corporate transfers (Govt/Honda/Zion)
   // that belong to other accounts and should be excluded from the day's cash tally
@@ -326,7 +341,7 @@ export const MarketingWorkspace = ({
     setMode("Transfer");
     setNarrationCode("");
     setSuccessTx(null);
-    setAwb(generateMktAwb());
+    fetchNextTag();
   };
 
   const handleAddExpense = () => {
@@ -581,7 +596,7 @@ export const MarketingWorkspace = ({
                 {/* Auto-generated tag ref — read-only, regenerates on New Entry */}
                 <div className="flex items-center justify-between px-3 h-9 rounded bg-[var(--color-surface-1)] border border-[rgba(16,185,129,0.2)]">
                   <span className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Tag Ref</span>
-                  <span className="text-[11px] font-mono text-[var(--color-success)] font-bold">{awb}</span>
+                  <span className="text-[11px] font-mono text-[var(--color-success)] font-bold">{awb || 'Generating…'}</span>
                 </div>
                 <select
                   value={airline}

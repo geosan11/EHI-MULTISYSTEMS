@@ -1227,8 +1227,8 @@ export const CargoForm = ({
       {activePortal === "retail" && (
         <div className="p-4 grid gap-6 md:grid-cols-[1fr_280px] items-start">
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <div>
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div className="min-w-0 flex-1">
                 <h1 className="text-[18px] font-sans font-bold text-[var(--color-foreground)] leading-tight">
                   New Cargo Retail Entry
                 </h1>
