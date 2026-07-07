@@ -33,10 +33,10 @@ export const ExpensesTab = ({ expenses = [], user, period = 'today', onAddExpens
   const [budgetInput, setBudgetInput] = useState('');
 
   useEffect(() => {
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      setBudgets(JSON.parse(saved));
-    } else {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      setBudgets(saved ? JSON.parse(saved) : defaultBudgets);
+    } catch {
       setBudgets(defaultBudgets);
     }
   }, [storageKey]);

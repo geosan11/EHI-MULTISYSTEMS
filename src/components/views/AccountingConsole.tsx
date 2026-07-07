@@ -379,8 +379,8 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
           <div className="bg-[var(--color-border)] border border-[var(--color-border)] rounded-xl p-4 flex items-start space-x-3">
              <AlertCircle size={18} className="text-[var(--color-muted)] shrink-0 mt-0.5" />
              <div>
-               <div className="text-[13px] font-sans font-medium text-[var(--color-light-muted)]">Estimated VAT Liability (7.5%): <span className="font-mono">{fmt(vatEstimate)}</span></div>
-               <div className="text-[12px] font-sans text-[var(--color-muted)] mt-1">This is indicative only. File with FIRS by the 21st of next month.</div>
+               <div className="text-[13px] font-sans font-medium text-[var(--color-light-muted)]">Estimated Output VAT (7.5% of gross revenue): <span className="font-mono">{fmt(vatEstimate)}</span></div>
+               <div className="text-[12px] font-sans text-[var(--color-muted)] mt-1">Indicative only — computed on gross revenue with no netting against input VAT on expenses/purchases, and no exempt/zero-rated adjustments. Confirm actual liability with your accountant before filing with FIRS.</div>
              </div>
           </div>
         </div>
