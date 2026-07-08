@@ -230,7 +230,8 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
       </div>
 
       {/* TABS HEADER */}
-      <div className="flex space-x-2 overflow-x-auto pb-2 mb-4 scrollbar-hide">
+      <div className="relative mb-4">
+      <div className="flex space-x-2 overflow-x-auto pb-2 scrollbar-hide">
         {['Summary', 'Cash Register', 'Credit Sales', 'Expenses', 'Payment Validation', 'Remittances'].map((t) => (
           <button
             key={t}
@@ -251,6 +252,8 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
         >
           Bank Reconciliation
         </button>
+      </div>
+      <div className="pointer-events-none absolute top-0 right-0 bottom-2 w-10 bg-gradient-to-l from-[var(--color-obsidian)] to-transparent" />
       </div>
 
       {activeTab === 'Summary' && (

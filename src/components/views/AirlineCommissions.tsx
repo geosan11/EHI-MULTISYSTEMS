@@ -22,6 +22,7 @@ export const AirlineCommissions = ({ onBack }: { onBack: () => void }) => {
   // silently overwrite every hub's real configured rates with those
   // defaults. Block Save until we know what we're saving is real.
   const [loadedReal, setLoadedReal] = useState(false);
+  const [usingFallback, setUsingFallback] = useState(false);
   const { showToast } = useToast();
   const confirm = useConfirm();
 
@@ -51,6 +52,7 @@ export const AirlineCommissions = ({ onBack }: { onBack: () => void }) => {
           }
         }
       } catch (err) {
+        setUsingFallback(true);
         const cached = localStorage.getItem('ehi_airline_commissions');
         if (cached) {
           const parsed = JSON.parse(cached);
@@ -162,6 +164,13 @@ export const AirlineCommissions = ({ onBack }: { onBack: () => void }) => {
       </div>
 
       <div className="ehi-page-body px-4 pt-4 pb-6 space-y-3">
+        {usingFallback && !loading && (
+          <div className="bg-[rgba(239,68,68,0.08)] border border-[rgba(239,68,68,0.25)] rounded-xl p-3">
+            <p className="text-[11px] text-[var(--color-error)] font-sans leading-relaxed">
+              Showing cached commission rates — could not reach the server. Changes will not save until connection is restored.
+            </p>
+          </div>
+        )}
         {loading ? (
           <div className="flex justify-center py-12">
             <Loader size={20} className="animate-spin text-[var(--color-accent-amber)]" />
