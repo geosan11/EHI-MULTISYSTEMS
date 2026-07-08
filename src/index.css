@@ -541,7 +541,7 @@ button:active:not(:disabled) {
   .ehi-main-content {
     width: 100% !important;
     max-width: 100% !important;
-    padding-bottom: calc(62px + env(safe-area-inset-bottom)) !important;
+    padding-bottom: calc(78px + env(safe-area-inset-bottom)) !important;
   }
 
   /* iOS Safari zooms the whole page in on focus for any input/select/

@@ -1,5 +1,5 @@
 import { User, TabView } from '../lib/types';
-import { LayoutDashboard, Package, TrendingUp, Plane, QrCode, MoreHorizontal, Truck } from 'lucide-react';
+import { HouseIcon, PackageIcon, TrendUpIcon, AirplaneIcon, QrCodeIcon, DotsThreeIcon, TruckIcon } from '@phosphor-icons/react';
 
 export const BottomNav = ({ user, currentTab, onChangeTab }: {
   user: User;
@@ -8,13 +8,13 @@ export const BottomNav = ({ user, currentTab, onChangeTab }: {
 }) => {
   // Role-specific tab sets — max 5 items per role
   const getTabsForRole = (role: string) => {
-    const home   = { id: 'Tower' as TabView, title: 'Dashboard', icon: LayoutDashboard };
-    const cargo  = { id: 'Cargo' as TabView, title: 'Cargo', icon: Package };
-    const mkt    = { id: 'Marketing' as TabView, title: 'Marketing', icon: TrendingUp };
-    const vj     = { id: 'VJ POS' as TabView, title: 'ValueJet', icon: Plane };
-    const scan   = { id: 'Scan' as TabView, title: 'Scanner', icon: QrCode };
-    const trips  = { id: 'MyTrips' as TabView, title: 'My Trips', icon: Truck };
-    const more   = { id: 'More' as TabView, title: 'More', icon: MoreHorizontal };
+    const home   = { id: 'Tower' as TabView, title: 'Dashboard', icon: HouseIcon };
+    const cargo  = { id: 'Cargo' as TabView, title: 'Cargo', icon: PackageIcon };
+    const mkt    = { id: 'Marketing' as TabView, title: 'Marketing', icon: TrendUpIcon };
+    const vj     = { id: 'VJ POS' as TabView, title: 'ValueJet', icon: AirplaneIcon };
+    const scan   = { id: 'Scan' as TabView, title: 'Scanner', icon: QrCodeIcon };
+    const trips  = { id: 'MyTrips' as TabView, title: 'My Trips', icon: TruckIcon };
+    const more   = { id: 'More' as TabView, title: 'More', icon: DotsThreeIcon };
 
     switch (role) {
       case 'super_admin':
@@ -42,56 +42,93 @@ export const BottomNav = ({ user, currentTab, onChangeTab }: {
   };
 
   const tabs = getTabsForRole(user.role);
+  const activeIndex = Math.max(0, tabs.findIndex(tab => tab.id === currentTab));
+  const bubbleLeftPercent = (activeIndex + 0.5) * (100 / tabs.length);
 
   return (
     <div
-      className="w-full flex items-center justify-around shrink-0 z-50"
+      className="relative w-full shrink-0 z-50"
       style={{
-        background: 'var(--color-nav-bg)',
-        borderTop: '1px solid var(--color-border-strong)',
-        boxShadow: 'var(--shadow-nav)',
+        height: 'calc(78px + env(safe-area-inset-bottom))',
         paddingBottom: 'env(safe-area-inset-bottom)',
-        height: 'calc(62px + env(safe-area-inset-bottom))',
+        overflow: 'visible',
       }}
     >
-      {tabs.map(tab => {
-        const isActive = currentTab === tab.id;
-        const Icon = tab.icon;
-        return (
-          <button
-            key={tab.id}
-            onClick={() => onChangeTab(tab.id)}
-            className="group flex-1 h-full flex flex-col items-center justify-center gap-0.5 transition-colors relative"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', minWidth: 0 }}
-          >
-            <div style={{ height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Icon
-                size={isActive ? 21 : 19}
-                strokeWidth={isActive ? 2 : 1.5}
-                style={{ transition: 'all 0.2s' }}
-                className={isActive
-                  ? 'text-[var(--color-accent-amber)]'
-                  : 'text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)]'}
-              />
-            </div>
-            <span
-              style={{ fontSize: 10, fontWeight: isActive ? 700 : 500, transition: 'all 0.2s', letterSpacing: '0.01em' }}
-              className={isActive
-                ? 'text-[var(--color-accent-amber)]'
-                : 'text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)]'}
+      {/* Raised sliding bubble — a real button, not decorative, so the
+          region where it visually overlaps the pill isn't a dead tap zone */}
+      <button
+        onClick={() => onChangeTab(tabs[activeIndex].id)}
+        aria-label={tabs[activeIndex]?.title}
+        aria-current="page"
+        className="absolute rounded-full flex items-center justify-center transition-[left] duration-300 ease-[cubic-bezier(0.34,1.4,0.64,1)]"
+        style={{
+          left: `${bubbleLeftPercent}%`,
+          transform: 'translateX(-50%)',
+          bottom: 36,
+          width: 46,
+          height: 46,
+          background: 'radial-gradient(circle at 35% 30%, var(--color-accent-amber), var(--color-accent-amber) 60%, #C98E28 100%)',
+          boxShadow: '0 8px 20px rgba(240,178,48,0.45), 0 0 0 5px var(--color-obsidian)',
+          border: 'none',
+          cursor: 'pointer',
+          zIndex: 2,
+        }}
+      >
+        {(() => {
+          const ActiveIcon = tabs[activeIndex]?.icon;
+          return ActiveIcon ? (
+            <ActiveIcon size={19} weight="duotone" color="var(--color-obsidian)" />
+          ) : null;
+        })()}
+      </button>
+
+      {/* Glass pill */}
+      <div
+        className="absolute left-4 right-4 bottom-0 flex items-center justify-around rounded-full"
+        style={{
+          height: 64,
+          background: 'color-mix(in srgb, var(--color-nav-bg) 68%, transparent)',
+          backdropFilter: 'blur(18px)',
+          WebkitBackdropFilter: 'blur(18px)',
+          border: '1px solid var(--color-border-strong)',
+          boxShadow: 'var(--shadow-nav)',
+        }}
+      >
+        {tabs.map((tab, i) => {
+          const isActive = i === activeIndex;
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => onChangeTab(tab.id)}
+              className="group flex-1 h-full flex flex-col items-center justify-center gap-1 transition-opacity"
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                minWidth: 0,
+                opacity: isActive ? 0 : 1,
+              }}
+              aria-current={isActive ? 'page' : undefined}
+              aria-label={tab.title}
             >
-              {tab.title}
-            </span>
-            {isActive && (
-              <div style={{
-                position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)',
-                width: 24, height: 2, background: 'var(--color-accent-amber)',
-                borderRadius: '2px 2px 0 0',
-              }} />
-            )}
-          </button>
-        );
-      })}
+              <div style={{ height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon
+                  size={17}
+                  weight="regular"
+                  className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors"
+                />
+              </div>
+              <span
+                style={{ fontSize: 9, fontWeight: 500, letterSpacing: '0.01em' }}
+                className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors"
+              >
+                {tab.title}
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 };

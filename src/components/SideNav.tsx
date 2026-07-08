@@ -1,18 +1,18 @@
 import { useState, useEffect } from "react";
 import ehiLogo from '../assets/branding/ehi-logo.png';
 import {
-  LayoutDashboard,
-  Package,
-  TrendingUp,
-  Plane,
-  QrCode,
-  ArrowDownToLine,
-  MoreHorizontal,
-  Truck,
-  LogOut,
-  Sun,
-  Moon,
-} from "lucide-react";
+  HouseIcon,
+  PackageIcon,
+  TrendUpIcon,
+  AirplaneIcon,
+  QrCodeIcon,
+  ArrowLineDownIcon,
+  DotsThreeIcon,
+  TruckIcon,
+  SignOutIcon,
+  SunIcon,
+  MoonIcon,
+} from "@phosphor-icons/react";
 import { User, TabView } from "../lib/types";
 import { Theme } from "../lib/useTheme";
 
@@ -57,7 +57,7 @@ export const SideNav = ({
   }[] = [
     {
       id: "Tower",
-      icon: LayoutDashboard,
+      icon: HouseIcon,
       label: "Dashboard",
       roles: [
         "super_admin",
@@ -71,31 +71,31 @@ export const SideNav = ({
     },
     {
       id: "Cargo",
-      icon: Package,
+      icon: PackageIcon,
       label: "Cargo Entry",
       roles: ["super_admin", "admin", "cargo_agent", "office_work"],
     },
     {
       id: "Marketing",
-      icon: TrendingUp,
+      icon: TrendUpIcon,
       label: "Marketing",
       roles: ["super_admin", "admin", "marketing_agent", "office_work"],
     },
     {
       id: "VJ POS",
-      icon: Plane,
+      icon: AirplaneIcon,
       label: "ValueJet POS",
       roles: ["super_admin", "admin", "vj_agent"],
     },
     {
       id: "Packages",
-      icon: Truck,
+      icon: TruckIcon,
       label: "Package Desk",
       roles: ["super_admin", "admin", "cargo_agent", "marketing_agent", "office_work"],
     },
     {
       id: "Scan",
-      icon: QrCode,
+      icon: QrCodeIcon,
       label: "QR Scanner",
       roles: [
         "super_admin",
@@ -111,14 +111,14 @@ export const SideNav = ({
     },
     {
       id: "Incoming",
-      icon: ArrowDownToLine,
+      icon: ArrowLineDownIcon,
       label: "Incoming To Hub",
       roles: ["super_admin", "admin", "cargo_agent", "vj_agent", "driver", "office_work"],
     },
-    { id: "MyTrips", icon: Truck, label: "My Trips", roles: ["driver"] },
+    { id: "MyTrips", icon: TruckIcon, label: "My Trips", roles: ["driver"] },
     {
       id: "More",
-      icon: MoreHorizontal,
+      icon: DotsThreeIcon,
       label: "More",
       roles: ["super_admin", "admin", "accountant", "auditor", "cargo_agent", "vj_agent", "marketing_agent", "driver", "office_work"],
     },
@@ -301,7 +301,7 @@ export const SideNav = ({
               >
                 <Icon
                   size={isActive ? 20 : 18}
-                  strokeWidth={1.5}
+                  weight={isActive ? "duotone" : "regular"}
                   style={{ flexShrink: 0, transition: "all 0.15s ease" }}
                   className={
                     isActive
@@ -362,15 +362,15 @@ export const SideNav = ({
           }}
         >
           {theme === "dark" ? (
-            <Sun
+            <SunIcon
               size={18}
-              strokeWidth={1.5}
+              weight="regular"
               className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors"
             />
           ) : (
-            <Moon
+            <MoonIcon
               size={18}
-              strokeWidth={1.5}
+              weight="regular"
               className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors"
             />
           )}
@@ -410,9 +410,9 @@ export const SideNav = ({
             borderRadius: 6,
           }}
         >
-          <LogOut
+          <SignOutIcon
             size={18}
-            strokeWidth={1.5}
+            weight="regular"
             className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors"
           />
           <div

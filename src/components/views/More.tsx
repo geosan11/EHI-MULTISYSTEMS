@@ -19,31 +19,31 @@ import { useState } from 'react';
 import { User, TabView, Transaction, Expense } from '../../lib/types';
 import { fmt } from '../../lib/helpers';
 import {
-  FileText,
-  Activity,
-  Database,
-  Shield,
-  Settings as SettingsIcon,
-  LogOut,
-  BarChart,
-  Layers,
-  Truck,
-  Brain,
-  ShieldAlert,
-  DollarSign,
-  History,
-  MapPin,
-  Percent,
-  Users,
-  Plane,
-  CreditCard,
-  Terminal,
-  ChevronRight,
-  PackageCheck,
-  Upload,
-  BookOpen,
-  ClipboardList,
-} from 'lucide-react';
+  FileTextIcon,
+  PulseIcon,
+  DatabaseIcon,
+  ShieldIcon,
+  GearIcon,
+  SignOutIcon,
+  ChartBarIcon,
+  StackIcon,
+  TruckIcon,
+  BrainIcon,
+  ShieldWarningIcon,
+  CurrencyDollarIcon,
+  ClockCounterClockwiseIcon,
+  MapPinIcon,
+  PercentIcon,
+  UsersIcon,
+  AirplaneIcon,
+  CreditCardIcon,
+  TerminalIcon,
+  SealCheckIcon,
+  UploadSimpleIcon,
+  BookOpenIcon,
+  ClipboardTextIcon,
+} from '@phosphor-icons/react';
+import { ChevronRight } from 'lucide-react';
 
 import { StaffManagement } from './StaffManagement';
 
@@ -175,7 +175,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
           : 'hover:bg-[var(--color-surface-1)] cursor-pointer group'
       }`}
     >
-      <Icon size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors shrink-0" />
+      <Icon size={18} weight="regular" className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors shrink-0" />
       <div className="text-left flex-1 min-w-0">
         <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors flex items-center gap-1.5">
           {title}
@@ -202,27 +202,27 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
       <div>
         {['super_admin', 'admin', 'cargo_agent', 'office_work'].includes(user.role) && (
           <MenuItem
-            icon={PackageCheck}
+            icon={SealCheckIcon}
             title="Incoming to Hub"
             subtitle="Manage arriving cargo"
             onClick={() => onChangeTab('Incoming')}
           />
         )}
         <MenuItem
-          icon={FileText}
+          icon={FileTextIcon}
           title="EOD Daily Close"
           subtitle="Generate and dispatch end of day reports"
           onClick={() => setEodView(true)}
         />
         <MenuItem
-          icon={Activity}
+          icon={PulseIcon}
           title="Transaction Ledger"
           subtitle={`${transactions.length} entries — view, search and export`}
           onClick={() => setLedgerView(true)}
         />
         {(user.role === 'super_admin' || user.role === 'admin') && (
           <MenuItem
-            icon={Plane}
+            icon={AirplaneIcon}
             title="ValueJet POS"
             subtitle="Excess baggage counter — MMA2 terminal"
             onClick={() => onChangeTab('VJ POS')}
@@ -230,7 +230,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         )}
         {['super_admin', 'admin', 'cargo_agent', 'marketing_agent', 'office_work'].includes(user.role) && (
           <MenuItem
-            icon={Truck}
+            icon={TruckIcon}
             title="Package & Parcel Desk"
             subtitle="Flat-fee package and parcel counter"
             onClick={() => onChangeTab('Packages')}
@@ -242,14 +242,14 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
       <SectionLabel label="Finance" />
       <div>
         <MenuItem
-          icon={CreditCard}
+          icon={CreditCardIcon}
           title="Credit & Debit"
           subtitle="View receivables and payables (Airline commissions)"
           onClick={() => onChangeTab('Credit & Debit')}
           disabled={!canAccessAccounting}
         />
         <MenuItem
-          icon={Layers}
+          icon={StackIcon}
           title={
             <span className="flex items-center gap-1.5">
               Bank Reconciliation
@@ -261,21 +261,21 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
           disabled={!canAccessRecon}
         />
         <MenuItem
-          icon={Database}
+          icon={DatabaseIcon}
           title="Central Accounting ERP"
           subtitle="Check balance sheets and cash flows dashboard"
           onClick={() => { if (canAccessAccounting) setAccountingView(true); }}
           disabled={!canAccessAccounting}
         />
         <MenuItem
-          icon={BarChart}
+          icon={ChartBarIcon}
           title="Advanced Reports"
           subtitle="Operational audits and trend sheets"
           onClick={() => { if (canAccessAccounting) setReportsView(true); }}
           disabled={!canAccessAccounting}
         />
         <MenuItem
-          icon={Percent}
+          icon={PercentIcon}
           title="Airline Commissions"
           subtitle="Set percentage cuts for partner airlines"
           onClick={() => { if (canAccessAccounting) setAirlineCommissionsView(true); }}
@@ -287,7 +287,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
       <SectionLabel label="Intelligence" />
       <div>
         <MenuItem
-          icon={Brain}
+          icon={BrainIcon}
           title={
             <span className="flex items-center gap-1.5">
               Demand Forecasting AI
@@ -299,7 +299,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
           disabled={!canAccessFleetAndForecast}
         />
         <MenuItem
-          icon={ShieldAlert}
+          icon={ShieldWarningIcon}
           title={
             <span className="flex items-center gap-2">
               Fraud &amp; Anomalies Feed
@@ -314,7 +314,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
           disabled={!canAccessFraud}
         />
         <MenuItem
-          icon={History}
+          icon={ClockCounterClockwiseIcon}
           title="Revision Audit Log"
           subtitle="Strict NDPR/Financial compliance trace log"
           onClick={() => { if (canAccessAuditLog) setAuditLogView(true); }}
@@ -326,21 +326,21 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
       <SectionLabel label="Fleet & Logistics" />
       <div>
         <MenuItem
-          icon={Truck}
+          icon={TruckIcon}
           title="Fleet Management"
           subtitle="Vehicles registration, service scheduler, fuel expense log"
           onClick={() => { if (canAccessFleetAndForecast) setFleetView(true); }}
           disabled={!canAccessFleetAndForecast}
         />
         <MenuItem
-          icon={Shield}
+          icon={ShieldIcon}
           title="Proof of Delivery Log"
           subtitle="GPS trace, signatures and photo evidence"
           onClick={() => { if (canAccessFraud) setPodLogView(true); }}
           disabled={!canAccessFraud}
         />
         <MenuItem
-          icon={MapPin}
+          icon={MapPinIcon}
           title="Dispatch & Fleet Tracking"
           subtitle="Live driver tracking on active routes"
           onClick={() => { if (canAccessFleetAndForecast) setDispatchView(true); }}
@@ -352,21 +352,21 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
       <SectionLabel label="Data & Records" />
       <div>
         <MenuItem
-          icon={BookOpen}
+          icon={BookOpenIcon}
           title="Airline Balance Ledger"
           subtitle="Per-airline running Credit / Debit / Cheque Raise ledger"
           onClick={() => onChangeTab('AirlineLedger')}
           disabled={!canAccessAccounting}
         />
         <MenuItem
-          icon={ClipboardList}
+          icon={ClipboardTextIcon}
           title="Weight Manifest"
           subtitle="Daily dispatch weight tracking per flight and route"
           onClick={() => onChangeTab('WeightManifest')}
           disabled={!['super_admin','admin','cargo_agent','office_work'].includes(user.role)}
         />
         <MenuItem
-          icon={Upload}
+          icon={UploadSimpleIcon}
           title="Import Historical Data"
           subtitle="Bulk import ledger records from CSV spreadsheets"
           onClick={() => onChangeTab('DataImport')}
@@ -378,28 +378,28 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
       <SectionLabel label="Administration" />
       <div>
         <MenuItem
-          icon={Plane}
+          icon={AirplaneIcon}
           title="Airline Logos"
           subtitle="Manage uploaded logos for all partner airlines"
           onClick={() => onChangeTab('AirlineLogos')}
           disabled={!isSuperAdmin && user.role !== 'admin'}
         />
         <MenuItem
-          icon={Terminal}
+          icon={TerminalIcon}
           title="IT Debug Console"
           subtitle="Live system logs, debugging and diagnostics"
           onClick={() => onChangeTab('IT Debug')}
           disabled={!isSuperAdmin}
         />
         <MenuItem
-          icon={DollarSign}
+          icon={CurrencyDollarIcon}
           title="Pricing & Rates Configuration"
           subtitle="B2B client rates and retail standard tariffs"
           onClick={() => { if (isSuperAdmin) setPricingView(true); }}
           disabled={!isSuperAdmin}
         />
         <MenuItem
-          icon={SettingsIcon}
+          icon={GearIcon}
           title="Platform Settings"
           subtitle="Automation and route pricing configuration"
           onClick={() => { if (isSuperAdmin) setSettingsView(true); }}
@@ -412,14 +412,14 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
       <div>
         {(user.role === 'super_admin' || user.role === 'admin') && (
           <MenuItem
-            icon={Users}
+            icon={UsersIcon}
             title="Staff Management"
             subtitle="Add staff, assign hubs, set roles, deactivate accounts"
             onClick={() => setStaffView(true)}
           />
         )}
         <MenuItem
-          icon={ShieldAlert}
+          icon={ShieldWarningIcon}
           title="Help Desk & Issue Resolution"
           subtitle="Report operational complaints or bugs"
           onClick={() => setSupportView(true)}
@@ -429,7 +429,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
           onClick={onLogout}
           className="w-full mt-2 flex items-center gap-3 py-3.5 cursor-pointer group text-left"
         >
-          <LogOut size={18} strokeWidth={1.5} className="text-[var(--color-error)] shrink-0" />
+          <SignOutIcon size={18} weight="regular" className="text-[var(--color-error)] shrink-0" />
           <div className="text-left flex-1">
             <div className="text-[13px] font-bold font-sans text-[var(--color-error)]">Sign Out</div>
             <div className="text-[10px] font-mono text-[var(--color-muted)] opacity-80">{user.name} &middot; {user.hub}</div>
