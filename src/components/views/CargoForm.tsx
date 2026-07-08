@@ -6,7 +6,7 @@ import {
   BANKS,
   CARGO_ROUTES,
 } from "../../lib/constants";
-import { fmt, uid, tnow, generatePickupPin, normalizeAirlineName, getHubCode } from "../../lib/helpers";
+import { fmt, tnow, generatePickupPin, normalizeAirlineName, getHubCode } from "../../lib/helpers";
 import { isTagAlreadyDelivered } from "../../lib/scanLogic";
 import {
   CheckCircle,
@@ -510,7 +510,7 @@ export const CargoForm = ({
   };
 
   // --- ACTION: FINALIZE SCALE WEIGHING (Phase 2) ---
-  const handleFinalizeWeighing = () => {
+  const handleFinalizeWeighing = async () => {
     if (!selectedIntake || !gateWeight) return;
     setIsWeighingSubmitting(true);
 
@@ -565,8 +565,17 @@ export const CargoForm = ({
       // Ignore -- gateWeighCommissionRate stays 0
     }
 
+    const gateHubCode = getHubCode(user.hub_code || user.hub);
+    const { data: gateSeq, error: gateTagError } = await supabase.rpc('next_awb_number', { p_hub_code: `${gateHubCode}-CG` });
+    if (gateTagError || !gateSeq) {
+      showToast({ message: `Failed to generate reference number: ${gateTagError?.message || 'unknown error'}. Please try again.`, type: "error" });
+      setIsWeighingSubmitting(false);
+      return;
+    }
+    const gateResolvedId = `EHI-${gateHubCode}-CG-${String(gateSeq).padStart(6, '0')}`;
+
     const txEntry: Transaction = {
-      id: uid("CG"),
+      id: gateResolvedId,
       name: selectedIntake.consignee,
       detail: finalTxDetail,
       amount: computedCost,
@@ -783,7 +792,7 @@ export const CargoForm = ({
     const summaryStr = `${actualAirline} · ${resolvedAwb} · ${pcs}pcs · ${kg}KG · ${route} · ${contentType}`;
 
     const tx: Transaction = {
-      id: uid("CG"),
+      id: resolvedAwb,
       name: actualConsignee,
       detail: summaryStr,
       amount: parsedAmount,
