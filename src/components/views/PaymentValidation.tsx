@@ -354,7 +354,7 @@ export const PaymentValidation: React.FC<PaymentValidationProps> = ({ transactio
             {showAutoForward && (
               <div className="p-4 border-t border-[var(--color-border)] bg-[var(--color-surface-1)] text-[11px] text-[var(--color-muted)] space-y-2">
                 <p>To receive confirmations automatically without pasting emails, forward your bank alerts to this address:</p>
-                <div className="bg-black/30 p-2 rounded border border-[var(--color-border)] font-mono text-[10px] break-all select-all">
+                <div className="bg-[var(--color-surface-3)] p-2 rounded border border-[var(--color-border)] font-mono text-[10px] break-all select-all">
                   [server-url]/api/validate-payment/inbound
                 </div>
                 <p className="font-bold text-[var(--color-foreground)] mt-2">How to set up auto-forward:</p>
