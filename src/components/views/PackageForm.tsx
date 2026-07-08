@@ -354,7 +354,7 @@ export const PackageForm = ({
           ) : (
             <div className="space-y-4 bg-[rgba(255,255,255,0.02)] p-4 md:mx-0 md:rounded-xl md:border border-y border-[var(--color-border)]">
               <div className="border-b border-[var(--color-border)] pb-1 mb-2">
-                <span style={{ fontFamily: "JetBrains Mono", fontSize: 10, color: "#3B82F6", letterSpacing: "0.12em", textTransform: "uppercase" }}>
+                <span style={{ fontFamily: "JetBrains Mono", fontSize: 10, color: "var(--color-accent-cobalt)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
                   ▸ NEW PACKAGE / PARCEL ENTRY
                 </span>
               </div>
@@ -468,7 +468,7 @@ export const PackageForm = ({
           {/* Expense Section */}
           <div className="space-y-4 pt-4 border-t border-[var(--color-border)] md:border-none md:pt-0">
             <div className="border-b border-[var(--color-border)] pb-1 mb-2">
-              <span style={{ fontFamily: "JetBrains Mono", fontSize: 10, color: "#3B82F6", letterSpacing: "0.12em", textTransform: "uppercase" }}>
+              <span style={{ fontFamily: "JetBrains Mono", fontSize: 10, color: "var(--color-accent-cobalt)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
                 ▸ LOG EXPENSE
               </span>
             </div>

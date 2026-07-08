@@ -166,7 +166,7 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
                   className="p-3 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-surface-2)] rounded-lg cursor-pointer transition-colors"
                 >
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-[13px] font-bold text-white">{t.subject}</h3>
+                    <h3 className="text-[13px] font-bold text-[var(--color-foreground)]">{t.subject}</h3>
                     <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold">
                       {t.status === 'open' && <span className="text-red-400 flex items-center gap-1"><Circle size={10} /> Open</span>}
                       {t.status === 'in_progress' && <span className="text-amber-400 flex items-center gap-1"><Clock size={10} /> In Progress</span>}
@@ -244,7 +244,7 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg p-4 mb-4">
             <div className="flex justify-between items-start mb-4 border-b border-[var(--color-border)] pb-4">
               <div>
-                <h2 className="text-[15px] font-bold text-white mb-1">{selectedTicket.subject}</h2>
+                <h2 className="text-[15px] font-bold text-[var(--color-foreground)] mb-1">{selectedTicket.subject}</h2>
                 <div className="text-[10px] font-mono text-[var(--color-muted)]">
                   Ticket ID: {selectedTicket.id}
                 </div>
@@ -265,11 +265,11 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
               <div className="grid grid-cols-2 gap-4 border-t border-[var(--color-border)] pt-4 mt-4">
                 <div>
                   <strong className="text-[10px] font-mono text-[var(--color-muted)] uppercase block mb-1">Reported By</strong>
-                  <span className="font-medium text-white">{selectedTicket.userName}</span>
+                  <span className="font-medium text-[var(--color-foreground)]">{selectedTicket.userName}</span>
                 </div>
                 <div>
                   <strong className="text-[10px] font-mono text-[var(--color-muted)] uppercase block mb-1">Created At</strong>
-                  <span className="font-medium text-white">{selectedTicket.createdAt}</span>
+                  <span className="font-medium text-[var(--color-foreground)]">{selectedTicket.createdAt}</span>
                 </div>
                 {selectedTicket.resolvedAt && (
                   <div className="col-span-2">
