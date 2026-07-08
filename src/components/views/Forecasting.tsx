@@ -195,7 +195,7 @@ export const Forecasting = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Chart: Historical Baseline Area */}
           <div className="ehi-card lg:col-span-6 space-y-4">
-            <div className="flex justify-between items-center text-xs font-mono font-bold uppercase text-slate-400">
+            <div className="flex justify-between items-center text-xs font-mono font-bold uppercase text-[var(--color-muted)]">
               <span>Historical Daily Baseline</span>
               <span className="text-[9px] text-[var(--color-accent-cobalt)]">Actual data logs</span>
             </div>
@@ -222,7 +222,7 @@ export const Forecasting = ({
 
           {/* Right Chart: AI Projected Bar Series */}
           <div className="ehi-card p-4 lg:col-span-6 space-y-4">
-            <div className="flex justify-between items-center text-xs font-mono font-bold uppercase text-slate-400">
+            <div className="flex justify-between items-center text-xs font-mono font-bold uppercase text-[var(--color-muted)]">
               <span>Next 7-Day Predicted Load</span>
               <span className="text-[9px] text-[var(--color-accent-amber)] flex items-center space-x-1">
                 <Sparkles size={11} className="animate-pulse" />
@@ -256,7 +256,7 @@ export const Forecasting = ({
                 <span className="text-[12px] uppercase">Peak Operational Day</span>
               </div>
               <div className="text-xl font-bold font-mono tracking-tight text-[var(--color-foreground)]">{peakDay || 'Wednesday'}</div>
-              <p className="text-[11px] text-slate-400 leading-relaxed font-mono">High-volume baggage bookings and marketing collections coincide, putting stress on local airport desks.</p>
+              <p className="text-[11px] text-[var(--color-muted)] leading-relaxed font-mono">High-volume baggage bookings and marketing collections coincide, putting stress on local airport desks.</p>
             </div>
 
             {/* Staffing recommendation */}
@@ -274,7 +274,7 @@ export const Forecasting = ({
                 <AlertTriangle size={16} />
                 <span className="text-[12px] uppercase">Aviation Route Bottleneck Risks</span>
               </div>
-              <p className="text-[11px] text-slate-200 leading-relaxed font-mono">{riskNote}</p>
+              <p className="text-[11px] text-[var(--color-foreground)] leading-relaxed font-mono">{riskNote}</p>
             </div>
           </div>
         )}
@@ -290,7 +290,7 @@ export const Forecasting = ({
             {/* Legend indicators */}
             <div className="flex space-x-2 text-[8px] font-mono uppercase">
               <div className="flex items-center space-x-1">
-                <span className="h-2 w-2 rounded-sm bg-stone-800" />
+                <span className="h-2 w-2 rounded-sm bg-[var(--color-surface-2)]" />
                 <span>Low density</span>
               </div>
               <div className="flex items-center space-x-1">
@@ -307,7 +307,7 @@ export const Forecasting = ({
           <div className="overflow-x-auto">
             <table className="w-full text-xs font-mono">
               <thead>
-                <tr className="border-b border-[var(--color-border)] text-slate-400 text-left">
+                <tr className="border-b border-[var(--color-border)] text-[var(--color-muted)] text-left">
                   <th className="py-2.5 font-bold">Logistics Route Axis</th>
                   <th className="py-2.5 px-2">Mon</th>
                   <th className="py-2.5 px-2">Tue</th>
