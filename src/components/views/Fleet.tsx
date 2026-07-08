@@ -3,6 +3,7 @@ import { ArrowLeft, Plus, Fuel, Truck, Wrench, Loader } from 'lucide-react';
 import { fmt } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
 import { User } from '../../lib/types';
+import { EmptyState } from './EmptyState';
 
 interface Vehicle {
   id: string;
@@ -32,6 +33,7 @@ export const Fleet = ({ onBack, user }: { onBack: () => void; user?: User }) => 
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [fuelLogs, setFuelLogs] = useState<FuelLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [showAddVehicle, setShowAddVehicle] = useState(false);
   const [showAddFuel, setShowAddFuel] = useState(false);
 
@@ -51,38 +53,45 @@ export const Fleet = ({ onBack, user }: { onBack: () => void; user?: User }) => 
 
   const canEdit = user?.role === 'admin' || user?.role === 'super_admin';
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [vRes, fRes] = await Promise.all([
-          supabase.from('fleet_vehicles').select('*').order('created_at', { ascending: false }),
-          supabase.from('fuel_logs').select('*').order('log_date', { ascending: false }).limit(100)
-        ]);
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [vRes, fRes] = await Promise.all([
+        supabase.from('fleet_vehicles').select('*').order('created_at', { ascending: false }),
+        supabase.from('fuel_logs').select('*').order('log_date', { ascending: false }).limit(100)
+      ]);
 
-        if (vRes.data) {
-          setVehicles(vRes.data.map((r: any) => ({
-            id: r.id, plate: r.plate, make: r.make || '', model: r.model || '',
-            type: r.vehicle_type || 'Van', driver: r.driver_name || 'Unassigned',
-            capacity: r.capacity_kg || 1000, status: r.status || 'Available',
-            lastService: r.last_service || '', nextService: r.next_service || ''
-          })));
-        }
-        if (fRes.data) {
-          setFuelLogs(fRes.data.map((r: any) => ({
-            id: r.id, plate: r.vehicle_plate, litres: Number(r.litres),
-            costPerLitre: Number(r.cost_per_litre), total_cost: Number(r.total_cost),
-            station: r.station || '', date: r.log_date
-          })));
-        }
-      } catch (err) {
-        console.error('Fleet fetch error:', err);
-      } finally {
-        setLoading(false);
+      if (vRes.data) {
+        setVehicles(vRes.data.map((r: any) => ({
+          id: r.id, plate: r.plate, make: r.make || '', model: r.model || '',
+          type: r.vehicle_type || 'Van', driver: r.driver_name || 'Unassigned',
+          capacity: r.capacity_kg || 1000, status: r.status || 'Available',
+          lastService: r.last_service || '', nextService: r.next_service || ''
+        })));
       }
-    };
+      if (fRes.data) {
+        setFuelLogs(fRes.data.map((r: any) => ({
+          id: r.id, plate: r.vehicle_plate, litres: Number(r.litres),
+          costPerLitre: Number(r.cost_per_litre), total_cost: Number(r.total_cost),
+          station: r.station || '', date: r.log_date
+        })));
+      }
+    } catch (err) {
+      console.error('Fleet fetch error:', err);
+      setFetchError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
+
+  const retryFetch = () => {
+    setFetchError(false);
+    fetchData();
+  };
 
   const handleAddVehicle = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,6 +177,13 @@ export const Fleet = ({ onBack, user }: { onBack: () => void; user?: User }) => 
           <Loader size={24} className="animate-spin text-[var(--color-accent-amber)]" />
           <p className="text-[12px] font-mono text-[var(--color-muted)]">Loading fleet data...</p>
         </div>
+      ) : fetchError ? (
+        <EmptyState
+          icon={<Truck size={36} strokeWidth={1.5} />}
+          title="Couldn't load fleet data"
+          subtext="Check your connection and try again."
+          actions={[{ label: 'Retry', onClick: retryFetch }]}
+        />
       ) : activeTab === 'vehicles' ? (
         vehicles.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3 border-2 border-dashed border-[var(--color-border)] rounded-xl">

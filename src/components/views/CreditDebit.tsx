@@ -1,21 +1,22 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { User, Transaction } from '../../lib/types';
 import { fmt } from '../../lib/helpers';
 import { ArrowLeft, CreditCard, Building2, Users, Search, ArrowDownLeft, ArrowUpRight, TrendingDown, TrendingUp, Building, UserSquare2, Loader } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { normalizeAirlineName } from '../../lib/helpers';
+import { EmptyState } from './EmptyState';
 
 export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: { user: User; transactions: Transaction[]; onBack?: () => void }) => {
   const [activeTab, setActiveTab] = useState<'debts' | 'credits'>('debts');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
 
   const [debtsData, setDebtsData] = useState<Transaction[]>([]);
   const [creditsData, setCreditsData] = useState<Transaction[]>([]);
   const [commissions, setCommissions] = useState<Record<string, number>>({ 'ValueJet': 10 });
 
-  useEffect(() => {
-    const loadLedger = async () => {
+  const loadLedger = useCallback(async () => {
       setLoading(true);
       const isAdmin = user.role === 'admin' || user.role === 'super_admin';
       const addHubFilter = (q: any) => (!isAdmin && user.hub_id) ? q.eq('hub_id', user.hub_id) : q;
@@ -72,13 +73,20 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
         setCreditsData(mappedCredits);
       } catch (err) {
         console.error('Ledger fetch error:', err);
+        setFetchError(true);
       } finally {
         setLoading(false);
       }
-    };
-
-    loadLedger();
   }, [user.hub_id, user.role]);
+
+  useEffect(() => {
+    loadLedger();
+  }, [loadLedger]);
+
+  const retryFetch = () => {
+    setFetchError(false);
+    loadLedger();
+  };
 
   const debts = useMemo(() => {
     return debtsData.filter(tx => (tx.name.toLowerCase().includes(search.toLowerCase()) || tx.awb_tag_number?.includes(search)));
@@ -173,6 +181,13 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
             <Loader size={16} className="animate-spin" />
             <span className="text-[12px] font-mono">Loading ledger...</span>
           </div>
+        ) : fetchError ? (
+          <EmptyState
+            icon={<CreditCard size={36} strokeWidth={1.5} />}
+            title="Couldn't load the ledger"
+            subtext="Check your connection and try again."
+            actions={[{ label: 'Retry', onClick: retryFetch }]}
+          />
         ) : (
           <>
             {activeTab === 'debts' && (

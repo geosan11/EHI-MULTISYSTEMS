@@ -7,6 +7,7 @@ import { EmptyState } from './EmptyState';
 export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => {
   const [pods, setPods] = useState<ProofOfDelivery[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [selectedPod, setSelectedPod] = useState<ProofOfDelivery | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -14,11 +15,13 @@ export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => 
 
   const fetchPods = async () => {
     setLoading(true);
+    setFetchError(false);
     try {
       const data = await fetchProofOfDeliveryRecords(user.hub, isAdmin);
       setPods(data);
     } catch (err) {
       console.error(err);
+      setFetchError(true);
     } finally {
       setLoading(false);
     }
@@ -76,6 +79,13 @@ export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => 
             <RefreshCw size={24} className="animate-spin mb-4" />
             Loading records...
           </div>
+        ) : fetchError ? (
+          <EmptyState
+            icon={<ShieldCheck size={36} strokeWidth={1.5} />}
+            title="Couldn't load delivery records"
+            subtext="Check your connection and try again."
+            actions={[{ label: 'Retry', onClick: fetchPods }]}
+          />
         ) : filteredPods.length === 0 ? (
           <EmptyState icon={<ShieldCheck size={36} strokeWidth={1.5} />} message="No proof of delivery records found." />
         ) : (

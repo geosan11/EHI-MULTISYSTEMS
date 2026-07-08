@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, Shield, Download, Search, Loader } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { User } from '../../lib/types';
+import { EmptyState } from './EmptyState';
 
 interface AuditLogEntry {
   id: string;
@@ -20,43 +21,51 @@ interface AuditLogEntry {
 export const AuditLog = ({ onBack, user }: { onBack: () => void; user?: User }) => {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<AuditLogEntry | null>(null);
   const [filterAction, setFilterAction] = useState('all');
   const [searchText, setSearchText] = useState('');
 
-  useEffect(() => {
-    const fetchLogs = async () => {
-      setLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('audit_log')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(200);
+  const fetchLogs = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('audit_log')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(200);
 
-        if (data && !error) {
-          setLogs(data.map((r: any) => ({
-            id: r.id,
-            userId: r.user_id || '',
-            userName: r.user_name,
-            action: r.action,
-            tableName: r.table_name || '',
-            recordId: r.record_id || '',
-            timestamp: new Date(r.created_at).toLocaleString('en-NG'),
-            description: r.description,
-            hub: r.hub || '',
-            oldValues: r.old_values ? JSON.stringify(r.old_values, null, 2) : undefined,
-            newValues: r.new_values ? JSON.stringify(r.new_values, null, 2) : undefined,
-          })));
-        }
-      } catch (err) {
-        console.error('Failed to fetch audit log:', err);
-      } finally {
-        setLoading(false);
+      if (data && !error) {
+        setLogs(data.map((r: any) => ({
+          id: r.id,
+          userId: r.user_id || '',
+          userName: r.user_name,
+          action: r.action,
+          tableName: r.table_name || '',
+          recordId: r.record_id || '',
+          timestamp: new Date(r.created_at).toLocaleString('en-NG'),
+          description: r.description,
+          hub: r.hub || '',
+          oldValues: r.old_values ? JSON.stringify(r.old_values, null, 2) : undefined,
+          newValues: r.new_values ? JSON.stringify(r.new_values, null, 2) : undefined,
+        })));
       }
-    };
+    } catch (err) {
+      console.error('Failed to fetch audit log:', err);
+      setFetchError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchLogs();
   }, []);
+
+  const retryFetch = () => {
+    setFetchError(false);
+    fetchLogs();
+  };
 
   const filtered = logs.filter(log => {
     const matchesAction = filterAction === 'all' || log.action === filterAction;
@@ -136,6 +145,13 @@ export const AuditLog = ({ onBack, user }: { onBack: () => void; user?: User }) 
           <Loader size={24} className="animate-spin text-[var(--color-accent-amber)]" />
           <p className="text-[12px] font-mono text-[var(--color-muted)]">Loading audit trail...</p>
         </div>
+      ) : fetchError ? (
+        <EmptyState
+          icon={<Shield size={36} strokeWidth={1.5} />}
+          title="Couldn't load the audit trail"
+          subtext="Check your connection and try again."
+          actions={[{ label: 'Retry', onClick: retryFetch }]}
+        />
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-3 border-2 border-dashed border-[var(--color-border)] rounded-xl">
           <Shield size={32} className="opacity-20" />
