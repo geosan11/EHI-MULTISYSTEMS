@@ -28,8 +28,8 @@ const TripCard: React.FC<TripCardProps> = ({
 }) => {
   const isExpanded = expandedTrip === trip.id;
   const statusColor =
-    trip.status === 'Active' ? '#F59E0B' :
-    trip.status === 'Completed' ? '#10B981' : '#EF4444';
+    trip.status === 'Active' ? 'var(--color-accent-amber)' :
+    trip.status === 'Completed' ? 'var(--color-success)' : 'var(--color-error)';
 
   const timeAgo = trip.lastPingAt ? Math.floor((Date.now() - new Date(trip.lastPingAt).getTime()) / 60000) : null;
 
@@ -71,7 +71,7 @@ const TripCard: React.FC<TripCardProps> = ({
 
       {trip.status === 'Active' && trip.gpsTrackingEnabled && (
         <div className="px-4 pb-3 flex items-center gap-2 text-[10px] font-mono">
-          <MapPin size={12} className="text-emerald-500 animate-pulse" />
+          <MapPin size={12} className="text-[var(--color-success)] animate-pulse" />
           <span className="text-[var(--color-muted)]">
             Tracking active · {timeAgo === null ? 'Waiting for ping...' : timeAgo === 0 ? 'Last ping: just now' : `Last ping: ${timeAgo} min ago`}
           </span>
@@ -590,7 +590,7 @@ export const MyTrips = ({ user }: { user: User }) => {
           className="flex flex-col items-center justify-center py-16 rounded-xl border-2 border-dashed"
           style={{ borderColor: 'rgba(255,255,255,0.07)' }}
         >
-          <Truck size={36} color="#64748B" strokeWidth={1.5} />
+          <Truck size={36} color="var(--color-muted)" strokeWidth={1.5} />
           <div className="text-[12px] font-mono text-[var(--color-muted)] mt-3">
             No trips logged today
           </div>
