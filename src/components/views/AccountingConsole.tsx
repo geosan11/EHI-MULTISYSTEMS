@@ -240,7 +240,7 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
           >
             {t}
             {t === 'Payment Validation' && unconfirmedCount > 0 && (
-              <span className="ml-2 bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+              <span className="ml-2 bg-[var(--color-accent-amber)] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
                 {unconfirmedCount}
               </span>
             )}
