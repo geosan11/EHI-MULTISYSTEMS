@@ -17,9 +17,9 @@ function applyTheme(theme: Theme) {
 
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(() => {
-    // Read saved preference, default to dark
+    // Read saved preference, default to light
     const saved = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    return saved ?? 'dark';
+    return saved ?? 'light';
   });
 
   // Apply on mount and on change

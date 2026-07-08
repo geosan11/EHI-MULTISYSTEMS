@@ -52,7 +52,6 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
-:root,
 :root.dark {
   --app-height: 100dvh;
 
@@ -116,6 +115,7 @@
   --card-grid: 1fr 1fr;
 }
 
+:root,
 :root.light {
   /* The page canvas sits a clear step below card/nav surfaces instead of
      near-white-on-white -- that's what reads as "glare" at a glance. Cards
