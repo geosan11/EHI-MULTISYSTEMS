@@ -689,7 +689,7 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
                     </div>
 
                     <div className="flex flex-col gap-2 shrink-0 md:w-[170px]">
-                      <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase mb-1 hidden md:block">UPDATE WORKFLOW:</div>
+                      <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase mb-1 ehi-desktop-only">UPDATE WORKFLOW:</div>
                       
                       <div className="flex items-center gap-1.5 w-full">
                         <span className={`px-2 py-1 rounded text-[9.5px] font-mono font-bold uppercase tracking-wide flex-1 text-center ${statusColor}`}>

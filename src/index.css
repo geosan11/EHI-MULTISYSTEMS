@@ -577,6 +577,46 @@ main {
   }
 }
 
+/* Reusable mobile/desktop visibility utilities — explicit CSS instead of
+   Tailwind's hidden/md: responsive variants, which are unreliable in some
+   production build configurations. Mirrors the same pattern already used
+   for .ehi-sidenav / .ehi-bottomnav-wrapper above. */
+.ehi-mobile-only {
+  display: block;
+}
+.ehi-mobile-only-inline {
+  display: inline;
+}
+.ehi-mobile-only-flex {
+  display: flex;
+}
+.ehi-desktop-only {
+  display: none;
+}
+.ehi-desktop-only-inline {
+  display: none;
+}
+.ehi-desktop-only-flex {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .ehi-mobile-only,
+  .ehi-mobile-only-inline,
+  .ehi-mobile-only-flex {
+    display: none !important;
+  }
+  .ehi-desktop-only {
+    display: block !important;
+  }
+  .ehi-desktop-only-inline {
+    display: inline !important;
+  }
+  .ehi-desktop-only-flex {
+    display: flex !important;
+  }
+}
+
 .ehi-main-content {
   flex: 1;
   min-width: 0;

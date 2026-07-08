@@ -229,7 +229,7 @@ export const AirlineLedger = ({ user, onBack }: { user: User; onBack: () => void
         </button>
       </div>
 
-      <div className="md:hidden flex items-center gap-2 px-3 py-2 border-b border-[var(--color-border)] overflow-x-auto no-scrollbar shrink-0">
+      <div className="ehi-mobile-only-flex items-center gap-2 px-3 py-2 border-b border-[var(--color-border)] overflow-x-auto no-scrollbar shrink-0">
         {airlines.map((airline) => {
           const bal = airlineBalances[airline] ?? 0;
           const isActive = airline === selectedAirline;
@@ -257,7 +257,7 @@ export const AirlineLedger = ({ user, onBack }: { user: User; onBack: () => void
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        <aside className="hidden md:flex flex-col w-[200px] shrink-0 border-r border-[var(--color-border)] overflow-y-auto">
+        <aside className="ehi-desktop-only-flex flex-col w-[200px] shrink-0 border-r border-[var(--color-border)] overflow-y-auto">
           <div className="px-3 pt-3 pb-1">
             <span className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-widest">Airlines</span>
           </div>
@@ -297,7 +297,7 @@ export const AirlineLedger = ({ user, onBack }: { user: User; onBack: () => void
               </span>
               <button
                 onClick={() => setFormOpen((v) => !v)}
-                className="md:hidden flex items-center gap-1.5 px-3 py-1.5 bg-[rgba(16,185,129,0.1)] border border-[rgba(16,185,129,0.3)] text-[var(--color-success)] text-[11px] font-bold rounded-lg hover:bg-[rgba(16,185,129,0.2)] transition-colors"
+                className="ehi-mobile-only-flex items-center gap-1.5 px-3 py-1.5 bg-[rgba(16,185,129,0.1)] border border-[rgba(16,185,129,0.3)] text-[var(--color-success)] text-[11px] font-bold rounded-lg hover:bg-[rgba(16,185,129,0.2)] transition-colors"
               >
                 <Plus size={12} />
                 Add Entry
@@ -331,7 +331,7 @@ export const AirlineLedger = ({ user, onBack }: { user: User; onBack: () => void
           </div>
 
           {formOpen && (
-            <div className="md:hidden border-b border-[var(--color-border)] bg-[var(--color-surface-1)] px-4 py-4 shrink-0">
+            <div className="ehi-mobile-only border-b border-[var(--color-border)] bg-[var(--color-surface-1)] px-4 py-4 shrink-0">
               <EntryForm
                 idPrefix="mobile-entry"
                 entryDate={entryDate}
@@ -464,7 +464,7 @@ export const AirlineLedger = ({ user, onBack }: { user: User; onBack: () => void
           </div>
         </main>
 
-        <aside className="hidden md:flex flex-col w-[260px] shrink-0 border-l border-[var(--color-border)] overflow-y-auto">
+        <aside className="ehi-desktop-only-flex flex-col w-[260px] shrink-0 border-l border-[var(--color-border)] overflow-y-auto">
           <div className="px-4 pt-4 pb-1">
             <span className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-widest">
               Add Entry

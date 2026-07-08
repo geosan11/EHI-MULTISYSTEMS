@@ -414,8 +414,8 @@ export const Analytics = ({
       
       {/* Page Title */}
       <div className="flex justify-between items-center border-b border-[var(--color-border)] pb-2">
-        <span className="text-[10px] font-mono text-[var(--color-accent-cobalt)] tracking-[0.15em] uppercase font-bold hidden md:inline">▸ ANALYTICS INTELLIGENCE</span>
-        <span className="text-[10px] font-mono text-[var(--color-accent-cobalt)] tracking-[0.15em] uppercase font-bold md:hidden">▸ ANALYTICS</span>
+        <span className="text-[10px] font-mono text-[var(--color-accent-cobalt)] tracking-[0.15em] uppercase font-bold ehi-desktop-only-inline">▸ ANALYTICS INTELLIGENCE</span>
+        <span className="text-[10px] font-mono text-[var(--color-accent-cobalt)] tracking-[0.15em] uppercase font-bold ehi-mobile-only-inline">▸ ANALYTICS</span>
         
         <div className="flex items-center space-x-2">
           {/* Hub Selector */}
@@ -512,7 +512,7 @@ export const Analytics = ({
             <span className="text-[16px] md:text-[20px] font-bold font-mono text-[var(--color-foreground)] mt-1">
               <AnimatedNumber value={stats.airlinePayables} format={fmt} />
             </span>
-            <span className="text-[7px] font-mono text-[var(--color-light-muted)] mt-0.5 uppercase hidden md:block">Owed to airlines</span>
+            <span className="text-[7px] font-mono text-[var(--color-light-muted)] mt-0.5 uppercase ehi-desktop-only">Owed to airlines</span>
           </div>
 
           <div className="flex flex-col items-center">
@@ -520,7 +520,7 @@ export const Analytics = ({
             <div className="text-[20px] md:text-[26px] font-bold font-mono text-[var(--color-foreground)] mt-1.5">
               <AnimatedNumber value={stats.totalRev} format={fmt} />
             </div>
-            <div className="text-[8px] font-mono text-[var(--color-light-muted)] mt-1 uppercase hidden md:block">
+            <div className="text-[8px] font-mono text-[var(--color-light-muted)] mt-1 uppercase ehi-desktop-only">
               Consolidated across all 3 streams for {period}
             </div>
           </div>

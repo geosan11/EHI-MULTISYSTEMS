@@ -590,7 +590,7 @@ export const ValueJetForm = ({
         </div>
 
         {/* Right Column / Sticky Summary */}
-        <aside className="hidden md:block">
+        <aside className="ehi-desktop-only">
           <div className="sticky top-4">
             <div style={{
               background: 'var(--color-surface-1)',

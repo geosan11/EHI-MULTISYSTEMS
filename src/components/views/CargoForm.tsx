@@ -1555,7 +1555,7 @@ export const CargoForm = ({
             </div>
           </div>
 
-          <aside className="hidden md:block">
+          <aside className="ehi-desktop-only">
             <div
               style={{
                 position: "sticky",

@@ -412,12 +412,12 @@ export const WeightManifest = ({ user, onBack }: { user: User; onBack: () => voi
           )}
         </div>
 
-        <div className="hidden md:flex flex-col px-4 pb-4 pt-0 flex-shrink-0">
+        <div className="ehi-desktop-only-flex flex-col px-4 pb-4 pt-0 flex-shrink-0">
           <EntryForm />
         </div>
       </div>
 
-      <div className="md:hidden flex-shrink-0">
+      <div className="ehi-mobile-only flex-shrink-0">
         {showMobileForm ? (
           <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-1)] px-4 pt-4 pb-6 space-y-3">
             <div className="flex items-center justify-between">
