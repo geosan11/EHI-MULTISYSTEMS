@@ -594,7 +594,7 @@ export const MarketingWorkspace = ({
                   style={{
                     fontFamily: "JetBrains Mono",
                     fontSize: 10,
-                    color: "#10B981",
+                    color: "var(--color-success)",
                     letterSpacing: "0.12em",
                     textTransform: "uppercase",
                   }}
@@ -779,7 +779,7 @@ export const MarketingWorkspace = ({
                 style={{
                   fontFamily: "JetBrains Mono",
                   fontSize: 10,
-                  color: "#10B981",
+                  color: "var(--color-success)",
                   letterSpacing: "0.12em",
                   textTransform: "uppercase",
                 }}
@@ -848,7 +848,7 @@ export const MarketingWorkspace = ({
             {/* Sales Analysis Card */}
             <div className="bg-[var(--color-surface-1)] rounded-xl border border-[rgba(255,255,255,0.07)] overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(255,255,255,0.07)]">
-                <span className="text-[10px] font-mono text-[#10B981] uppercase tracking-widest font-bold">▸ SALES ANALYSIS</span>
+                <span className="text-[10px] font-mono text-[var(--color-success)] uppercase tracking-widest font-bold">▸ SALES ANALYSIS</span>
                 <span className="text-[10px] font-mono text-[var(--color-muted)]">{marketingTxs.length} customers</span>
               </div>
               <div className="px-4 py-3 space-y-2 text-[12px] font-mono">
@@ -908,7 +908,7 @@ export const MarketingWorkspace = ({
 
                 <div className="border-t border-[rgba(255,255,255,0.07)] pt-2 flex justify-between font-bold">
                   <span className="text-[var(--color-foreground)]">Total Sales (Net)</span>
-                  <span className="text-[#10B981]" style={{ fontFamily: 'JetBrains Mono' }}>{fmt(totalSales - lessTransfer)}</span>
+                  <span className="text-[var(--color-success)]" style={{ fontFamily: 'JetBrains Mono' }}>{fmt(totalSales - lessTransfer)}</span>
                 </div>
               </div>
             </div>
@@ -924,8 +924,8 @@ export const MarketingWorkspace = ({
                 <span style={{ fontFamily: 'JetBrains Mono' }}>− {fmt(totalExpenses)}</span>
               </div>
               <div className="flex justify-between font-bold text-[15px] border-t border-[rgba(16,185,129,0.2)] pt-2 mt-1">
-                <span className="text-[#10B981]">Balance Cash</span>
-                <span className={balanceToRemit >= 0 ? 'text-[#10B981]' : 'text-red-400'} style={{ fontFamily: 'JetBrains Mono' }}>{fmt(Math.abs(balanceToRemit))}{balanceToRemit < 0 ? ' (deficit)' : ''}</span>
+                <span className="text-[var(--color-success)]">Balance Cash</span>
+                <span className={balanceToRemit >= 0 ? 'text-[var(--color-success)]' : 'text-red-400'} style={{ fontFamily: 'JetBrains Mono' }}>{fmt(Math.abs(balanceToRemit))}{balanceToRemit < 0 ? ' (deficit)' : ''}</span>
               </div>
             </div>
 
@@ -933,8 +933,8 @@ export const MarketingWorkspace = ({
             {Object.keys(routeCounts).length > 0 && (
               <div className="bg-[var(--color-surface-1)] rounded-xl border border-[rgba(255,255,255,0.07)] overflow-hidden">
                 <div className="flex items-center gap-2 px-4 py-3 border-b border-[rgba(255,255,255,0.07)]">
-                  <BarChart2 size={12} className="text-[#10B981]" />
-                  <span className="text-[10px] font-mono text-[#10B981] uppercase tracking-widest font-bold">ROUTES TODAY</span>
+                  <BarChart2 size={12} className="text-[var(--color-success)]" />
+                  <span className="text-[10px] font-mono text-[var(--color-success)] uppercase tracking-widest font-bold">ROUTES TODAY</span>
                 </div>
                 <div className="px-4 py-3 space-y-1.5">
                   {Object.entries(routeCounts).sort((a,b) => b[1]-a[1]).map(([r, cnt]) => (
@@ -945,7 +945,7 @@ export const MarketingWorkspace = ({
                   ))}
                   <div className="flex justify-between items-center text-[12px] font-mono border-t border-[rgba(255,255,255,0.07)] pt-1.5 mt-1">
                     <span className="text-[var(--color-muted)]">Total</span>
-                    <span className="font-bold text-[#10B981]">{marketingTxs.length}</span>
+                    <span className="font-bold text-[var(--color-success)]">{marketingTxs.length}</span>
                   </div>
                 </div>
               </div>
@@ -954,7 +954,7 @@ export const MarketingWorkspace = ({
             {/* Entries Today */}
             <div className="bg-[var(--color-surface-1)] rounded-xl border border-[rgba(255,255,255,0.07)] overflow-hidden">
               <div className="px-4 py-3 border-b border-[rgba(255,255,255,0.07)]">
-                <span className="text-[10px] font-mono text-[#10B981] uppercase tracking-widest font-bold">▸ ENTRIES TODAY</span>
+                <span className="text-[10px] font-mono text-[var(--color-success)] uppercase tracking-widest font-bold">▸ ENTRIES TODAY</span>
               </div>
               {marketingTxs.length === 0 ? (
                 <EmptyState icon={<ClipboardList size={36} strokeWidth={1.5} />} message="No entries yet" />
@@ -1026,7 +1026,7 @@ export const MarketingWorkspace = ({
               ×
             </button>
             {/* Header */}
-            <div className="text-[10px] font-mono text-[#10B981] tracking-widest font-bold mb-1">▸ ARENA SALES ANALYSIS</div>
+            <div className="text-[10px] font-mono text-[var(--color-success)] tracking-widest font-bold mb-1">▸ ARENA SALES ANALYSIS</div>
             <div className="text-[12px] text-[var(--color-muted)] mb-4">
               {new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
               <br />Agent: <span className="text-[var(--color-foreground)]">{user.name}</span>
@@ -1040,7 +1040,7 @@ export const MarketingWorkspace = ({
               {transferCashSales > 0 && <div className="flex justify-between"><span className="text-amber-400">Transfer Rcvd as Cash</span><span className="text-amber-400">{fmt(transferCashSales)}</span></div>}
               {lessTransfer > 0 && <div className="flex justify-between"><span className="text-red-400">Less Transfer{lessTransferLabel ? ` (${lessTransferLabel})` : ''}</span><span className="text-red-400">− {fmt(lessTransfer)}</span></div>}
               {debtSales > 0 && <div className="flex justify-between"><span className="text-orange-400">Debt / Credit</span><span className="text-orange-400">{fmt(debtSales)}</span></div>}
-              <div className="flex justify-between font-bold border-t border-[var(--color-border)] pt-1.5"><span className="text-[var(--color-foreground)]">Total Sales (Net)</span><span className="text-[#10B981]">{fmt(totalSales - lessTransfer)}</span></div>
+              <div className="flex justify-between font-bold border-t border-[var(--color-border)] pt-1.5"><span className="text-[var(--color-foreground)]">Total Sales (Net)</span><span className="text-[var(--color-success)]">{fmt(totalSales - lessTransfer)}</span></div>
             </div>
 
             {/* Expenses */}
@@ -1081,10 +1081,10 @@ export const MarketingWorkspace = ({
             )}
 
             {/* Balance cash — the big number */}
-            <div className="bg-[rgba(16,185,129,0.1)] border border-[#10B981] rounded-xl p-4 mb-6">
+            <div className="bg-[rgba(16,185,129,0.1)] border border-[var(--color-success)] rounded-xl p-4 mb-6">
               <div className="flex justify-between items-center">
-                <span className="text-[14px] text-[#10B981] font-bold font-mono">BAL. CASH</span>
-                <span className={`text-[22px] font-bold font-mono ${balanceToRemit >= 0 ? 'text-[#10B981]' : 'text-red-400'}`} style={{ fontFamily: 'JetBrains Mono' }}>{fmt(Math.abs(balanceToRemit))}</span>
+                <span className="text-[14px] text-[var(--color-success)] font-bold font-mono">BAL. CASH</span>
+                <span className={`text-[22px] font-bold font-mono ${balanceToRemit >= 0 ? 'text-[var(--color-success)]' : 'text-red-400'}`} style={{ fontFamily: 'JetBrains Mono' }}>{fmt(Math.abs(balanceToRemit))}</span>
               </div>
               <div className="text-[11px] text-[rgba(16,185,129,0.7)] mt-1">
                 ({fmt(cashSales + transferCashSales)} cash-in-hand{lessTransfer > 0 ? ` − ${fmt(lessTransfer)} less-transfer` : ''} − {fmt(totalExpenses)} expenses)
@@ -1100,7 +1100,7 @@ export const MarketingWorkspace = ({
                   background: "transparent",
                   border: "1px solid rgba(16,185,129,0.4)",
                   borderRadius: 8,
-                  color: "#10B981",
+                  color: "var(--color-success)",
                   fontSize: 11,
                   fontFamily: "monospace",
                   fontWeight: "bold",
@@ -1114,7 +1114,7 @@ export const MarketingWorkspace = ({
                 style={{
                   flex: 1,
                   padding: 12,
-                  background: "#10B981",
+                  background: "var(--color-success)",
                   border: "none",
                   borderRadius: 8,
                   color: "#000",
