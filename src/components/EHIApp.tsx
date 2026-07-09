@@ -705,6 +705,46 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     if (tx.amountPaid !== undefined)     updatePayload[amountPaidCol] = tx.amountPaid;
     if (tx.paymentHistory !== undefined) updatePayload.payment_history = tx.paymentHistory;
 
+    // Main transaction amount -- previously never written here, so editing
+    // "Amount" in the ledger's Edit modal looked saved locally (the
+    // optimistic setTransactions above) but silently reverted on the next
+    // fetch. marketing_entries stores its sale amount in amount_paid (see
+    // the comment above); cargo_entries/manifests use amount directly.
+    if (table === 'marketing_entries') {
+      updatePayload.amount_paid = tx.amount;
+    } else {
+      updatePayload.amount = tx.amount;
+    }
+
+    // Editable shipment/customer details -- the ledger's Edit modal used to
+    // only expose payment fields, so a misspelled name or a typo'd
+    // weight/route had nowhere to be corrected.
+    if (tx.type === 'cargo') {
+      updatePayload.consignee_name = tx.name;
+      updatePayload.route = tx.route;
+      updatePayload.total_pcs = tx.pieces;
+      updatePayload.total_kg = tx.kg;
+      updatePayload.content_type = tx.contentType;
+      updatePayload.airline = tx.airline;
+    } else if (tx.type === 'baggage') {
+      updatePayload.passenger_name = tx.name;
+      updatePayload.flight_no = tx.flight;
+      updatePayload.destination = tx.destination;
+    } else if (tx.type === 'marketing') {
+      updatePayload.customer_name = tx.name;
+      updatePayload.route = tx.route;
+      // Set directly by TransactionLedger's edit modal (parsed from the
+      // composed `detail` string there, since bag counts aren't discrete
+      // fields on Transaction) -- undefined for calls that aren't editing
+      // details (e.g. toggling payment confirmation), so left untouched.
+      const bb = (tx as any)._bb;
+      const mb = (tx as any)._mb;
+      const sb = (tx as any)._sb;
+      if (bb !== undefined) updatePayload.qty_big_bag = bb;
+      if (mb !== undefined) updatePayload.qty_med_bag = mb;
+      if (sb !== undefined) updatePayload.qty_small_bag = sb;
+    }
+
     const { error } = await supabase.from(table).update(updatePayload).eq(idCol, tx.id);
     if (error) showToast({ message: `Update failed: ${error.message}`, type: 'error' });
     if (!error && tx.paymentConfirmed) {

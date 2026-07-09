@@ -62,6 +62,11 @@ export const TransactionLedger = ({
 }) => {
   const [showPrintHistory, setShowPrintHistory] = useState(false);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  // Marketing entries store bag counts inside the composed `detail` string,
+  // not as discrete Transaction fields, so the edit modal keeps its own
+  // working copy (seeded by parsing `detail` in handleEditClick) and
+  // reassembles `detail` from it in handleSaveEdit.
+  const [editBagCounts, setEditBagCounts] = useState({ bb: 0, mb: 0, sb: 0 });
   const [viewingQrTx, setViewingQrTx] = useState<Entry | null>(null);
   const [viewingDetail, setViewingDetail] = useState<Entry | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -146,15 +151,39 @@ export const TransactionLedger = ({
   const handleEditClick = (e: Entry, evt: React.MouseEvent) => {
     evt.stopPropagation();
     if (e.source === "transaction") {
-      setEditingTx({ ...e.raw });
+      const tx = { ...e.raw } as Transaction;
+      setEditingTx(tx);
+      if (tx.type === 'marketing') {
+        const bagsStr = tx.detail?.split(' · ')[1] || '';
+        setEditBagCounts({
+          bb: parseInt(bagsStr.match(/(\d+)\s*BB/)?.[1] || '0'),
+          mb: parseInt(bagsStr.match(/(\d+)\s*MB/)?.[1] || '0'),
+          sb: parseInt(bagsStr.match(/(\d+)\s*SB/)?.[1] || '0'),
+        });
+      }
     }
   };
 
   const handleSaveEdit = () => {
-    if (editingTx) {
-      onUpdateTx(editingTx);
-      setEditingTx(null);
+    if (!editingTx) return;
+    // Details fields (name, route, pieces, weight, etc.) are edited as
+    // discrete fields, but `detail` is the composed string the rest of the
+    // app (ledger rows, receipts) displays -- rebuild it here so the
+    // optimistic local update stays consistent with what a refetch from
+    // Supabase will later reconstruct (see EHIApp.tsx's fetchInitial).
+    const finalTx: Transaction = { ...editingTx };
+    if (finalTx.type === 'cargo') {
+      finalTx.detail = `${finalTx.airline || ''} · ${finalTx.awb_tag_number || ''} · ${finalTx.pieces || 0}pcs · ${finalTx.kg || 0}kg · ${finalTx.route || ''} · ${finalTx.contentType || ''}`;
+    } else if (finalTx.type === 'baggage') {
+      finalTx.detail = `${finalTx.flight || ''} · ${finalTx.destination || ''} · ${finalTx.excessKg || 0}kg excess`;
+    } else if (finalTx.type === 'marketing') {
+      finalTx.detail = `${finalTx.route || ''} · ${editBagCounts.bb}BB ${editBagCounts.mb}MB ${editBagCounts.sb}SB`;
+      (finalTx as any)._bb = editBagCounts.bb;
+      (finalTx as any)._mb = editBagCounts.mb;
+      (finalTx as any)._sb = editBagCounts.sb;
     }
+    onUpdateTx(finalTx);
+    setEditingTx(null);
   };
 
   const handleReprintReceipt = async (width: '58mm' | '80mm') => {
@@ -1037,6 +1066,197 @@ export const TransactionLedger = ({
                   {editingTx.id}
                 </span>
               </div>
+
+              <h4 className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wide -mb-2">
+                Details
+              </h4>
+
+              {editingTx.type === 'cargo' && (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
+                      Consignee Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editingTx.name}
+                      onChange={(e) => setEditingTx({ ...editingTx, name: e.target.value })}
+                      className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
+                      Airline
+                    </label>
+                    <input
+                      type="text"
+                      value={editingTx.airline || ''}
+                      onChange={(e) => setEditingTx({ ...editingTx, airline: e.target.value })}
+                      className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
+                        Route
+                      </label>
+                      <input
+                        type="text"
+                        value={editingTx.route || ''}
+                        onChange={(e) => setEditingTx({ ...editingTx, route: e.target.value })}
+                        className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
+                        Content Type
+                      </label>
+                      <input
+                        type="text"
+                        value={editingTx.contentType || ''}
+                        onChange={(e) => setEditingTx({ ...editingTx, contentType: e.target.value })}
+                        className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
+                        Pieces
+                      </label>
+                      <input
+                        type="number"
+                        value={editingTx.pieces ?? ''}
+                        onChange={(e) => setEditingTx({ ...editingTx, pieces: parseInt(e.target.value) || 0 })}
+                        className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
+                        Weight (KG)
+                      </label>
+                      <input
+                        type="number"
+                        value={editingTx.kg ?? ''}
+                        onChange={(e) => setEditingTx({ ...editingTx, kg: parseFloat(e.target.value) || 0 })}
+                        className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                      />
+                    </div>
+                  </div>
+                  {editingTx.awb_tag_number && (
+                    <div className="text-[11px] font-mono text-[var(--color-muted)] bg-[var(--color-border)] p-2 rounded">
+                      AWB / Tag:{" "}
+                      <span className="text-[var(--color-foreground)]">{editingTx.awb_tag_number}</span>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {editingTx.type === 'baggage' && (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
+                      Passenger Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editingTx.name}
+                      onChange={(e) => setEditingTx({ ...editingTx, name: e.target.value })}
+                      className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
+                        Flight
+                      </label>
+                      <input
+                        type="text"
+                        value={editingTx.flight || ''}
+                        onChange={(e) => setEditingTx({ ...editingTx, flight: e.target.value })}
+                        className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
+                        Destination
+                      </label>
+                      <input
+                        type="text"
+                        value={editingTx.destination || ''}
+                        onChange={(e) => setEditingTx({ ...editingTx, destination: e.target.value })}
+                        className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {editingTx.type === 'marketing' && (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
+                      Customer Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editingTx.name}
+                      onChange={(e) => setEditingTx({ ...editingTx, name: e.target.value })}
+                      className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
+                      Route
+                    </label>
+                    <input
+                      type="text"
+                      value={editingTx.route || ''}
+                      onChange={(e) => setEditingTx({ ...editingTx, route: e.target.value })}
+                      className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
+                        Big Bags
+                      </label>
+                      <input
+                        type="number"
+                        value={editBagCounts.bb}
+                        onChange={(e) => setEditBagCounts({ ...editBagCounts, bb: parseInt(e.target.value) || 0 })}
+                        className="w-full h-10 px-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[14px] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
+                        Med Bags
+                      </label>
+                      <input
+                        type="number"
+                        value={editBagCounts.mb}
+                        onChange={(e) => setEditBagCounts({ ...editBagCounts, mb: parseInt(e.target.value) || 0 })}
+                        className="w-full h-10 px-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[14px] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
+                        Small Bags
+                      </label>
+                      <input
+                        type="number"
+                        value={editBagCounts.sb}
+                        onChange={(e) => setEditBagCounts({ ...editBagCounts, sb: parseInt(e.target.value) || 0 })}
+                        className="w-full h-10 px-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[14px] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <h4 className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wide -mb-2 pt-2 border-t border-[var(--color-border)]">
+                Payment
+              </h4>
 
               <div className="space-y-1">
                 <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
