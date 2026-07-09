@@ -60,6 +60,7 @@
   --color-surface-2: #1c2333;
   --color-surface-3: #21293b;
   --color-surface-card: #1a2232;
+  --color-surface-card-glass: rgba(26, 34, 50, 0.72);
   --color-nav-bg: #0f141d;
   --color-nav-glass: rgba(15, 20, 29, 0.72);
   --color-background: #0d1117;
@@ -130,6 +131,7 @@
   --color-surface-2: #eef1f6;
   --color-surface-3: #e1e6ee;
   --color-surface-card: #fcfdfe;
+  --color-surface-card-glass: rgba(252, 253, 254, 0.72);
   --color-nav-bg: #fbfcfe;
   --color-nav-glass: rgba(251, 252, 254, 0.72);
   --color-background: #e7ebf1;

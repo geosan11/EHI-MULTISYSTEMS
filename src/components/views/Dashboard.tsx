@@ -131,7 +131,7 @@ const ScoreCard = ({ label, icon: Icon, color, bg, borderColor, total, sub1, sub
   total: number; sub1: string; sub2?: string;
 }) => (
   <div style={{
-    background: `linear-gradient(145deg, var(--color-surface-card) 0%, ${bg} 100%)`,
+    background: `linear-gradient(145deg, var(--color-surface-card-glass) 0%, ${bg} 100%)`,
     border: `1px solid ${borderColor}`,
     borderRadius: "var(--radius-lg)",
     padding: 16, position: "relative", overflow: "hidden",
