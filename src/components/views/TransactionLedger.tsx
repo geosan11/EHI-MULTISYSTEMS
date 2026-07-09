@@ -315,6 +315,49 @@ export const TransactionLedger = ({
     }
   };
 
+  const handleReprintTagPDF = async () => {
+    if (!viewingDetail || !viewingDetail.raw) return;
+    try {
+      if (viewingDetail.raw.type !== 'cargo') {
+        showToast({ message: 'PDF Tag only available for cargo entries', type: 'info' });
+        return;
+      }
+      const { printCargoTagPDF } = await import('./CargoTagPDF');
+      const tx = { ...viewingDetail.raw };
+      const route = tx.route || (tx.detail ? tx.detail.split(' · ')[4] : 'Unknown') || 'Unknown';
+      const data = {
+        id: tx.awb_tag_number || tx.entryRef || tx.id,
+        name: tx.name,
+        route: route,
+        pieceNo: `1 of ${tx.pieces || 1}`,
+        weight: tx.kg || 0,
+        airline: tx.airline,
+        hubName: user?.hub || 'EHI Cargo Station',
+        date: tx.time || new Date().toLocaleDateString('en-GB'),
+      };
+
+      await printCargoTagPDF(data);
+
+      try {
+        await supabase.from('tag_print_log').insert({
+          cargo_ref: tx.id,
+          awb_tag_number: data.id,
+          printed_by: user.id,
+          printed_by_name: user.name,
+          hub_id: user.hub_id,
+          hub_name: user.hub || 'Unknown',
+          print_method: 'pdf',
+          pieces_printed: tx.pieces || 1,
+        });
+      } catch (err) {
+        console.error('Failed to log tag print', err);
+      }
+    } catch (err) {
+      console.error('Error printing tag PDF:', err);
+      showToast({ message: 'Failed to open tag PDF', type: 'error' });
+    }
+  };
+
   const toggleConfirm = (e: Entry, evt: React.MouseEvent) => {
     evt.stopPropagation();
     if (e.source !== 'transaction') return;
@@ -1027,12 +1070,21 @@ export const TransactionLedger = ({
                         <Printer size={14} /> Receipt (58)
                       </button>
                       {(viewingDetail.raw.type === 'cargo' || viewingDetail.raw.type === 'marketing') && (
-                        <button
-                          onClick={() => handleReprintTag('80mm')}
-                          className="flex-1 py-2.5 flex items-center justify-center gap-2 bg-[var(--color-accent-amber)] hover:bg-opacity-90 text-[#0D1117] rounded-lg transition-colors border-none text-[12px] font-bold shadow-[var(--shadow-button)]"
-                        >
-                          <Printer size={14} /> Print Tag
-                        </button>
+                        <>
+                          <button
+                            onClick={() => handleReprintTag('80mm')}
+                            className="flex-1 py-2.5 flex items-center justify-center gap-2 bg-[var(--color-accent-amber)] hover:bg-opacity-90 text-[#0D1117] rounded-lg transition-colors border-none text-[12px] font-bold shadow-[var(--shadow-button)]"
+                          >
+                            <Printer size={14} /> Print Tag
+                          </button>
+                          <button
+                            onClick={() => handleReprintTagPDF()}
+                            className="flex-1 py-2.5 flex items-center justify-center gap-2 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] rounded-lg transition-colors border border-[var(--color-border)] text-[12px] font-medium"
+                            title="Open 100×80mm PDF tag (for USB / die-cut label printers)"
+                          >
+                            <Printer size={14} /> Tag PDF
+                          </button>
+                        </>
                       )}
                     </div>
                   )}

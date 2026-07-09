@@ -1190,7 +1190,7 @@ export const CargoForm = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mb-3">
+          <div className="grid grid-cols-3 gap-3 mb-3">
             <button
               onClick={handlePrintReceipt}
               className="py-3.5 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] text-[12px] font-sans font-semibold rounded-[var(--radius-sm)] border border-[var(--color-border)] transition-colors cursor-pointer focus:outline-none"
@@ -1202,6 +1202,13 @@ export const CargoForm = ({
               className="py-3.5 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] text-[12px] font-sans font-semibold rounded-[var(--radius-sm)] border border-[var(--color-border)] transition-colors cursor-pointer focus:outline-none"
             >
               PDF Tag
+            </button>
+            <button
+              onClick={handlePrintTagPDF100mm}
+              className="py-3.5 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] text-[12px] font-sans font-semibold rounded-[var(--radius-sm)] border border-[var(--color-border)] transition-colors cursor-pointer focus:outline-none"
+              title="Fixed 100mm x 80mm label -- for the XP-402B and similar gap/die-cut label printers"
+            >
+              Tag PDF (100×80mm Label)
             </button>
           </div>
 
