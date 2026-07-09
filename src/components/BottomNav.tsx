@@ -77,7 +77,7 @@ export const BottomNav = ({ user, currentTab, onChangeTab }: {
         {(() => {
           const ActiveIcon = tabs[activeIndex]?.icon;
           return ActiveIcon ? (
-            <ActiveIcon size={19} weight="duotone" color="var(--color-obsidian)" />
+            <ActiveIcon size={19} weight="duotone" color="#111827" />
           ) : null;
         })()}
       </button>

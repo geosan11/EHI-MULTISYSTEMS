@@ -258,7 +258,7 @@ export const Dashboard = React.memo(
             }}
           />
 
-          {showRevSummary && grossTotal > 0 ? (
+          {showRevSummary ? (
             <div
               className="relative"
               style={{
@@ -280,10 +280,10 @@ export const Dashboard = React.memo(
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-[10px] font-mono uppercase tracking-wide" style={{ color: "rgba(240,178,48,0.85)" }}>
+                  <div className="text-[10px] font-mono uppercase tracking-wide" style={{ color: "#FFBD59" }}>
                     Gross Today
                   </div>
-                  <div className="text-[28px] font-bold font-mono leading-tight" style={{ color: "var(--color-accent-amber)" }}>
+                  <div className="text-[28px] font-bold font-mono leading-tight" style={{ color: "#FFBD59" }}>
                     {fmt(grossTotal)}
                   </div>
                 </div>
