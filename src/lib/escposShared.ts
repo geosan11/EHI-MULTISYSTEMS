@@ -1,6 +1,6 @@
 import QRCode from 'qrcode';
 
-import ehiLogoFile from '../assets/branding/ehi-logo-bw.png';
+import ehiLogoFile from '../assets/branding/ehi-logo-bw.jpg';
 import ehiLogoCargoFile from '../assets/branding/ehi-logo-cargo.png';
 import { airlineLogoUrl } from './airlineLogos';
 
