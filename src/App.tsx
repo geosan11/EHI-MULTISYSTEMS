@@ -146,7 +146,12 @@ const PublicTrackingPage = () => {
   return (
     <div
       className="flex flex-col items-center justify-start py-10 px-4"
-      style={{ background: 'var(--color-background)', minHeight: '100dvh' }}
+      style={{
+        background: 'var(--color-background)',
+        height: '100dvh',
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+      }}
     >
       {/* Header */}
       <div className="text-center mb-8">
