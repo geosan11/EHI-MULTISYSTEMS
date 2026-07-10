@@ -112,6 +112,18 @@ export async function cleanupOldQueue(): Promise<void> {
     .delete();
 }
 
+// manifests has no free_allowance_kg/rate_per_kg columns -- a caller
+// briefly wrote them here (fixed since), so any record queued before that
+// fix still carries them baked into its stored payload. Without this,
+// those specific queued records retry this upsert forever, 400ing every
+// time, with no way to self-correct short of a manual database fix.
+// Stripping it here on every write means an already-stuck item heals on
+// its very next retry.
+function sanitizeManifestsPayload(payload: Record<string, unknown>): Record<string, unknown> {
+  const { free_allowance_kg, rate_per_kg, ...rest } = payload;
+  return rest;
+}
+
 export async function writeWithOfflineSupport(
   tableName: 'manifests' | 'marketing_entries' | 'cargo_entries' | 'package_entries' | 'expenses',
   payload: Record<string, unknown>
@@ -135,11 +147,14 @@ export async function writeWithOfflineSupport(
 
   // Attempt immediate Supabase insert
   try {
-    const supabasePayload = { ...payload };
+    let supabasePayload = { ...payload };
     // Remove the client-side ID since Supabase uses a UUID for the primary key.
     // Our client-side ID is stored in entry_ref or transaction_id
     if (tableName === 'marketing_entries' || tableName === 'cargo_entries' || tableName === 'manifests' || tableName === 'package_entries') {
       delete supabasePayload.id;
+    }
+    if (tableName === 'manifests') {
+      supabasePayload = sanitizeManifestsPayload(supabasePayload);
     }
 
     // expenses uses its own id column, others use entry_ref / transaction_id
@@ -174,11 +189,14 @@ export async function processSyncQueue(): Promise<number> {
 
   for (const item of pending) {
     try {
-      const supabasePayload = item.table_name === 'proof_of_delivery'
+      let supabasePayload = item.table_name === 'proof_of_delivery'
         ? podToSupabaseRow(item.payload as unknown as ProofOfDelivery)
         : { ...(item.payload as any) };
       if (item.table_name === 'marketing_entries' || item.table_name === 'cargo_entries' || item.table_name === 'manifests' || item.table_name === 'package_entries') {
         delete supabasePayload.id;
+      }
+      if (item.table_name === 'manifests') {
+        supabasePayload = sanitizeManifestsPayload(supabasePayload);
       }
 
       const onConflictColumn =

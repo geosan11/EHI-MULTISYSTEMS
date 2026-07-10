@@ -47,8 +47,40 @@ export function getCityName(routeStr: string | null | undefined): string {
 // PWAs treat window.open() at that point as an unrequested popup and
 // block it, even though the exact same call succeeds when it happens
 // synchronously inside the gesture. Navigating a window that was already
-// opened during the gesture sidesteps that entirely.
+// opened during the gesture sidesteps that entirely -- for a normal
+// browser tab.
+//
+// An installed/standalone PWA is a separate problem that pre-opening
+// doesn't solve: window.open() there frequently hands off to a genuinely
+// different browser process (Safari.app on iOS, sometimes Chrome itself
+// on Android) rather than an in-app tab. That process has no access to a
+// blob: URL created inside the PWA's own isolated JS realm, so it shows a
+// blank/invalid-address page -- and because setting .location.href
+// doesn't throw synchronously, this failure is silent: `win` stays
+// truthy and the function reports success while nothing is visible to
+// the user. A forced download never opens a new browsing context at all
+// -- it's a same-document DOM action -- so it's the only path that's
+// actually reliable once the app is running standalone.
+function isStandalonePWA(): boolean {
+  try {
+    return window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+  } catch {
+    return false;
+  }
+}
+
 export function openPdfOrDownload(url: string, filename: string, preOpenedWindow?: Window | null): Window | null {
+  if (isStandalonePWA()) {
+    preOpenedWindow?.close();
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    return null;
+  }
+
   let win: Window | null = null;
   if (preOpenedWindow !== undefined) {
     win = preOpenedWindow;

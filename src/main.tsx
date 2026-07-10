@@ -51,6 +51,26 @@ window.addEventListener('vite:preloadError', () => {
   }
 });
 
+// The service worker (vite.config.ts: registerType 'autoUpdate') is built
+// with skipWaiting + clientsClaim, so a new deploy's SW activates and
+// takes control of every already-open tab/installed-PWA instance almost
+// immediately -- but that alone does NOT reload the page. The JS that's
+// already executing in memory keeps running untouched; only a fresh
+// navigation picks up the new bundle. Without this listener, every fix
+// shipped in a deploy is invisible to anyone who already had the app open
+// (which, for an installed PWA people leave running for days, is the
+// common case) until they think to manually force-close and reopen it.
+// This is the standard Workbox-recommended pattern: reload once, the
+// moment the new SW takes over.
+if ('serviceWorker' in navigator) {
+  let refreshingAfterSWUpdate = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshingAfterSWUpdate) return;
+    refreshingAfterSWUpdate = true;
+    window.location.reload();
+  });
+}
+
 // Run data retention policies
 cleanupOldPings();
 
