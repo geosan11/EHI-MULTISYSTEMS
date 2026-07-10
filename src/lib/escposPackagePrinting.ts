@@ -1,7 +1,7 @@
 import {
   encoder, INIT, CENTER, LEFT, TEXT_NORMAL, TEXT_DOUBLE_HEIGHT,
   BOLD_ON, BOLD_OFF, FEED_AND_CUT,
-  concatChunks, qrAsRaster, brandingHeaderWithAirline, fieldRow, divider,
+  concatChunks, qrAsRaster, brandingHeaderWithAirline, textHeaderWithAirline, fieldRow, divider,
 } from './escposShared';
 
 export interface PackageReceiptPrintData {
@@ -21,9 +21,14 @@ export interface PackageReceiptPrintData {
 
 export async function compilePackageReceiptStream(data: PackageReceiptPrintData, width: '58mm' | '80mm'): Promise<Uint8Array> {
   const maxChars = width === '58mm' ? 32 : 48;
-  // No airline for this desk -- brandingHeaderWithAirline('') falls back to
-  // the plain EHI-only header, same as Cargo entries with no airline set.
-  const chunks: Uint8Array[] = [new Uint8Array(INIT), ...(await brandingHeaderWithAirline('', width))];
+  // No airline for this desk. 58mm: plain-text EHI header, no logo raster
+  // at all -- keeps this width fast to print. 80mm keeps the full EHI logo
+  // image via brandingHeaderWithAirline('', width), which falls back to
+  // the plain EHI-only header since there's no airline.
+  const chunks: Uint8Array[] = [
+    new Uint8Array(INIT),
+    ...(width === '58mm' ? await textHeaderWithAirline('', 100) : await brandingHeaderWithAirline('', width)),
+  ];
 
   chunks.push(new Uint8Array(TEXT_DOUBLE_HEIGHT), new Uint8Array(BOLD_ON));
   chunks.push(encoder.encode("PACKAGE / PARCEL RECEIPT\n\n"));

@@ -245,12 +245,19 @@ export const TransactionLedger = ({
           let route = parts[0] || 'Unknown';
           let big = 0, med = 0, small = 0;
           if (parts[1]) {
-            const bagMatch = parts[1].match(/(\d+) Big, (\d+) Med, (\d+) Sml/);
-            if (bagMatch) {
-              big = parseInt(bagMatch[1]);
-              med = parseInt(bagMatch[2]);
-              small = parseInt(bagMatch[3]);
-            }
+            // MarketingWorkspace stores bag counts as e.g. "2BB 1MB 3SB"
+            // (see handleAddEntry) -- any subset present, space-separated,
+            // no comma. Match each code independently rather than one
+            // fixed "X Big, Y Med, Z Sml" pattern, which never matched the
+            // actual stored format and made every reprinted marketing
+            // receipt show an empty Bag Breakdown regardless of what was
+            // actually sold.
+            const bigMatch = parts[1].match(/(\d+)BB/);
+            const medMatch = parts[1].match(/(\d+)MB/);
+            const smallMatch = parts[1].match(/(\d+)SB/);
+            big = bigMatch ? parseInt(bigMatch[1]) : 0;
+            med = medMatch ? parseInt(medMatch[1]) : 0;
+            small = smallMatch ? parseInt(smallMatch[1]) : 0;
           }
           return await compileMarketingReceiptStream({
             entryRef: tx.id,
@@ -296,12 +303,14 @@ export const TransactionLedger = ({
         route = parts[0] || route;
         if (parts[1]) {
           let big = 0, med = 0, small = 0;
-          const bagMatch = parts[1].match(/(\d+) Big, (\d+) Med, (\d+) Sml/);
-          if (bagMatch) {
-            big = parseInt(bagMatch[1]) || 0;
-            med = parseInt(bagMatch[2]) || 0;
-            small = parseInt(bagMatch[3]) || 0;
-          }
+          // Same stored format as handleReprintReceipt above -- e.g. "2BB
+          // 1MB 3SB", not "2 Big, 1 Med, 3 Sml".
+          const bigMatch = parts[1].match(/(\d+)BB/);
+          const medMatch = parts[1].match(/(\d+)MB/);
+          const smallMatch = parts[1].match(/(\d+)SB/);
+          big = bigMatch ? parseInt(bigMatch[1]) : 0;
+          med = medMatch ? parseInt(medMatch[1]) : 0;
+          small = smallMatch ? parseInt(smallMatch[1]) : 0;
           tx.pieces = big + med + small || 1;
         }
       }

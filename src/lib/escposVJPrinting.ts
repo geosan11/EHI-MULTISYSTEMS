@@ -1,7 +1,7 @@
 import {
   encoder, INIT, CENTER, LEFT, TEXT_NORMAL, TEXT_DOUBLE_HEIGHT,
   BOLD_ON, BOLD_OFF, FEED_AND_CUT,
-  concatChunks, qrAsRaster, brandingHeader, fieldRow, divider,
+  concatChunks, qrAsRaster, brandingHeader, textHeaderWithAirline, fieldRow, divider,
   getAirlineLogoRaster, imageToEscPosRaster,
 } from './escposShared';
 
@@ -29,26 +29,20 @@ export async function compileVJReceiptStream(data: VJReceiptPrintData, width: '5
   const maxChars = width === '58mm' ? 32 : 48;
   const chunks: Uint8Array[] = [new Uint8Array(INIT)];
   if (width === '58mm') {
-    // Plain text header instead of the rasterized EHI logo image -- keeps
-    // the 58mm receipt shorter and faster to print; the airline logo below
-    // still identifies the airline visually.
-    chunks.push(new Uint8Array(CENTER));
-    chunks.push(new Uint8Array(BOLD_ON));
-    chunks.push(encoder.encode("EHI MULTISYSTEMS NIGERIA LIMITED\n"));
-    chunks.push(new Uint8Array(BOLD_OFF));
-    chunks.push(encoder.encode('\n'));
+    // Plain-text EHI header (no logo raster), then ValueJet's own logo --
+    // keeps this width fast to print.
+    chunks.push(...(await textHeaderWithAirline('ValueJet', 100, 'VALUEJET AIRLINES')));
   } else {
     chunks.push(...(await brandingHeader()));
-  }
-
-  const airlineRaster = await getAirlineLogoRaster('ValueJet', width === '58mm' ? 100 : 130);
-  if (airlineRaster) {
-    chunks.push(airlineRaster);
-    chunks.push(encoder.encode('\n'));
-  } else {
-    chunks.push(new Uint8Array(BOLD_ON));
-    chunks.push(encoder.encode("VALUEJET AIRLINES\n"));
-    chunks.push(new Uint8Array(BOLD_OFF));
+    const airlineRaster = await getAirlineLogoRaster('ValueJet', 130);
+    if (airlineRaster) {
+      chunks.push(airlineRaster);
+      chunks.push(encoder.encode('\n'));
+    } else {
+      chunks.push(new Uint8Array(BOLD_ON));
+      chunks.push(encoder.encode("VALUEJET AIRLINES\n"));
+      chunks.push(new Uint8Array(BOLD_OFF));
+    }
   }
 
   chunks.push(new Uint8Array(TEXT_DOUBLE_HEIGHT), new Uint8Array(BOLD_ON));

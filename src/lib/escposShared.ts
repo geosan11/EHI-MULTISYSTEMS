@@ -157,6 +157,47 @@ export async function ehiSvgToRaster(widthDots: number): Promise<Uint8Array> {
   }
 }
 
+// 58mm-only header: plain "EHI MULTISYSTEMS NIG LTD" text instead of the
+// rasterized EHI logo image, with the airline's own logo (if resolvable)
+// printed right after it. The EHI logo raster was consistently the single
+// biggest chunk of a 58mm receipt's Bluetooth payload -- dropping it here
+// is what actually shortens print time on this width; 80mm keeps the full
+// composite logo via brandingHeader/brandingHeaderWithAirline. Pass
+// fallbackAirlineText to print a bold text line when no logo image is
+// available for that airline (omit it to print nothing in that case).
+export async function textHeaderWithAirline(
+  airline: string,
+  airlineLogoWidthDots: number,
+  fallbackAirlineText?: string,
+): Promise<Uint8Array[]> {
+  // Reverse video (white text on a black band) instead of plain bold --
+  // same GS B treatment already used for the 80mm banner and the pickup-
+  // PIN block, so the brand line reads as a solid header instead of just
+  // another line of text.
+  const chunks: Uint8Array[] = [
+    new Uint8Array(CENTER),
+    new Uint8Array(REVERSE_ON),
+    new Uint8Array(BOLD_ON),
+    encoder.encode(" EHI MULTISYSTEMS NIG LTD \n"),
+    new Uint8Array(BOLD_OFF),
+    new Uint8Array(REVERSE_OFF),
+    encoder.encode('\n'),
+  ];
+
+  if (airline) {
+    const airlineRaster = await getAirlineLogoRaster(airline, airlineLogoWidthDots);
+    if (airlineRaster) {
+      chunks.push(airlineRaster);
+      chunks.push(encoder.encode('\n'));
+    } else if (fallbackAirlineText) {
+      chunks.push(new Uint8Array(BOLD_ON));
+      chunks.push(encoder.encode(`${fallbackAirlineText}\n`));
+      chunks.push(new Uint8Array(BOLD_OFF));
+    }
+  }
+  return chunks;
+}
+
 // Every document type calls this for its header -- change it once,
 // every receipt/tag updates together, instead of three drifting copies.
 // Uses ehi-logo-bw.png -- a dedicated, pre-made pure black-and-white

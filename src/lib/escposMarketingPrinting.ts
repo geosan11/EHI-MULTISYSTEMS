@@ -1,7 +1,7 @@
 import {
   encoder, INIT, CENTER, LEFT, TEXT_NORMAL, TEXT_DOUBLE_HEIGHT,
   BOLD_ON, BOLD_OFF, FEED_AND_CUT,
-  concatChunks, qrAsRaster, brandingHeaderWithAirline, fieldRow, divider,
+  concatChunks, qrAsRaster, textHeaderWithAirline, fieldRow, divider,
 } from './escposShared';
 
 export interface MarketingReceiptPrintData {
@@ -24,18 +24,10 @@ export interface MarketingReceiptPrintData {
 
 export async function compileMarketingReceiptStream(data: MarketingReceiptPrintData, width: '58mm' | '80mm'): Promise<Uint8Array> {
   const maxChars = width === '58mm' ? 32 : 48;
-  const chunks: Uint8Array[] = [new Uint8Array(INIT)];
-  if (width === '58mm') {
-    // Text-only header, no EHI logo, no airline logo -- keeps this
-    // receipt as short/fast to print as possible.
-    chunks.push(new Uint8Array(CENTER));
-    chunks.push(new Uint8Array(BOLD_ON));
-    chunks.push(encoder.encode("EHI MULTISYSTEMS NIGERIA LIMITED\n"));
-    chunks.push(new Uint8Array(BOLD_OFF));
-    chunks.push(encoder.encode('\n'));
-  } else {
-    chunks.push(...(await brandingHeaderWithAirline(data.airline || '', width)));
-  }
+  // Text-only header, no EHI logo, no airline logo, at either width --
+  // keeps this receipt as short/fast to print as possible. Passing '' as
+  // the airline skips the logo/fallback section entirely.
+  const chunks: Uint8Array[] = [new Uint8Array(INIT), ...(await textHeaderWithAirline('', 0))];
 
   chunks.push(new Uint8Array(TEXT_DOUBLE_HEIGHT), new Uint8Array(BOLD_ON));
   chunks.push(encoder.encode("MARKETING SALES RECEIPT\n\n"));
