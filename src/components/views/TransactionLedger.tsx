@@ -189,82 +189,87 @@ export const TransactionLedger = ({
   const handleReprintReceipt = async (width: '58mm' | '80mm') => {
     if (!viewingDetail || !viewingDetail.raw) return;
     const tx = viewingDetail.raw;
-    const { printViaBluetooth } = await import('../../lib/escpos');
+    if (tx.type !== 'cargo' && tx.type !== 'baggage' && tx.type !== 'marketing') return;
 
     try {
-      if (tx.type === 'cargo') {
-        const { compileCargoReceiptStream } = await import('../../lib/escposCargoReceiptPrinting');
-        const bytes = await compileCargoReceiptStream({
-          entryRef: tx.id,
-          serialNumber: 0,
-          date: tx.time,
-          hubName: tx.hub || user.hub,
-          agentName: tx.enteredByName || user.name,
-          airline: tx.airline || "Unknown",
-          consignee: tx.consignee || tx.name,
-          awbTagNumber: tx.awb_tag_number || "N/A",
-          pieces: tx.pieces || 1,
-          kg: tx.kg || 1,
-          route: tx.route || "Unknown",
-          contentType: tx.detail?.split(" · ")[5] || "General Goods",
-          amount: tx.amount,
-          paymentMode: tx.mode,
-          bankName: tx.bank,
-          pickupPin: tx.pickupPin,
-          trackingUrl: `https://ehimultisystems.com/track/${tx.id}`,
-        }, width);
-        await printViaBluetooth(bytes);
-      } else if (tx.type === 'baggage') {
-        const { compileVJReceiptStream } = await import('../../lib/escposVJPrinting');
-        const bytes = await compileVJReceiptStream({
-          entryRef: tx.id,
-          date: tx.time,
-          originState: tx.hub || user.hub,
-          agentName: tx.enteredByName || user.name,
-          passengerName: tx.name,
-          flight: tx.flight || "Unknown",
-          destination: tx.destination || "Unknown",
-          totalPieces: tx.pieces || 1,
-          totalWeightKg: tx.totalKg || tx.kg || 0,
-          freeAllowanceKg: (tx.totalKg || 0) - (tx.excessKg || 0),
-          excessChargeKg: tx.excessKg || 0,
-          ratePerKg: (tx.excessKg || 0) > 0 ? Math.round(tx.amount / tx.excessKg!) : 0,
-          amount: tx.amount,
-          paymentMode: tx.mode,
-          trackingUrl: `https://ehimultisystems.com/track/${tx.id}`,
-        }, width);
-        await printViaBluetooth(bytes);
-      } else if (tx.type === 'marketing') {
-        const { compileMarketingReceiptStream } = await import('../../lib/escposMarketingPrinting');
-        const parts = tx.detail?.split(' · ') || [];
-        let route = parts[0] || 'Unknown';
-        let big = 0, med = 0, small = 0;
-        if (parts[1]) {
-          const bagMatch = parts[1].match(/(\d+) Big, (\d+) Med, (\d+) Sml/);
-          if (bagMatch) {
-            big = parseInt(bagMatch[1]);
-            med = parseInt(bagMatch[2]);
-            small = parseInt(bagMatch[3]);
+      // printViaBluetooth connects to the printer FIRST, before this
+      // callback (which compiles the receipt -- loading logo images,
+      // drawing canvas, generating a QR code) ever runs, so compiling
+      // can't burn through the click's Bluetooth permission window.
+      const { printViaBluetooth } = await import('../../lib/escpos');
+      await printViaBluetooth(async () => {
+        if (tx.type === 'cargo') {
+          const { compileCargoReceiptStream } = await import('../../lib/escposCargoReceiptPrinting');
+          return await compileCargoReceiptStream({
+            entryRef: tx.id,
+            serialNumber: 0,
+            date: tx.time,
+            hubName: tx.hub || user.hub,
+            agentName: tx.enteredByName || user.name,
+            airline: tx.airline || "Unknown",
+            consignee: tx.consignee || tx.name,
+            awbTagNumber: tx.awb_tag_number || "N/A",
+            pieces: tx.pieces || 1,
+            kg: tx.kg || 1,
+            route: tx.route || "Unknown",
+            contentType: tx.detail?.split(" · ")[5] || "General Goods",
+            amount: tx.amount,
+            paymentMode: tx.mode,
+            bankName: tx.bank,
+            pickupPin: tx.pickupPin,
+            trackingUrl: `https://ehimultisystems.com/track/${tx.id}`,
+          }, width);
+        } else if (tx.type === 'baggage') {
+          const { compileVJReceiptStream } = await import('../../lib/escposVJPrinting');
+          return await compileVJReceiptStream({
+            entryRef: tx.id,
+            date: tx.time,
+            originState: tx.hub || user.hub,
+            agentName: tx.enteredByName || user.name,
+            passengerName: tx.name,
+            flight: tx.flight || "Unknown",
+            destination: tx.destination || "Unknown",
+            totalPieces: tx.pieces || 1,
+            totalWeightKg: tx.totalKg || tx.kg || 0,
+            freeAllowanceKg: (tx.totalKg || 0) - (tx.excessKg || 0),
+            excessChargeKg: tx.excessKg || 0,
+            ratePerKg: (tx.excessKg || 0) > 0 ? Math.round(tx.amount / tx.excessKg!) : 0,
+            amount: tx.amount,
+            paymentMode: tx.mode,
+            trackingUrl: `https://ehimultisystems.com/track/${tx.id}`,
+          }, width);
+        } else {
+          // tx.type === 'marketing' -- guaranteed by the early return above
+          const { compileMarketingReceiptStream } = await import('../../lib/escposMarketingPrinting');
+          const parts = tx.detail?.split(' · ') || [];
+          let route = parts[0] || 'Unknown';
+          let big = 0, med = 0, small = 0;
+          if (parts[1]) {
+            const bagMatch = parts[1].match(/(\d+) Big, (\d+) Med, (\d+) Sml/);
+            if (bagMatch) {
+              big = parseInt(bagMatch[1]);
+              med = parseInt(bagMatch[2]);
+              small = parseInt(bagMatch[3]);
+            }
           }
+          return await compileMarketingReceiptStream({
+            entryRef: tx.id,
+            date: tx.time,
+            agentName: tx.enteredByName || user.name,
+            customerName: tx.name,
+            phone: tx.remarks || '',
+            route: route,
+            bigBags: big,
+            medBags: med,
+            smallBags: small,
+            amount: tx.amount,
+            paymentMode: tx.mode,
+            paymentNarration: tx.paymentNarration,
+            bankName: tx.bank,
+            trackingUrl: `https://ehimultisystems.com/track/${tx.id}`,
+          }, width);
         }
-        const bytes = await compileMarketingReceiptStream({
-          entryRef: tx.id,
-          date: tx.time,
-          agentName: tx.enteredByName || user.name,
-          customerName: tx.name,
-          phone: tx.remarks || '',
-          route: route,
-          bigBags: big,
-          medBags: med,
-          smallBags: small,
-          amount: tx.amount,
-          paymentMode: tx.mode,
-          paymentNarration: tx.paymentNarration,
-          bankName: tx.bank,
-          trackingUrl: `https://ehimultisystems.com/track/${tx.id}`,
-        }, width);
-        await printViaBluetooth(bytes);
-      }
+      });
     } catch (error) {
       console.error('Error printing receipt:', error);
       showToast({ message: 'Error connecting to Bluetooth printer. Ensure it is paired and on.', type: 'error' });
@@ -299,7 +304,7 @@ export const TransactionLedger = ({
         id: tx.awb_tag_number || tx.entryRef || tx.id,
         name: tx.name,
         route: route || 'Unknown',
-        pieceNo: `1 of ${tx.pieces || 1}`,
+        pieces: tx.pieces || 1,
         weight: tx.kg || 0,
         airline: tx.airline,
         hubName: user?.hub || 'EHI Cargo Station',
@@ -342,7 +347,7 @@ export const TransactionLedger = ({
         id: tx.awb_tag_number || tx.entryRef || tx.id,
         name: tx.name,
         route: route,
-        pieceNo: `1 of ${tx.pieces || 1}`,
+        pieces: tx.pieces || 1,
         weight: tx.kg || 0,
         airline: tx.airline,
         hubName: user?.hub || 'EHI Cargo Station',

@@ -487,29 +487,30 @@ export const MarketingWorkspace = ({
               <div className="grid grid-cols-2 gap-2 mb-2">
                 <button
                   onClick={() => {
-                    import('../../lib/escposMarketingPrinting').then(async (m) => {
-                      // Build the MarketingReceiptPrintData object
-                      const printData = {
-                        entryRef: successTx.id,
-                        date: new Date().toLocaleDateString("en-GB"),
-                        agentName: user.name,
-                        customerName: successTx.name,
-                        phone: phone || undefined,
-                        route: route,
-                        bigBags: bb,
-                        medBags: mb,
-                        smallBags: sb,
-                        amount: successTx.amount,
-                        paymentMode: successTx.mode,
-                        paymentNarration: successTx.paymentNarration,
-                        bankName: bank || undefined,
-                        airline: successTx.airline,
-                        trackingUrl: `https://ehimultisystems.com/track/${successTx.id}`,
-                      };
-                      const bytes = await m.compileMarketingReceiptStream(printData, '80mm');
-                      const { printViaBluetooth } = await import('../../lib/escpos');
-                      await printViaBluetooth(bytes);
-                    });
+                    import('../../lib/escpos').then(async ({ printViaBluetooth }) => {
+                      await printViaBluetooth(async () => {
+                        const m = await import('../../lib/escposMarketingPrinting');
+                        // Build the MarketingReceiptPrintData object
+                        const printData = {
+                          entryRef: successTx.id,
+                          date: new Date().toLocaleDateString("en-GB"),
+                          agentName: user.name,
+                          customerName: successTx.name,
+                          phone: phone || undefined,
+                          route: route,
+                          bigBags: bb,
+                          medBags: mb,
+                          smallBags: sb,
+                          amount: successTx.amount,
+                          paymentMode: successTx.mode,
+                          paymentNarration: successTx.paymentNarration,
+                          bankName: bank || undefined,
+                          airline: successTx.airline,
+                          trackingUrl: `https://ehimultisystems.com/track/${successTx.id}`,
+                        };
+                        return await m.compileMarketingReceiptStream(printData, '80mm');
+                      });
+                    }).catch(() => showToast({ message: 'Bluetooth printer not connected', type: 'error' }));
                   }}
                   className="py-2.5 bg-[var(--color-success)] text-[#0D1117] text-[11px] font-bold font-mono rounded cursor-pointer flex flex-col justify-center items-center leading-none hover:bg-opacity-95 border-none"
                 >
@@ -519,28 +520,29 @@ export const MarketingWorkspace = ({
 
                 <button
                   onClick={() => {
-                    import('../../lib/escposMarketingPrinting').then(async (m) => {
-                      const printData = {
-                        entryRef: successTx.id,
-                        date: new Date().toLocaleDateString("en-GB"),
-                        agentName: user.name,
-                        customerName: successTx.name,
-                        phone: phone || undefined,
-                        route: route,
-                        bigBags: bb,
-                        medBags: mb,
-                        smallBags: sb,
-                        amount: successTx.amount,
-                        paymentMode: successTx.mode,
-                        paymentNarration: successTx.paymentNarration,
-                        bankName: bank || undefined,
-                        airline: successTx.airline,
-                        trackingUrl: `https://ehimultisystems.com/track/${successTx.id}`,
-                      };
-                      const bytes = await m.compileMarketingReceiptStream(printData, '58mm');
-                      const { printViaBluetooth } = await import('../../lib/escpos');
-                      await printViaBluetooth(bytes);
-                    });
+                    import('../../lib/escpos').then(async ({ printViaBluetooth }) => {
+                      await printViaBluetooth(async () => {
+                        const m = await import('../../lib/escposMarketingPrinting');
+                        const printData = {
+                          entryRef: successTx.id,
+                          date: new Date().toLocaleDateString("en-GB"),
+                          agentName: user.name,
+                          customerName: successTx.name,
+                          phone: phone || undefined,
+                          route: route,
+                          bigBags: bb,
+                          medBags: mb,
+                          smallBags: sb,
+                          amount: successTx.amount,
+                          paymentMode: successTx.mode,
+                          paymentNarration: successTx.paymentNarration,
+                          bankName: bank || undefined,
+                          airline: successTx.airline,
+                          trackingUrl: `https://ehimultisystems.com/track/${successTx.id}`,
+                        };
+                        return await m.compileMarketingReceiptStream(printData, '58mm');
+                      });
+                    }).catch(() => showToast({ message: 'Bluetooth printer not connected', type: 'error' }));
                   }}
                   className="py-2.5 bg-[var(--color-success)] bg-opacity-80 text-[#0D1117] text-[11px] font-bold font-mono rounded cursor-pointer flex flex-col justify-center items-center leading-none hover:bg-opacity-95 border-none"
                 >
@@ -586,6 +588,25 @@ export const MarketingWorkspace = ({
                       <span>TAGS (58mm)</span>
                     </button>
                   </div>
+                  <button
+                    onClick={() => {
+                      import('./MarketingTagPDF').then(m => m.downloadMarketingTagPDF({
+                        id: successTx!.awb_tag_number || successTx!.id,
+                        name: successTx!.name,
+                        route,
+                        airline,
+                        hubName: user?.hub || "EHI Cargo Station",
+                        date: new Date().toLocaleDateString("en-GB"),
+                        bigBags: bb,
+                        medBags: mb,
+                        smallBags: sb,
+                      }));
+                    }}
+                    className="w-full mt-2 py-2.5 bg-transparent border border-[rgba(16,185,129,0.3)] rounded-lg cursor-pointer text-[11px] font-bold font-mono text-[var(--color-success)] flex items-center justify-center gap-2"
+                    title="Fixed 100mm x 80mm label per bag -- for the XP-402B and similar gap/die-cut label printers"
+                  >
+                    <span className="text-[14px]">🏷️</span> TAG PDF (100×80mm LABEL)
+                  </button>
                 </div>
               )}
             </div>

@@ -77,6 +77,5 @@ export const printBluetoothReceipt = async (
   builder.newLine(3);
   builder.cut();
 
-  const bytes = builder.build();
-  await printViaBluetooth(bytes);
+  await printViaBluetooth(async () => builder.build());
 };

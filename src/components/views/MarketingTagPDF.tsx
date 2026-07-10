@@ -13,25 +13,49 @@ import { AirlineLogoPDF } from "../AirlineLogoPDF";
 import { resolveAirlineLogoUrl } from "../../lib/airlineLogos";
 import { openPdfOrDownload } from "../../lib/helpers";
 
-// Fixed 100mm x 80mm label -- this is a discrete, fixed-size tag (like the
-// XP-402B gap/die-cut label printer this was built for), not an
-// open-ended continuous roll like the receipt PDFs. Both dimensions are
-// therefore fixed, not just the width.
+// Fixed 100mm x 80mm label -- same discrete, fixed-size tag format as
+// CargoTagPDF, for the XP-402B and similar gap/die-cut label printers.
 // 100mm = 283.46pt, 80mm = 226.77pt at 72pt/inch.
 const PAGE_WIDTH = 283;
 const PAGE_HEIGHT = 227;
 
-export interface CargoTagPDFData {
-  id: string; // AWB Tag number / Ref
-  name: string; // Consignee / Passenger name
+export interface MarketingTagPDFData {
+  id: string; // AWB / Tag ref
+  name: string; // Customer name
   route: string;
-  pieces: number; // total piece count for this shipment -- one page is rendered per piece
-  weight: number | string;
   airline?: string;
   hubName?: string;
   date?: string;
+  bigBags: number;
+  medBags: number;
+  smallBags: number;
   qrCodeDataUrl?: string;
   airlineLogoUrl?: string | null;
+}
+
+interface BagPage {
+  bagType: 'BB' | 'MB' | 'SB';
+  bagTypeFull: string;
+  pieceIndex: number;
+  totalForType: number;
+}
+
+// Same ordering as escposTagPrinting.ts's compileMarketingTagStream (BB,
+// then MB, then SB) so the PDF tag and the Bluetooth bag tag show the same
+// content for the same physical bag.
+function buildBagPages(data: MarketingTagPDFData): BagPage[] {
+  const bags: Array<{ type: BagPage['bagType']; full: string; count: number }> = [
+    { type: 'BB', full: 'BIG BAG', count: data.bigBags },
+    { type: 'MB', full: 'MED BAG', count: data.medBags },
+    { type: 'SB', full: 'SMALL BAG', count: data.smallBags },
+  ];
+  const pages: BagPage[] = [];
+  for (const bag of bags) {
+    for (let i = 1; i <= bag.count; i++) {
+      pages.push({ bagType: bag.type, bagTypeFull: bag.full, pieceIndex: i, totalForType: bag.count });
+    }
+  }
+  return pages.length > 0 ? pages : [{ bagType: 'BB', bagTypeFull: 'BIG BAG', pieceIndex: 1, totalForType: 1 }];
 }
 
 const styles = StyleSheet.create({
@@ -46,7 +70,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 4,
   },
-  goldDivider: {
+  divider: {
     height: 2,
     backgroundColor: "#000000",
     marginBottom: 6,
@@ -77,20 +101,20 @@ const styles = StyleSheet.create({
     color: "#000000",
     marginBottom: 6,
   },
-  awbBand: {
+  refBand: {
     backgroundColor: "#000000",
     paddingVertical: 4,
     paddingHorizontal: 6,
     marginBottom: 6,
     borderRadius: 2,
   },
-  awbLabel: {
+  refLabel: {
     fontSize: 6,
     color: "#FFFFFF",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  awbValue: {
+  refValue: {
     fontSize: 12,
     fontFamily: "Helvetica-Bold",
     color: "#FFFFFF",
@@ -115,7 +139,7 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
     color: "#111827",
   },
-  pieceBadge: {
+  bagBadge: {
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#000000",
@@ -125,7 +149,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     marginBottom: 4,
   },
-  pieceBadgeText: {
+  bagBadgeText: {
     fontSize: 8,
     fontFamily: "Helvetica-Bold",
     color: "#000000",
@@ -154,44 +178,38 @@ const styles = StyleSheet.create({
   },
 });
 
-// wrap={false} on the Page keeps this label capped at exactly one physical
-// page per piece -- react-pdf's default (wrap=true) would otherwise silently
-// spill overflowing content onto an extra, unlabeled page for a single fixed-
-// size 100x80mm label, which makes no sense on a die-cut label printer.
-const CargoTagPage = ({
+const MarketingTagPage = ({
   data,
-  pieceIndex,
-  totalPieces,
+  bagPage,
 }: {
-  data: CargoTagPDFData;
-  pieceIndex: number;
-  totalPieces: number;
+  data: MarketingTagPDFData;
+  bagPage: BagPage;
 }) => (
   <Page size={[PAGE_WIDTH, PAGE_HEIGHT]} style={styles.page} wrap={false}>
     <View style={styles.headerRow}>
       <EHILogoPDF width={70} variant="cargo" />
       {data.airline ? <AirlineLogoPDF airline={data.airline} logoUrl={data.airlineLogoUrl} width={70} /> : null}
     </View>
-    <View style={styles.goldDivider} />
+    <View style={styles.divider} />
 
     <View style={styles.body}>
       <View style={styles.leftCol}>
         <Text style={styles.routeLabel}>Route</Text>
         <Text style={styles.routeValue}>{data.route?.toUpperCase() || "—"}</Text>
 
-        <View style={styles.awbBand}>
-          <Text style={styles.awbLabel}>AWB / Tag</Text>
-          <Text style={styles.awbValue}>{data.id}</Text>
+        <View style={styles.refBand}>
+          <Text style={styles.refLabel}>AWB / Tag</Text>
+          <Text style={styles.refValue}>{data.id}</Text>
         </View>
 
-        <View style={styles.pieceBadge}>
-          <Text style={styles.pieceBadgeText}>PIECE {pieceIndex} of {totalPieces}</Text>
+        <View style={styles.bagBadge}>
+          <Text style={styles.bagBadgeText}>{bagPage.bagType} · {bagPage.pieceIndex} OF {bagPage.totalForType}</Text>
         </View>
 
         <View style={styles.fieldRow}>
           <View style={styles.fieldBlock}>
-            <Text style={styles.fieldLabel}>Weight</Text>
-            <Text style={styles.fieldValue}>{data.weight} KG</Text>
+            <Text style={styles.fieldLabel}>Bag Type</Text>
+            <Text style={styles.fieldValue}>{bagPage.bagTypeFull}</Text>
           </View>
           <View style={styles.fieldBlock}>
             <Text style={styles.fieldLabel}>Hub</Text>
@@ -201,7 +219,7 @@ const CargoTagPage = ({
 
         <View style={styles.fieldRow}>
           <View style={styles.fieldBlock}>
-            <Text style={styles.fieldLabel}>Consignee</Text>
+            <Text style={styles.fieldLabel}>Customer</Text>
             <Text style={styles.fieldValue}>{data.name || "—"}</Text>
           </View>
         </View>
@@ -222,18 +240,21 @@ const CargoTagPage = ({
   </Page>
 );
 
-const CargoTagOnlyPDF = ({ data }: { data: CargoTagPDFData }) => {
-  const totalPieces = Math.max(1, Number(data.pieces) || 1);
+// One PDF, one page per physical bag -- mirrors the existing Bluetooth
+// bag-tag behavior (printMarketingTags) instead of a single combined
+// summary tag, so each physical bag gets its own printable label.
+const MarketingTagOnlyPDF = ({ data }: { data: MarketingTagPDFData }) => {
+  const pages = buildBagPages(data);
   return (
     <Document>
-      {Array.from({ length: totalPieces }, (_, i) => (
-        <CargoTagPage key={i} data={data} pieceIndex={i + 1} totalPieces={totalPieces} />
+      {pages.map((bagPage, i) => (
+        <MarketingTagPage key={i} data={data} bagPage={bagPage} />
       ))}
     </Document>
   );
 };
 
-async function buildTagData(data: CargoTagPDFData): Promise<CargoTagPDFData> {
+async function buildTagData(data: MarketingTagPDFData): Promise<MarketingTagPDFData> {
   let result = data;
   if (!result.qrCodeDataUrl) {
     const trackingUrl = `https://ehimultisystems.com/track?ref=${encodeURIComponent(result.id)}`;
@@ -241,7 +262,7 @@ async function buildTagData(data: CargoTagPDFData): Promise<CargoTagPDFData> {
       const qrCodeDataUrl = await QRCode.toDataURL(trackingUrl, { margin: 1, width: 240, errorCorrectionLevel: 'L' });
       result = { ...result, qrCodeDataUrl };
     } catch (e) {
-      console.warn("Failed to generate QR code for tag PDF", e);
+      console.warn("Failed to generate QR code for marketing tag PDF", e);
     }
   }
   if (result.airlineLogoUrl === undefined && result.airline) {
@@ -250,22 +271,16 @@ async function buildTagData(data: CargoTagPDFData): Promise<CargoTagPDFData> {
   return result;
 }
 
-// Opens the tag in a new tab for printing via the browser's native print
-// dialog -- this is the recommended path for the XP-402B and similar
-// gap/die-cut label printers connected over USB, since it goes through
-// the OS's own printer driver rather than raw Bluetooth GATT writes,
-// sidestepping the chunking/speed/corruption issues that come with
-// talking directly to a Bluetooth ESC/POS characteristic.
-export const printCargoTagPDF = async (data: CargoTagPDFData) => {
+export const printMarketingTagPDF = async (data: MarketingTagPDFData) => {
   const withQr = await buildTagData(data);
-  const blob = await pdf(<CargoTagOnlyPDF data={withQr} />).toBlob();
+  const blob = await pdf(<MarketingTagOnlyPDF data={withQr} />).toBlob();
   const url = URL.createObjectURL(blob);
   openPdfOrDownload(url, `EHI-Tag-${data.id}.pdf`);
 };
 
-export const downloadCargoTagPDF = async (data: CargoTagPDFData) => {
+export const downloadMarketingTagPDF = async (data: MarketingTagPDFData) => {
   const withQr = await buildTagData(data);
-  const blob = await pdf(<CargoTagOnlyPDF data={withQr} />).toBlob();
+  const blob = await pdf(<MarketingTagOnlyPDF data={withQr} />).toBlob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

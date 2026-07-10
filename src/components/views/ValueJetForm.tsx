@@ -282,31 +282,32 @@ export const ValueJetForm = ({
           <div className="grid grid-cols-2 gap-2 mb-2">
             <button
               onClick={() => {
-                import('../../lib/escposVJPrinting').then(async (m) => {
-                  // Build the VJReceiptPrintData object
-                  const printData = {
-                    entryRef: s.tx.id,
-                    date: new Date().toLocaleDateString('en-GB'),
-                    originState: user.hub || 'Lagos',
-                    agentName: user.name || 'VJ Agent',
-                    passengerName: s.tx.name,
-                    flight: flightCode,
-                    destination: dest || 'Unknown',
-                    totalPieces: s.pcs,
-                    totalWeightKg: s.kgs,
-                    freeAllowanceKg: vjFreeAllowance,
-                    excessChargeKg: s.exc,
-                    ratePerKg: vjRatePerKg,
-                    amount: s.tx.amount,
-                    paymentMode: s.tx.mode,
-                    trackingUrl: `https://ehimultisystems.com/track/${s.tx.id}`,
-                    paymentNarration: s.tx.paymentNarration,
-                    bankName: s.tx.bank,
-                  };
-                  const bytes = await m.compileVJReceiptStream(printData, '80mm');
-                  const { printViaBluetooth } = await import('../../lib/escpos');
-                  await printViaBluetooth(bytes);
-                });
+                import('../../lib/escpos').then(async ({ printViaBluetooth }) => {
+                  await printViaBluetooth(async () => {
+                    const m = await import('../../lib/escposVJPrinting');
+                    // Build the VJReceiptPrintData object
+                    const printData = {
+                      entryRef: s.tx.id,
+                      date: new Date().toLocaleDateString('en-GB'),
+                      originState: user.hub || 'Lagos',
+                      agentName: user.name || 'VJ Agent',
+                      passengerName: s.tx.name,
+                      flight: flightCode,
+                      destination: dest || 'Unknown',
+                      totalPieces: s.pcs,
+                      totalWeightKg: s.kgs,
+                      freeAllowanceKg: vjFreeAllowance,
+                      excessChargeKg: s.exc,
+                      ratePerKg: vjRatePerKg,
+                      amount: s.tx.amount,
+                      paymentMode: s.tx.mode,
+                      trackingUrl: `https://ehimultisystems.com/track/${s.tx.id}`,
+                      paymentNarration: s.tx.paymentNarration,
+                      bankName: s.tx.bank,
+                    };
+                    return await m.compileVJReceiptStream(printData, '80mm');
+                  });
+                }).catch(() => showToast({ message: 'Bluetooth printer not connected', type: 'error' }));
               }}
               className="py-2.5 bg-[var(--color-accent-cobalt)] text-white text-[11px] font-bold font-mono rounded cursor-pointer flex flex-col justify-center items-center leading-none hover:bg-opacity-95 border-none"
             >
@@ -315,30 +316,31 @@ export const ValueJetForm = ({
             </button>
             <button
               onClick={() => {
-                import('../../lib/escposVJPrinting').then(async (m) => {
-                  const printData = {
-                    entryRef: s.tx.id,
-                    date: new Date().toLocaleDateString('en-GB'),
-                    originState: user.hub || 'Lagos',
-                    agentName: user.name || 'VJ Agent',
-                    passengerName: s.tx.name,
-                    flight: flightCode,
-                    destination: dest || 'Unknown',
-                    totalPieces: s.pcs,
-                    totalWeightKg: s.kgs,
-                    freeAllowanceKg: vjFreeAllowance,
-                    excessChargeKg: s.exc,
-                    ratePerKg: vjRatePerKg,
-                    amount: s.tx.amount,
-                    paymentMode: s.tx.mode,
-                    trackingUrl: `https://ehimultisystems.com/track/${s.tx.id}`,
-                    paymentNarration: s.tx.paymentNarration,
-                    bankName: s.tx.bank,
-                  };
-                  const bytes = await m.compileVJReceiptStream(printData, '58mm');
-                  const { printViaBluetooth } = await import('../../lib/escpos');
-                  await printViaBluetooth(bytes);
-                });
+                import('../../lib/escpos').then(async ({ printViaBluetooth }) => {
+                  await printViaBluetooth(async () => {
+                    const m = await import('../../lib/escposVJPrinting');
+                    const printData = {
+                      entryRef: s.tx.id,
+                      date: new Date().toLocaleDateString('en-GB'),
+                      originState: user.hub || 'Lagos',
+                      agentName: user.name || 'VJ Agent',
+                      passengerName: s.tx.name,
+                      flight: flightCode,
+                      destination: dest || 'Unknown',
+                      totalPieces: s.pcs,
+                      totalWeightKg: s.kgs,
+                      freeAllowanceKg: vjFreeAllowance,
+                      excessChargeKg: s.exc,
+                      ratePerKg: vjRatePerKg,
+                      amount: s.tx.amount,
+                      paymentMode: s.tx.mode,
+                      trackingUrl: `https://ehimultisystems.com/track/${s.tx.id}`,
+                      paymentNarration: s.tx.paymentNarration,
+                      bankName: s.tx.bank,
+                    };
+                    return await m.compileVJReceiptStream(printData, '58mm');
+                  });
+                }).catch(() => showToast({ message: 'Bluetooth printer not connected', type: 'error' }));
               }}
               className="py-2.5 bg-[var(--color-accent-cobalt)] bg-opacity-80 text-white text-[11px] font-bold font-mono rounded cursor-pointer flex flex-col justify-center items-center leading-none hover:bg-opacity-95 border-none"
             >

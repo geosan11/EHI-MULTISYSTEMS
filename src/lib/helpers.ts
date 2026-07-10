@@ -30,6 +30,31 @@ export function getCityName(routeStr: string | null | undefined): string {
   return parts.length > 1 ? parts[1] : routeStr;
 }
 
+// Opens a blob-URL PDF in a new tab for the browser's native print dialog,
+// falling back to a forced download if that fails. window.open() for a
+// blob: URL is unreliable inside an installed PWA's standalone display
+// window -- some platforms throw a SecurityError, others silently return
+// null -- even though the identical call works fine in a normal browser
+// tab. Returns the opened window (if any) so callers that want to
+// auto-trigger print() can do so.
+export function openPdfOrDownload(url: string, filename: string): Window | null {
+  let win: Window | null = null;
+  try {
+    win = window.open(url, '_blank');
+  } catch {
+    win = null;
+  }
+  if (!win) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+  return win;
+}
+
 export const generatePaymentNarration = (hubName: string, serial: string | number): string => {
   let code = getHubCode(hubName);
   const d = new Date();

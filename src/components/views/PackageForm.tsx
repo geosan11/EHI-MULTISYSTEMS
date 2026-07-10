@@ -287,24 +287,25 @@ export const PackageForm = ({
               <div className="grid grid-cols-2 gap-2 mb-2">
                 <button
                   onClick={() => {
-                    import('../../lib/escposPackagePrinting').then(async (m) => {
-                      const printData = {
-                        entryRef: successTx.id,
-                        date: new Date().toLocaleDateString("en-GB"),
-                        agentName: user.name,
-                        customerName: successTx.name,
-                        phone: phone || undefined,
-                        destination,
-                        contentType,
-                        amount: successTx.amount,
-                        paymentMode: successTx.mode,
-                        paymentNarration: successTx.paymentNarration,
-                        bankName: bank || undefined,
-                        trackingUrl: `https://ehimultisystems.com/track/${successTx.id}`,
-                      };
-                      const bytes = await m.compilePackageReceiptStream(printData, '80mm');
-                      const { printViaBluetooth } = await import('../../lib/escpos');
-                      await printViaBluetooth(bytes);
+                    import('../../lib/escpos').then(async ({ printViaBluetooth }) => {
+                      await printViaBluetooth(async () => {
+                        const m = await import('../../lib/escposPackagePrinting');
+                        const printData = {
+                          entryRef: successTx.id,
+                          date: new Date().toLocaleDateString("en-GB"),
+                          agentName: user.name,
+                          customerName: successTx.name,
+                          phone: phone || undefined,
+                          destination,
+                          contentType,
+                          amount: successTx.amount,
+                          paymentMode: successTx.mode,
+                          paymentNarration: successTx.paymentNarration,
+                          bankName: bank || undefined,
+                          trackingUrl: `https://ehimultisystems.com/track/${successTx.id}`,
+                        };
+                        return await m.compilePackageReceiptStream(printData, '80mm');
+                      });
                     }).catch(() => showToast({ message: 'Bluetooth printer not connected', type: 'error' }));
                   }}
                   className="py-2.5 bg-[var(--color-accent-cobalt)] text-white text-[11px] font-bold font-mono rounded cursor-pointer flex flex-col justify-center items-center leading-none hover:bg-opacity-95 border-none"
@@ -315,24 +316,25 @@ export const PackageForm = ({
 
                 <button
                   onClick={() => {
-                    import('../../lib/escposPackagePrinting').then(async (m) => {
-                      const printData = {
-                        entryRef: successTx.id,
-                        date: new Date().toLocaleDateString("en-GB"),
-                        agentName: user.name,
-                        customerName: successTx.name,
-                        phone: phone || undefined,
-                        destination,
-                        contentType,
-                        amount: successTx.amount,
-                        paymentMode: successTx.mode,
-                        paymentNarration: successTx.paymentNarration,
-                        bankName: bank || undefined,
-                        trackingUrl: `https://ehimultisystems.com/track/${successTx.id}`,
-                      };
-                      const bytes = await m.compilePackageReceiptStream(printData, '58mm');
-                      const { printViaBluetooth } = await import('../../lib/escpos');
-                      await printViaBluetooth(bytes);
+                    import('../../lib/escpos').then(async ({ printViaBluetooth }) => {
+                      await printViaBluetooth(async () => {
+                        const m = await import('../../lib/escposPackagePrinting');
+                        const printData = {
+                          entryRef: successTx.id,
+                          date: new Date().toLocaleDateString("en-GB"),
+                          agentName: user.name,
+                          customerName: successTx.name,
+                          phone: phone || undefined,
+                          destination,
+                          contentType,
+                          amount: successTx.amount,
+                          paymentMode: successTx.mode,
+                          paymentNarration: successTx.paymentNarration,
+                          bankName: bank || undefined,
+                          trackingUrl: `https://ehimultisystems.com/track/${successTx.id}`,
+                        };
+                        return await m.compilePackageReceiptStream(printData, '58mm');
+                      });
                     }).catch(() => showToast({ message: 'Bluetooth printer not connected', type: 'error' }));
                   }}
                   className="py-2.5 bg-[var(--color-accent-cobalt)] bg-opacity-80 text-white text-[11px] font-bold font-mono rounded cursor-pointer flex flex-col justify-center items-center leading-none hover:bg-opacity-95 border-none"
@@ -361,6 +363,23 @@ export const PackageForm = ({
                 className="w-full py-3 bg-transparent border border-[rgba(59,130,246,0.3)] rounded-lg cursor-pointer text-[11px] font-bold font-mono text-[var(--color-accent-cobalt)] flex items-center justify-center gap-2"
               >
                 <Printer size={14} /> PRINT RECEIPT (PDF)
+              </button>
+
+              <button
+                onClick={() => {
+                  import('./PackageTagPDF').then(m => m.downloadPackageTagPDF({
+                    id: successTx.id,
+                    name: successTx.name,
+                    destination,
+                    contentType,
+                    hubName: user?.hub || "EHI Cargo Station",
+                    date: new Date().toLocaleDateString("en-GB"),
+                  }));
+                }}
+                className="w-full mt-2 py-3 bg-transparent border border-[rgba(59,130,246,0.3)] rounded-lg cursor-pointer text-[11px] font-bold font-mono text-[var(--color-accent-cobalt)] flex items-center justify-center gap-2"
+                title="Fixed 100mm x 80mm label -- for the XP-402B and similar gap/die-cut label printers"
+              >
+                <Printer size={14} /> TAG PDF (100×80mm LABEL)
               </button>
             </div>
           ) : (

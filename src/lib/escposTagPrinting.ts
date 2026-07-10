@@ -109,8 +109,7 @@ export async function compileCargoTagStream(tx: any, width: '58mm' | '80mm'): Pr
 }
 
 export async function printBluetoothTag(tx: any, width: '58mm' | '80mm'): Promise<void> {
-  const bytes = await compileCargoTagStream(tx, width);
-  await printViaBluetooth(bytes);
+  await printViaBluetooth(() => compileCargoTagStream(tx, width));
 }
 
 // ── MARKETING ROUTING TAGS ──────────────────────────────────────────────────
@@ -236,8 +235,7 @@ export async function printMarketingTags(
   sbCount: number,
   width: '58mm' | '80mm',
 ): Promise<void> {
-  const bytes = await compileMarketingTagStream(tx, bbCount, mbCount, sbCount, width);
-  await printViaBluetooth(bytes);
+  await printViaBluetooth(() => compileMarketingTagStream(tx, bbCount, mbCount, sbCount, width));
 }
 
 // 100mm x 80mm gap/die-cut label format for the XP-402B and similar label
@@ -307,6 +305,5 @@ export async function printGapLabelTag(tx: any): Promise<void> {
     hubName: tx.hubName,
     date: tx.date || new Date().toLocaleDateString('en-GB'),
   };
-  const bytes = await compileGapLabelTag(tagData);
-  await printViaBluetooth(bytes);
+  await printViaBluetooth(() => compileGapLabelTag(tagData));
 }

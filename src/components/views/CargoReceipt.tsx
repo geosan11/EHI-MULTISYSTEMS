@@ -10,7 +10,7 @@ import {
 import QRCode from "qrcode";
 import { EHILogoPDF } from "../EHILogoPDF";
 import { AirlineLogoPDF } from "../AirlineLogoPDF";
-import { getHubCode, getCityName } from "../../lib/helpers";
+import { getHubCode, getCityName, openPdfOrDownload } from "../../lib/helpers";
 import { resolveAirlineLogoUrl } from "../../lib/airlineLogos";
 
 export interface CargoReceiptData {
@@ -471,10 +471,7 @@ export const printCargoReceipt = async (data: CargoReceiptData) => {
   }
   const blob = await pdf(<CargoReceiptOnlyPDF data={data} />).toBlob();
   const url = URL.createObjectURL(blob);
-  const printWindow = window.open(url);
-  if (printWindow) {
-    printWindow.onload = () => {};
-  }
+  openPdfOrDownload(url, `Receipt_${data.entryRef}.pdf`);
 };
 
 export const downloadCargoReceipt = async (data: CargoReceiptData) => {

@@ -1018,7 +1018,7 @@ export const CargoForm = ({
         id: successTx.awb_tag_number || awb,
         name: successTx.name,
         route: successTx.detail.split(" · ")[4] || route,
-        pieceNo: `1 of ${successTx.pieces || parseInt(pcs) || 1}`,
+        pieces: successTx.pieces || parseInt(pcs) || 1,
         weight: successTx.kg || Math.round(parseFloat(kg)),
         airline:
           airline === "Green Africa"
@@ -1231,15 +1231,16 @@ export const CargoForm = ({
           <div className="grid grid-cols-2 gap-3 mb-3">
             <button
               onClick={() => {
-                import('../../lib/escposCargoReceiptPrinting').then(async (m) => {
-                  const thermalPrintData = {
-                    ...printData,
-                    trackingUrl: `https://ehimultisystems.com/track/${successTx.id}`,
-                  };
-                  const bytes = await m.compileCargoReceiptStream(thermalPrintData, '80mm');
-                  const { printViaBluetooth } = await import('../../lib/escpos');
-                  await printViaBluetooth(bytes);
-                });
+                import('../../lib/escpos').then(async ({ printViaBluetooth }) => {
+                  await printViaBluetooth(async () => {
+                    const m = await import('../../lib/escposCargoReceiptPrinting');
+                    const thermalPrintData = {
+                      ...printData,
+                      trackingUrl: `https://ehimultisystems.com/track/${successTx.id}`,
+                    };
+                    return await m.compileCargoReceiptStream(thermalPrintData, '80mm');
+                  });
+                }).catch(() => showToast({ message: 'Bluetooth printer not connected', type: 'error' }));
               }}
               className="py-2.5 bg-[var(--color-accent-amber)] hover:bg-opacity-95 text-[#0D1117] text-[12px] font-bold font-sans rounded-[var(--radius-sm)] shadow-[var(--shadow-button)] transition-opacity cursor-pointer focus:outline-none border-none flex flex-col items-center justify-center leading-tight"
             >
@@ -1248,15 +1249,16 @@ export const CargoForm = ({
             </button>
             <button
               onClick={() => {
-                import('../../lib/escposCargoReceiptPrinting').then(async (m) => {
-                  const thermalPrintData = {
-                    ...printData,
-                    trackingUrl: `https://ehimultisystems.com/track/${successTx.id}`,
-                  };
-                  const bytes = await m.compileCargoReceiptStream(thermalPrintData, '58mm');
-                  const { printViaBluetooth } = await import('../../lib/escpos');
-                  await printViaBluetooth(bytes);
-                });
+                import('../../lib/escpos').then(async ({ printViaBluetooth }) => {
+                  await printViaBluetooth(async () => {
+                    const m = await import('../../lib/escposCargoReceiptPrinting');
+                    const thermalPrintData = {
+                      ...printData,
+                      trackingUrl: `https://ehimultisystems.com/track/${successTx.id}`,
+                    };
+                    return await m.compileCargoReceiptStream(thermalPrintData, '58mm');
+                  });
+                }).catch(() => showToast({ message: 'Bluetooth printer not connected', type: 'error' }));
               }}
               className="py-2.5 bg-[var(--color-accent-amber)] hover:bg-opacity-85 text-[#0D1117] text-[12px] font-bold font-sans rounded-[var(--radius-sm)] shadow-[var(--shadow-button)] transition-opacity cursor-pointer focus:outline-none border-none flex flex-col items-center justify-center leading-tight"
             >

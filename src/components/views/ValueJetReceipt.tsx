@@ -11,6 +11,7 @@ import QRCode from "qrcode";
 import { EHILogoPDF } from "../EHILogoPDF";
 import { AirlineLogoPDF } from "../AirlineLogoPDF";
 import { resolveAirlineLogoUrl } from "../../lib/airlineLogos";
+import { openPdfOrDownload } from "../../lib/helpers";
 
 export interface VJReceiptData {
   entryRef: string;
@@ -291,7 +292,7 @@ export const printVJReceipt = async (data: VJReceiptData): Promise<void> => {
   }
   const blob = await pdf(<VJReceiptPDF data={data} />).toBlob();
   const url = URL.createObjectURL(blob);
-  const win = window.open(url, "_blank");
+  const win = openPdfOrDownload(url, `Receipt_${data.entryRef}.pdf`);
   if (win) win.print();
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 };
