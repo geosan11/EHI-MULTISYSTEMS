@@ -3,8 +3,10 @@ import { Transaction, User } from '../../lib/types';
 import { fmt } from '../../lib/helpers';
 import { ChevronDown, ChevronUp, Printer, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useToast } from '../../lib/ToastContext';
 
 export const DebtorsTab = ({ transactions = [], user, onUpdateTx }: { transactions?: Transaction[], user?: User, onUpdateTx?: (id: string, update: Partial<Transaction>) => void }) => {
+  const { showToast } = useToast();
   const [filter, setFilter] = useState<'All' | 'Corporate' | 'Individual'>('All');
   const [sort, setSort] = useState<'Highest Amount' | 'Oldest First' | 'Newest First' | 'Alphabetical'>('Highest Amount');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -91,7 +93,10 @@ export const DebtorsTab = ({ transactions = [], user, onUpdateTx }: { transactio
     const debt = debts.find(d => d.id === id);
     if (!debt) return;
     const paidNow = parseFloat(paymentAmount);
-    if (!paidNow || paidNow <= 0) return;
+    if (!paidNow || paidNow <= 0) {
+      showToast({ message: 'Enter a payment amount greater than zero.', type: 'warning' });
+      return;
+    }
     const cappedPaid = Math.min(paidNow, debt.balance);
     const newAmountPaid = (debt as any).amountPaid ? (debt as any).amountPaid + cappedPaid : cappedPaid;
     const historyEntry = { amount: cappedPaid, mode: paymentMode, by: user?.name || 'Unknown', at: new Date().toISOString() };
@@ -359,7 +364,9 @@ export const DebtorsTab = ({ transactions = [], user, onUpdateTx }: { transactio
                                        <label htmlFor={`payment-amount-${d.id}`} className="text-[11px] font-sans text-[var(--color-muted)] block mb-1">Amount ₦</label>
                                        <input
                                          id={`payment-amount-${d.id}`}
+                                         name={`payment-amount-${d.id}`}
                                          type="number"
+                                         min="0"
                                          value={paymentAmount}
                                          onChange={e => setPaymentAmount(e.target.value)}
                                          placeholder={d.balance.toString()}

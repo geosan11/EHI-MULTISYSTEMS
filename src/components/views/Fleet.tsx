@@ -117,7 +117,7 @@ export const Fleet = ({ onBack, user }: { onBack: () => void; user?: User }) => 
 
   const handleAddFuel = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fuelPlate || !litres) return;
+    if (!fuelPlate || !(Number(litres) > 0) || !(Number(costPerLitre) > 0)) return;
     const payload = {
       vehicle_plate: fuelPlate, litres: Number(litres),
       cost_per_litre: Number(costPerLitre), station,
@@ -314,11 +314,11 @@ export const Fleet = ({ onBack, user }: { onBack: () => void; user?: User }) => 
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <label htmlFor="fleet-fuel-litres" className="text-[9px] font-mono text-[var(--color-muted)] uppercase">Litres</label>
-                  <input id="fleet-fuel-litres" required type="number" value={litres} onChange={e => setLitres(e.target.value)} placeholder="e.g. 45" className="w-full ehi-input text-[12px]" />
+                  <input id="fleet-fuel-litres" name="fleet-fuel-litres" required type="number" min="0.01" step="0.01" value={litres} onChange={e => setLitres(e.target.value)} placeholder="e.g. 45" className="w-full ehi-input text-[12px]" />
                 </div>
                 <div className="space-y-1">
                   <label htmlFor="fleet-fuel-rate" className="text-[9px] font-mono text-[var(--color-muted)] uppercase">Rate/L (₦)</label>
-                  <input id="fleet-fuel-rate" type="number" value={costPerLitre} onChange={e => setCostPerLitre(e.target.value)} className="w-full ehi-input text-[12px]" />
+                  <input id="fleet-fuel-rate" name="fleet-fuel-rate" required type="number" min="0.01" step="0.01" value={costPerLitre} onChange={e => setCostPerLitre(e.target.value)} className="w-full ehi-input text-[12px]" />
                 </div>
               </div>
               <div className="space-y-1">

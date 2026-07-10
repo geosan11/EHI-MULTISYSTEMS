@@ -7,6 +7,7 @@ import { DebtorsTab } from './DebtorsTab';
 import { ExpensesTab } from './ExpensesTab';
 import { BankReconciliation } from './BankReconciliation';
 import { PaymentValidation } from './PaymentValidation';
+import { useToast } from '../../lib/ToastContext';
 
 export interface AccountingConsoleProps {
   user: User;
@@ -21,6 +22,7 @@ export interface AccountingConsoleProps {
 }
 
 export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddExpense, onUpdateExpense, onUpdateTx, onOpenBankRecon, onFullUpdateTx }: AccountingConsoleProps) => {
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<'Summary' | 'Cash Register' | 'Credit Sales' | 'Expenses' | 'Remittances' | 'Payment Validation'>('Summary');
   const [period, setPeriod] = useState<'Today' | 'This Week' | 'This Month' | 'Custom'>('Today');
   const [customStart, setCustomStart] = useState(new Date().toISOString().split('T')[0]);
@@ -168,33 +170,37 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
 
   const handleSetOpening = async () => {
     const val = parseFloat(openingInput);
-    if (!isNaN(val)) {
-      setOpeningBalance(val);
-      setShowOpeningModal(false);
-      await supabase.from('eod_records').upsert({
-        hub_id: user.hub_id,
-        hub: user.hub,
-        date: regDate,
-        opening_balance: val,
-        status: 'open'
-      }, { onConflict: 'hub_id,date' });
+    if (isNaN(val) || val < 0) {
+      showToast({ message: 'Enter a valid opening balance of 0 or more.', type: 'warning' });
+      return;
     }
+    setOpeningBalance(val);
+    setShowOpeningModal(false);
+    await supabase.from('eod_records').upsert({
+      hub_id: user.hub_id,
+      hub: user.hub,
+      date: regDate,
+      opening_balance: val,
+      status: 'open'
+    }, { onConflict: 'hub_id,date' });
   };
 
   const handleLockRegister = async () => {
     const val = parseFloat(physicalInput);
-    if (!isNaN(val)) {
-      setPhysicalCount(val);
-      setIsLocked(true);
-      await supabase.from('eod_records').upsert({
-        hub_id: user.hub_id,
-        hub: user.hub,
-        date: regDate,
-        opening_balance: openingBalance,
-        physical_count: val,
-        status: 'locked'
-      }, { onConflict: 'hub_id,date' });
+    if (isNaN(val) || val < 0) {
+      showToast({ message: 'Enter a valid physical cash count of 0 or more.', type: 'warning' });
+      return;
     }
+    setPhysicalCount(val);
+    setIsLocked(true);
+    await supabase.from('eod_records').upsert({
+      hub_id: user.hub_id,
+      hub: user.hub,
+      date: regDate,
+      opening_balance: openingBalance,
+      physical_count: val,
+      status: 'locked'
+    }, { onConflict: 'hub_id,date' });
   };
 
   // Scoped to the register's own date (regDate), not the whole history --
@@ -395,8 +401,11 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
              <div className="bg-[var(--color-surface-card)] rounded-xl border border-[var(--color-border)] p-5 animate-in fade-in zoom-in-95">
                <h3 className="text-[16px] font-sans font-bold text-[var(--color-foreground)] mb-2">Set Opening Balance</h3>
                <p className="text-[13px] font-sans text-[var(--color-muted)] mb-4">Enter the cash carried over from yesterday's closing count.</p>
-               <input 
+               <input
+                 id="opening-balance"
+                 name="opening-balance"
                  type="number"
+                 min="0"
                  placeholder="e.g. 15000"
                  value={openingInput}
                  onChange={e => setOpeningInput(e.target.value)}
@@ -469,7 +478,9 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
                          <label htmlFor="eod-physical-cash-count" className="text-[13px] font-sans text-[var(--color-muted)] block mb-2">EOD Physical Cash Count</label>
                          <input
                            id="eod-physical-cash-count"
+                           name="eod-physical-cash-count"
                            type="number"
+                           min="0"
                            placeholder="Enter actual cash in till"
                            value={physicalInput}
                            onChange={e => setPhysicalInput(e.target.value)}

@@ -1414,6 +1414,8 @@ export const CargoForm = ({
                   </select>
                   {consignee === "Other" && (
                     <input
+                      id="retail-custom-consignee"
+                      name="custom-consignee"
                       placeholder="Enter Consignee Name"
                       value={customConsignee}
                       onChange={(e) => setCustomConsignee(e.target.value)}
@@ -1421,6 +1423,8 @@ export const CargoForm = ({
                     />
                   )}
                   <input
+                    id="retail-consignee-phone"
+                    name="consignee-phone"
                     type="tel"
                     placeholder="Include country code for foreign customers (e.g. +44, +1, +233)"
                     value={consigneePhone}
@@ -1445,6 +1449,8 @@ export const CargoForm = ({
                 </select>
                 {airline === "Other" && (
                   <input
+                    id="retail-custom-airline"
+                    name="custom-airline"
                     placeholder="Enter new airline name"
                     value={customAirline}
                     onChange={(e) => setCustomAirline(e.target.value)}
@@ -1456,6 +1462,8 @@ export const CargoForm = ({
               <div>
                 {renderLabel(Hash, "AWB / Tag No (Auto-generated)")}
                 <input
+                  id="retail-awb"
+                  name="awb"
                   type="text"
                   value={awb || "Loading…"}
                   readOnly
@@ -1468,6 +1476,8 @@ export const CargoForm = ({
                 <div className="flex-1">
                   {renderLabel(Package, "Pcs")}
                   <input
+                    id="retail-pcs"
+                    name="pcs"
                     type="number"
                     min="1"
                     value={pcs}
@@ -1478,6 +1488,8 @@ export const CargoForm = ({
                 <div className="flex-1">
                   {renderLabel(Package, "KG")}
                   <input
+                    id="retail-kg"
+                    name="kg"
                     type="number"
                     step="1"
                     min="1"
@@ -1558,7 +1570,10 @@ export const CargoForm = ({
                     ₦
                   </span>
                   <input
+                    id="retail-amount"
+                    name="amount"
                     type="number"
+                    min="0"
                     value={effectiveAmount}
                     onChange={(e) => setAmount(e.target.value)}
                     onBlur={() => {
@@ -1660,6 +1675,8 @@ export const CargoForm = ({
               <div>
                 {renderLabel(MessageSquare, "Remark (Optional)")}
                 <input
+                  id="retail-remark"
+                  name="remark"
                   placeholder="Add notes..."
                   value={remark}
                   onChange={(e) => setRemark(e.target.value)}
@@ -1673,6 +1690,8 @@ export const CargoForm = ({
                   "Sender Phone — WhatsApp Receipt (Optional)",
                 )}
                 <input
+                  id="retail-sender-phone"
+                  name="sender-phone"
                   type="tel"
                   placeholder="Include country code for foreign customers (e.g. +44, +1, +233)"
                   value={senderPhone}

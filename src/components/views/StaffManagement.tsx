@@ -411,7 +411,7 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
               </div>
               <div>
                 <label htmlFor="staff-create-phone" className="ehi-label">Phone Number (optional)</label>
-                <input id="staff-create-phone" value={form.phone} onChange={e => setForm(f => ({...f, phone: e.target.value}))} placeholder="+234 800 000 0000" className="ehi-input" />
+                <input id="staff-create-phone" name="staff-create-phone" type="tel" value={form.phone} onChange={e => setForm(f => ({...f, phone: e.target.value}))} placeholder="+234 800 000 0000" className="ehi-input" />
               </div>
 
               {error && (
@@ -456,6 +456,8 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
                 <label htmlFor="staff-edit-phone" className="ehi-label">Phone Number</label>
                 <input
                   id="staff-edit-phone"
+                  name="staff-edit-phone"
+                  type="tel"
                   value={editingStaff.phone || ''}
                   onChange={e => setEditingStaff(s => s ? {...s, phone: e.target.value} : null)}
                   placeholder="+234 800 000 0000"

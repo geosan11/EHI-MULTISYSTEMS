@@ -79,24 +79,30 @@ export const ResetPasswordScreen = ({ onDone }: { onDone: () => void }) => {
                 Choose a new password for your account.
               </div>
 
-              <label className="text-[12px] font-sans font-semibold text-[var(--color-light-muted)]">
+              <label htmlFor="reset-new-password" className="text-[12px] font-sans font-semibold text-[var(--color-light-muted)]">
                 New password
               </label>
               <input
+                id="reset-new-password"
+                name="new-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
                 autoFocus
                 className="w-full h-12 px-4 mt-1.5 mb-4 text-[16px] rounded-[var(--radius-sm)] bg-[var(--color-input-bg)] text-[var(--color-input-text)] border border-[var(--color-border)] font-sans focus:outline-none focus:border-[var(--color-accent-amber)]"
               />
 
-              <label className="text-[12px] font-sans font-semibold text-[var(--color-light-muted)]">
+              <label htmlFor="reset-confirm-password" className="text-[12px] font-sans font-semibold text-[var(--color-light-muted)]">
                 Confirm new password
               </label>
               <input
+                id="reset-confirm-password"
+                name="confirm-password"
                 type="password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
+                autoComplete="new-password"
                 className="w-full h-12 px-4 mt-1.5 mb-4 text-[16px] rounded-[var(--radius-sm)] bg-[var(--color-input-bg)] text-[var(--color-input-text)] border border-[var(--color-border)] font-sans focus:outline-none focus:border-[var(--color-accent-amber)]"
               />
 

@@ -120,8 +120,10 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
         {/* Form */}
         <form onSubmit={handleSubmit} className="w-full space-y-4">
           <div className="space-y-1.5">
-            <label className="text-[13px] font-sans font-medium text-[var(--color-light-muted)]">Email Address</label>
+            <label htmlFor="login-email" className="text-[13px] font-sans font-medium text-[var(--color-light-muted)]">Email Address</label>
             <input
+              id="login-email"
+              name="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -132,8 +134,10 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-[13px] font-sans font-medium text-[var(--color-light-muted)]">Password</label>
+            <label htmlFor="login-password" className="text-[13px] font-sans font-medium text-[var(--color-light-muted)]">Password</label>
             <input
+              id="login-password"
+              name="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -199,10 +203,13 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                 ) : (
                   <form onSubmit={handleForgotPassword} className="space-y-3">
                     <input
+                      id="reset-email"
+                      name="email"
                       type="email"
                       value={resetEmail}
                       onChange={(e) => setResetEmail(e.target.value)}
                       placeholder="you@ehimultisystems.com"
+                      autoComplete="email"
                       autoFocus
                       className="w-full h-11 px-3 text-sm rounded-lg bg-[var(--color-surface-1)] text-[var(--color-foreground)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent-amber)]"
                     />

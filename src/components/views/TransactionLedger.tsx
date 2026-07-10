@@ -166,6 +166,15 @@ export const TransactionLedger = ({
 
   const handleSaveEdit = () => {
     if (!editingTx) return;
+    if (
+      editingTx.amount < 0 ||
+      (editingTx.pieces ?? 0) < 0 ||
+      (editingTx.kg ?? 0) < 0 ||
+      editBagCounts.bb < 0 || editBagCounts.mb < 0 || editBagCounts.sb < 0
+    ) {
+      showToast({ message: 'Amount, pieces, weight, and bag counts cannot be negative.', type: 'warning' });
+      return;
+    }
     // Details fields (name, route, pieces, weight, etc.) are edited as
     // discrete fields, but `detail` is the composed string the rest of the
     // app (ledger rows, receipts) displays -- rebuild it here so the
@@ -1215,7 +1224,10 @@ export const TransactionLedger = ({
                         Pieces
                       </label>
                       <input
+                        id="edit-tx-pieces"
+                        name="edit-tx-pieces"
                         type="number"
+                        min="0"
                         value={editingTx.pieces ?? ''}
                         onChange={(e) => setEditingTx({ ...editingTx, pieces: parseInt(e.target.value) || 0 })}
                         className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)]"
@@ -1226,7 +1238,10 @@ export const TransactionLedger = ({
                         Weight (KG)
                       </label>
                       <input
+                        id="edit-tx-kg"
+                        name="edit-tx-kg"
                         type="number"
+                        min="0"
                         value={editingTx.kg ?? ''}
                         onChange={(e) => setEditingTx({ ...editingTx, kg: parseFloat(e.target.value) || 0 })}
                         className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)]"
@@ -1312,7 +1327,10 @@ export const TransactionLedger = ({
                         Big Bags
                       </label>
                       <input
+                        id="edit-tx-bb"
+                        name="edit-tx-bb"
                         type="number"
+                        min="0"
                         value={editBagCounts.bb}
                         onChange={(e) => setEditBagCounts({ ...editBagCounts, bb: parseInt(e.target.value) || 0 })}
                         className="w-full h-10 px-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[14px] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
@@ -1323,7 +1341,10 @@ export const TransactionLedger = ({
                         Med Bags
                       </label>
                       <input
+                        id="edit-tx-mb"
+                        name="edit-tx-mb"
                         type="number"
+                        min="0"
                         value={editBagCounts.mb}
                         onChange={(e) => setEditBagCounts({ ...editBagCounts, mb: parseInt(e.target.value) || 0 })}
                         className="w-full h-10 px-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[14px] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
@@ -1334,7 +1355,10 @@ export const TransactionLedger = ({
                         Small Bags
                       </label>
                       <input
+                        id="edit-tx-sb"
+                        name="edit-tx-sb"
                         type="number"
+                        min="0"
                         value={editBagCounts.sb}
                         onChange={(e) => setEditBagCounts({ ...editBagCounts, sb: parseInt(e.target.value) || 0 })}
                         className="w-full h-10 px-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[14px] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
@@ -1353,7 +1377,10 @@ export const TransactionLedger = ({
                   Amount (₦)
                 </label>
                 <input
+                  id="edit-tx-amount"
+                  name="edit-tx-amount"
                   type="number"
+                  min="0"
                   value={editingTx.amount}
                   onChange={(e) =>
                     setEditingTx({

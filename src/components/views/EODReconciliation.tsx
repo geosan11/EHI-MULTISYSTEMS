@@ -311,9 +311,12 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
             return (
               <div key={k} className="flex items-center space-x-3">
                 <div className="w-16 text-right text-[12px] font-mono text-[var(--color-muted)]">₦{val} x</div>
-                <input 
-                  type="number" 
-                  value={denoms[k as keyof typeof denoms]} 
+                <input
+                  id={`eod-denom-${k}`}
+                  name={`eod-denom-${k}`}
+                  type="number"
+                  min="0"
+                  value={denoms[k as keyof typeof denoms]}
                   onChange={e => setDenoms({...denoms, [k]: e.target.value})}
                   className="ehi-input"
                   placeholder="0"
@@ -336,7 +339,9 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
             <div className="relative">
               <input
                 id="eod-physical-cash"
+                name="eod-physical-cash"
                 type="number"
+                min="0"
                 value={countedCash}
                 onChange={e => setCountedCash(e.target.value === '' ? '' : Number(e.target.value))}
                 className={inputClass}
@@ -354,7 +359,9 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
             <label htmlFor="eod-bank-transfer" className="ehi-label">Bank Transfer Verified</label>
             <input
               id="eod-bank-transfer"
+              name="eod-bank-transfer"
               type="number"
+              min="0"
               value={countedTransfer}
               onChange={e => setCountedTransfer(e.target.value === '' ? '' : Number(e.target.value))}
               className={inputClass}
@@ -365,7 +372,9 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
             <label htmlFor="eod-pos-total" className="ehi-label">POS Z-Report Total</label>
             <input
               id="eod-pos-total"
+              name="eod-pos-total"
               type="number"
+              min="0"
               value={countedPOS}
               onChange={e => setCountedPOS(e.target.value === '' ? '' : Number(e.target.value))}
               className={inputClass}
