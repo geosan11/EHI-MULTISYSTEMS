@@ -29,8 +29,11 @@ export async function compilePackageReceiptStream(data: PackageReceiptPrintData,
   chunks.push(encoder.encode("PACKAGE / PARCEL RECEIPT\n\n"));
   chunks.push(new Uint8Array(BOLD_OFF), new Uint8Array(TEXT_NORMAL));
 
-  chunks.push(await qrAsRaster(data.trackingUrl, width === '58mm' ? 260 : 280));
-  chunks.push(encoder.encode('\n\n'));
+  // QR dropped on 58mm -- keeps the receipt shorter/faster to print.
+  if (width !== '58mm') {
+    chunks.push(await qrAsRaster(data.trackingUrl, 280));
+    chunks.push(encoder.encode('\n\n'));
+  }
 
   chunks.push(new Uint8Array(LEFT));
   chunks.push(encoder.encode(divider(maxChars)));

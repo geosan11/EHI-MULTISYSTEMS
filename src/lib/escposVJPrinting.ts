@@ -27,7 +27,19 @@ export interface VJReceiptPrintData {
 
 export async function compileVJReceiptStream(data: VJReceiptPrintData, width: '58mm' | '80mm'): Promise<Uint8Array> {
   const maxChars = width === '58mm' ? 32 : 48;
-  const chunks: Uint8Array[] = [new Uint8Array(INIT), ...(await brandingHeader())];
+  const chunks: Uint8Array[] = [new Uint8Array(INIT)];
+  if (width === '58mm') {
+    // Plain text header instead of the rasterized EHI logo image -- keeps
+    // the 58mm receipt shorter and faster to print; the airline logo below
+    // still identifies the airline visually.
+    chunks.push(new Uint8Array(CENTER));
+    chunks.push(new Uint8Array(BOLD_ON));
+    chunks.push(encoder.encode("EHI MULTISYSTEMS NIGERIA LIMITED\n"));
+    chunks.push(new Uint8Array(BOLD_OFF));
+    chunks.push(encoder.encode('\n'));
+  } else {
+    chunks.push(...(await brandingHeader()));
+  }
 
   const airlineRaster = await getAirlineLogoRaster('ValueJet', width === '58mm' ? 100 : 130);
   if (airlineRaster) {
@@ -44,8 +56,12 @@ export async function compileVJReceiptStream(data: VJReceiptPrintData, width: '5
   chunks.push(new Uint8Array(BOLD_OFF), new Uint8Array(TEXT_NORMAL));
   chunks.push(encoder.encode(`ValueJet Counter - ${data.originState}\n\n`));
 
-  chunks.push(await qrAsRaster(data.trackingUrl, width === '58mm' ? 260 : 280));
-  chunks.push(encoder.encode('\n\n'));
+  // QR dropped on 58mm -- keeps the receipt shorter/faster to print; the
+  // ref number below is still there for manual lookup/tracking.
+  if (width !== '58mm') {
+    chunks.push(await qrAsRaster(data.trackingUrl, 280));
+    chunks.push(encoder.encode('\n\n'));
+  }
   chunks.push(new Uint8Array(LEFT));
   chunks.push(encoder.encode(divider(maxChars)));
   chunks.push(encoder.encode(fieldRow('REF:', data.entryRef, maxChars)));
