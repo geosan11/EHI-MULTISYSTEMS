@@ -1232,8 +1232,8 @@ export const TransactionLedger = ({
       {/* Edit Modal Dialog */}
       {editingTx && (
         <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in" onClick={() => setEditingTx(null)}>
-          <div className="bg-[var(--color-surface-card)] border border-[var(--color-surface-2)] rounded-xl w-full max-w-sm shadow-xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="p-4 border-b border-[var(--color-border)] flex justify-between items-center bg-[var(--color-surface-card)]">
+          <div className="bg-[var(--color-surface-card)] border border-[var(--color-surface-2)] rounded-xl w-full max-w-sm max-h-[85vh] sm:max-h-[90vh] shadow-xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-[var(--color-border)] flex justify-between items-center bg-[var(--color-surface-card)] shrink-0">
               <h3 className="font-bold font-sans text-[var(--color-foreground)]">
                 Edit Transaction
               </h3>
@@ -1245,7 +1245,7 @@ export const TransactionLedger = ({
               </button>
             </div>
 
-            <div className="p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
               <div className="text-[12px] font-mono text-[var(--color-muted)] bg-[var(--color-border)] p-2 rounded">
                 Ref:{" "}
                 <span className="text-[var(--color-foreground)]">
@@ -1559,7 +1559,7 @@ export const TransactionLedger = ({
               </div>
             </div>
 
-            <div className="p-4 border-t border-[var(--color-border)] bg-[var(--color-surface-card)] flex justify-end">
+            <div className="p-4 border-t border-[var(--color-border)] bg-[var(--color-surface-card)] flex justify-end shrink-0">
               <button
                 onClick={handleSaveEdit}
                 className="h-9 px-4 bg-[var(--color-success)] hover:bg-emerald-600 text-[var(--color-obsidian)] font-bold font-sans text-[13px] rounded-lg cursor-pointer flex items-center gap-1.5 transition-colors"
