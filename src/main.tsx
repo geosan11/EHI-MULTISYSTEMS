@@ -63,9 +63,18 @@ window.addEventListener('vite:preloadError', () => {
 // This is the standard Workbox-recommended pattern: reload once, the
 // moment the new SW takes over.
 if ('serviceWorker' in navigator) {
+  // Only reload on a genuine update -- i.e. this tab was already controlled
+  // by a service worker before this listener was attached. On a first-ever
+  // install, clientsClaim() hands control of this same, still-loading page
+  // to the new SW too, which fires this exact same 'controllerchange' event
+  // -- reloading then just restarts the cold-start fetch/parse for no
+  // reason, doubling load time on precisely the slow mobile connections
+  // where that hurts most (and can land the reload mid-fetch on a flaky
+  // connection, making the app appear to fail to open at all).
+  const wasAlreadyControlled = !!navigator.serviceWorker.controller;
   let refreshingAfterSWUpdate = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (refreshingAfterSWUpdate) return;
+    if (!wasAlreadyControlled || refreshingAfterSWUpdate) return;
     refreshingAfterSWUpdate = true;
     window.location.reload();
   });

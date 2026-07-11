@@ -244,49 +244,72 @@ export async function updateStaffProfile(
   }
 }
 
+async function getSessionInner(): Promise<UserProfile | null> {
+  const { data, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !data?.session) return null;
+
+  const { data: profile, error } = await supabase
+    .from('user_profiles')
+    .select(`
+      id,
+      email,
+      name,
+      role,
+      hub_type,
+      active,
+      hub_id,
+      can_print_ledger,
+      hubs (
+        name,
+        code,
+        type
+      )
+    `)
+    .eq('id', data.session.user.id)
+    .single();
+
+  const prof: any = profile;
+
+  if (error || !profile) {
+    return null;
+  }
+
+  // A deactivated account is blocked at signIn() time, but that alone
+  // doesn't revoke an already-issued refresh token -- without this check,
+  // reopening the app or a new tab in an already-signed-in session let a
+  // deactivated staffer straight back in, no fresh sign-in required. Tear
+  // the session down here too, matching signIn()'s handling.
+  if (!profile.active) {
+    await supabase.auth.signOut();
+    return null;
+  }
+
+  return {
+    id: profile.id,
+    email: data.session.user.email || profile.email || '',
+    name: profile.name,
+    role: profile.role,
+    hub: Array.isArray(prof.hubs) ? prof.hubs[0]?.name : (prof.hubs?.name || 'Unknown Hub'),
+    hub_code: Array.isArray(prof.hubs) ? prof.hubs[0]?.code : (prof.hubs?.code || 'HQ'),
+    hubType: profile.hub_type || (Array.isArray(prof.hubs) ? prof.hubs[0]?.type : prof.hubs?.type) || 'Cargo Station',
+    hub_id: profile.hub_id,
+    active: profile.active,
+    can_print_ledger: profile.can_print_ledger ?? false,
+  } as any;
+}
+
 export async function getSession(): Promise<UserProfile | null> {
   try {
-    const { data, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !data?.session) return null;
-
-    const { data: profile, error } = await supabase
-      .from('user_profiles')
-      .select(`
-        id,
-        email,
-        name,
-        role,
-        hub_type,
-        active,
-        hub_id,
-        can_print_ledger,
-        hubs (
-          name,
-          code,
-          type
-        )
-      `)
-      .eq('id', data.session.user.id)
-      .single();
-
-    const prof: any = profile;
-
-    if (error || !profile) {
-      return null;
-    }
-
-    return {
-      id: profile.id,
-      email: data.session.user.email || profile.email || '',
-      name: profile.name,
-      role: profile.role,
-      hub: Array.isArray(prof.hubs) ? prof.hubs[0]?.name : (prof.hubs?.name || 'Unknown Hub'),
-      hub_code: Array.isArray(prof.hubs) ? prof.hubs[0]?.code : (prof.hubs?.code || 'HQ'),
-      hubType: profile.hub_type || (Array.isArray(prof.hubs) ? prof.hubs[0]?.type : prof.hubs?.type) || 'Cargo Station',
-      hub_id: profile.hub_id,
-      active: profile.active,
-      can_print_ledger: profile.can_print_ledger ?? false,
-    } as any;
+    // Neither Supabase call below carries a client-side timeout, so a
+    // stalled mobile connection could leave AuthenticatedApp's loading
+    // spinner (App.tsx) spinning forever with no fallback. Race against a
+    // timeout the same way fetchAndApplyServerConfig already does for
+    // /api/config, so a bad connection degrades to the login screen
+    // instead of an infinite spinner.
+    return await Promise.race([
+      getSessionInner(),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000)),
+    ]);
   } catch (err) {
     console.error('Failed to get session:', err);
     return null;

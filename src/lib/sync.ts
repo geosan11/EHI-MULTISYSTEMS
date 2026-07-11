@@ -112,6 +112,22 @@ export async function cleanupOldQueue(): Promise<void> {
     .delete();
 }
 
+// TripPing's local (Dexie) shape is camelCase (tripId/timestamp/latitude/
+// longitude) to match lib/types.ts, but public.trip_pings uses trip_id/
+// created_at/lat/lng and has no speed column at all -- upserting the raw
+// local object verbatim would fail with "could not find column 'tripId'
+// in schema cache" even after the id is a valid uuid.
+function tripPingToSupabaseRow(ping: Record<string, any>): Record<string, unknown> {
+  return {
+    id: ping.id,
+    trip_id: ping.tripId,
+    lat: ping.latitude,
+    lng: ping.longitude,
+    accuracy: ping.accuracy,
+    created_at: ping.timestamp,
+  };
+}
+
 // manifests has no free_allowance_kg/rate_per_kg columns -- a caller
 // briefly wrote them here (fixed since), so any record queued before that
 // fix still carries them baked into its stored payload. Without this,
@@ -191,6 +207,8 @@ export async function processSyncQueue(): Promise<number> {
     try {
       let supabasePayload = item.table_name === 'proof_of_delivery'
         ? podToSupabaseRow(item.payload as unknown as ProofOfDelivery)
+        : item.table_name === 'trip_pings'
+        ? tripPingToSupabaseRow(item.payload as any)
         : { ...(item.payload as any) };
       if (item.table_name === 'marketing_entries' || item.table_name === 'cargo_entries' || item.table_name === 'manifests' || item.table_name === 'package_entries') {
         delete supabasePayload.id;

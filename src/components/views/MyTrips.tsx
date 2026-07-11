@@ -235,7 +235,11 @@ export const MyTrips = ({ user }: { user: User }) => {
   useEffect(() => {
     const handleLocation = async (tripId: string, pos: GeolocationPosition) => {
       const ping: TripPing = {
-        id: 'PING-' + Date.now().toString(36).toUpperCase(),
+        // trip_pings.id is a uuid PRIMARY KEY in Supabase -- a client-side
+        // 'PING-...' string made every sync upsert fail permanently with
+        // "invalid input syntax for type uuid", so GPS pings never reached
+        // the server at all.
+        id: crypto.randomUUID(),
         tripId,
         timestamp: new Date().toISOString(),
         latitude: pos.coords.latitude,
