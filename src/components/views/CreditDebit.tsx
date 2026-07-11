@@ -31,11 +31,14 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
           if (rawCommissions) setCommissions(JSON.parse(rawCommissions));
         }
 
-        // Fetch Debts (all time)
+        // Fetch Debts (all time -- a debt from months ago can still be
+        // outstanding, so this can't be date-bounded the way Credits is
+        // below. Capped at 1000 most-recent rows per table instead of
+        // truly unbounded, which grows every month forever with no ceiling.
         const [cargoDebts, vjDebts, mktDebts] = await Promise.all([
-          addHubFilter(supabase.from('cargo_entries').select('*').eq('receipt_mode', 'Debt')),
-          addHubFilter(supabase.from('manifests').select('*').eq('payment_mode', 'Debt')),
-          addHubFilter(supabase.from('marketing_entries').select('*').eq('payment_mode', 'Debt'))
+          addHubFilter(supabase.from('cargo_entries').select('*').eq('receipt_mode', 'Debt').order('created_at', { ascending: false }).limit(1000)),
+          addHubFilter(supabase.from('manifests').select('*').eq('payment_mode', 'Debt').order('created_at', { ascending: false }).limit(1000)),
+          addHubFilter(supabase.from('marketing_entries').select('*').eq('payment_mode', 'Debt').order('created_at', { ascending: false }).limit(1000))
         ]);
 
         const mappedDebts: Transaction[] = [];

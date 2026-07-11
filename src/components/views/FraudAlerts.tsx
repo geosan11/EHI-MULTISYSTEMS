@@ -95,10 +95,15 @@ export const FraudAlerts = ({
         }
 
         // Rule 4: Debt spike — consignees with total outstanding debt > ₦50,000
+        // Can't date-bound this the way other rules are (old debt is still
+        // real debt), so capped at 1000 most-recent rows instead of a truly
+        // unbounded fetch that grows every month with no ceiling.
         const { data: debtData } = await supabase
           .from('cargo_entries')
           .select('consignee_name, amount')
-          .eq('receipt_mode', 'Debt');
+          .eq('receipt_mode', 'Debt')
+          .order('created_at', { ascending: false })
+          .limit(1000);
 
         if (debtData && debtData.length > 0) {
           const debtByConsignee: Record<string, number> = {};
