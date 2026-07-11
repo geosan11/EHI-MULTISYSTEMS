@@ -227,6 +227,24 @@ export async function validateScan(
       };
     } */
 
+    // Delivered is a terminal state -- nothing checked it, so an
+    // already-delivered item could be rescanned ARRIVE and silently
+    // revert cargo_entries.status from Delivered back to Arrived.
+    if (lastAnyForArrive?.event_type === 'DELIVER') {
+      return {
+        type: 'ALREADY_PROCESSED',
+        cargo: cargoInfo,
+        lastEvent: {
+          type: 'DELIVER',
+          hub: lastAnyForArrive.hub_name,
+          time: new Date(lastAnyForArrive.created_at).toLocaleString('en-NG'),
+          by: lastAnyForArrive.scanned_by_name || 'Unknown',
+        },
+        currentHub,
+        message: `This cargo has already been delivered. It cannot be scanned as arrived again.`
+      };
+    }
+
     // Check if cargo belongs here (final dest or valid transit)
     if (!isCorrectDestination) {
       const isTransit = await isValidTransitHub(currentHub, destination, currentHub);
@@ -287,6 +305,26 @@ export async function validateScan(
     // Check if cargo has an ARRIVE record at this hub
     const arriveEvent = await getLastEventAtHub(ref, currentHub);
     const lastAny = await getLastEventAnywhere(ref);
+
+    // Delivered is a terminal state -- the earlier check here only looked
+    // at whether THIS hub's last event was ARRIVE, which stays true
+    // forever even after a later DELIVER elsewhere, so an already-
+    // delivered item could be rescanned DEPART and revert its status
+    // back to In-Transit.
+    if (lastAny?.event_type === 'DELIVER') {
+      return {
+        type: 'ALREADY_PROCESSED',
+        cargo: cargoInfo,
+        lastEvent: {
+          type: 'DELIVER',
+          hub: lastAny.hub_name,
+          time: new Date(lastAny.created_at).toLocaleString('en-NG'),
+          by: lastAny.scanned_by_name || 'Unknown',
+        },
+        currentHub,
+        message: `This cargo has already been delivered. It cannot be scanned as departed again.`
+      };
+    }
 
     // Relaxed constraint: if it's the very first event ever, allow it to DEPART (e.g. from origin)
     if (!lastAny && (!arriveEvent || arriveEvent.event_type !== 'ARRIVE')) {
@@ -429,14 +467,35 @@ export async function resolveWrongDestinationAlert(
 // new consignment, since a reused tag means two different shipments share
 // tracking history and can't be told apart.
 export async function isTagAlreadyDelivered(ref: string): Promise<boolean> {
+  const cleanRef = ref.trim().toUpperCase();
+  const safeRef = cleanRef.replace(/"/g, '');
+
   const { data } = await supabase
     .from('tracking_events')
     .select('id')
-    .eq('cargo_ref', ref.trim().toUpperCase())
+    .eq('cargo_ref', cleanRef)
     .eq('event_type', 'DELIVER')
     .limit(1)
     .maybeSingle();
-  return !!data;
+  if (data) return true;
+
+  // Belt-and-suspenders: tracking_events.cargo_ref records whichever
+  // identifier was actually scanned at delivery time (entry_ref OR
+  // awb_tag_number -- both are valid lookups), so a shipment delivered
+  // under its entry_ref is invisible to the check above when this
+  // function is later called with just its awb_tag_number, the common
+  // case here (checking a manually-typed physical AWB for reuse before a
+  // new corporate intake is finalized). cargo_entries.status is kept in
+  // sync with the same DELIVER scan regardless of which identifier was
+  // used (see logScanEvent), so checking it directly closes that gap.
+  const { data: cargoMatch } = await supabase
+    .from('cargo_entries')
+    .select('entry_ref')
+    .or(`entry_ref.eq."${safeRef}",awb_tag_number.eq."${safeRef}"`)
+    .eq('status', 'Delivered')
+    .limit(1)
+    .maybeSingle();
+  return !!cargoMatch;
 }
 
 // Log a successful scan event
@@ -468,9 +527,16 @@ export async function logScanEvent(
   let senderPhone      = '';
   let pin: string | undefined;
 
-  const cargoHit = await supabase.from('cargo_entries').select('entry_ref, consignee_name, consignee_phone, sender_phone, pickup_pin').eq('entry_ref', ref).limit(1).maybeSingle();
+  // Matches by EITHER identifier, same as fetchCargoByRef (used for
+  // validation) -- this previously only matched entry_ref, so scanning by
+  // the physical awb_tag_number (the common case for a manually-typed
+  // corporate AWB) found no row here at all, and cargo_entries.status
+  // silently never updated even though the tracking_events row and
+  // customer notification both fired normally.
+  const safeRef = ref.replace(/"/g, '');
+  const cargoHit = await supabase.from('cargo_entries').select('entry_ref, consignee_name, consignee_phone, sender_phone, pickup_pin').or(`entry_ref.eq."${safeRef}",awb_tag_number.eq."${safeRef}"`).limit(1).maybeSingle();
   if (cargoHit.data) {
-    await supabase.from('cargo_entries').update({ status: newStatus }).eq('entry_ref', ref);
+    await supabase.from('cargo_entries').update({ status: newStatus }).eq('entry_ref', cargoHit.data.entry_ref);
     consigneeName  = cargoHit.data.consignee_name || '';
     consigneePhone = cargoHit.data.consignee_phone || '';
     senderPhone    = cargoHit.data.sender_phone || '';
