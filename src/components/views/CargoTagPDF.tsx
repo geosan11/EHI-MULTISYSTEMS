@@ -115,6 +115,14 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
     color: "#111827",
   },
+  // Consignee and Weight are the two fields a handler needs at a glance
+  // besides the route -- sized close to routeValue (15) instead of the
+  // regular fieldValue (9) used for secondary fields like Hub.
+  fieldValueLarge: {
+    fontSize: 13,
+    fontFamily: "Helvetica-Bold",
+    color: "#111827",
+  },
   pieceBadge: {
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
@@ -158,6 +166,14 @@ const styles = StyleSheet.create({
 // page per piece -- react-pdf's default (wrap=true) would otherwise silently
 // spill overflowing content onto an extra, unlabeled page for a single fixed-
 // size 100x80mm label, which makes no sense on a die-cut label printer.
+// Because wrap is off, nothing reflows to a second page if content runs
+// long -- it just gets clipped. Consignee is the one field here with
+// unbounded length, so it's truncated to a width that's guaranteed to fit
+// fieldValueLarge (13pt bold) on a single line within leftCol, rather than
+// risking a wrapped second line pushing the footer off the fixed page.
+const truncateForTag = (str: string, max: number) =>
+  str.length > max ? str.slice(0, max - 1).trimEnd() + "…" : str;
+
 const CargoTagPage = ({
   data,
   pieceIndex,
@@ -195,7 +211,7 @@ const CargoTagPage = ({
         <View style={styles.fieldRow}>
           <View style={styles.fieldBlock}>
             <Text style={styles.fieldLabel}>Weight</Text>
-            <Text style={styles.fieldValue}>{data.weight} KG</Text>
+            <Text style={styles.fieldValueLarge}>{data.weight} KG</Text>
           </View>
           <View style={styles.fieldBlock}>
             <Text style={styles.fieldLabel}>Hub</Text>
@@ -206,7 +222,7 @@ const CargoTagPage = ({
         <View style={styles.fieldRow}>
           <View style={styles.fieldBlock}>
             <Text style={styles.fieldLabel}>Consignee</Text>
-            <Text style={styles.fieldValue}>{data.name || "—"}</Text>
+            <Text style={styles.fieldValueLarge}>{truncateForTag(data.name || "—", 20)}</Text>
           </View>
         </View>
       </View>
@@ -240,7 +256,7 @@ const CargoTagOnlyPDF = ({ data }: { data: CargoTagPDFData }) => {
 async function buildTagData(data: CargoTagPDFData): Promise<CargoTagPDFData> {
   let result = data;
   if (!result.qrCodeDataUrl) {
-    const trackingUrl = `https://ehimultisystems.com/track?ref=${encodeURIComponent(result.id)}`;
+    const trackingUrl = `https://app.ehimultisystems.com/track?ref=${encodeURIComponent(result.id)}`;
     try {
       const qrCodeDataUrl = await QRCode.toDataURL(trackingUrl, { margin: 1, width: 240, errorCorrectionLevel: 'L' });
       result = { ...result, qrCodeDataUrl };
