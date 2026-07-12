@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { ArrowLeft, Package, CheckCircle, RefreshCw, Loader, History } from 'lucide-react';
 import { isTagAlreadyDelivered, logScanEvent } from '../../lib/scanLogic';
 import { ProofOfDeliveryForm } from './ProofOfDelivery';
+import { useToast } from '../../lib/ToastContext';
 
 type MainTab = 'AWAITING' | 'DELIVERED' | 'LOG';
 type DateFilter = 'today' | 'yesterday' | '7days';
@@ -50,6 +51,7 @@ function DateChips({ value, onChange }: { value: DateFilter; onChange: (f: DateF
 }
 
 export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void }) => {
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<MainTab>('AWAITING');
   const [cargoList, setCargoList] = useState<any[]>([]);
   const [logList, setLogList] = useState<any[]>([]);
@@ -75,8 +77,19 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
 
   const isAdmin = ['super_admin', 'admin'].includes(user.role);
 
+  // Both fetchCargo/fetchLog are triggered by the filter-change effect below
+  // AND called imperatively (handlePodComplete's refresh, tab switches) --
+  // a plain effect-scoped `active` flag can't cover imperative calls, so a
+  // shared generation counter is used instead: each call claims the next
+  // generation up front, and only applies its result if it's still the
+  // latest one by the time the query resolves. Without this, fast filter
+  // clicking (Today -> Yesterday -> 7 days) could let an older, slower
+  // response land after a newer one and show the wrong filter's data.
+  const fetchGenRef = useRef(0);
+
   // ── Fetch AWAITING or DELIVERED ──────────────────────────────────────────
   const fetchCargo = async () => {
+    const myGen = ++fetchGenRef.current;
     setLoading(true);
     try {
       if (activeTab === 'AWAITING') {
@@ -88,6 +101,7 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
           .order('created_at', { ascending: false });
         if (!isAdmin && user.hub_id) q = q.eq('hub_id', user.hub_id) as any;
         const { data, error } = await q;
+        if (fetchGenRef.current !== myGen) return;
         if (!error && data) setCargoList(data);
       } else {
         const range = getDateRange(deliveredFilter);
@@ -102,17 +116,20 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
         if (range.end) q = q.lt('pin_used_at', range.end) as any;
         if (!isAdmin && user.hub_id) q = q.eq('hub_id', user.hub_id) as any;
         const { data, error } = await q;
+        if (fetchGenRef.current !== myGen) return;
         if (!error && data) setCargoList(data);
       }
     } catch (err) {
+      if (fetchGenRef.current !== myGen) return;
       console.error('Arrivals fetch error:', err);
     } finally {
-      setLoading(false);
+      if (fetchGenRef.current === myGen) setLoading(false);
     }
   };
 
   // ── Fetch ARRIVAL LOG from tracking_events ───────────────────────────────
   const fetchLog = async () => {
+    const myGen = ++fetchGenRef.current;
     setLoading(true);
     try {
       const range = getDateRange(logFilter);
@@ -134,6 +151,7 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
       }
 
       const { data: events, error } = await q;
+      if (fetchGenRef.current !== myGen) return;
       if (error || !events) { setLoading(false); return; }
 
       // Batch-fetch consignee names for the unique cargo refs
@@ -147,11 +165,13 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
         nameMap = Object.fromEntries((entries || []).map((c: any) => [c.entry_ref, c.consignee_name]));
       }
 
+      if (fetchGenRef.current !== myGen) return;
       setLogList(events.map((e: any) => ({ ...e, consignee_name: nameMap[e.cargo_ref] || null })));
     } catch (err) {
+      if (fetchGenRef.current !== myGen) return;
       console.error('Arrival log fetch error:', err);
     } finally {
-      setLoading(false);
+      if (fetchGenRef.current === myGen) setLoading(false);
     }
   };
 
@@ -220,18 +240,26 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
     if (!activePodCapture) return;
     const { ref, cargo } = activePodCapture;
     try {
-      await supabase.from('cargo_entries').update({
+      const { error } = await supabase.from('cargo_entries').update({
         status: 'Delivered',
         pin_used_at: new Date().toISOString(),
         released_by: user.id && user.id.length > 30 ? user.id : null,
       }).eq('entry_ref', ref);
+      if (error) throw error;
 
       // Route through the shared scan-logging path so this gets the same
       // single tracking_events row, status sync, and consignee/sender SMS
       // notification as a DELIVER done via the QR scanner.
       await logScanEvent(ref, 'DELIVER', user.hub, user.name, cargo.route);
-    } catch (err) {
+    } catch (err: any) {
+      // The signature/photo was already physically captured -- staff need
+      // to know this did NOT finalize server-side. Previously this only
+      // logged to the console and silently closed the capture screen as if
+      // it had succeeded, risking cargo handed over but never marked
+      // Delivered, or a pickup PIN never marked used (reusable again).
       console.error('Failed to finalize delivery after signature capture:', err);
+      showToast({ message: `Signature captured, but finalizing delivery failed: ${err.message || 'unknown error'}. Try again -- do not hand over cargo a second time.`, type: 'error' });
+      return;
     }
     setActivePodCapture(null);
     setSelectedCargo(null);

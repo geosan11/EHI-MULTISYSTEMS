@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   ArrowLeft,
   Plus,
@@ -12,6 +12,7 @@ import { supabase } from '../../lib/supabase';
 import { User } from '../../lib/types';
 import { listAirlineLogos } from '../../lib/airlineLogos';
 import { fmt } from '../../lib/helpers';
+import { useToast } from '../../lib/ToastContext';
 
 const FALLBACK_AIRLINES = [
   'Arik Air',
@@ -89,6 +90,7 @@ function computeSummary(rows: LedgerRow[]): BalanceSummary {
 }
 
 export const AirlineLedger = ({ user, onBack }: { user: User; onBack: () => void }) => {
+  const { showToast } = useToast();
   const [airlines, setAirlines] = useState<string[]>(FALLBACK_AIRLINES);
   const [selectedAirline, setSelectedAirline] = useState<string>(FALLBACK_AIRLINES[0]);
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
@@ -114,7 +116,14 @@ export const AirlineLedger = ({ user, onBack }: { user: User; onBack: () => void
     });
   }, []);
 
+  // loadEntries is triggered both by the selectedAirline-change effect below
+  // AND imperatively (the Refresh button, and handleSubmit's post-save
+  // reload) -- a generation counter covers both call shapes, so fast
+  // tab-switching between airlines can't let an older, slower fetch land
+  // after a newer one and show one airline's entries under another's tab.
+  const loadEntriesGenRef = useRef(0);
   const loadEntries = async (airline: string) => {
+    const myGen = ++loadEntriesGenRef.current;
     setLoading(true);
     const { data } = await supabase
       .from('airline_ledger_entries')
@@ -122,6 +131,7 @@ export const AirlineLedger = ({ user, onBack }: { user: User; onBack: () => void
       .eq('airline', airline)
       .order('entry_date', { ascending: true })
       .order('created_at', { ascending: true });
+    if (loadEntriesGenRef.current !== myGen) return;
     setEntries((data as LedgerEntry[]) || []);
     setLoading(false);
   };
@@ -171,7 +181,12 @@ export const AirlineLedger = ({ user, onBack }: { user: User; onBack: () => void
     const parsed = parseFloat(amount);
     if (!parsed || parsed <= 0 || !description.trim()) return;
     setSubmitting(true);
-    await supabase.from('airline_ledger_entries').insert({
+    // Result was previously discarded entirely -- a failed insert (RLS
+    // rejection, network blip) left staff believing a credit/debit/cheque
+    // had been recorded against this airline when it hadn't, silently
+    // corrupting the reconciliation. Now checked, and the form is kept
+    // open with its values intact on failure so the entry isn't lost.
+    const { error } = await supabase.from('airline_ledger_entries').insert({
       airline: selectedAirline,
       entry_type: entryType,
       amount: parsed,
@@ -182,12 +197,16 @@ export const AirlineLedger = ({ user, onBack }: { user: User; onBack: () => void
       hub: user.hub,
       entered_by: user.name,
     });
+    setSubmitting(false);
+    if (error) {
+      showToast({ message: `Failed to record entry: ${error.message}`, type: 'error' });
+      return;
+    }
     setAmount('');
     setDescription('');
     setReference('');
     setEntryDate(todayISO());
     setEntryType('Credit');
-    setSubmitting(false);
     setFormOpen(false);
     await loadEntries(selectedAirline);
     await loadAllBalances(airlines);
