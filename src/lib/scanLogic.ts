@@ -213,6 +213,26 @@ export async function validateScan(
     remark: cargo.remark || null,
   };
 
+  // ValueJet excess-baggage tickets (manifests) are a point-of-sale
+  // transaction, not a tracked shipment -- ValueJetForm sets status:
+  // 'Delivered' directly at creation with no ARRIVE/DEPART scan and no
+  // tracking_events row ever written. The terminal-state DELIVER guard
+  // below already blocks a DELIVER scan on these (no ARRIVE record can
+  // ever exist), but ARRIVE/DEPART's "first-ever scan" allowance (for
+  // legitimate origin-hub cargo) doesn't know the difference -- scanning a
+  // VJ ticket's QR in either mode was reachable via the Scanner (no type
+  // gate blocks it) and would create a bogus tracking_events row, revert
+  // manifests.status from 'Delivered' back to 'Arrived'/'In-Transit', and
+  // could fire a stray arrival/departure SMS to the passenger.
+  if (cargo._table === 'manifests' && (mode === 'ARRIVE' || mode === 'DEPART')) {
+    return {
+      type: 'ERROR',
+      cargo: cargoInfo,
+      currentHub,
+      message: `${awb} is a ValueJet excess-baggage ticket, already paid and delivered at the counter -- it doesn't use ARRIVE/DEPART scanning.`,
+    };
+  }
+
   // 2. Normalize hub name for comparison
   // "Murtala Air Cargo Station" → check if destination contains "Lagos" or "Murtala"
   const hubWords = currentHub.toLowerCase().split(' ');
