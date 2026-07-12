@@ -547,7 +547,15 @@ export const TransactionLedger = ({
   const rowVirtualizer = useVirtualizer({
     count: filteredEntries.length,
     getScrollElement: () => tableRef.current,
-    estimateSize: () => 56,
+    // 56 was a rough guess and undershoots real rows -- the Customer/Detail
+    // cell can wrap onto 2-3 lines depending on content length, so actual
+    // rows run closer to 70-90px. Without measureElement wired below (via
+    // the <tr> ref), the virtualizer never corrects for that drift: its
+    // estimated total height ends up smaller than the real rendered
+    // content, so getVirtualItems() can under-fill the scroll container
+    // and leave later rows unreachable even though they're still in
+    // filteredEntries.
+    estimateSize: () => 72,
     overscan: 10,
   });
 
@@ -858,6 +866,8 @@ export const TransactionLedger = ({
                   return (
                   <tr
                     key={e.id}
+                    ref={rowVirtualizer.measureElement}
+                    data-index={virtualRow.index}
                     onClick={() => setViewingDetail(e)}
                     className="border-b border-[var(--color-border)] hover:bg-[var(--color-border)] transition-colors cursor-pointer group"
                   >
