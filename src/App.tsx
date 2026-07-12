@@ -111,6 +111,29 @@ const PublicTrackingPage = () => {
       return;
     }
 
+    // Check Package Entries (Package/Parcel desk)
+    // No weight/piece count -- this stream is flat-fee, the schema never
+    // tracked those. contentType shows 'Package' or 'Parcel' instead.
+    const { data: pkg } = await supabase
+      .from('package_entries')
+      .select('entry_ref, customer_name, destination, content_type, status')
+      .eq('entry_ref', query)
+      .limit(1);
+
+    if (pkg && pkg.length > 0) {
+      const p = pkg[0];
+      setResult({
+        id: p.entry_ref,
+        name: p.customer_name,
+        route: p.destination,
+        contentType: p.content_type,
+        status: p.status || 'Intake'
+      });
+      fetchTimeline(p.entry_ref);
+      setLoading(false);
+      return;
+    }
+
     setResult(null);
     setLoading(false);
   };

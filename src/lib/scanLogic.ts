@@ -60,6 +60,16 @@ export async function fetchCargoByRef(ref: string, localTransactions?: any[]): P
 
   if (mktData) return { ...mktData, _table: 'marketing_entries' };
 
+  // Try package_entries (Package/Parcel desk)
+  const { data: pkgData } = await supabase
+    .from('package_entries')
+    .select('*')
+    .eq('entry_ref', cleanRef)
+    .limit(1)
+    .maybeSingle();
+
+  if (pkgData) return { ...pkgData, _table: 'package_entries' };
+
   return null;
 }
 
@@ -553,6 +563,17 @@ export async function logScanEvent(
         await supabase.from('marketing_entries').update({ status: newStatus }).eq('entry_ref', ref);
         consigneeName  = mktHit.data.customer_name || '';
         consigneePhone = mktHit.data.customer_phone || '';
+      } else {
+        // Package/Parcel desk has no phone column yet -- consigneePhone
+        // stays empty here, so no scan-status SMS fires for this stream
+        // until a phone column is added (PackageForm.tsx already collects
+        // a phone number for the immediate WhatsApp receipt at intake, but
+        // never persists it -- a separate follow-up if SMS on scan is wanted).
+        const pkgHit = await supabase.from('package_entries').select('entry_ref, customer_name').eq('entry_ref', ref).limit(1).maybeSingle();
+        if (pkgHit.data) {
+          await supabase.from('package_entries').update({ status: newStatus }).eq('entry_ref', ref);
+          consigneeName = pkgHit.data.customer_name || '';
+        }
       }
     }
   }

@@ -198,7 +198,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           addHubFilter(supabase.from('cargo_entries').select(`entry_ref,consignee_name,airline,commission_rate,awb_tag_number,total_pcs,total_kg,route,content_type,amount,receipt_mode,created_at,status,bank,hub_id,amount_paid,payment_history${canSeePin ? ',pickup_pin' : ''}`).gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
           addHubFilter(supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs,amount_paid,payment_history').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
           addHubFilter(supabase.from('marketing_entries').select('entry_ref,customer_name,route,qty_big_bag,qty_med_bag,qty_small_bag,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,user_profiles(name),debt_amount_paid,payment_history').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
-          addHubFilter(supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,created_at,hub_id').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
+          addHubFilter(supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,status,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,created_at,hub_id').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
           addHubFilter(supabase.from('expenses').select('*').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500))
         ]);
 
@@ -297,7 +297,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               mode: r.payment_mode || 'Cash',
               time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
               type: 'package',
-              status: 'Intake',
+              status: r.status || 'Intake',
               created_at: r.created_at,
               bank: r.bank,
               hub_id: r.hub_id,
@@ -663,6 +663,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         customer_name: tx.name,
         destination: tx.destination || '',
         content_type: (tx as any).contentType || 'Package',
+        status: tx.status || 'Intake',
         amount: tx.amount,
         payment_mode: tx.mode,
         bank: tx.bank,
