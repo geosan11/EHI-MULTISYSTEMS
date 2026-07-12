@@ -81,7 +81,7 @@ export const PackageForm = ({
 
   useEffect(() => {
     if ((mode === "Transfer" || mode === "POS") && !narrationCode) {
-      setNarrationCode(generatePaymentNarration(user.hub_code || user.hub, Math.floor(Math.random() * 900) + 100));
+      setNarrationCode(generatePaymentNarration(user.hub_code || user.hub, Math.floor(Math.random() * 9000) + 1000));
     }
   }, [mode, narrationCode, user.hub, user.hub_code]);
 

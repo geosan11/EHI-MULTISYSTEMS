@@ -109,6 +109,13 @@ export function openPdfOrDownload(url: string, filename: string, preOpenedWindow
   return win;
 }
 
+// serial is a caller-supplied value used purely to keep same-day narration
+// codes at the same hub visually distinct for staff manually matching a
+// bank-transfer alert to a sale -- it's not a database key, so it isn't
+// worth an atomic server-side sequence the way AWB numbers are. Padded to
+// 4 digits (was 3, a 900-value space) since a busy hub can plausibly issue
+// enough same-day Transfer/POS transactions for a 3-digit random serial to
+// collide (birthday-paradox: ~50% odds after ~36 draws in one day).
 export const generatePaymentNarration = (hubName: string, serial: string | number): string => {
   let code = getHubCode(hubName);
   const d = new Date();
@@ -117,7 +124,7 @@ export const generatePaymentNarration = (hubName: string, serial: string | numbe
     (d.getMonth() + 1).toString().padStart(2, '0'),
     d.getDate().toString().padStart(2, '0')
   ].join('');
-  const ser = serial.toString().padStart(3, '0');
+  const ser = serial.toString().padStart(4, '0');
   return `EHI-${code}-${yymmdd}-${ser}`;
 };
 

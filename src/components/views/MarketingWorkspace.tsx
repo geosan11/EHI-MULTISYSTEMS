@@ -122,7 +122,7 @@ export const MarketingWorkspace = ({
         setNarrationCode(
           generatePaymentNarration(
             user.hub_code || user.hub,
-            Math.floor(Math.random() * 900) + 100,
+            Math.floor(Math.random() * 9000) + 1000,
           ),
         );
       });
