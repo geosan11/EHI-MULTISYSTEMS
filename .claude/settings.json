@@ -42,7 +42,24 @@
       "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:3000\" -UseBasicParsing -TimeoutSec 5; Write-Output \"Status: $\\($r.StatusCode\\), Length: $\\($r.Content.Length\\)\" } catch { Write-Output \"ERROR: $\\($_.Exception.Message\\)\" })",
       "Bash(node _ui_review_fix.mjs)",
       "PowerShell($env:PATH += \";C:\\\\Program Files\\\\nodejs\"; npm run lint 2>&1 | Tee-Object -FilePath \"$env:TEMP\\\\claude\\\\lint-output-b.txt\")",
-      "PowerShell($env:PATH += \";C:\\\\Program Files\\\\nodejs\"; npm run lint 2>&1 | Tee-Object -FilePath \"$env:TEMP\\\\claude\\\\lint-output-b2.txt\")"
+      "PowerShell($env:PATH += \";C:\\\\Program Files\\\\nodejs\"; npm run lint 2>&1 | Tee-Object -FilePath \"$env:TEMP\\\\claude\\\\lint-output-b2.txt\")",
+      "Bash(node _verify_new_tags.mjs)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" --max-time 5 http://localhost:3000/)",
+      "Bash(node _verify_receipt_changes.mjs)",
+      "Bash(rm -f _verify_receipt_changes.mjs)",
+      "Bash(npm uninstall *)",
+      "Bash(git --no-pager diff -- src/lib/escposCargoReceiptPrinting.ts src/lib/escposPackagePrinting.ts src/lib/escposVJPrinting.ts src/lib/escposMarketingPrinting.ts)",
+      "Bash(jobs)",
+      "Bash(exit 0)",
+      "Bash(node -e ' *)",
+      "Bash(cat node_modules/qrcode/lib/browser.js)",
+      "Bash(node -e \"console.log\\(require\\('fs'\\).readFileSync\\('./node_modules/qrcode/lib/browser.js','utf8'\\)\\)\")",
+      "Bash(xargs grep -l \"<input\")",
+      "Bash(xargs grep -l \"<input\\\\|<select\\\\|<textarea\")",
+      "Bash(python \"C:\\\\Users\\\\Hp\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Hp-Documents-GitHub-EHI-MULTISYSTEMS\\\\f9eadc0d-32fc-49dc-89df-9b825a558551\\\\scratchpad\\\\check_setters.py\")",
+      "Bash(sed -i \"s/encoding='utf-8'/encoding='utf-8', errors='replace'/\" \"C:\\\\Users\\\\Hp\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Hp-Documents-GitHub-EHI-MULTISYSTEMS\\\\f9eadc0d-32fc-49dc-89df-9b825a558551\\\\scratchpad\\\\check_setters.py\")",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/@supabase/supabase-js/package.json'\\).version\\)\")",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/@supabase/auth-js/package.json'\\).version\\)\")"
     ]
   }
 }
