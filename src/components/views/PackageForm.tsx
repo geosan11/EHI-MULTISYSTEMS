@@ -179,6 +179,16 @@ export const PackageForm = ({
     setMode("Cash");
     setNarrationCode("");
     setSuccessTx(null);
+    // Cleared synchronously, not just reassigned once the RPC below
+    // resolves -- setSuccessTx(null) above immediately returns to the
+    // enterable form, but trackingRef previously stayed equal to the
+    // JUST-USED ref until the new one arrived. isValid only checks
+    // !!trackingRef (truthy), not freshness, so a fast agent (or a slow/
+    // failed RPC) could submit a second entry during that window with the
+    // same tracking ref as the first -- package_entries is upserted on
+    // entry_ref (sync.ts), so the second submission silently overwrote the
+    // first one's row, losing a sale that was already collected.
+    setTrackingRef('');
     const hubCodeReset = getHubCode(user.hub_code || user.hub);
     supabase.rpc('next_awb_number', { p_hub_code: `${hubCodeReset}-PKG` }).then(({ data: seq, error }) => {
       if (!error && seq) {
