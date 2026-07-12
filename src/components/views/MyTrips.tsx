@@ -4,6 +4,7 @@ import { uid, tnow } from '../../lib/helpers';
 import { db } from '../../lib/db';
 import { Truck, Plus, ChevronDown, ChevronUp, MapPin } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useToast } from '../../lib/ToastContext';
 
 const NIGERIAN_HUBS = [
   'Lagos HQ', 'Abuja Station',
@@ -177,6 +178,7 @@ const getTodayKey = () =>
   `ehi_driver_trips_${new Date().toISOString().split('T')[0]}`;
 
 export const MyTrips = ({ user }: { user: User }) => {
+  const { showToast } = useToast();
   const TRIPS_KEY = getTodayKey();
 
   const [trips, setTrips] = useState<DriverTrip[]>(() => {
@@ -358,7 +360,12 @@ export const MyTrips = ({ user }: { user: User }) => {
     setNotes('');
     setGpsEnabled(false);
 
-    await supabase.from('driver_trips').insert({
+    // Local state above is the source of truth for this driver's own screen
+    // (trips are cached to localStorage, offline-first by design), but a
+    // failed sync here means Dispatch/fleet-tracking on OTHER devices never
+    // sees this trip at all -- previously silent (result discarded
+    // entirely), so nothing told the driver a retry was needed.
+    const { error: tripInsertError } = await supabase.from('driver_trips').insert({
       id: trip.id,
       driver_id: user.id,
       driver_name: user.name,
@@ -372,6 +379,9 @@ export const MyTrips = ({ user }: { user: User }) => {
       cargo_refs: trip.cargoRefs,
       gps_enabled: trip.gpsTrackingEnabled,
     });
+    if (tripInsertError) {
+      showToast({ message: `Trip saved on this device, but failed to sync to the server: ${tripInsertError.message}. Dispatch won't see it until this succeeds.`, type: 'error' });
+    }
   };
 
   const handleCompleteTrip = async (tripId: string) => {
@@ -380,21 +390,27 @@ export const MyTrips = ({ user }: { user: User }) => {
         ? { ...t, status: 'Completed', arrivalTime: tnow(), gpsTrackingEnabled: false }
         : t
     ));
-    await supabase.from('driver_trips').update({
+    const { error } = await supabase.from('driver_trips').update({
       status: 'Completed',
       arrival_time: new Date().toISOString(),
       gps_enabled: false
     }).eq('id', tripId);
+    if (error) {
+      showToast({ message: `Trip marked complete here, but failed to sync to the server: ${error.message}.`, type: 'error' });
+    }
   };
 
   const handleCancelTrip = async (tripId: string) => {
     setTrips(prev => prev.map(t =>
       t.id === tripId ? { ...t, status: 'Cancelled', gpsTrackingEnabled: false } : t
     ));
-    await supabase.from('driver_trips').update({
+    const { error } = await supabase.from('driver_trips').update({
       status: 'Cancelled',
       gps_enabled: false
     }).eq('id', tripId);
+    if (error) {
+      showToast({ message: `Trip cancelled here, but failed to sync to the server: ${error.message}.`, type: 'error' });
+    }
   };
 
 

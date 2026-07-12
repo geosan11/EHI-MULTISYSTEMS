@@ -3,6 +3,7 @@ import { User } from '../../lib/types';
 import { ArrowLeft, MessageSquarePlus, CheckCircle2, Circle, Clock, MessageSquare, Loader2 } from 'lucide-react';
 import { fmt, tnow } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
+import { useToast } from '../../lib/ToastContext';
 
 export interface Ticket {
   id: string;
@@ -16,6 +17,7 @@ export interface Ticket {
 }
 
 export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => void }) => {
+  const { showToast } = useToast();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [priority, setPriority] = useState<'normal' | 'high' | 'critical'>('normal');
@@ -79,7 +81,7 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
     setSubject('');
     setDescription('');
 
-    await supabase.from('support_tickets').insert({
+    const { error } = await supabase.from('support_tickets').insert({
       id: newId,
       user_id: user.id,
       user_name: user.name,
@@ -90,6 +92,9 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
       priority,
       status: 'open'
     });
+    if (error) {
+      showToast({ message: `Ticket shown here, but failed to reach support: ${error.message}. It won't be visible to admins until this is retried.`, type: 'error' });
+    }
     setPriority('normal');
   };
 
@@ -113,7 +118,10 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
       updatePayload.resolved_at = new Date().toISOString();
       updatePayload.resolved_by = user.name;
     }
-    await supabase.from('support_tickets').update(updatePayload).eq('id', id);
+    const { error } = await supabase.from('support_tickets').update(updatePayload).eq('id', id);
+    if (error) {
+      showToast({ message: `Status updated here, but failed to save: ${error.message}.`, type: 'error' });
+    }
   };
 
   return (

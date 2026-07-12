@@ -725,13 +725,23 @@ export const CargoForm = ({
       // every time the client list refreshed from Supabase (which always
       // overwrote it back to 0). Billing balances need to survive a page
       // reload, not just the current browser session.
+      // The try/catch alone only caught thrown exceptions (network
+      // failures) -- Supabase returns a DB-level error (RLS rejection,
+      // etc.) as a normal {error} value without throwing, so that class of
+      // failure was silently swallowed and the client's real debt total
+      // would quietly drift from what's shown here. The transaction itself
+      // (onAddTx above) already succeeded either way, so this only warns
+      // rather than blocking -- but staff need to know to reconcile
+      // accumulated_monthly_debt manually if it fails.
       try {
-        await supabase
+        const { error: debtUpdateError } = await supabase
           .from('corporate_clients')
           .update({ accumulated_monthly_debt: newDebtTotal })
           .eq('id', matchingClientObj.id);
-      } catch (err) {
+        if (debtUpdateError) throw debtUpdateError;
+      } catch (err: any) {
         console.error('Failed to persist corporate client debt to Supabase', err);
+        showToast({ message: `Transaction saved, but ${matchingClientObj.company_name}'s debt balance failed to update on the server: ${err.message || 'unknown error'}. Reconcile manually.`, type: 'error' });
       }
     }
 
