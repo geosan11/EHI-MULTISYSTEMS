@@ -11,7 +11,7 @@ import QRCode from "qrcode";
 import { EHILogoPDF } from "../EHILogoPDF";
 import { AirlineLogoPDF } from "../AirlineLogoPDF";
 import { resolveAirlineLogoUrl } from "../../lib/airlineLogos";
-import { openPdfOrDownload } from "../../lib/helpers";
+import { openPdfOrDownload, estimateWrappedLines } from "../../lib/helpers";
 import { notifySilentError } from "../../lib/ToastContext";
 
 export interface BaggageReceiptData {
@@ -128,12 +128,30 @@ const styles = StyleSheet.create({
   qrImage: { width: 55, height: 55 },
 });
 
+// page width (226) minus left+right padding (6+6) minus the fixed label
+// column (60) -- what's actually left for a row's wrappable value text.
+const VALUE_COL_WIDTH = 148;
+
 const BaggageReceiptPDF = ({ data }: { data: BaggageReceiptData }) => {
-  // +45 to accommodate the larger header logos (see CargoReceipt.tsx note).
-  let h = 315;
+  // Base measured empirically the same way as CargoReceipt.tsx's -- the
+  // previous base (315) was short even for the shortest-plausible receipt
+  // before any optional section, so every real receipt (which always has
+  // a QR code) was already silently spilling a mostly-blank second page.
+  let h = 450;
   if (data.qrCodeDataUrl) h += 60;
   if (data.bankName) h += 20;
   if (data.paymentMode === "Transfer" && data.paymentNarration) h += 25;
+
+  // Passenger name/destination are free text (or a long single-hub route
+  // name) with no length cap in the ticketing form -- a fixed estimate
+  // that only accounted for optional sections, not text wrapping within a
+  // row, let a long enough value silently push content onto an unwanted,
+  // near-empty second page instead of fitting on the one page a receipt
+  // roll actually needs.
+  for (const field of [data.passengerName, data.destination]) {
+    const lines = estimateWrappedLines(field, VALUE_COL_WIDTH, 8);
+    if (lines > 1) h += (lines - 1) * 12;
+  }
 
   return (
   <Document>
@@ -231,7 +249,7 @@ const BaggageReceiptPDF = ({ data }: { data: BaggageReceiptData }) => {
         ) : null}
         {data.paymentMode === "Transfer" && data.paymentNarration ? (
           <View style={styles.row}>
-            <Text style={styles.label}>Bank Transfer Narration:</Text>
+            <Text style={styles.label}>Narration:</Text>
             <Text style={styles.value}>{data.paymentNarration}</Text>
           </View>
         ) : null}

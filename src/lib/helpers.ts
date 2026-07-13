@@ -119,6 +119,22 @@ export function openPdfOrDownload(url: string, filename: string, preOpenedWindow
   return win;
 }
 
+// react-pdf/Yoga doesn't expose real font-metrics text measurement before
+// render, so a receipt's page height (computed ahead of time from a fixed
+// per-field guess -- see CargoReceipt.tsx/ExcessBaggageReceipt.tsx) has no
+// way to know a free-text field (consignee name, passenger name, a long
+// route/destination string) will wrap onto extra lines until it's too
+// late: an under-estimate doesn't clip content, it silently pushes it onto
+// a second, mostly-blank page. This estimates wrapped line count from an
+// average glyph-width factor for Helvetica-Bold so callers can pad their
+// height guess before that happens -- deliberately generous (a receipt
+// with a little trailing blank space is fine; one that spills a page is not).
+export function estimateWrappedLines(text: string, colWidthPt: number, fontSizePt: number): number {
+  const avgCharWidth = fontSizePt * 0.6;
+  const charsPerLine = Math.max(1, Math.floor(colWidthPt / avgCharWidth));
+  return Math.max(1, Math.ceil((text || '').length / charsPerLine));
+}
+
 // serial is a caller-supplied value used purely to keep same-day narration
 // codes at the same hub visually distinct for staff manually matching a
 // bank-transfer alert to a sale -- it's not a database key, so it isn't

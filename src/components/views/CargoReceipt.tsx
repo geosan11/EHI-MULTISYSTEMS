@@ -10,7 +10,7 @@ import {
 import QRCode from "qrcode";
 import { EHILogoPDF } from "../EHILogoPDF";
 import { AirlineLogoPDF } from "../AirlineLogoPDF";
-import { openPdfOrDownload } from "../../lib/helpers";
+import { openPdfOrDownload, estimateWrappedLines } from "../../lib/helpers";
 import { resolveAirlineLogoUrl } from "../../lib/airlineLogos";
 import { notifySilentError } from "../../lib/ToastContext";
 
@@ -171,15 +171,34 @@ const styles = StyleSheet.create({
   },
 });
 
+// page width (226) minus left+right padding (6+6) minus the fixed label
+// column (60) -- what's actually left for a row's wrappable value text.
+const VALUE_COL_WIDTH = 148;
+
 const CargoReceiptOnlyPDF = ({ data }: { data: CargoReceiptData }) => {
-  // +45 to accommodate the larger header logos (now sized to fill each
-  // half of the page width instead of a small centered logo).
-  let h = 355;
+  // Base measured empirically by rendering the shortest-plausible receipt
+  // (short consignee, no pin/bank/narration/remark) to a real PDF and
+  // checking its actual page count -- the previous base (355) was short
+  // by ~30-50pt even in that minimal case, before any optional section or
+  // wrapped text, so every receipt with a QR code (i.e. every real one)
+  // was already silently spilling a mostly-blank second page.
+  let h = 430;
   if (data.qrCodeDataUrl) h += 70;
   if (data.pickupPin) h += 70;
   if (data.bankName) h += 20;
   if (data.paymentMode === "Transfer" && data.paymentNarration) h += 25;
   if (data.remark) h += 35;
+
+  // Consignee/route/content/airline are free text (or a long single-hub
+  // route name) with no length cap in the cargo form -- a fixed estimate
+  // that only accounted for optional sections, not text wrapping within a
+  // row, let a long enough value silently push content onto an unwanted,
+  // near-empty second page instead of fitting on the one page a receipt
+  // roll actually needs.
+  for (const field of [data.consignee, data.route, data.contentType, data.airline]) {
+    const lines = estimateWrappedLines(field, VALUE_COL_WIDTH, 8);
+    if (lines > 1) h += (lines - 1) * 12;
+  }
 
   return (
   <Document>
