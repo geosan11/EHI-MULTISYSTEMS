@@ -585,10 +585,6 @@ export const CargoForm = ({
       showToast({ message: "Please provide the Air Waybill / Tag Number.", type: "warning" });
       return;
     }
-    if (!intakeSenderPhone.trim()) {
-      showToast({ message: "Client phone number is required.", type: "warning" });
-      return;
-    }
     // parseInt(intakePcs) || 1 at the point of use only catches "0" and
     // non-numeric input (both fall back to 1) -- a negative string like
     // "-5" is truthy and parses to -5, flowing straight into the ledger
@@ -849,13 +845,12 @@ export const CargoForm = ({
   const isRetailFormValid = useMemo(
     () =>
       actualConsignee.trim().length > 0 &&
-      senderPhone.trim().length > 0 &&
       route.trim().length > 0 &&
       contentType.trim().length > 0 &&
       w > 0 &&
       Number.isInteger(piecesNum) && piecesNum > 0 &&
       parsedAmount >= minAmount && parsedAmount > 0,
-    [actualConsignee, senderPhone, route, contentType, w, piecesNum, parsedAmount, minAmount],
+    [actualConsignee, route, contentType, w, piecesNum, parsedAmount, minAmount],
   );
 
   const handleRetailSubmit = async () => {
@@ -1463,21 +1458,21 @@ export const CargoForm = ({
                     />
                   )}
                   <input
-                    id="retail-consignee-phone"
-                    name="consignee-phone"
-                    type="tel"
-                    placeholder="Consignee phone -- include country code for foreign customers (e.g. +44, +1, +233)"
-                    value={consigneePhone}
-                    onChange={(e) => setConsigneePhone(e.target.value)}
-                    className={formInputClass}
-                  />
-                  <input
                     id="retail-sender-phone"
                     name="sender-phone"
                     type="tel"
-                    placeholder="Sender phone (required) -- include country code for foreign customers (e.g. +44, +1, +233)"
+                    placeholder="Sender phone (optional) -- include country code for foreign customers (e.g. +44, +1, +233)"
                     value={senderPhone}
                     onChange={(e) => setSenderPhone(e.target.value)}
+                    className={formInputClass}
+                  />
+                  <input
+                    id="retail-consignee-phone"
+                    name="consignee-phone"
+                    type="tel"
+                    placeholder="Consignee phone (optional) -- include country code for foreign customers (e.g. +44, +1, +233)"
+                    value={consigneePhone}
+                    onChange={(e) => setConsigneePhone(e.target.value)}
                     className={formInputClass}
                   />
                 </div>
@@ -1954,7 +1949,7 @@ export const CargoForm = ({
                   </div>
 
                   <div>
-                    {renderLabel(MessageSquare, "Client Phone (Required)")}
+                    {renderLabel(MessageSquare, "Client Phone (Optional)")}
                     <input
                       type="tel"
                       placeholder="Include country code for foreign customers (e.g. +44, +1, +233)"
