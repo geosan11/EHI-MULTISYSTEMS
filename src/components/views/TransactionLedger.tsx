@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Transaction, User, Expense } from "../../lib/types";
-import { fmt, tnow } from "../../lib/helpers";
+import { fmt, tnow, isStandalonePWA } from "../../lib/helpers";
 import { CONTENT_TYPES } from "../../lib/constants";
 import {
   ArrowLeft,
@@ -379,9 +379,13 @@ export const TransactionLedger = ({
     // Open the tab synchronously, in direct response to the click --
     // window.open() called after the awaits below (dynamic import, QR
     // generation, PDF rendering) loses the user-gesture context that
-    // mobile browsers and installed PWAs require, and gets silently
-    // blocked.
-    const preOpenedWindow = window.open('', '_blank');
+    // mobile browsers require, and gets silently blocked. Skipped
+    // entirely in an installed/standalone PWA though: window.open() there
+    // hands off to a separate browser process immediately (see
+    // isStandalonePWA's comment in helpers.ts) -- that hand-off IS the
+    // "jumps out to the browser" bug, and closing the window afterward
+    // once openPdfOrDownload detects standalone mode doesn't undo it.
+    const preOpenedWindow = isStandalonePWA() ? null : window.open('', '_blank');
     try {
       const tx = { ...viewingDetail.raw };
 
@@ -482,7 +486,7 @@ export const TransactionLedger = ({
     }
     // Open the tab synchronously, in direct response to the click -- see
     // the note in handleReprintTag above.
-    const preOpenedWindow = window.open('', '_blank');
+    const preOpenedWindow = isStandalonePWA() ? null : window.open('', '_blank');
     try {
       const tx = { ...viewingDetail.raw };
 

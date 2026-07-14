@@ -144,7 +144,7 @@ export const DebtorsTab = ({ transactions = [], user, onUpdateTx }: { transactio
             <div className="mb-8">
               <div className="text-[12px] font-sans font-medium text-gray-500 uppercase tracking-wider mb-1">Prepared For</div>
               <div className="text-[18px] font-sans font-bold text-gray-900">{statementPrint.name}</div>
-              <div className="text-[13px] font-sans text-gray-600 mt-1">Account Type: Corporate</div>
+              <div className="text-[13px] font-sans text-gray-600 mt-1">Account Type: {statementPrint.clientType || 'Individual'}</div>
             </div>
 
             <div className="overflow-x-auto">
@@ -321,6 +321,12 @@ export const DebtorsTab = ({ transactions = [], user, onUpdateTx }: { transactio
                                <div className="text-[11px] font-sans text-[var(--color-muted)] mb-1">Original Date</div>
                                <div className="text-[13px] font-sans text-[var(--color-foreground)]">{d.time}</div>
                              </div>
+                             {d.consigneePhone && (
+                               <div>
+                                 <div className="text-[11px] font-sans text-[var(--color-muted)] mb-1">Phone</div>
+                                 <div className="text-[13px] font-sans text-[var(--color-foreground)]">{d.consigneePhone}</div>
+                               </div>
+                             )}
                            </div>
 
                            {/* Notes */}

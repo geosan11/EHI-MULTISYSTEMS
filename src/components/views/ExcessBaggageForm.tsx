@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useEnterToNextField } from '../../lib/useEnterToNextField';
 import { PaymentMode, Transaction, User, ExcessBaggageAirline } from '../../lib/types';
 import { fmt, roundMoney, tnow, getHubCode, upperOnChange } from '../../lib/helpers';
 import { CheckCircle, Loader2, ClipboardList, MessageSquare, Plus, Printer, Bluetooth } from 'lucide-react';
@@ -201,6 +202,9 @@ export const ExcessBaggageForm = ({
 
   const formInputClass = "w-full h-12 px-4 text-[16px] rounded-[var(--radius-sm)] bg-[var(--color-input-bg)] text-[var(--color-input-text)] border border-[var(--color-border)] font-sans focus:outline-none focus:border-[var(--color-accent-cobalt)] focus:ring-2 focus:ring-[var(--glow-cobalt)] transition-colors";
 
+  const formRootRef = useRef<HTMLDivElement>(null);
+  useEnterToNextField(formRootRef);
+
   if (successTx) {
     const s = successTx;
     return (
@@ -374,7 +378,7 @@ export const ExcessBaggageForm = ({
   }
 
   return (
-    <div className="p-4 pb-24 h-full" style={{ width: '100%', boxSizing: 'border-box' }}>
+    <div ref={formRootRef} className="p-4 pb-24 h-full" style={{ width: '100%', boxSizing: 'border-box' }}>
       <div className="border-b border-[var(--color-border)] pb-2 mb-4 flex items-center justify-between">
         <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, fontWeight: 700, color: 'var(--color-accent-cobalt)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
           ▸ {airline.name.toUpperCase()} EXCESS BAGGAGE TICKETING

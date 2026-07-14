@@ -210,7 +210,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         const endISO = endDate.toISOString();
 
         const [cargoRes, baggageRes, mktRes, packageRes, expRes] = await Promise.all([
-          addHubFilter(supabase.from('cargo_entries').select(`entry_ref,consignee_name,airline,commission_rate,awb_tag_number,total_pcs,total_kg,route,content_type,amount,receipt_mode,created_at,status,bank,hub_id,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at${canSeePin ? ',pickup_pin' : ''}`).gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
+          addHubFilter(supabase.from('cargo_entries').select(`entry_ref,consignee_name,consignee_phone,client_type,airline,commission_rate,awb_tag_number,total_pcs,total_kg,route,content_type,amount,receipt_mode,created_at,status,bank,hub_id,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at${canSeePin ? ',pickup_pin' : ''}`).gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
           addHubFilter(supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs,amount_paid,payment_history,airline,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
           addHubFilter(supabase.from('marketing_entries').select('entry_ref,awb_tag_number,customer_name,route,qty_big_bag,qty_med_bag,qty_small_bag,bb_kg,mb_kg,sb_kg,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,user_profiles(name),debt_amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
           addHubFilter(supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,total_pcs,total_kg,contents,status,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,created_at,hub_id,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
@@ -250,6 +250,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               posApprovalCode: r.pos_approval_code || undefined,
               confirmedBy: r.confirmed_by || undefined,
               confirmedAt: r.confirmed_at || undefined,
+              consigneePhone: r.consignee_phone || undefined,
+              clientType: r.client_type || undefined,
             });
           });
         }
@@ -498,6 +500,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             // query's column list, so gate this client-side too --
             // canSeePin is already in scope from the fetchInitial closure.
             pickupPin: canSeePin ? (r.pickup_pin || undefined) : undefined,
+            consigneePhone: r.consignee_phone || undefined,
+            clientType: r.client_type || undefined,
           });
         }
       )
@@ -696,7 +700,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         commission_rate: (tx as any).commissionRate ?? null,
         remark: (tx as any).remarks || null,
         pickup_pin: (tx as any).pickupPin || null,
-        consignee_phone: (tx as any).consigneePhone || null,
+        consignee_phone: tx.consigneePhone || null,
+        client_type: tx.clientType || null,
         corporate_client_id: (tx as any).corporate_client_id || null,
         entered_by: user.id && user.id.includes('-') && user.id.length > 30 ? user.id : undefined,
         created_at: new Date().toISOString()

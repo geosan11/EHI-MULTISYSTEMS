@@ -9,6 +9,7 @@ import {
 import { EHILogoPDF } from "../EHILogoPDF";
 import { AirlineLogoPDF } from "../AirlineLogoPDF";
 import { resolveAirlineLogoUrl } from "../../lib/airlineLogos";
+import { estimateWrappedLines } from "../../lib/helpers";
 
 export interface MarketingReceiptData {
   entryRef: string;
@@ -187,6 +188,11 @@ const styles = StyleSheet.create({
   },
 });
 
+// Row layout: page padding 6pt each side, label column fixed at 60pt --
+// matches CargoReceipt.tsx's identical 226pt-wide row layout, so the same
+// column width applies here.
+const VALUE_COL_WIDTH = 148;
+
 const MarketingReceiptPDF = ({ data }: { data: MarketingReceiptData }) => {
   // +45 to accommodate the larger header logos (now sized to fill each
   // half of the page width instead of a small centered logo).
@@ -197,6 +203,17 @@ const MarketingReceiptPDF = ({ data }: { data: MarketingReceiptData }) => {
   if (data.bankName) h += 14;
   if (data.paymentMode === "Transfer" && data.paymentNarration) h += 14;
   if (data.remark) h += 28;
+
+  // Customer/route/remark/narration are free text with no length cap on
+  // entry -- a fixed per-field estimate above only accounts for whether a
+  // section is present, not how much text it holds. Same bug class fixed
+  // in CargoReceipt.tsx: an underestimate here doesn't clip text, it
+  // silently pushes content onto an unwanted, near-empty second page.
+  for (const field of [data.customerName, data.route, data.remark, data.paymentNarration, data.agentName]) {
+    if (!field) continue;
+    const lines = estimateWrappedLines(field, VALUE_COL_WIDTH, 8);
+    if (lines > 1) h += (lines - 1) * 12;
+  }
 
   return (
   <Document>

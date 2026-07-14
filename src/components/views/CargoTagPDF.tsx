@@ -227,7 +227,7 @@ const CargoTagPage = ({
               so content type needs a shorter clamp than the 20-char one
               used for Consignee below. */}
           <View style={styles.fieldBlock}>
-            <Text style={styles.fieldLabel}>Type</Text>
+            <Text style={styles.fieldLabel}>Content</Text>
             <Text style={styles.fieldValue}>{truncateForTag(data.contentType || "—", 11)}</Text>
           </View>
         </View>

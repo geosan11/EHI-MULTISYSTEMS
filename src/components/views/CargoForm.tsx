@@ -5,7 +5,8 @@ import {
   BANKS,
   CARGO_ROUTES,
 } from "../../lib/constants";
-import { fmt, roundMoney, tnow, generatePickupPin, normalizeAirlineName, getHubCode, upperOnChange } from "../../lib/helpers";
+import { fmt, roundMoney, tnow, generatePickupPin, normalizeAirlineName, getHubCode, upperOnChange, isStandalonePWA } from "../../lib/helpers";
+import { useEnterToNextField } from "../../lib/useEnterToNextField";
 import { isTagAlreadyDelivered } from "../../lib/scanLogic";
 import {
   CheckCircle,
@@ -344,6 +345,8 @@ export const CargoForm = ({
   const [successTx, setSuccessTx] = useState<Transaction | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const successRef = useRef<HTMLDivElement>(null);
+  const formRootRef = useRef<HTMLDivElement>(null);
+  useEnterToNextField(formRootRef);
 
   useEffect(() => {
     if (successTx && successRef.current) {
@@ -792,6 +795,10 @@ export const CargoForm = ({
       id: gateResolvedId,
       name: selectedIntake.consignee,
       corporate_client_id: selectedIntake.corporate_client_id || undefined,
+      // B2B monthly-billed client -- distinct from the retail path above,
+      // which sets 'Individual'. This is what accumulates into
+      // accumulated_monthly_debt below, not a per-shipment individual debt.
+      clientType: "Corporate",
       detail: finalTxDetail,
       amount: computedCost,
       mode: "Debt",
@@ -1007,7 +1014,11 @@ export const CargoForm = ({
       kg: Math.round(parseFloat(kg)) || 0,
       pickupPin,
       consigneePhone: consigneePhone.trim(),
-      // TODO: capture client_type at entry
+      // Retail walk-in sale -- distinct from the B2B corporate path below,
+      // which sets 'Corporate' instead. Lets DebtorsTab's Individual/
+      // Corporate filter and the success-screen copy tell them apart
+      // reliably instead of guessing from a hardcoded client-name list.
+      clientType: "Individual",
     } as Transaction;
 
     onAddTx(tx);
@@ -1143,9 +1154,16 @@ export const CargoForm = ({
       // Open the tab synchronously, in direct response to the click --
       // window.open() called after the awaits below (dynamic import, QR
       // generation, PDF rendering) loses the user-gesture context that
-      // mobile browsers and installed PWAs require, and gets silently
-      // blocked.
-      const preOpenedWindow = window.open('', '_blank');
+      // mobile browsers require, and gets silently blocked. Skipped
+      // entirely in an installed/standalone PWA though: window.open()
+      // there hands off to a separate browser process immediately (see
+      // isStandalonePWA's comment in helpers.ts) -- that hand-off IS the
+      // "jumps out to the browser" bug, and closing the window afterward
+      // once openPdfOrDownload detects standalone mode doesn't undo it.
+      // openPdfOrDownload does a same-document forced download instead
+      // whenever isStandalonePWA() is true, regardless of what's passed
+      // here, so passing null is safe.
+      const preOpenedWindow = isStandalonePWA() ? null : window.open('', '_blank');
       // The tab above opens blank and only gets filled in once the PDF
       // finishes generating below, so there's otherwise no visible sign
       // anything is happening in the meantime -- unlike handlePrintReceipt,
@@ -1251,7 +1269,9 @@ export const CargoForm = ({
           />
           <div className="text-[15px] font-semibold font-sans text-[var(--color-success)] mb-1">
             {successTx.mode === "Debt"
-              ? "Corporate Debt Invoice Saved!"
+              ? successTx.clientType === "Corporate"
+                ? "Corporate Debt Invoice Saved!"
+                : "Credit Sale Logged!"
               : "Cargo entry saved successfully!"}
           </div>
           <div className="text-[12px] font-mono text-[var(--color-muted)] mb-6">
@@ -1343,7 +1363,9 @@ export const CargoForm = ({
                 className={`text-[13px] font-sans font-bold px-2 py-0.5 rounded ${successTx.mode === "Debt" ? "bg-[rgba(239,68,68,0.1)] text-[var(--color-error)]" : "bg-[rgba(16,185,129,0.1)] text-[var(--color-success)]"}`}
               >
                 {successTx.mode === "Debt"
-                  ? "B2B MONTHLY DEBT"
+                  ? successTx.clientType === "Corporate"
+                    ? "B2B MONTHLY DEBT"
+                    : "INDIVIDUAL DEBT"
                   : successTx.mode}
               </span>
             </div>
@@ -1433,6 +1455,7 @@ export const CargoForm = ({
 
   return (
     <div
+      ref={formRootRef}
       className="pb-24"
       style={{ width: "100%", boxSizing: "border-box", transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}
     >

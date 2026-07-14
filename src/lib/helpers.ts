@@ -80,7 +80,7 @@ export function getCityName(routeStr: string | null | undefined): string {
 // the user. A forced download never opens a new browsing context at all
 // -- it's a same-document DOM action -- so it's the only path that's
 // actually reliable once the app is running standalone.
-function isStandalonePWA(): boolean {
+export function isStandalonePWA(): boolean {
   try {
     return window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
   } catch {

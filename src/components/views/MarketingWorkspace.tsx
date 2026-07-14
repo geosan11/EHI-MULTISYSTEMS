@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useEnterToNextField } from "../../lib/useEnterToNextField";
 import { User, Transaction, Expense } from "../../lib/types";
 import { PRICING, BANKS, EXPENSE_CATEGORIES, AIRLINES } from "../../lib/constants";
 import { fmt, uid, tnow, getHubCode, upperOnChange } from "../../lib/helpers";
@@ -402,8 +403,12 @@ export const MarketingWorkspace = ({
   const mktgFocusClasses =
     "focus:outline-none focus:ring-2 focus:ring-[rgba(16,185,129,0.5)] focus:border-[rgba(16,185,129,0.5)] transition-colors";
 
+  const formRootRef = useRef<HTMLDivElement>(null);
+  useEnterToNextField(formRootRef);
+
   return (
     <div
+      ref={formRootRef}
       className="overflow-y-auto overflow-x-hidden pb-24 p-4 max-w-5xl mx-auto"
       style={{ width: "100%", boxSizing: "border-box", minHeight: 0, flex: 1 }}
     >

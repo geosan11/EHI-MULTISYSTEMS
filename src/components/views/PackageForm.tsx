@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useEnterToNextField } from "../../lib/useEnterToNextField";
 import { User, Transaction, Expense } from "../../lib/types";
 import { BANKS, EXPENSE_CATEGORIES, CONTENT_TYPES } from "../../lib/constants";
 import { fmt, uid, tnow, generatePaymentNarration, getHubCode, upperOnChange } from "../../lib/helpers";
@@ -277,8 +278,11 @@ export const PackageForm = ({
 
   const focusClasses = "focus:outline-none focus:ring-2 focus:ring-[rgba(59,130,246,0.5)] focus:border-[rgba(59,130,246,0.5)] transition-colors";
 
+  const formRootRef = useRef<HTMLDivElement>(null);
+  useEnterToNextField(formRootRef);
+
   return (
-    <div className="p-4 max-w-5xl mx-auto" style={{ width: "100%", boxSizing: "border-box", minHeight: 0, flex: 1 }}>
+    <div ref={formRootRef} className="p-4 max-w-5xl mx-auto" style={{ width: "100%", boxSizing: "border-box", minHeight: 0, flex: 1 }}>
       <div className="flex justify-between items-center text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-widest border-b border-[var(--color-border)] pb-2 mb-6">
         <div>{new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</div>
         <div className="flex items-center gap-3">

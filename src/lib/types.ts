@@ -221,6 +221,9 @@ export interface Transaction {
   amountPaid?: number;
   paymentHistory?: { amount: number; mode: 'Cash' | 'Transfer'; by: string; at: string }[];
   clientType?: 'Corporate' | 'Individual';
+  // Retail cargo debtor contact, for following up on an individual (not
+  // corporate-monthly) debt -- captured at entry, optional.
+  consigneePhone?: string;
 }
 
 export interface ParsedBankAlert {
