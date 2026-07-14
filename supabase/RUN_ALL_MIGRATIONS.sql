@@ -973,6 +973,7 @@ CREATE POLICY "Service role all profiles" ON public.user_profiles
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Users read own profile" ON public.user_profiles;
+DROP POLICY IF EXISTS "Users read own or same-hub profiles" ON public.user_profiles;
 CREATE POLICY "Users read own or same-hub profiles" ON public.user_profiles
   FOR SELECT TO authenticated
   USING (
@@ -1001,10 +1002,13 @@ CREATE POLICY "Admins update same-hub profiles" ON public.user_profiles
 DROP POLICY IF EXISTS "Authenticated read cargo_entries"   ON public.cargo_entries;
 DROP POLICY IF EXISTS "Authenticated insert cargo_entries" ON public.cargo_entries;
 DROP POLICY IF EXISTS "Authenticated update cargo_entries" ON public.cargo_entries;
+DROP POLICY IF EXISTS "Hub-scoped read cargo_entries" ON public.cargo_entries;
 CREATE POLICY "Hub-scoped read cargo_entries"   ON public.cargo_entries FOR SELECT TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped insert cargo_entries" ON public.cargo_entries;
 CREATE POLICY "Hub-scoped insert cargo_entries" ON public.cargo_entries FOR INSERT TO authenticated
   WITH CHECK (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped update cargo_entries" ON public.cargo_entries;
 CREATE POLICY "Hub-scoped update cargo_entries" ON public.cargo_entries FOR UPDATE TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
 
@@ -1012,10 +1016,13 @@ CREATE POLICY "Hub-scoped update cargo_entries" ON public.cargo_entries FOR UPDA
 DROP POLICY IF EXISTS "Authenticated read manifests"   ON public.manifests;
 DROP POLICY IF EXISTS "Authenticated insert manifests" ON public.manifests;
 DROP POLICY IF EXISTS "Authenticated update manifests" ON public.manifests;
+DROP POLICY IF EXISTS "Hub-scoped read manifests" ON public.manifests;
 CREATE POLICY "Hub-scoped read manifests"   ON public.manifests FOR SELECT TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped insert manifests" ON public.manifests;
 CREATE POLICY "Hub-scoped insert manifests" ON public.manifests FOR INSERT TO authenticated
   WITH CHECK (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped update manifests" ON public.manifests;
 CREATE POLICY "Hub-scoped update manifests" ON public.manifests FOR UPDATE TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
 
@@ -1023,10 +1030,13 @@ CREATE POLICY "Hub-scoped update manifests" ON public.manifests FOR UPDATE TO au
 DROP POLICY IF EXISTS "Authenticated read marketing_entries"   ON public.marketing_entries;
 DROP POLICY IF EXISTS "Authenticated insert marketing_entries" ON public.marketing_entries;
 DROP POLICY IF EXISTS "Authenticated update marketing_entries" ON public.marketing_entries;
+DROP POLICY IF EXISTS "Hub-scoped read marketing_entries" ON public.marketing_entries;
 CREATE POLICY "Hub-scoped read marketing_entries"   ON public.marketing_entries FOR SELECT TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped insert marketing_entries" ON public.marketing_entries;
 CREATE POLICY "Hub-scoped insert marketing_entries" ON public.marketing_entries FOR INSERT TO authenticated
   WITH CHECK (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped update marketing_entries" ON public.marketing_entries;
 CREATE POLICY "Hub-scoped update marketing_entries" ON public.marketing_entries FOR UPDATE TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
 
@@ -1034,20 +1044,26 @@ CREATE POLICY "Hub-scoped update marketing_entries" ON public.marketing_entries 
 DROP POLICY IF EXISTS "Authenticated read marketing_day_close"   ON public.marketing_day_close;
 DROP POLICY IF EXISTS "Authenticated upsert marketing_day_close" ON public.marketing_day_close;
 DROP POLICY IF EXISTS "Authenticated update marketing_day_close" ON public.marketing_day_close;
+DROP POLICY IF EXISTS "Hub-scoped read marketing_day_close" ON public.marketing_day_close;
 CREATE POLICY "Hub-scoped read marketing_day_close"   ON public.marketing_day_close FOR SELECT TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped upsert marketing_day_close" ON public.marketing_day_close;
 CREATE POLICY "Hub-scoped upsert marketing_day_close" ON public.marketing_day_close FOR INSERT TO authenticated
   WITH CHECK (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped update marketing_day_close" ON public.marketing_day_close;
 CREATE POLICY "Hub-scoped update marketing_day_close" ON public.marketing_day_close FOR UPDATE TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
 
 -- EXPENSES
 DROP POLICY IF EXISTS "Authenticated read expenses"   ON public.expenses;
 DROP POLICY IF EXISTS "Authenticated insert expenses" ON public.expenses;
+DROP POLICY IF EXISTS "Hub-scoped read expenses" ON public.expenses;
 CREATE POLICY "Hub-scoped read expenses"   ON public.expenses FOR SELECT TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped insert expenses" ON public.expenses;
 CREATE POLICY "Hub-scoped insert expenses" ON public.expenses FOR INSERT TO authenticated
   WITH CHECK (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped update expenses" ON public.expenses;
 CREATE POLICY "Hub-scoped update expenses" ON public.expenses FOR UPDATE TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
 
@@ -1055,26 +1071,33 @@ CREATE POLICY "Hub-scoped update expenses" ON public.expenses FOR UPDATE TO auth
 DROP POLICY IF EXISTS "Authenticated read eod_records"   ON public.eod_records;
 DROP POLICY IF EXISTS "Authenticated upsert eod_records" ON public.eod_records;
 DROP POLICY IF EXISTS "Authenticated update eod_records" ON public.eod_records;
+DROP POLICY IF EXISTS "Hub-scoped read eod_records" ON public.eod_records;
 CREATE POLICY "Hub-scoped read eod_records"   ON public.eod_records FOR SELECT TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped upsert eod_records" ON public.eod_records;
 CREATE POLICY "Hub-scoped upsert eod_records" ON public.eod_records FOR INSERT TO authenticated
   WITH CHECK (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped update eod_records" ON public.eod_records;
 CREATE POLICY "Hub-scoped update eod_records" ON public.eod_records FOR UPDATE TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
 
 -- EOD_LOCKS
 DROP POLICY IF EXISTS "Authenticated read eod_locks"   ON public.eod_locks;
 DROP POLICY IF EXISTS "Authenticated insert eod_locks" ON public.eod_locks;
+DROP POLICY IF EXISTS "Hub-scoped read eod_locks" ON public.eod_locks;
 CREATE POLICY "Hub-scoped read eod_locks"   ON public.eod_locks FOR SELECT TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped insert eod_locks" ON public.eod_locks;
 CREATE POLICY "Hub-scoped insert eod_locks" ON public.eod_locks FOR INSERT TO authenticated
   WITH CHECK (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
 
 -- TAG_PRINT_LOG
 DROP POLICY IF EXISTS "Authenticated read tag_print_log"   ON public.tag_print_log;
 DROP POLICY IF EXISTS "Authenticated insert tag_print_log" ON public.tag_print_log;
+DROP POLICY IF EXISTS "Hub-scoped read tag_print_log" ON public.tag_print_log;
 CREATE POLICY "Hub-scoped read tag_print_log"   ON public.tag_print_log FOR SELECT TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped insert tag_print_log" ON public.tag_print_log;
 CREATE POLICY "Hub-scoped insert tag_print_log" ON public.tag_print_log FOR INSERT TO authenticated
   WITH CHECK (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
 
@@ -1082,18 +1105,23 @@ CREATE POLICY "Hub-scoped insert tag_print_log" ON public.tag_print_log FOR INSE
 DROP POLICY IF EXISTS "Authenticated read support_tickets"   ON public.support_tickets;
 DROP POLICY IF EXISTS "Authenticated insert support_tickets" ON public.support_tickets;
 DROP POLICY IF EXISTS "Authenticated update support_tickets" ON public.support_tickets;
+DROP POLICY IF EXISTS "Hub-scoped read support_tickets" ON public.support_tickets;
 CREATE POLICY "Hub-scoped read support_tickets"   ON public.support_tickets FOR SELECT TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped insert support_tickets" ON public.support_tickets;
 CREATE POLICY "Hub-scoped insert support_tickets" ON public.support_tickets FOR INSERT TO authenticated
   WITH CHECK (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped update support_tickets" ON public.support_tickets;
 CREATE POLICY "Hub-scoped update support_tickets" ON public.support_tickets FOR UPDATE TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
 
 -- AUDIT_LOG
 DROP POLICY IF EXISTS "Authenticated read audit_log"   ON public.audit_log;
 DROP POLICY IF EXISTS "Authenticated insert audit_log" ON public.audit_log;
+DROP POLICY IF EXISTS "Hub-scoped read audit_log" ON public.audit_log;
 CREATE POLICY "Hub-scoped read audit_log"   ON public.audit_log FOR SELECT TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped insert audit_log" ON public.audit_log;
 CREATE POLICY "Hub-scoped insert audit_log" ON public.audit_log FOR INSERT TO authenticated
   WITH CHECK (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
 
@@ -1101,10 +1129,13 @@ CREATE POLICY "Hub-scoped insert audit_log" ON public.audit_log FOR INSERT TO au
 DROP POLICY IF EXISTS "Authenticated read airline_ledger"   ON public.airline_ledger_entries;
 DROP POLICY IF EXISTS "Authenticated insert airline_ledger" ON public.airline_ledger_entries;
 DROP POLICY IF EXISTS "Authenticated update airline_ledger" ON public.airline_ledger_entries;
+DROP POLICY IF EXISTS "Hub-scoped read airline_ledger" ON public.airline_ledger_entries;
 CREATE POLICY "Hub-scoped read airline_ledger"   ON public.airline_ledger_entries FOR SELECT TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped insert airline_ledger" ON public.airline_ledger_entries;
 CREATE POLICY "Hub-scoped insert airline_ledger" ON public.airline_ledger_entries FOR INSERT TO authenticated
   WITH CHECK (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped update airline_ledger" ON public.airline_ledger_entries;
 CREATE POLICY "Hub-scoped update airline_ledger" ON public.airline_ledger_entries FOR UPDATE TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
 
@@ -1113,12 +1144,16 @@ DROP POLICY IF EXISTS "Authenticated read weight_manifest"   ON public.cargo_wei
 DROP POLICY IF EXISTS "Authenticated insert weight_manifest" ON public.cargo_weight_manifests;
 DROP POLICY IF EXISTS "Authenticated update weight_manifest" ON public.cargo_weight_manifests;
 DROP POLICY IF EXISTS "Authenticated delete weight_manifest" ON public.cargo_weight_manifests;
+DROP POLICY IF EXISTS "Hub-scoped read weight_manifest" ON public.cargo_weight_manifests;
 CREATE POLICY "Hub-scoped read weight_manifest"   ON public.cargo_weight_manifests FOR SELECT TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped insert weight_manifest" ON public.cargo_weight_manifests;
 CREATE POLICY "Hub-scoped insert weight_manifest" ON public.cargo_weight_manifests FOR INSERT TO authenticated
   WITH CHECK (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped update weight_manifest" ON public.cargo_weight_manifests;
 CREATE POLICY "Hub-scoped update weight_manifest" ON public.cargo_weight_manifests FOR UPDATE TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped delete weight_manifest" ON public.cargo_weight_manifests;
 CREATE POLICY "Hub-scoped delete weight_manifest" ON public.cargo_weight_manifests FOR DELETE TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
 
@@ -1197,17 +1232,23 @@ GRANT EXECUTE ON FUNCTION public.allocate_package_tracking() TO authenticated;
 ALTER TABLE public.package_entries   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.package_day_close ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Hub-scoped read package_entries" ON public.package_entries;
 CREATE POLICY "Hub-scoped read package_entries"   ON public.package_entries FOR SELECT TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped insert package_entries" ON public.package_entries;
 CREATE POLICY "Hub-scoped insert package_entries" ON public.package_entries FOR INSERT TO authenticated
   WITH CHECK (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped update package_entries" ON public.package_entries;
 CREATE POLICY "Hub-scoped update package_entries" ON public.package_entries FOR UPDATE TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
 
+DROP POLICY IF EXISTS "Hub-scoped read package_day_close" ON public.package_day_close;
 CREATE POLICY "Hub-scoped read package_day_close"   ON public.package_day_close FOR SELECT TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped upsert package_day_close" ON public.package_day_close;
 CREATE POLICY "Hub-scoped upsert package_day_close" ON public.package_day_close FOR INSERT TO authenticated
   WITH CHECK (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped update package_day_close" ON public.package_day_close;
 CREATE POLICY "Hub-scoped update package_day_close" ON public.package_day_close FOR UPDATE TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
 
@@ -1228,7 +1269,9 @@ CREATE TABLE IF NOT EXISTS public.bank_reconciliations (
   created_at    timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE public.bank_reconciliations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Authenticated read bank_reconciliations" ON public.bank_reconciliations;
 CREATE POLICY "Authenticated read bank_reconciliations" ON public.bank_reconciliations FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Authenticated insert bank_reconciliations" ON public.bank_reconciliations;
 CREATE POLICY "Authenticated insert bank_reconciliations" ON public.bank_reconciliations FOR INSERT TO authenticated WITH CHECK (true);
 
 
@@ -1772,8 +1815,10 @@ CREATE POLICY "Authenticated read routing_hubs" ON public.routing_hubs FOR SELEC
 REVOKE ALL ON TABLE public.bank_reconciliations FROM anon;
 DROP POLICY IF EXISTS "Authenticated read bank_reconciliations"   ON public.bank_reconciliations;
 DROP POLICY IF EXISTS "Authenticated insert bank_reconciliations" ON public.bank_reconciliations;
+DROP POLICY IF EXISTS "Recon-role read bank_reconciliations" ON public.bank_reconciliations;
 CREATE POLICY "Recon-role read bank_reconciliations" ON public.bank_reconciliations FOR SELECT TO authenticated
   USING (public.current_user_role() IN ('super_admin', 'accountant'));
+DROP POLICY IF EXISTS "Recon-role insert bank_reconciliations" ON public.bank_reconciliations;
 CREATE POLICY "Recon-role insert bank_reconciliations" ON public.bank_reconciliations FOR INSERT TO authenticated
   WITH CHECK (public.current_user_role() IN ('super_admin', 'accountant'));
 
@@ -1786,6 +1831,7 @@ CREATE POLICY "Recon-role insert bank_reconciliations" ON public.bank_reconcilia
 REVOKE ALL ON TABLE public.proof_of_delivery FROM anon;
 DROP POLICY IF EXISTS "Authenticated read proof_of_delivery"   ON public.proof_of_delivery;
 DROP POLICY IF EXISTS "Authenticated insert proof_of_delivery" ON public.proof_of_delivery;
+DROP POLICY IF EXISTS "Hub-scoped read proof_of_delivery" ON public.proof_of_delivery;
 CREATE POLICY "Hub-scoped read proof_of_delivery" ON public.proof_of_delivery FOR SELECT TO authenticated
   USING (
     public.is_hub_unrestricted()
