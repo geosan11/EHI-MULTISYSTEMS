@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CARGO_ROUTES } from '../../lib/constants';
-import { Save, Plus, ArrowLeft, Trash2, Edit3, Building, DollarSign } from 'lucide-react';
+import { Plus, ArrowLeft, DollarSign } from 'lucide-react';
 import { User } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../lib/ToastContext';
@@ -63,6 +63,8 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
 
   const handlePriceUpdate = async (id: string, field: 'bb'|'mb'|'sb', value: string) => {
     const numVal = Number(value);
+    if (isNaN(numVal)) return;
+    const prev = pricing;
     const next = pricing.map((p: any) => p.id === id ? { ...p, [field]: numVal } : p);
     setPricing(next);
     localStorage.setItem('ehi_setting_pricing', JSON.stringify(next));
@@ -77,6 +79,12 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
       updated_at: new Date().toISOString(),
     }, { onConflict: 'route_name' });
     if (error) {
+      // Roll back the optimistic update (and its localStorage cache) --
+      // otherwise this screen and the cache both keep showing a rate that
+      // was never actually saved, diverging from what every other device
+      // still sees as the real server value.
+      setPricing(prev);
+      localStorage.setItem('ehi_setting_pricing', JSON.stringify(prev));
       showToast({ message: `Failed to save ${row.route} rate: ${error.message}`, type: 'error' });
     }
   };
@@ -141,18 +149,16 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
 
   const handleCreateCorpClient = async () => {
     if (!newClientName.trim()) return;
-    const newClient: CorporateClient = {
-      id: 'corp_' + Date.now().toString(),
-      company_name: newClientName,
-      contact_phone: newClientPhone
-    };
 
-    const { error } = await supabase.from('corporate_clients').insert({
-      id: newClient.id,
-      company_name: newClient.company_name,
-      contact_phone: newClient.contact_phone,
+    // corporate_clients.id is a real `uuid` column (DEFAULT gen_random_uuid())
+    // -- a client-generated id like "corp_<timestamp>" isn't valid UUID
+    // syntax, so this insert failed unconditionally with every attempt.
+    // Let the DB generate the real id and read it back instead.
+    const { data, error } = await supabase.from('corporate_clients').insert({
+      company_name: newClientName,
+      contact_phone: newClientPhone,
       created_at: new Date().toISOString()
-    });
+    }).select().single();
     if (error) {
       // Do not add to local state on failure -- a client that only exists
       // in this browser's memory (e.g. a duplicate company_name rejected
@@ -162,6 +168,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
       return;
     }
 
+    const newClient: CorporateClient = { id: data.id, company_name: data.company_name, contact_phone: data.contact_phone };
     setCorpClients([...corpClients, newClient]);
     setNewClientName('');
     setNewClientPhone('');

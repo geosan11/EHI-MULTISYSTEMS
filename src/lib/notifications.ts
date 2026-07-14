@@ -2,6 +2,7 @@
  * EHI Multisystems — WhatsApp Receipt Notifications via Termii
  * Live mode: calls POST /api/notify/whatsapp
  */
+import { supabase } from './supabase';
 
 export interface ReceiptNotificationPayload {
   phone: string;
@@ -25,9 +26,15 @@ export async function sendReceiptWhatsApp(
   const normalisedPhone = normalisePhone(phone);
 
   try {
+    // /api/notify/* requires an authenticated caller (server/app.ts's
+    // requireAuthenticatedUser) -- without this header every call here
+    // 401s unconditionally, regardless of whether the session is actually
+    // valid, silently dropping every WhatsApp receipt.
+    const { data: sess } = await supabase.auth.getSession();
+    const token = sess.session?.access_token || '';
     const res = await fetch('/api/notify/whatsapp', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify({ phone: normalisedPhone, message, ref }),
     });
     return { ok: res.ok };

@@ -963,18 +963,24 @@ export const CargoForm = ({
     setSuccessTx(tx);
     setSubmitting(false);
 
-    // Call PIN notification API
-    fetch("/api/notify/pickup-pin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        senderPhone: senderPhone.trim(),
-        consigneePhone: consigneePhone.trim(),
-        pin: pickupPin,
-        entryRef: tx.id,
-        route,
-      }),
-    }).catch((e) => console.error("Failed to notify pin:", e));
+    // Call PIN notification API. /api/notify/* requires an authenticated
+    // caller (server/app.ts's requireAuthenticatedUser) -- without this
+    // header the call 401s unconditionally regardless of session validity,
+    // silently dropping every pickup-PIN notification.
+    supabase.auth.getSession().then(({ data: sess }) => {
+      const token = sess.session?.access_token || '';
+      fetch("/api/notify/pickup-pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({
+          senderPhone: senderPhone.trim(),
+          consigneePhone: consigneePhone.trim(),
+          pin: pickupPin,
+          entryRef: tx.id,
+          route,
+        }),
+      }).catch((e) => console.error("Failed to notify pin:", e));
+    });
 
     if (senderPhone.trim().length > 0) {
       sendReceiptWhatsApp({
