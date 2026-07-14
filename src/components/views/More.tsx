@@ -13,6 +13,7 @@ import { EODReconciliation } from './EODReconciliation';
 import { SupportTickets } from './SupportTickets';
 
 import { PricingConfiguration } from './PricingConfiguration';
+import { HubCargoRates } from './HubCargoRates';
 import { AirlineCommissions } from './AirlineCommissions';
 import { ExcessBaggageAirlines } from './ExcessBaggageAirlines';
 
@@ -41,6 +42,7 @@ import {
   CreditCardIcon,
   TerminalIcon,
   SealCheckIcon,
+  CheckCircleIcon,
   UploadSimpleIcon,
   BookOpenIcon,
   ClipboardTextIcon,
@@ -67,6 +69,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
   const [dispatchView, setDispatchView] = useState(false);
   const [airlineCommissionsView, setAirlineCommissionsView] = useState(false);
   const [pricingView, setPricingView] = useState(false);
+  const [hubCargoRatesView, setHubCargoRatesView] = useState(false);
   const [supportView, setSupportView] = useState(false);
   const [staffView, setStaffView] = useState(false);
 
@@ -141,6 +144,10 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
     return <PricingConfiguration user={user} onBack={() => setPricingView(false)} />;
   }
 
+  if (hubCargoRatesView) {
+    return <HubCargoRates user={user} onBack={() => setHubCargoRatesView(false)} />;
+  }
+
   if (excessBaggageAirlinesView) {
     return <ExcessBaggageAirlines onBack={() => setExcessBaggageAirlinesView(false)} />;
   }
@@ -213,6 +220,14 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
             title="Incoming to Hub"
             subtitle="Manage arriving cargo"
             onClick={() => onChangeTab('Incoming')}
+          />
+        )}
+        {canAccessTab(user, 'OutboundArrivals', excessBaggageAirlines) && (
+          <MenuItem
+            icon={CheckCircleIcon}
+            title="Outbound Arrivals"
+            subtitle="Confirm dispatched shipments arrived"
+            onClick={() => onChangeTab('OutboundArrivals')}
           />
         )}
         <MenuItem
@@ -405,6 +420,13 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
           subtitle="B2B client rates and retail standard tariffs"
           onClick={() => { if (isSuperAdmin) setPricingView(true); }}
           disabled={!isSuperAdmin}
+        />
+        <MenuItem
+          icon={CurrencyDollarIcon}
+          title="Hub Cargo Rates"
+          subtitle="Per-hub, per-airline rate overrides on the standard tariff"
+          onClick={() => { if (canAccessAccounting) setHubCargoRatesView(true); }}
+          disabled={!canAccessAccounting}
         />
         <MenuItem
           icon={AirplaneIcon}

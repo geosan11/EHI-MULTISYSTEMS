@@ -203,6 +203,14 @@ export const CargoForm = ({
   const [standardRates, setStandardRates] = useState<Record<string, number>>(
     {},
   );
+  // Hub-specific pricing overrides, most-specific first: an exact
+  // hub+airline+route rate, then this hub's default for the route
+  // regardless of airline. Both are scoped to this hub only (retail intake
+  // always happens at the agent's own hub, same as cargo_entries.hub_id) --
+  // fetched once alongside standardRates, which remains the last-resort
+  // company-wide fallback (see resolveRate below).
+  const [hubAirlineRouteRates, setHubAirlineRouteRates] = useState<Record<string, number>>({});
+  const [hubRouteRates, setHubRouteRates] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const fetchRates = async () => {
@@ -231,13 +239,59 @@ export const CargoForm = ({
     fetchRates();
   }, []);
 
+  useEffect(() => {
+    if (!user.hub_id) return;
+    const fetchHubRates = async () => {
+      const [airlineRes, hubRes] = await Promise.all([
+        supabase.from('hub_airline_route_rates').select('airline, route_name, rate_per_kg').eq('hub_id', user.hub_id),
+        supabase.from('hub_route_rates').select('route_name, rate_per_kg').eq('hub_id', user.hub_id),
+      ]);
+      if (airlineRes.data && !airlineRes.error) {
+        const rates: Record<string, number> = {};
+        airlineRes.data.forEach((r: any) => { rates[`${r.airline}|${r.route_name}`] = Number(r.rate_per_kg); });
+        setHubAirlineRouteRates(rates);
+      }
+      if (hubRes.data && !hubRes.error) {
+        const rates: Record<string, number> = {};
+        hubRes.data.forEach((r: any) => { rates[r.route_name] = Number(r.rate_per_kg); });
+        setHubRouteRates(rates);
+      }
+    };
+    fetchHubRates();
+  }, [user.hub_id]);
+
+  // Three-tier rate lookup for retail cargo pricing: exact hub+airline+route
+  // override, then this hub's default for the route (any airline), then the
+  // company-wide standard_cargo_rates value. Returns null (not a guessed
+  // number) when nothing is configured at any tier -- staff must then price
+  // the entry manually rather than the form silently assuming a rate no one
+  // actually set (the previous `standardRates[route] || 500` behavior this
+  // replaces could silently under/overcharge for any route/hub that simply
+  // hadn't been configured yet).
+  const resolveRate = (forAirline: string, forRoute: string): number | null => {
+    const exact = hubAirlineRouteRates[`${forAirline}|${forRoute}`];
+    if (exact != null) return exact;
+    const hubDefault = hubRouteRates[forRoute];
+    if (hubDefault != null) return hubDefault;
+    const company = standardRates[forRoute];
+    if (company != null) return company;
+    return null;
+  };
+
+  // Resolved once here (rather than only inside handleRetailSubmit, where it
+  // used to live) so both the render-time price preview and the submit
+  // handler agree on the same airline name used for the rate lookup.
+  const actualAirline = airline === "Other" && customAirline.trim() ? customAirline.trim() : airline;
+
   // Compute auto-price from KG × rate — used to pre-fill the amount field.
   // Derived without setState so there is no extra re-render on every keystroke.
   const autoAmount = useMemo(() => {
     const w = Math.round(parseFloat(kg)) || 0;
-    const rate = standardRates[route] || 500;
+    const rate = resolveRate(actualAirline, route);
+    if (rate == null) return "";
     return w > 0 ? roundMoney(w * rate).toString() : "";
-  }, [kg, route, standardRates]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kg, route, actualAirline, standardRates, hubRouteRates, hubAirlineRouteRates]);
 
   const [availableAirlines, setAvailableAirlines] = useState<string[]>([
     "Arik Air",
@@ -822,8 +876,12 @@ export const CargoForm = ({
   const actualConsignee = consignee === "Other" ? customConsignee : consignee;
   const actualContentType = contentType === "Other" ? customContentType : contentType;
   const w = Math.round(parseFloat(kg)) || 0;
-  const rate = standardRates[route] || 500;
-  const minAmount = roundMoney(w * rate);
+  const rate = resolveRate(actualAirline, route);
+  // null rate = nothing configured at any tier (hub+airline+route, hub
+  // default, or company-wide) -- minAmount of 0 here is not "free," it's
+  // "no computed floor," and isRetailFormValid below only enforces the
+  // >= minAmount check when a real rate was found.
+  const minAmount = rate != null ? roundMoney(w * rate) : 0;
   // Use manual amount if typed, else fall back to auto-computed price
   const effectiveAmount = amount || autoAmount;
   const parsedAmount = parseFloat(effectiveAmount) || 0;
@@ -842,15 +900,13 @@ export const CargoForm = ({
       actualContentType.trim().length > 0 &&
       w > 0 &&
       Number.isInteger(piecesNum) && piecesNum > 0 &&
-      parsedAmount >= minAmount && parsedAmount > 0,
-    [actualConsignee, route, actualContentType, w, piecesNum, parsedAmount, minAmount],
+      (rate == null ? parsedAmount > 0 : parsedAmount >= minAmount && parsedAmount > 0),
+    [actualConsignee, route, actualContentType, w, piecesNum, parsedAmount, minAmount, rate],
   );
 
   const handleRetailSubmit = async () => {
     if (!isRetailFormValid || submitting) return;
     setSubmitting(true);
-
-    const actualAirline = airline === "Other" && customAirline.trim() ? customAirline.trim() : airline;
 
     // Check if new custom airline needs to be added to db and local state
     if (airline === "Other" && actualAirline) {
@@ -1642,8 +1698,12 @@ export const CargoForm = ({
                     className={`ehi-input pl-12 ${parsedAmount < minAmount ? 'border-[var(--color-error)]' : ''}`}
                   />
                 </div>
-                {parsedAmount > 0 && parsedAmount < minAmount && (
-                  <div className="text-[10px] text-[var(--color-error)] mt-1">Amount cannot be less than ₦{minAmount.toLocaleString()}</div>
+                {rate == null ? (
+                  <div className="text-[10px] text-[var(--color-accent-amber)] mt-1">No rate configured for this hub/airline/route — enter amount manually</div>
+                ) : (
+                  parsedAmount > 0 && parsedAmount < minAmount && (
+                    <div className="text-[10px] text-[var(--color-error)] mt-1">Amount cannot be less than ₦{minAmount.toLocaleString()}</div>
+                  )
                 )}
               </div>
 
