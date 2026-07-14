@@ -7,6 +7,7 @@ import {
   pdf,
 } from "@react-pdf/renderer";
 import { EHILogoPDF } from "../EHILogoPDF";
+import { estimateWrappedLines } from "../../lib/helpers";
 
 export interface PackageReceiptData {
   entryRef: string;
@@ -137,6 +138,11 @@ const styles = StyleSheet.create({
   },
 });
 
+// page width (226) minus left+right padding (6+6) minus the fixed label
+// column (60) -- matches CargoReceipt.tsx/MarketingReceipt.tsx's identical
+// 226pt-wide row layout, so the same column width applies here.
+const VALUE_COL_WIDTH = 148;
+
 const PackageReceiptPDF = ({ data }: { data: PackageReceiptData }) => {
   let h = 250;
   if (data.phone) h += 14;
@@ -145,6 +151,18 @@ const PackageReceiptPDF = ({ data }: { data: PackageReceiptData }) => {
   if (data.pieces) h += 14;
   if (data.kg) h += 14;
   if (data.contents) h += 14;
+
+  // Customer name and "Other"-typed contents are free text with no length
+  // cap in the Package form -- the fixed per-field bumps above only account
+  // for whether a section is present, not how much text it holds. Same bug
+  // class fixed in CargoReceipt.tsx/MarketingReceipt.tsx/
+  // ExcessBaggageReceipt.tsx: an underestimate here doesn't clip text, it
+  // silently pushes content onto an unwanted, near-empty second page.
+  for (const field of [data.customerName, data.destination, data.contents, data.agentName]) {
+    if (!field) continue;
+    const lines = estimateWrappedLines(field, VALUE_COL_WIDTH, 8);
+    if (lines > 1) h += (lines - 1) * 12;
+  }
 
   return (
     <Document>

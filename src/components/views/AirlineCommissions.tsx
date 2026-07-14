@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Percent, Save, Building2, Plus, Trash2, Loader, Check } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../lib/ToastContext';
@@ -26,6 +26,17 @@ export const AirlineCommissions = ({ onBack }: { onBack: () => void }) => {
   const { showToast } = useToast();
   const confirm = useConfirm();
 
+  // Snapshot of the airline key-set as last known from the server (or, if
+  // unreachable at load, from cache) -- used by persist()'s concurrent-edit
+  // check below. Deliberately NOT derived from `commissions` at save time:
+  // that state also holds whatever the user just added/removed locally, so
+  // comparing the live server keys against it would flag every ordinary
+  // add/delete as a "changed on another device" conflict, since the new
+  // key is by definition not on the server yet. Comparing against this
+  // load-time snapshot instead only fires when something *else* actually
+  // changed the server row since this screen opened.
+  const loadedKeysRef = useRef<string[]>([]);
+
   useEffect(() => {
     const fetchCommissions = async () => {
       try {
@@ -40,6 +51,7 @@ export const AirlineCommissions = ({ onBack }: { onBack: () => void }) => {
           Object.entries(parsed).forEach(([k, v]) => { asStr[k] = String(v); });
           setCommissions(asStr);
           setLoadedReal(true);
+          loadedKeysRef.current = Object.keys(parsed);
           localStorage.setItem('ehi_airline_commissions', JSON.stringify(parsed));
         } else {
           setUsingFallback(true);
@@ -50,6 +62,7 @@ export const AirlineCommissions = ({ onBack }: { onBack: () => void }) => {
             Object.entries(parsed).forEach(([k, v]) => { asStr[k] = String(v); });
             setCommissions(asStr);
             setLoadedReal(true);
+            loadedKeysRef.current = Object.keys(parsed);
           }
         }
       } catch (err) {
@@ -61,6 +74,7 @@ export const AirlineCommissions = ({ onBack }: { onBack: () => void }) => {
           Object.entries(parsed).forEach(([k, v]) => { asStr[k] = String(v); });
           setCommissions(asStr);
           setLoadedReal(true);
+          loadedKeysRef.current = Object.keys(parsed);
         }
       } finally {
         setLoading(false);
@@ -81,14 +95,26 @@ export const AirlineCommissions = ({ onBack }: { onBack: () => void }) => {
     // older snapshot -- saves and wipes A's addition). This can't fully
     // prevent the race without moving to per-row storage, but it stops the
     // most common case: saving stale data over someone else's newer edit.
+    //
+    // Compared against loadedKeysRef (the key-set from when this screen
+    // last synced with the server), NOT against `data`/`numData` -- those
+    // already include whatever the user just added or removed locally, so
+    // comparing live server keys to them would flag every ordinary
+    // add/delete as a false "changed on another device" conflict (the new
+    // airline is, by definition, never on the server yet). That false
+    // positive used to fire on every single add, and clicking the
+    // seemingly-safe "Cancel" on it silently discarded the addition with
+    // no error shown -- e.g. adding "Aero Contractors" here appeared to
+    // work but never actually reached the server, so it never showed up
+    // in Cargo/Hub Cargo Rates (which read this same config row).
     const { data: latest } = await supabase.from('pricing_config')
       .select('config_value')
       .eq('config_key', 'airline_commissions')
       .single();
     if (latest?.config_value) {
       const serverKeys = JSON.stringify(Object.keys(latest.config_value as object).sort());
-      const localKeysAtLoad = JSON.stringify(Object.keys(data).sort());
-      if (serverKeys !== localKeysAtLoad && !(await confirm({
+      const loadedKeys = JSON.stringify([...loadedKeysRef.current].sort());
+      if (serverKeys !== loadedKeys && !(await confirm({
         title: 'Overwrite newer changes?',
         message: 'Commission rates were changed on another device since this screen loaded (the airline list differs). Saving now will overwrite those changes with what you see here. Continue?',
         confirmLabel: 'Overwrite',
@@ -104,6 +130,7 @@ export const AirlineCommissions = ({ onBack }: { onBack: () => void }) => {
       config_value: numData,
       description: 'Airline commission percentages',
     }, { onConflict: 'config_key' });
+    if (!error) loadedKeysRef.current = Object.keys(numData);
     return error ? error.message : null;
   };
 
