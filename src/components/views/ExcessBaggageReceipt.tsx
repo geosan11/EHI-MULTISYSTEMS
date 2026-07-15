@@ -129,9 +129,12 @@ const styles = StyleSheet.create({
   qrImage: { width: 55, height: 55 },
 });
 
-// page width (226) minus left+right padding (6+6) minus the fixed label
-// column (60) -- what's actually left for a row's wrappable value text.
-const VALUE_COL_WIDTH = 148;
+// page width (226) minus left+right padding (12+12) minus the fixed label
+// column (60), with a 6pt safety cushion -- what's actually left for a
+// row's wrappable value text. Kept slightly narrower than the true 142pt
+// so a value near the wrap boundary rounds up to an extra line instead of
+// running out of room (matching this file's own generous-estimate philosophy).
+const VALUE_COL_WIDTH = 136;
 
 const BaggageReceiptPDF = ({ data }: { data: BaggageReceiptData }) => {
   // Base measured empirically the same way as CargoReceipt.tsx's -- the

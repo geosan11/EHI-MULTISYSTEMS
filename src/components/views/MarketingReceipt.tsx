@@ -188,10 +188,11 @@ const styles = StyleSheet.create({
   },
 });
 
-// Row layout: page padding 6pt each side, label column fixed at 60pt --
-// matches CargoReceipt.tsx's identical 226pt-wide row layout, so the same
+// Row layout: page padding 12pt each side, label column fixed at 60pt --
+// matches CargoReceipt.tsx's identical 226pt-wide row layout (with the
+// same 6pt safety cushion below the true 142pt available), so the same
 // column width applies here.
-const VALUE_COL_WIDTH = 148;
+const VALUE_COL_WIDTH = 136;
 
 const MarketingReceiptPDF = ({ data }: { data: MarketingReceiptData }) => {
   // +45 to accommodate the larger header logos (now sized to fill each

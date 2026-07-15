@@ -138,10 +138,11 @@ const styles = StyleSheet.create({
   },
 });
 
-// page width (226) minus left+right padding (6+6) minus the fixed label
-// column (60) -- matches CargoReceipt.tsx/MarketingReceipt.tsx's identical
-// 226pt-wide row layout, so the same column width applies here.
-const VALUE_COL_WIDTH = 148;
+// page width (226) minus left+right padding (12+12) minus the fixed label
+// column (60), with a 6pt safety cushion -- matches CargoReceipt.tsx/
+// MarketingReceipt.tsx's identical 226pt-wide row layout, so the same
+// column width applies here.
+const VALUE_COL_WIDTH = 136;
 
 const PackageReceiptPDF = ({ data }: { data: PackageReceiptData }) => {
   let h = 250;

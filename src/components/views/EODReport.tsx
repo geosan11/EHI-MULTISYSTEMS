@@ -1,7 +1,7 @@
 import { Document, Page, Text, View, StyleSheet, pdf } from '@react-pdf/renderer';
 import { Transaction, Expense } from '../../lib/types';
 import { EHILogoPDF } from '../EHILogoPDF';
-import { printPdfSmart } from '../../lib/qzPrint';
+import { openPdfOrDownload } from '../../lib/helpers';
 
 
 
@@ -272,7 +272,13 @@ export const downloadEODReport = async (data: EODReportData) => {
   URL.revokeObjectURL(url);
 };
 
+// Deliberately NOT routed through printPdfSmart/QZ Tray -- this is an A4
+// landscape multi-page office report, not an 80mm thermal slip like the
+// other printPdfSmart callers. Silently routing it to whatever printer a
+// hub configured under the 'receipt' role (their narrow thermal receipt
+// printer) would send a full-page report to hardware that can't render it.
 export const printEODReport = async (data: EODReportData) => {
   const blob = await pdf(<EODReportPDF data={data} />).toBlob();
-  await printPdfSmart(blob, `EOD_Report_${data.date.replace(/[/ ]/g, '_')}.pdf`, 'receipt');
+  const url = URL.createObjectURL(blob);
+  openPdfOrDownload(url, `EOD_Report_${data.date.replace(/[/ ]/g, '_')}.pdf`);
 };

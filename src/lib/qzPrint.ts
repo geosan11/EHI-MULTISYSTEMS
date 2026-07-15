@@ -52,13 +52,19 @@ function configureSecurity(): void {
   if (securityConfigured) return;
   securityConfigured = true;
 
+  // rejectOnFailure defaults to false in qz-tray -- without it, a cert-fetch
+  // failure (server misconfigured, expired session, network blip) doesn't
+  // reject at all; qz-tray just proceeds unsigned (qz-tray.js: `sendCert(null)`),
+  // which means ensureConnected() never throws and printPdfSmart's fallback
+  // never engages -- the print would instead hit QZ Tray's own untrusted-
+  // connection prompt. Explicit true makes a cert failure a real rejection.
   qz.security.setCertificatePromise((resolve, reject) => {
     authHeaders()
       .then((headers) => fetch('/api/qz/cert', { headers }))
       .then((res) => (res.ok ? res.text() : Promise.reject(new Error(`Cert fetch failed: ${res.status}`))))
       .then(resolve)
       .catch(reject);
-  });
+  }, { rejectOnFailure: true });
 
   qz.security.setSignatureAlgorithm('SHA512');
   qz.security.setSignaturePromise((toSign: string) => (resolve: (v?: string) => void, reject: (v?: string) => void) => {
@@ -152,5 +158,12 @@ export async function printPdfSmart(
       console.error('Silent print failed, falling back to manual print:', err);
     }
   }
-  return openPdfOrDownload(URL.createObjectURL(blob), filename, preOpenedWindow);
+  const url = URL.createObjectURL(blob);
+  const win = openPdfOrDownload(url, filename, preOpenedWindow);
+  // Give the opened tab/PWA-download time to actually load the blob before
+  // freeing it -- ExcessBaggageReceipt.tsx used to do this itself; centralizing
+  // it here means every printPdfSmart caller gets the same cleanup instead of
+  // just the one file that happened to remember to add it.
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+  return win;
 }
