@@ -16,6 +16,7 @@ import { PricingConfiguration } from './PricingConfiguration';
 import { HubCargoRates } from './HubCargoRates';
 import { AirlineCommissions } from './AirlineCommissions';
 import { ExcessBaggageAirlines } from './ExcessBaggageAirlines';
+import { CorporateBilling } from './CorporateBilling';
 
 import { useState } from 'react';
 import { User, TabView, Transaction, Expense, ExcessBaggageAirline } from '../../lib/types';
@@ -46,6 +47,7 @@ import {
   UploadSimpleIcon,
   BookOpenIcon,
   ClipboardTextIcon,
+  ReceiptIcon,
 } from '@phosphor-icons/react';
 import { ChevronRight } from 'lucide-react';
 
@@ -68,6 +70,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
   const [podLogView, setPodLogView] = useState(false);
   const [dispatchView, setDispatchView] = useState(false);
   const [airlineCommissionsView, setAirlineCommissionsView] = useState(false);
+  const [corporateBillingView, setCorporateBillingView] = useState(false);
   const [pricingView, setPricingView] = useState(false);
   const [hubCargoRatesView, setHubCargoRatesView] = useState(false);
   const [supportView, setSupportView] = useState(false);
@@ -140,6 +143,10 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
     return <AirlineCommissions onBack={() => setAirlineCommissionsView(false)} />;
   }
 
+  if (corporateBillingView) {
+    return <CorporateBilling user={user} onBack={() => setCorporateBillingView(false)} />;
+  }
+
   if (pricingView) {
     return <PricingConfiguration user={user} onBack={() => setPricingView(false)} />;
   }
@@ -160,13 +167,6 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
     return <StaffManagement user={user} onBack={() => setStaffView(false)} />;
   }
 
-  // Role checking helpers
-  const canAccessAccounting = user.role === 'admin' || user.role === 'super_admin' || user.role === 'accountant';
-  const canAccessRecon = user.role === 'super_admin' || user.role === 'accountant';
-  const canAccessFleetAndForecast = user.role === 'super_admin' || user.role === 'admin';
-  const canAccessFraud = user.role === 'super_admin' || user.role === 'admin' || user.role === 'auditor';
-  const canAccessAuditLog = user.role === 'super_admin' || user.role === 'auditor';
-  const isSuperAdmin = user.role === 'super_admin';
 
   const MenuItem = ({
     icon: Icon,
@@ -230,18 +230,22 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
             onClick={() => onChangeTab('OutboundArrivals')}
           />
         )}
-        <MenuItem
-          icon={FileTextIcon}
-          title="EOD Daily Close"
-          subtitle="Generate and dispatch end of day reports"
-          onClick={() => setEodView(true)}
-        />
-        <MenuItem
-          icon={PulseIcon}
-          title="Transaction Ledger"
-          subtitle={`${transactions.length} entries — view, search and export`}
-          onClick={() => setLedgerView(true)}
-        />
+        {canAccessTab(user, 'More:EODClose', excessBaggageAirlines) && (
+          <MenuItem
+            icon={FileTextIcon}
+            title="EOD Daily Close"
+            subtitle="Generate and dispatch end of day reports"
+            onClick={() => setEodView(true)}
+          />
+        )}
+        {canAccessTab(user, 'More:TransactionLedger', excessBaggageAirlines) && (
+          <MenuItem
+            icon={PulseIcon}
+            title="Transaction Ledger"
+            subtitle={`${transactions.length} entries — view, search and export`}
+            onClick={() => setLedgerView(true)}
+          />
+        )}
         {excessBaggageAirlines.filter(a => canAccessTab(user, `Baggage:${a.name}`, excessBaggageAirlines)).map(a => (
           <MenuItem
             key={a.id}
@@ -280,29 +284,36 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
             </span>
           }
           subtitle="Match bank deposits with system payment ledgers"
-          onClick={() => { if (canAccessRecon) setBankReconView(true); }}
-          disabled={!canAccessRecon}
+          onClick={() => { if (canAccessTab(user, 'More:BankReconciliation', excessBaggageAirlines)) setBankReconView(true); }}
+          disabled={!canAccessTab(user, 'More:BankReconciliation', excessBaggageAirlines)}
         />
         <MenuItem
           icon={DatabaseIcon}
           title="Central Accounting ERP"
           subtitle="Check balance sheets and cash flows dashboard"
-          onClick={() => { if (canAccessAccounting) setAccountingView(true); }}
-          disabled={!canAccessAccounting}
+          onClick={() => { if (canAccessTab(user, 'More:AccountingConsole', excessBaggageAirlines)) setAccountingView(true); }}
+          disabled={!canAccessTab(user, 'More:AccountingConsole', excessBaggageAirlines)}
         />
         <MenuItem
           icon={ChartBarIcon}
           title="Advanced Reports"
           subtitle="Operational audits and trend sheets"
-          onClick={() => { if (canAccessAccounting) setReportsView(true); }}
-          disabled={!canAccessAccounting}
+          onClick={() => { if (canAccessTab(user, 'More:Reports', excessBaggageAirlines)) setReportsView(true); }}
+          disabled={!canAccessTab(user, 'More:Reports', excessBaggageAirlines)}
         />
         <MenuItem
           icon={PercentIcon}
           title="Airline Commissions"
           subtitle="Set percentage cuts for partner airlines"
-          onClick={() => { if (canAccessAccounting) setAirlineCommissionsView(true); }}
-          disabled={!canAccessAccounting}
+          onClick={() => { if (canAccessTab(user, 'More:AirlineCommissions', excessBaggageAirlines)) setAirlineCommissionsView(true); }}
+          disabled={!canAccessTab(user, 'More:AirlineCommissions', excessBaggageAirlines)}
+        />
+        <MenuItem
+          icon={ReceiptIcon}
+          title="Corporate Client Billing"
+          subtitle="Generate a shipment statement for a corporate account"
+          onClick={() => { if (canAccessTab(user, 'More:CorporateBilling', excessBaggageAirlines)) setCorporateBillingView(true); }}
+          disabled={!canAccessTab(user, 'More:CorporateBilling', excessBaggageAirlines)}
         />
       </div>
 
@@ -318,8 +329,8 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
             </span>
           }
           subtitle="Capacity heatmap and busy periods projections"
-          onClick={() => { if (canAccessFleetAndForecast) setForecastingView(true); }}
-          disabled={!canAccessFleetAndForecast}
+          onClick={() => { if (canAccessTab(user, 'More:Forecasting', excessBaggageAirlines)) setForecastingView(true); }}
+          disabled={!canAccessTab(user, 'More:Forecasting', excessBaggageAirlines)}
         />
         <MenuItem
           icon={ShieldWarningIcon}
@@ -333,15 +344,15 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
             </span>
           }
           subtitle="Track sudden debt spikes and duplicated AWBs"
-          onClick={() => { if (canAccessFraud) setFraudAlertsView(true); }}
-          disabled={!canAccessFraud}
+          onClick={() => { if (canAccessTab(user, 'More:FraudAlerts', excessBaggageAirlines)) setFraudAlertsView(true); }}
+          disabled={!canAccessTab(user, 'More:FraudAlerts', excessBaggageAirlines)}
         />
         <MenuItem
           icon={ClockCounterClockwiseIcon}
           title="Revision Audit Log"
           subtitle="Strict NDPR/Financial compliance trace log"
-          onClick={() => { if (canAccessAuditLog) setAuditLogView(true); }}
-          disabled={!canAccessAuditLog}
+          onClick={() => { if (canAccessTab(user, 'More:AuditLog', excessBaggageAirlines)) setAuditLogView(true); }}
+          disabled={!canAccessTab(user, 'More:AuditLog', excessBaggageAirlines)}
         />
       </div>
 
@@ -352,22 +363,22 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
           icon={TruckIcon}
           title="Fleet Management"
           subtitle="Vehicles registration, service scheduler, fuel expense log"
-          onClick={() => { if (canAccessFleetAndForecast) setFleetView(true); }}
-          disabled={!canAccessFleetAndForecast}
+          onClick={() => { if (canAccessTab(user, 'More:Fleet', excessBaggageAirlines)) setFleetView(true); }}
+          disabled={!canAccessTab(user, 'More:Fleet', excessBaggageAirlines)}
         />
         <MenuItem
           icon={ShieldIcon}
           title="Proof of Delivery Log"
           subtitle="GPS trace, signatures and photo evidence"
-          onClick={() => { if (canAccessFraud) setPodLogView(true); }}
-          disabled={!canAccessFraud}
+          onClick={() => { if (canAccessTab(user, 'More:PODLog', excessBaggageAirlines)) setPodLogView(true); }}
+          disabled={!canAccessTab(user, 'More:PODLog', excessBaggageAirlines)}
         />
         <MenuItem
           icon={MapPinIcon}
           title="Dispatch & Fleet Tracking"
           subtitle="Live driver tracking on active routes"
-          onClick={() => { if (canAccessFleetAndForecast) setDispatchView(true); }}
-          disabled={!canAccessFleetAndForecast}
+          onClick={() => { if (canAccessTab(user, 'More:Dispatch', excessBaggageAirlines)) setDispatchView(true); }}
+          disabled={!canAccessTab(user, 'More:Dispatch', excessBaggageAirlines)}
         />
       </div>
 
@@ -379,21 +390,21 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
           title="Airline Balance Ledger"
           subtitle="Per-airline running Credit / Debit / Cheque Raise ledger"
           onClick={() => onChangeTab('AirlineLedger')}
-          disabled={!canAccessAccounting}
+          disabled={!canAccessTab(user, 'AirlineLedger', excessBaggageAirlines)}
         />
         <MenuItem
           icon={ClipboardTextIcon}
           title="Weight Manifest"
           subtitle="Daily dispatch weight tracking per flight and route"
           onClick={() => onChangeTab('WeightManifest')}
-          disabled={!['super_admin','admin','cargo_agent','office_work'].includes(user.role)}
+          disabled={!canAccessTab(user, 'WeightManifest', excessBaggageAirlines)}
         />
         <MenuItem
           icon={UploadSimpleIcon}
           title="Import Historical Data"
           subtitle="Bulk import ledger records from CSV spreadsheets"
           onClick={() => onChangeTab('DataImport')}
-          disabled={!isSuperAdmin && user.role !== 'admin'}
+          disabled={!canAccessTab(user, 'DataImport', excessBaggageAirlines)}
         />
       </div>
 
@@ -405,7 +416,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
           title="Airline Logos"
           subtitle="Manage uploaded logos for all partner airlines"
           onClick={() => onChangeTab('AirlineLogos')}
-          disabled={!isSuperAdmin && user.role !== 'admin'}
+          disabled={!canAccessTab(user, 'AirlineLogos', excessBaggageAirlines)}
         />
         <MenuItem
           icon={TerminalIcon}
@@ -418,36 +429,36 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
           icon={CurrencyDollarIcon}
           title="Pricing & Rates Configuration"
           subtitle="B2B client rates and retail standard tariffs"
-          onClick={() => { if (isSuperAdmin) setPricingView(true); }}
-          disabled={!isSuperAdmin}
+          onClick={() => { if (canAccessTab(user, 'More:PricingConfiguration', excessBaggageAirlines)) setPricingView(true); }}
+          disabled={!canAccessTab(user, 'More:PricingConfiguration', excessBaggageAirlines)}
         />
         <MenuItem
           icon={CurrencyDollarIcon}
           title="Hub Cargo Rates"
           subtitle="Per-hub, per-airline rate overrides on the standard tariff"
-          onClick={() => { if (canAccessAccounting) setHubCargoRatesView(true); }}
-          disabled={!canAccessAccounting}
+          onClick={() => { if (canAccessTab(user, 'More:HubCargoRates', excessBaggageAirlines)) setHubCargoRatesView(true); }}
+          disabled={!canAccessTab(user, 'More:HubCargoRates', excessBaggageAirlines)}
         />
         <MenuItem
           icon={AirplaneIcon}
           title="Excess Baggage Airlines"
           subtitle="Add airlines and set their free allowance / rate per KG"
-          onClick={() => { if (isSuperAdmin) setExcessBaggageAirlinesView(true); }}
-          disabled={!isSuperAdmin}
+          onClick={() => { if (canAccessTab(user, 'More:ExcessBaggageAirlines', excessBaggageAirlines)) setExcessBaggageAirlinesView(true); }}
+          disabled={!canAccessTab(user, 'More:ExcessBaggageAirlines', excessBaggageAirlines)}
         />
         <MenuItem
           icon={GearIcon}
           title="Platform Settings"
           subtitle="Automation and route pricing configuration"
-          onClick={() => { if (isSuperAdmin) setSettingsView(true); }}
-          disabled={!isSuperAdmin}
+          onClick={() => { if (canAccessTab(user, 'More:Settings', excessBaggageAirlines)) setSettingsView(true); }}
+          disabled={!canAccessTab(user, 'More:Settings', excessBaggageAirlines)}
         />
       </div>
 
       {/* Support & Account */}
       <SectionLabel label="Support & Account" />
       <div>
-        {(user.role === 'super_admin' || user.role === 'admin') && (
+        {canAccessTab(user, 'More:StaffManagement', excessBaggageAirlines) && (
           <MenuItem
             icon={UsersIcon}
             title="Staff Management"
@@ -455,12 +466,14 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
             onClick={() => setStaffView(true)}
           />
         )}
-        <MenuItem
-          icon={ShieldWarningIcon}
-          title="Help Desk & Issue Resolution"
-          subtitle="Report operational complaints or bugs"
-          onClick={() => setSupportView(true)}
-        />
+        {canAccessTab(user, 'More:SupportTickets', excessBaggageAirlines) && (
+          <MenuItem
+            icon={ShieldWarningIcon}
+            title="Help Desk & Issue Resolution"
+            subtitle="Report operational complaints or bugs"
+            onClick={() => setSupportView(true)}
+          />
+        )}
 
         <button
           onClick={onLogout}

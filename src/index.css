@@ -253,6 +253,24 @@ textarea {
   appearance: none;
 }
 
+/* The reset above strips every input's native chrome for themed text/date/
+   number fields -- but applied to a checkbox, it also erases the native
+   checked-state box/checkmark with nothing put back in its place, so every
+   checkbox on the site renders as a blank rounded rectangle with zero visual
+   difference between checked and unchecked. That made multi-select checklists
+   (e.g. StaffManagement's per-user view-access override) look like clicking
+   only ever selected one item, when the underlying state was actually
+   tracking every checked box correctly the whole time. Restoring native
+   appearance + accent-color brings back a visible checkmark. */
+input[type="checkbox"] {
+  -webkit-appearance: auto;
+  appearance: auto;
+  accent-color: var(--color-accent-amber);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
 input:focus,
 select:focus,
 textarea:focus {

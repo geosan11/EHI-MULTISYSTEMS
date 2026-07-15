@@ -8,7 +8,7 @@ import { User, UserRole } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
 import { createStaffAccount, updateStaffProfile } from '../../lib/auth';
 import { BulkStaffImport } from './BulkStaffImport';
-import { getAllViewDefs, getRoleDefaultTabs } from '../../lib/permissions';
+import { getAllViewDefs, getRoleDefaultTabs, groupViewDefs } from '../../lib/permissions';
 
 interface StaffMember {
   id: string;
@@ -603,26 +603,33 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
                     </button>
                   </div>
                   {editingStaff.view_overrides != null && (
-                    <div className="mt-3 grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
-                      {getAllViewDefs(airlines as any).map(v => {
-                        const checked = editingStaff.view_overrides?.includes(v.id) ?? false;
-                        return (
-                          <label key={v.id} className="flex items-center gap-1.5 text-[10px] text-[var(--color-foreground)] bg-[var(--color-surface-2)] rounded px-2 py-1.5 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={e => setEditingStaff(s => {
-                                if (!s) return null;
-                                const current = s.view_overrides || [];
-                                const next = e.target.checked ? [...current, v.id] : current.filter(id => id !== v.id);
-                                return { ...s, view_overrides: next };
-                              })}
-                              className="shrink-0"
-                            />
-                            <span className="truncate">{v.label}</span>
-                          </label>
-                        );
-                      })}
+                    <div className="mt-3 max-h-72 overflow-y-auto pr-1 space-y-2.5">
+                      {groupViewDefs(getAllViewDefs(airlines as any)).map(group => (
+                        <div key={group.category}>
+                          <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider mb-1 px-0.5">{group.category}</div>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {group.views.map(v => {
+                              const checked = editingStaff.view_overrides?.includes(v.id) ?? false;
+                              return (
+                                <label key={v.id} className="flex items-center gap-1.5 text-[10px] text-[var(--color-foreground)] bg-[var(--color-surface-2)] rounded px-2 py-1.5 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={e => setEditingStaff(s => {
+                                      if (!s) return null;
+                                      const current = s.view_overrides || [];
+                                      const next = e.target.checked ? [...current, v.id] : current.filter(id => id !== v.id);
+                                      return { ...s, view_overrides: next };
+                                    })}
+                                    className="shrink-0"
+                                  />
+                                  <span className="truncate">{v.label}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

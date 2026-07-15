@@ -11,7 +11,18 @@ export interface ViewDef {
   id: TabView;
   label: string;
   roles: UserRole[];
+  // Groups the checklist in StaffManagement's view-access editor -- undefined
+  // means it's one of the original top-level nav tabs (see groupViewDefs
+  // below). Purely cosmetic; has no bearing on getAllowedTabs/canAccessTab.
+  category?: string;
 }
+
+// Same role list as the 'More' tab itself -- used below for the handful of
+// More-menu sub-screens (EOD Close, Transaction Ledger, Help Desk) that
+// were never role-gated at all before this: anyone who can open More could
+// already reach them, so their default here has to match 'More' exactly or
+// turning on a view_overrides for someone would silently take these away.
+const MORE_TAB_ROLES: UserRole[] = ['super_admin', 'admin', 'accountant', 'auditor', 'cargo_agent', 'baggage_agent', 'marketing_agent', 'driver', 'office_work'];
 
 // The static (non-airline-dependent) top-level views and which roles get
 // each one by default. This is what a user falls back to when they have
@@ -29,17 +40,68 @@ export const STATIC_VIEWS: ViewDef[] = [
   { id: 'More', label: 'More', roles: ['super_admin', 'admin', 'accountant', 'auditor', 'cargo_agent', 'baggage_agent', 'marketing_agent', 'driver', 'office_work'] },
   { id: 'IT Debug', label: 'IT Debug Console', roles: ['super_admin'] },
   { id: 'Credit & Debit', label: 'Credit & Debit', roles: ['super_admin', 'admin', 'accountant'] },
+
+  // Everything below used to be gated inside More.tsx by hardcoded,
+  // per-screen role checks (canAccessAccounting/canAccessRecon/etc.) that a
+  // super_admin's per-user view_overrides had no way to reach -- granting
+  // someone the "Custom View Access" override could change their top-level
+  // tabs but never touched what they could open inside More. Folding these
+  // in as regular TabViews, with roles matching each screen's previous
+  // check exactly, changes nothing for anyone without an override while
+  // making all of it individually overridable for people who do have one.
+  { id: 'More:EODClose', label: 'EOD Daily Close', roles: MORE_TAB_ROLES, category: 'Daily Operations' },
+  { id: 'More:TransactionLedger', label: 'Transaction Ledger', roles: MORE_TAB_ROLES, category: 'Daily Operations' },
+  { id: 'More:BankReconciliation', label: 'Bank Reconciliation', roles: ['super_admin', 'accountant'], category: 'Finance' },
+  { id: 'More:AccountingConsole', label: 'Central Accounting ERP', roles: ['super_admin', 'admin', 'accountant'], category: 'Finance' },
+  { id: 'More:Reports', label: 'Advanced Reports', roles: ['super_admin', 'admin', 'accountant'], category: 'Finance' },
+  { id: 'More:AirlineCommissions', label: 'Airline Commissions', roles: ['super_admin', 'admin', 'accountant'], category: 'Finance' },
+  { id: 'More:CorporateBilling', label: 'Corporate Client Billing', roles: ['super_admin', 'admin', 'accountant'], category: 'Finance' },
+  { id: 'More:Forecasting', label: 'Demand Forecasting AI', roles: ['super_admin', 'admin'], category: 'Intelligence' },
+  { id: 'More:FraudAlerts', label: 'Fraud & Anomalies Feed', roles: ['super_admin', 'admin', 'auditor', 'accountant'], category: 'Intelligence' },
+  { id: 'More:AuditLog', label: 'Revision Audit Log', roles: ['super_admin', 'auditor'], category: 'Intelligence' },
+  { id: 'More:Fleet', label: 'Fleet Management', roles: ['super_admin', 'admin'], category: 'Fleet & Logistics' },
+  { id: 'More:PODLog', label: 'Proof of Delivery Log', roles: ['super_admin', 'admin', 'auditor', 'accountant'], category: 'Fleet & Logistics' },
+  { id: 'More:Dispatch', label: 'Dispatch & Fleet Tracking', roles: ['super_admin', 'admin'], category: 'Fleet & Logistics' },
+  { id: 'AirlineLedger', label: 'Airline Balance Ledger', roles: ['super_admin', 'admin', 'accountant'], category: 'Data & Records' },
+  { id: 'WeightManifest', label: 'Weight Manifest', roles: ['super_admin', 'admin', 'cargo_agent', 'office_work'], category: 'Data & Records' },
+  { id: 'DataImport', label: 'Import Historical Data', roles: ['super_admin', 'admin'], category: 'Data & Records' },
+  { id: 'AirlineLogos', label: 'Airline Logos', roles: ['super_admin', 'admin'], category: 'Administration' },
+  { id: 'More:PricingConfiguration', label: 'Pricing & Rates Configuration', roles: ['super_admin', 'admin', 'accountant'], category: 'Administration' },
+  { id: 'More:HubCargoRates', label: 'Hub Cargo Rates', roles: ['super_admin', 'admin', 'accountant'], category: 'Administration' },
+  { id: 'More:ExcessBaggageAirlines', label: 'Excess Baggage Airlines', roles: ['super_admin', 'admin', 'accountant'], category: 'Administration' },
+  { id: 'More:Settings', label: 'Platform Settings', roles: ['super_admin'], category: 'Administration' },
+  { id: 'More:StaffManagement', label: 'Staff Management', roles: ['super_admin', 'admin'], category: 'Support & Account' },
+  { id: 'More:SupportTickets', label: 'Help Desk & Issue Resolution', roles: MORE_TAB_ROLES, category: 'Support & Account' },
 ];
+
+// Fixed display order for groupViewDefs -- an explicit list rather than
+// discovery order so the checklist doesn't reshuffle every time a new
+// category's first entry happens to get added to STATIC_VIEWS.
+const CATEGORY_ORDER = ['Main Navigation', 'Daily Operations', 'Finance', 'Intelligence', 'Fleet & Logistics', 'Data & Records', 'Administration', 'Support & Account'];
+
+// Buckets a flat view list into the same sections More.tsx's own menu uses,
+// for StaffManagement's view-access checklist -- otherwise ~45 checkboxes
+// (11 nav tabs + 22 More sub-screens + one per configured baggage airline)
+// render as one undifferentiated grid, which is unusable at a glance.
+export function groupViewDefs(views: ViewDef[]): { category: string; views: ViewDef[] }[] {
+  const byCategory = new Map<string, ViewDef[]>();
+  for (const v of views) {
+    const cat = v.category || 'Main Navigation';
+    if (!byCategory.has(cat)) byCategory.set(cat, []);
+    byCategory.get(cat)!.push(v);
+  }
+  return CATEGORY_ORDER.filter((c) => byCategory.has(c)).map((c) => ({ category: c, views: byCategory.get(c)! }));
+}
 
 // One synthetic view per active configured excess-baggage airline --
 // baggage_agent gets only their assigned one, super_admin/admin get all
 // (mirrors the SideNav.tsx BAGGAGE_MARKER expansion this replaces).
 export function getBaggageViews(role: UserRole, assignedAirline: string | undefined, airlines: ExcessBaggageAirline[]): ViewDef[] {
   if (role === 'baggage_agent') {
-    return assignedAirline ? [{ id: `Baggage:${assignedAirline}` as TabView, label: `${assignedAirline} POS`, roles: ['baggage_agent'] }] : [];
+    return assignedAirline ? [{ id: `Baggage:${assignedAirline}` as TabView, label: `${assignedAirline} POS`, roles: ['baggage_agent'], category: 'Daily Operations' }] : [];
   }
   if (role === 'super_admin' || role === 'admin') {
-    return airlines.map((a) => ({ id: `Baggage:${a.name}` as TabView, label: `${a.name} POS`, roles: [role] }));
+    return airlines.map((a) => ({ id: `Baggage:${a.name}` as TabView, label: `${a.name} POS`, roles: [role], category: 'Daily Operations' }));
   }
   return [];
 }
