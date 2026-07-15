@@ -87,15 +87,22 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
     };
   }, [todaysTx, todaysExp]);
 
-  // Actual Counted
-  const [countedCash, setCountedCash] = useState<number | ''>('');
-  const [countedTransfer, setCountedTransfer] = useState<number | ''>(expectedTotals.transferTotal);
-  const [countedPOS, setCountedPOS] = useState<number | ''>(expectedTotals.posTotal);
-  
+  // Actual Counted -- kept as raw strings (not number | '') so the input
+  // stays uncontrolled-in-spirit while typing: a controlled value fed
+  // straight back from Number(e.target.value) drops a trailing "." on
+  // every keystroke (Number("50000.") is 50000, same as before the dot),
+  // so the field silently reset itself and the next digit landed on the
+  // whole-number part instead -- "50000.5" would become "500005". Number()
+  // is applied only where the value is actually used for math, never fed
+  // back into what's displayed.
+  const [countedCash, setCountedCash] = useState<string>('');
+  const [countedTransfer, setCountedTransfer] = useState<string>(String(expectedTotals.transferTotal));
+  const [countedPOS, setCountedPOS] = useState<string>(String(expectedTotals.posTotal));
+
   // Variances
-  const cashVariance = (countedCash === '' ? 0 : countedCash) - expectedTotals.netExpectedCash;
-  const transferVariance = (countedTransfer === '' ? 0 : countedTransfer) - expectedTotals.transferTotal;
-  const posVariance = (countedPOS === '' ? 0 : countedPOS) - expectedTotals.posTotal;
+  const cashVariance = (Number(countedCash) || 0) - expectedTotals.netExpectedCash;
+  const transferVariance = (Number(countedTransfer) || 0) - expectedTotals.transferTotal;
+  const posVariance = (Number(countedPOS) || 0) - expectedTotals.posTotal;
 
   // Reason
   const [varianceReason, setVarianceReason] = useState('');
@@ -120,7 +127,7 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
     (Number(denoms.n10) * 10);
 
   const handleApplyDenoms = () => {
-    setCountedCash(denomTotal);
+    setCountedCash(String(denomTotal));
     setShowDenoms(false);
   };
 
@@ -394,7 +401,7 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
                 type="number"
                 min="0"
                 value={countedCash}
-                onChange={e => setCountedCash(e.target.value === '' ? '' : Number(e.target.value))}
+                onChange={e => setCountedCash(e.target.value)}
                 className={inputClass}
                 placeholder="Enter physical cash in till..."
               />
@@ -414,7 +421,7 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
               type="number"
               min="0"
               value={countedTransfer}
-              onChange={e => setCountedTransfer(e.target.value === '' ? '' : Number(e.target.value))}
+              onChange={e => setCountedTransfer(e.target.value)}
               className={inputClass}
             />
             <div className="text-[10px] text-[var(--color-muted)] font-mono mt-1">Expected: {fmt(expectedTotals.transferTotal)}</div>
@@ -427,7 +434,7 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
               type="number"
               min="0"
               value={countedPOS}
-              onChange={e => setCountedPOS(e.target.value === '' ? '' : Number(e.target.value))}
+              onChange={e => setCountedPOS(e.target.value)}
               className={inputClass}
             />
             <div className="text-[10px] text-[var(--color-muted)] font-mono mt-1">Expected: {fmt(expectedTotals.posTotal)}</div>

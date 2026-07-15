@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { BackButton } from '../BackButton';
 import { reinitSupabase, getConnectionMode, testSupabaseConnection, supabase } from '../../lib/supabase';
-import { useToast } from '../../lib/ToastContext';
 import { getConfiguredPrinter, setConfiguredPrinter, listPrinters } from '../../lib/qzPrint';
 
 export const Settings = ({ 
@@ -27,7 +26,6 @@ export const Settings = ({
   const [configTab, setConfigTab] = useState<
     'CONNECTION' | 'PAYMENTS' | 'NOTIFICATIONS' | 'COMPANY'
   >('CONNECTION');
-  const { showToast } = useToast();
 
   // Connection tab
   const [supabaseUrl, setSupabaseUrl] = useState(
@@ -115,18 +113,6 @@ export const Settings = ({
     return localStorage.getItem('ehi_setting_drive_sync') !== 'false';
   });
 
-  // PRICING MATRIX STATE (BB/MB/SB pricing)
-  const [pricing, setPricing] = useState(() => {
-    const saved = localStorage.getItem('ehi_setting_pricing');
-    return saved ? JSON.parse(saved) : [
-      { id: '1', route: 'LOS/Lagos - ABV/Abuja', bb: 18000, mb: 12000, sb: 7500 },
-      { id: '2', route: 'LOS/Lagos - PHC/Port Harcourt', bb: 22000, mb: 15000, sb: 9500 },
-      { id: '3', route: 'ABV/Abuja - LOS/Lagos', bb: 18000, mb: 12000, sb: 7500 },
-      { id: '4', route: 'PHC/Port Harcourt - LOS/Lagos', bb: 22000, mb: 15000, sb: 9500 },
-      { id: '5', route: 'LOS/Lagos - ENU/Enugu', bb: 19500, mb: 13000, sb: 8000 }
-    ];
-  });
-
   // Multi-Hub — loaded live from Supabase (single source of truth)
   const [hubs, setHubs] = useState<any[]>([]);
 
@@ -167,44 +153,8 @@ export const Settings = ({
   }, [driveSync]);
 
   useEffect(() => {
-    localStorage.setItem('ehi_setting_pricing', JSON.stringify(pricing));
-  }, [pricing]);
-
-  // This screen and PricingConfiguration.tsx were two separate editors for
-  // the exact same BB/MB/SB matrix, both localStorage-only -- neither knew
-  // about the other's edits, and neither reached any other device at all.
-  // Both now read/write the same marketing_route_rates table.
-  useEffect(() => {
-    supabase.from('marketing_route_rates').select('*').order('route_name').then(({ data, error }) => {
-      if (data && !error && data.length > 0) {
-        setPricing(data.map((r: any) => ({ id: r.id, route: r.route_name, bb: Number(r.bb_rate), mb: Number(r.mb_rate), sb: Number(r.sb_rate) })));
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
     localStorage.setItem('ehi_setting_carriers', JSON.stringify(carriers));
   }, [carriers]);
-
-  const handlePriceUpdate = async (id: string, field: 'bb' | 'mb' | 'sb', value: string) => {
-    const num = parseInt(value) || 0;
-    const next = pricing.map((p: any) => p.id === id ? { ...p, [field]: num } : p);
-    setPricing(next);
-
-    const row = next.find((p: any) => p.id === id);
-    if (!row) return;
-    const { error } = await supabase.from('marketing_route_rates').upsert({
-      route_name: row.route,
-      bb_rate: row.bb,
-      mb_rate: row.mb,
-      sb_rate: row.sb,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'route_name' });
-    if (error) {
-      showToast({ message: `Failed to save ${row.route} rate: ${error.message}`, type: 'error' });
-    }
-  };
 
   const handleToggleHub = async (id: string) => {
     const target = hubs.find((h: any) => h.id === id);
@@ -220,7 +170,7 @@ export const Settings = ({
   };
 
   // Silent printing (QZ Tray) — per-device, so read/written straight to
-  // localStorage rather than the pricing/hub/carrier state above, none of
+  // localStorage rather than the hub/carrier state above, neither of
   // which syncs to Supabase either at the per-terminal level this needs.
   const [qzStatus, setQzStatus] = useState<'unknown' | 'checking' | 'available' | 'unavailable'>('unknown');
   const [qzPrinters, setQzPrinters] = useState<string[]>([]);

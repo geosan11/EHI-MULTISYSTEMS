@@ -80,6 +80,28 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// Chrome/Firefox change a focused <input type="number">'s value on mouse
+// wheel / trackpad scroll -- an intentional browser feature (it doubles as
+// the spinner's scroll shortcut) that's actively harmful here: agents type
+// a KG or amount, then scroll the page to reach the next field or the
+// summary panel while that input still has focus, silently decrementing
+// whatever they just entered by however many scroll ticks fired (50kg
+// becoming 47kg, 45.5kg, etc. with zero visible error). This affects every
+// numeric field across the app (Cargo/Package/Marketing/ValueJet weight and
+// amount fields, commission/rate config, and more) -- rather than adding a
+// per-input onWheel guard in ~16 separate files (and remembering it again
+// for every future one), blur any focused number input the instant a wheel
+// event reaches it. The blur happens synchronously within this handler,
+// before the browser's own default wheel-triggered step change would
+// apply, so the value is never touched -- the page keeps scrolling
+// normally, the input just stops being the thing capturing the scroll.
+window.addEventListener('wheel', () => {
+  const active = document.activeElement;
+  if (active instanceof HTMLInputElement && active.type === 'number') {
+    active.blur();
+  }
+}, { passive: true });
+
 // Run data retention policies
 cleanupOldPings();
 

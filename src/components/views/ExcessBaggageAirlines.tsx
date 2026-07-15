@@ -201,14 +201,23 @@ export const ExcessBaggageAirlines = ({ onBack }: { onBack: () => void }) => {
                       <Power size={11} /> {a.active ? 'Active' : 'Inactive'}
                     </button>
                   </div>
+                  {/* defaultValue+onBlur (uncontrolled), not value+onChange -- the
+                      previous version parsed to a number and wrote it back as
+                      the controlled value on every keystroke, so typing a
+                      decimal point immediately vanished (parseFloat("12.") is
+                      12, same as before the "."), silently turning e.g. "12.5"
+                      into "125" the moment the next digit landed. This also
+                      dropped a live Supabase write per keystroke instead of
+                      once on blur. */}
                   <div className="grid grid-cols-2 gap-2 pl-11">
                     <div>
                       <label htmlFor={`free-${a.id}`} className="text-[9px] font-mono text-[var(--color-muted)] block mb-1">FREE ALLOWANCE (KG)</label>
                       <input
                         id={`free-${a.id}`}
                         type="number"
-                        value={a.free_allowance_kg}
-                        onChange={(e) => handleFieldChange(a.id, 'free_allowance_kg', parseFloat(e.target.value) || 0)}
+                        defaultValue={a.free_allowance_kg}
+                        key={`free-${a.id}-${a.free_allowance_kg}`}
+                        onBlur={(e) => e.target.value && handleFieldChange(a.id, 'free_allowance_kg', parseFloat(e.target.value) || 0)}
                         className="w-full ehi-input font-mono"
                       />
                     </div>
@@ -217,8 +226,9 @@ export const ExcessBaggageAirlines = ({ onBack }: { onBack: () => void }) => {
                       <input
                         id={`rate-${a.id}`}
                         type="number"
-                        value={a.rate_per_kg}
-                        onChange={(e) => handleFieldChange(a.id, 'rate_per_kg', parseFloat(e.target.value) || 0)}
+                        defaultValue={a.rate_per_kg}
+                        key={`rate-${a.id}-${a.rate_per_kg}`}
+                        onBlur={(e) => e.target.value && handleFieldChange(a.id, 'rate_per_kg', parseFloat(e.target.value) || 0)}
                         className="w-full ehi-input font-mono"
                       />
                     </div>

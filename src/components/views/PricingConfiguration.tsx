@@ -238,14 +238,22 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
           {pricing.map((r: any) => (
             <div key={r.id} className="p-3 bg-[var(--color-surface-2)] rounded border border-[var(--color-border)] space-y-2">
               <span className="text-[11px] font-bold text-[var(--color-foreground)] uppercase tracking-wide block">{r.route}</span>
+              {/* defaultValue+onBlur (uncontrolled), not value+onChange -- the
+                  previous version wrote the parsed number straight back as
+                  the controlled value on every keystroke (plus a live
+                  Supabase write per keystroke), so typing a decimal point
+                  immediately vanished and the next digit landed on the
+                  whole-number part instead, e.g. "450.5" silently becoming
+                  "4505". Same fix as ExcessBaggageAirlines.tsx. */}
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label htmlFor={`bb-${r.id}`} className="text-[8px] font-mono text-[var(--color-muted)] block mb-1">BB BAG (₦)</label>
                   <input
                     id={`bb-${r.id}`}
                     type="number"
-                    value={r.bb}
-                    onChange={(e) => handlePriceUpdate(r.id, 'bb', e.target.value)}
+                    defaultValue={r.bb}
+                    key={`bb-${r.id}-${r.bb}`}
+                    onBlur={(e) => e.target.value && handlePriceUpdate(r.id, 'bb', e.target.value)}
                     className="w-full bg-[var(--color-surface-1)] border border-[var(--color-surface-2)] rounded px-2 py-1 text-[11px] font-mono text-[var(--color-foreground)] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
                   />
                 </div>
@@ -254,8 +262,9 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                   <input
                     id={`mb-${r.id}`}
                     type="number"
-                    value={r.mb}
-                    onChange={(e) => handlePriceUpdate(r.id, 'mb', e.target.value)}
+                    defaultValue={r.mb}
+                    key={`mb-${r.id}-${r.mb}`}
+                    onBlur={(e) => e.target.value && handlePriceUpdate(r.id, 'mb', e.target.value)}
                     className="w-full bg-[var(--color-surface-1)] border border-[var(--color-surface-2)] rounded px-2 py-1 text-[11px] font-mono text-[var(--color-foreground)] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
                   />
                 </div>
@@ -264,8 +273,9 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                   <input
                     id={`sb-${r.id}`}
                     type="number"
-                    value={r.sb}
-                    onChange={(e) => handlePriceUpdate(r.id, 'sb', e.target.value)}
+                    defaultValue={r.sb}
+                    key={`sb-${r.id}-${r.sb}`}
+                    onBlur={(e) => e.target.value && handlePriceUpdate(r.id, 'sb', e.target.value)}
                     className="w-full bg-[var(--color-surface-1)] border border-[var(--color-surface-2)] rounded px-2 py-1 text-[11px] font-mono text-[var(--color-foreground)] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
                   />
                 </div>
@@ -290,8 +300,9 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                   <span className="text-[12px] font-mono text-[var(--color-muted)]">₦</span>
                   <input
                     type="number"
-                    value={standardRates[r] || ''}
-                    onChange={(e) => handleUpdateStandardRate(r, e.target.value)}
+                    defaultValue={standardRates[r] || ''}
+                    key={`standard-rate-${r}-${standardRates[r] ?? 'empty'}`}
+                    onBlur={(e) => e.target.value && handleUpdateStandardRate(r, e.target.value)}
                     className="w-24 bg-[var(--color-bg)] border border-[var(--color-surface-2)] rounded px-2 py-1 text-[12px] font-mono text-[var(--color-foreground)] text-right focus:outline-none focus:border-[var(--color-accent-amber)]"
                   />
                   <span className="text-[10px] text-[var(--color-muted)]">/KG</span>
