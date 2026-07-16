@@ -5,12 +5,20 @@
 -- ============================================================
 
 -- ── 1. HUBS ────────────────────────────────────────────────
+-- IF NOT EXISTS is a no-op here in every environment where this migration
+-- has actually run -- the hubs table predates this migration file and
+-- already has its own real CHECK constraint ('Cargo Station' | 'Head
+-- Office' | 'Field Office'), confirmed live via pg_get_constraintdef. The
+-- clause below is corrected to match that reality (it originally read
+-- 'airport'/'transit'/'depot', which never matched anything real and was
+-- copied into Settings.tsx's Add Hub form, where it failed every insert
+-- with a check-constraint violation until fixed there too).
 CREATE TABLE IF NOT EXISTS public.hubs (
   id        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name      text NOT NULL,
   code      text UNIQUE NOT NULL,
   state     text,
-  type      text NOT NULL DEFAULT 'airport' CHECK (type IN ('airport','transit','depot')),
+  type      text NOT NULL DEFAULT 'Cargo Station' CHECK (type IN ('Cargo Station','Head Office','Field Office')),
   active    boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now()
 );

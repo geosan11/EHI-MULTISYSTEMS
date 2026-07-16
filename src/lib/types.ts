@@ -16,7 +16,11 @@ export interface ProofOfDelivery {
   gpsLongitude?:     number;
 }
 
-export type HubType = 'Cargo Station' | 'Head Office';
+// Matches the live hubs.type CHECK constraint exactly (see
+// supabase/migrations/20260706_full_schema.sql's hubs table comment) --
+// this table predates that migration file's CREATE TABLE IF NOT EXISTS, so
+// that file's own CHECK clause text doesn't reflect the real constraint.
+export type HubType = 'Cargo Station' | 'Head Office' | 'Field Office';
 
 export type UserRole =
   | 'super_admin'

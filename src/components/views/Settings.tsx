@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User } from '../../lib/types';
+import { User, HubType } from '../../lib/types';
 import {
   Settings as SettingsIcon,
   ToggleLeft,
@@ -216,7 +216,11 @@ export const Settings = ({
   const [newHubName, setNewHubName] = useState('');
   const [newHubCode, setNewHubCode] = useState('');
   const [newHubState, setNewHubState] = useState('');
-  const [newHubType, setNewHubType] = useState<'airport' | 'transit' | 'depot'>('airport');
+  // Values must match the live hubs.type CHECK constraint exactly
+  // ('Cargo Station' | 'Head Office' | 'Field Office') -- previously used
+  // 'airport'/'transit'/'depot', which never matched anything real and
+  // failed every insert with a check-constraint violation.
+  const [newHubType, setNewHubType] = useState<HubType>('Cargo Station');
   const [addingHub, setAddingHub] = useState(false);
 
   const handleAddHub = async () => {
@@ -248,7 +252,7 @@ export const Settings = ({
     setNewHubName('');
     setNewHubCode('');
     setNewHubState('');
-    setNewHubType('airport');
+    setNewHubType('Cargo Station');
   };
 
   // Silent printing (QZ Tray) — per-device, so read/written straight to
@@ -741,12 +745,12 @@ export const Settings = ({
             </div>
             <select
               value={newHubType}
-              onChange={e => setNewHubType(e.target.value as 'airport' | 'transit' | 'depot')}
+              onChange={e => setNewHubType(e.target.value as HubType)}
               className="w-full h-9 px-3 text-[12px] font-mono rounded bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
             >
-              <option value="airport">Airport</option>
-              <option value="transit">Transit</option>
-              <option value="depot">Depot</option>
+              <option value="Cargo Station">Cargo Station</option>
+              <option value="Head Office">Head Office</option>
+              <option value="Field Office">Field Office</option>
             </select>
             <button
               onClick={handleAddHub}
