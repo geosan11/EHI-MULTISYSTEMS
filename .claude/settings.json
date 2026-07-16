@@ -59,7 +59,12 @@
       "Bash(python \"C:\\\\Users\\\\Hp\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Hp-Documents-GitHub-EHI-MULTISYSTEMS\\\\f9eadc0d-32fc-49dc-89df-9b825a558551\\\\scratchpad\\\\check_setters.py\")",
       "Bash(sed -i \"s/encoding='utf-8'/encoding='utf-8', errors='replace'/\" \"C:\\\\Users\\\\Hp\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Hp-Documents-GitHub-EHI-MULTISYSTEMS\\\\f9eadc0d-32fc-49dc-89df-9b825a558551\\\\scratchpad\\\\check_setters.py\")",
       "Bash(node -e \"console.log\\(require\\('./node_modules/@supabase/supabase-js/package.json'\\).version\\)\")",
-      "Bash(node -e \"console.log\\(require\\('./node_modules/@supabase/auth-js/package.json'\\).version\\)\")"
+      "Bash(node -e \"console.log\\(require\\('./node_modules/@supabase/auth-js/package.json'\\).version\\)\")",
+      "Bash(npx tsc *)",
+      "Bash(tasklist)",
+      "Bash(tee /tmp/tsc_full.log)",
+      "Bash(wc -l /tmp/session_diff.patch)",
+      "Read(//tmp/**)"
     ]
   }
 }
