@@ -151,15 +151,18 @@ export async function writeWithOfflineSupport(
     await (db[tableName] as Dexie.Table).put(record);
   }
 
-  // Add to sync queue
-  await db.sync_queue.add({
-    table_name: tableName,
-    record_id: payload.id as string,
-    action: 'INSERT',
-    payload,
-    synced: 0,
-    created_at: new Date().toISOString(),
-  });
+  // Add to sync queue if not already queued with same record_id
+  const existingQueue = await db.sync_queue.where('record_id').equals(payload.id as string).first();
+  if (!existingQueue) {
+    await db.sync_queue.add({
+      table_name: tableName,
+      record_id: payload.id as string,
+      action: 'INSERT',
+      payload,
+      synced: 0,
+      created_at: new Date().toISOString(),
+    });
+  }
 
   // Attempt immediate Supabase insert
   try {

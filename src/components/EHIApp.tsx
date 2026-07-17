@@ -192,9 +192,12 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
   const flushPendingTx = useCallback(() => {
     if (pendingTxRef.current.length === 0) return;
-    setTransactions(prev =>
-      [...pendingTxRef.current, ...prev].slice(0, 200)
-    );
+    setTransactions(prev => {
+      const existingIds = new Set(prev.map(t => t.id));
+      const fresh = pendingTxRef.current.filter(t => !existingIds.has(t.id));
+      if (fresh.length === 0) return prev;
+      return [...fresh, ...prev];
+    });
     pendingTxRef.current = [];
   }, []);
 
@@ -432,12 +435,11 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         allTx.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
         
         setTransactions(prev => {
-          // Instead of merging unconditionally, we just set to what we fetched to respect the date filter.
-          // But we keep locally pending transactions.
+          // Respect the date filter while keeping locally pending transactions.
           const localOnly = pendingTxRef.current.filter(p => !allTx.some(t => t.id === p.id));
           const combined = [...localOnly, ...allTx];
-          combined.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-          return combined.slice(0, 1000);
+          const unique = combined.filter((v, i, a) => a.findIndex(x => x.id === v.id) === i);
+          return unique.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
         });
       } catch (err) {
         if (fetchEpochRef.current !== myEpoch) return;
@@ -671,7 +673,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         next[idx] = tx;
         return next;
       }
-      return [tx, ...prev].slice(0, 200);
+      return [tx, ...prev];
     });
     const tableName = tx.type === 'marketing' ? 'marketing_entries'
       : tx.type === 'cargo' ? 'cargo_entries'
