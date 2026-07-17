@@ -230,28 +230,39 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         const startISO = startDate.toISOString();
         const endISO = endDate.toISOString();
 
-        const [cargoRes, baggageRes, mktRes, packageRes, expRes] = await Promise.all([
-          addHubFilter(supabase.from('cargo_entries').select(`entry_ref,consignee_name,consignee_phone,client_type,corporate_client_id,airline,commission_rate,awb_tag_number,total_pcs,total_kg,route,content_type,amount,receipt_mode,created_at,status,bank,hub_id,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,remark,entered_by,user_profiles(name)${canSeePin ? ',pickup_pin' : ''}`).gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
-          addHubFilter(supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs,amount_paid,payment_history,airline,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,entered_by,user_profiles(name)').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
-          addHubFilter(supabase.from('marketing_entries').select('entry_ref,awb_tag_number,customer_name,route,qty_big_bag,qty_med_bag,qty_small_bag,bb_kg,mb_kg,sb_kg,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,user_profiles(name),debt_amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
-          addHubFilter(supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,total_pcs,total_kg,contents,status,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,amount_paid,payment_history,created_at,hub_id,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,entered_by,user_profiles(name)').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
-          addHubFilter(supabase.from('expenses').select('*').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500))
+        const [cargoRes, baggageRes, mktRes, packageRes, expRes, profilesRes] = await Promise.all([
+          addHubFilter(supabase.from('cargo_entries').select(`entry_ref,consignee_name,consignee_phone,client_type,corporate_client_id,airline,commission_rate,awb_tag_number,total_pcs,total_kg,route,content_type,amount,receipt_mode,created_at,status,bank,hub_id,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,remark,entered_by${canSeePin ? ',pickup_pin' : ''}`).gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
+          addHubFilter(supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs,amount_paid,payment_history,airline,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,entered_by').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
+          addHubFilter(supabase.from('marketing_entries').select('entry_ref,awb_tag_number,customer_name,route,qty_big_bag,qty_med_bag,qty_small_bag,bb_kg,mb_kg,sb_kg,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,debt_amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
+          addHubFilter(supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,total_pcs,total_kg,contents,status,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,amount_paid,payment_history,created_at,hub_id,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,entered_by').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
+          addHubFilter(supabase.from('expenses').select('*').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(500)),
+          supabase.from('user_profiles').select('id,name')
         ]);
 
         if (fetchEpochRef.current !== myEpoch) return;
         if (cargoRes.error) console.error('Cargo fetch error:', cargoRes.error);
+        if (baggageRes.error) console.error('Baggage fetch error:', baggageRes.error);
+        if (mktRes.error) console.error('Marketing fetch error:', mktRes.error);
+        if (packageRes.error) console.error('Package fetch error:', packageRes.error);
+
+        const profileLookup: Record<string, string> = {};
+        if (profilesRes.data) {
+          profilesRes.data.forEach(p => {
+            if (p.id) profileLookup[p.id] = p.name || '';
+          });
+        }
 
         const allTx: Transaction[] = [];
 
         if (cargoRes.data) {
           cargoRes.data.forEach(r => {
-            const enteredByName = Array.isArray(r.user_profiles) ? r.user_profiles[0]?.name : r.user_profiles?.name;
+            const enteredByName = r.entered_by ? (profileLookup[r.entered_by] || r.entered_by) : undefined;
             allTx.push({
               id: r.entry_ref || r.id,
               name: r.consignee_name || 'Cargo',
               detail: `${r.airline || ''} · ${r.awb_tag_number || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}`,
               amount: r.amount || 0,
-              mode: r.receipt_mode || 'Cash',
+              mode: r.receipt_mode === 'Debt' && (r.amount_paid || 0) >= (r.amount || 0) ? 'Debt Paid' : (r.receipt_mode || 'Cash'),
               time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
               type: 'cargo',
               status: r.status || 'Intake',
@@ -286,13 +297,13 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
         if (baggageRes.data) {
           baggageRes.data.forEach(r => {
-            const enteredByName = Array.isArray(r.user_profiles) ? r.user_profiles[0]?.name : r.user_profiles?.name;
+            const enteredByName = r.entered_by ? (profileLookup[r.entered_by] || r.entered_by) : undefined;
             allTx.push({
               id: r.transaction_id || r.id,
               name: r.passenger_name || 'Baggage Passenger',
               detail: `${r.flight_no || ''} · ${r.destination || ''} · ${r.excess_kg || 0}kg excess`,
               amount: r.amount || 0,
-              mode: r.payment_mode || 'POS',
+              mode: r.payment_mode === 'Debt' && (r.amount_paid || 0) >= (r.amount || 0) ? 'Debt Paid' : (r.payment_mode || 'POS'),
               time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
               type: 'baggage',
               status: 'Delivered',
@@ -323,16 +334,14 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
         if (mktRes.data) {
           mktRes.data.forEach((r: any) => {
-            // user_profiles comes back as an object when entered_by matched a real
-            // user, or an array depending on the relationship — handle both shapes.
-            const enteredByName = Array.isArray(r.user_profiles) ? r.user_profiles[0]?.name : r.user_profiles?.name;
+            const enteredByName = r.entered_by ? (profileLookup[r.entered_by] || r.entered_by) : undefined;
             allTx.push({
               id: r.entry_ref || r.id,
               awb_tag_number: r.awb_tag_number || undefined,
               name: r.customer_name || 'Customer',
               detail: `${r.route || ''} · ${r.qty_big_bag || 0}BB ${r.qty_med_bag || 0}MB ${r.qty_small_bag || 0}SB`,
               amount: r.amount_paid || 0,
-              mode: r.payment_mode || 'Cash',
+              mode: r.payment_mode === 'Debt' && (r.debt_amount_paid || 0) >= (r.amount_paid || 0) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
               time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
               type: 'marketing',
               status: 'Intake',
@@ -356,13 +365,13 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
         if (packageRes.data) {
           packageRes.data.forEach((r: any) => {
-            const enteredByName = Array.isArray(r.user_profiles) ? r.user_profiles[0]?.name : r.user_profiles?.name;
+            const enteredByName = r.entered_by ? (profileLookup[r.entered_by] || r.entered_by) : undefined;
             allTx.push({
               id: r.entry_ref || r.id,
               name: r.customer_name || 'Customer',
               detail: `${r.destination || ''} · ${r.content_type || 'Package'} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg${r.contents ? ` · ${r.contents}` : ''}`,
               amount: r.amount || 0,
-              mode: r.payment_mode || 'Cash',
+              mode: r.payment_mode === 'Debt' && (r.debt_paid === true || (r.amount_paid || 0) >= (r.amount || 0)) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
               time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
               type: 'package',
               status: r.status || 'Intake',
