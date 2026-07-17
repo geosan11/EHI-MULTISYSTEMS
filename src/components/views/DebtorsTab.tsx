@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Transaction, User } from '../../lib/types';
 import { fmt } from '../../lib/helpers';
-import { ChevronDown, ChevronUp, Printer, Plus } from 'lucide-react';
+import { ChevronDown, ChevronUp, Printer, Plus, HandCoins } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '../../lib/ToastContext';
 
@@ -294,11 +294,25 @@ export const DebtorsTab = ({ transactions = [], user, onUpdateTx }: { transactio
                       </div>
                     </div>
                     
-                    <div className="pl-4 border-l border-[var(--color-border)] flex flex-col items-end justify-center">
-                       <span className="text-[16px] font-mono font-bold text-[var(--color-error)] mb-1">{fmt(d.balance)}</span>
-                       <div className="text-[var(--color-muted)]">
-                         {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    <div className="pl-4 border-l border-[var(--color-border)] flex items-center gap-3">
+                       <div className="flex flex-col items-end justify-center">
+                         <span className="text-[16px] font-mono font-bold text-[var(--color-error)] mb-1">{fmt(d.balance)}</span>
+                         <div className="text-[var(--color-muted)]">
+                           {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                         </div>
                        </div>
+                       
+                       <button
+                         title="Clear Debt"
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           setExpandedId(d.id);
+                           setShowPaymentForm(d.id);
+                         }}
+                         className="p-2 rounded-full bg-[rgba(16,185,129,0.1)] text-[var(--color-success)] hover:bg-[var(--color-success)] hover:text-[#030712] transition-colors focus:outline-none"
+                       >
+                         <HandCoins size={18} />
+                       </button>
                     </div>
                   </div>
 
