@@ -11,7 +11,7 @@ export type RatesConfigTarget = 'pricing' | 'hubRates' | 'excessBaggage' | 'cont
 interface StandardRate { route_name: string; rate_per_kg: number; }
 interface HubRouteRate { hub_id: string; route_name: string; rate_per_kg: number; }
 interface HubAirlineRouteRate { hub_id: string; airline: string; route_name: string; rate_per_kg: number; }
-interface CorporateRouteRate { corporate_client_id: string; route_name: string; rate_per_kg: number; }
+interface CorporateRouteRate { corporate_client_id: string; route_name: string; rate_per_kg: number; minimum_amount?: number; }
 interface MarketingRate { route_name: string; bb_rate: number; mb_rate: number; sb_rate: number; }
 interface ExcessBaggageRow { name: string; free_allowance_kg: number; rate_per_kg: number; active: boolean; }
 
@@ -49,7 +49,7 @@ export const RatesList = ({ onBack, onOpenConfig }: { onBack: () => void; onOpen
         supabase.from('hub_route_rates').select('hub_id, route_name, rate_per_kg'),
         supabase.from('hub_airline_route_rates').select('hub_id, airline, route_name, rate_per_kg'),
         supabase.from('corporate_clients').select('id, company_name').order('company_name'),
-        supabase.from('corporate_route_rates').select('corporate_client_id, route_name, rate_per_kg'),
+        supabase.from('corporate_route_rates').select('corporate_client_id, route_name, rate_per_kg, minimum_amount'),
         supabase.from('marketing_route_rates').select('route_name, bb_rate, mb_rate, sb_rate').order('route_name'),
         supabase.from('excess_baggage_airlines').select('name, free_allowance_kg, rate_per_kg, active').order('name'),
         supabase.from('pricing_config').select('config_value').eq('config_key', 'airline_commissions').single(),
@@ -198,7 +198,13 @@ export const RatesList = ({ onBack, onOpenConfig }: { onBack: () => void; onOpen
             </Section>
 
             <Section id="corporate" title="Corporate Client Rates" count={filteredCorporate.length} editTarget="pricing">
-              {filteredCorporate.map((r, i) => <Row key={i} label={`${clientName(r.corporate_client_id)} · ${r.route_name}`} value={`${fmt(r.rate_per_kg)}/kg`} />)}
+              {filteredCorporate.map((r, i) => (
+                <Row 
+                  key={i} 
+                  label={`${clientName(r.corporate_client_id)} · ${r.route_name}`} 
+                  value={`${fmt(r.rate_per_kg)}/kg${r.minimum_amount && r.minimum_amount > 0 ? ` (Min: ₦${r.minimum_amount.toLocaleString()})` : ''}`} 
+                />
+              ))}
             </Section>
 
             <Section id="marketing" title="Marketing Bag Rates" count={filteredMarketing.length} editTarget="pricing">

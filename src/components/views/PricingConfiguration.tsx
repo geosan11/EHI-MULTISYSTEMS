@@ -18,6 +18,7 @@ export interface CorporateRouteRate {
   corporate_client_id: string;
   route_name: string;
   rate_per_kg: number;
+  minimum_amount?: number;
 }
 
 export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () => void }) => {
@@ -33,6 +34,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
   const [rateRoute, setRateRoute] = useState(routes[0]);
   useValidatedRouteSelection(routes, rateRoute, setRateRoute);
   const [ratePrice, setRatePrice] = useState('');
+  const [rateMinCharge, setRateMinCharge] = useState('');
   const { showToast } = useToast();
 
   // BB/MB/SB pricing matrix used to be localStorage-only -- a value set on
@@ -242,6 +244,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
     if (!selectedRateClient || !ratePrice) return;
     const priceNum = parseFloat(ratePrice);
     if (isNaN(priceNum) || priceNum <= 0) return;
+    const minChargeNum = parseFloat(rateMinCharge) || 0;
 
     // Upsert on the (corporate_client_id, route_name) unique constraint
     // instead of branching on whether *this device's* stale local corpRates
@@ -255,6 +258,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
       corporate_client_id: selectedRateClient.id,
       route_name: rateRoute,
       rate_per_kg: priceNum,
+      minimum_amount: minChargeNum,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'corporate_client_id,route_name' }).select().single();
 
@@ -265,7 +269,13 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
 
     setCorpRates(prev => {
       const idx = prev.findIndex(r => r.corporate_client_id === selectedRateClient.id && r.route_name === rateRoute);
-      const saved: CorporateRouteRate = { id: data.id, corporate_client_id: data.corporate_client_id, route_name: data.route_name, rate_per_kg: data.rate_per_kg };
+      const saved: CorporateRouteRate = {
+        id: data.id,
+        corporate_client_id: data.corporate_client_id,
+        route_name: data.route_name,
+        rate_per_kg: data.rate_per_kg,
+        minimum_amount: data.minimum_amount
+      };
       if (idx >= 0) {
         const next = [...prev];
         next[idx] = saved;
@@ -274,6 +284,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
       return [...prev, saved];
     });
     setRatePrice('');
+    setRateMinCharge('');
   };
 
   return (
@@ -509,6 +520,17 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                           className="w-full bg-[var(--color-bg)] border border-[var(--color-surface-2)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
                         />
                       </div>
+                      <div>
+                        <label htmlFor="corp-min-charge" className="text-[11px] font-medium text-[var(--color-muted)] block mb-1.5">Minimum Charge (₦) -- optional</label>
+                        <input
+                          id="corp-min-charge"
+                          type="number"
+                          value={rateMinCharge}
+                          onChange={(e) => setRateMinCharge(e.target.value)}
+                          placeholder="e.g. 15000"
+                          className="w-full bg-[var(--color-bg)] border border-[var(--color-surface-2)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
+                        />
+                      </div>
                       <button 
                         onClick={handleSetCorpRate}
                         disabled={!ratePrice}
@@ -525,7 +547,12 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                       {corpRates.filter(r => r.corporate_client_id === selectedRateClient.id).map(r => (
                         <div key={r.id} className="flex justify-between items-center bg-[var(--color-bg)] border border-[var(--color-border)] px-3 py-2.5 rounded-md">
                           <span className="text-[12px] text-[var(--color-light-muted)] font-medium">{r.route_name}</span>
-                          <span className="text-[13px] text-[var(--color-accent-amber)] font-bold font-mono">₦{r.rate_per_kg}</span>
+                          <div className="text-right">
+                            <span className="text-[13px] text-[var(--color-accent-amber)] font-bold font-mono">₦{r.rate_per_kg}/KG</span>
+                            {r.minimum_amount && r.minimum_amount > 0 ? (
+                              <div className="text-[9px] font-mono text-[var(--color-muted)] mt-0.5">Min: ₦{r.minimum_amount.toLocaleString()}</div>
+                            ) : null}
+                          </div>
                         </div>
                       ))}
                       {corpRates.filter(r => r.corporate_client_id === selectedRateClient.id).length === 0 && (

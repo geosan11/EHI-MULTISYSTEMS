@@ -64,6 +64,7 @@ interface CorporateRouteRate {
   corporate_client_id: string;
   route_name: string;
   rate_per_kg: number;
+  minimum_amount?: number;
 }
 
 interface PendingWeighingIntake {
@@ -642,7 +643,7 @@ export const CargoForm = ({
       try {
         const { data } = await supabase
           .from('corporate_route_rates')
-          .select('id, corporate_client_id, route_name, rate_per_kg');
+          .select('id, corporate_client_id, route_name, rate_per_kg, minimum_amount');
         if (active && data && data.length > 0) {
           setCorpRates(data as CorporateRouteRate[]);
         }
@@ -848,7 +849,13 @@ export const CargoForm = ({
       ? parseFloat(customRateOverwrite)
       : contractRateForSelectedIntake!.rate_per_kg;
 
-    const computedCost = roundMoney(weightNum * rateToUse);
+    let computedCost = roundMoney(weightNum * rateToUse);
+    if (!customRateOverwrite && contractRateForSelectedIntake && contractRateForSelectedIntake.minimum_amount) {
+      const minAmount = Number(contractRateForSelectedIntake.minimum_amount);
+      if (minAmount > 0 && computedCost < minAmount) {
+        computedCost = minAmount;
+      }
+    }
 
     // Build central ledger transaction record (Debt contract)
     const finalTxDetail = `${selectedIntake.airline} · ${selectedIntake.awb} · ${selectedIntake.pieces}pcs · ${weightNum}KG · ${selectedIntake.route} · ${selectedIntake.contentType}`;
@@ -2532,7 +2539,14 @@ export const CargoForm = ({
                                 : contractRateForSelectedIntake?.rate_per_kg;
                               if (rate == null) return "—";
                               const weight = Math.round(parseFloat(gateWeight)) || 0;
-                              return `₦${(weight * rate).toLocaleString("en-NG", { maximumFractionDigits: 2 })}`;
+                              let cost = weight * rate;
+                              if (!customRateOverwrite && contractRateForSelectedIntake && contractRateForSelectedIntake.minimum_amount) {
+                                const minAmount = Number(contractRateForSelectedIntake.minimum_amount);
+                                if (minAmount > 0 && cost < minAmount) {
+                                  cost = minAmount;
+                                }
+                              }
+                              return `₦${cost.toLocaleString("en-NG", { maximumFractionDigits: 2 })}`;
                             })()}
                           </span>
                         </div>
