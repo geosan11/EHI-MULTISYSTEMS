@@ -547,6 +547,7 @@ CREATE TABLE IF NOT EXISTS public.corporate_route_rates (
   corporate_client_id uuid NOT NULL REFERENCES public.corporate_clients(id) ON DELETE CASCADE,
   route_name          text NOT NULL,
   rate_per_kg         numeric(10,2) NOT NULL DEFAULT 0,
+  minimum_amount      numeric(10,2) NOT NULL DEFAULT 0,
   updated_at          timestamptz NOT NULL DEFAULT now(),
   created_at          timestamptz NOT NULL DEFAULT now(),
   UNIQUE (corporate_client_id, route_name)
