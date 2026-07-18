@@ -110,7 +110,7 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
             allTx.push({
               id: r.entry_ref,
               name: r.consignee_name || 'Consignee',
-              detail: `${r.route || 'Local'} · ${r.airline || 'Airline'} · ${r.awb_tag_number || ''}`,
+              detail: `${r.airline || 'Airline'} · ${r.awb_tag_number || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}`,
               amount: r.amount || 0,
               mode: r.receipt_mode || 'Cash',
               time: new Date(r.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
@@ -120,6 +120,11 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
               bank: r.bank,
               hub_id: r.hub_id,
               route: r.route,
+              awb_tag_number: r.awb_tag_number,
+              airline: r.airline,
+              pieces: r.total_pcs || 1,
+              kg: r.total_kg || 0,
+              contentType: r.content_type,
               raw: { corporate_client_id: r.corporate_client_id }
             });
           });
@@ -130,7 +135,7 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
             allTx.push({
               id: r.transaction_id,
               name: r.passenger_name || 'Passenger',
-              detail: `${r.destination || 'Destination'} · ${r.flight_no || 'Flight'} · ${r.excess_kg}KG`,
+              detail: `${r.flight_no || ''} · ${r.destination || ''} · ${r.total_pcs || 1}pcs · +${r.excess_kg || 0}kg excess`,
               amount: r.amount || 0,
               mode: r.payment_mode || 'Cash',
               time: new Date(r.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
@@ -139,6 +144,14 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
               created_at: r.created_at,
               bank: r.bank,
               hub_id: r.hub_id,
+              airline: r.airline || 'ValueJet',
+              destination: r.destination,
+              flight: r.flight_no,
+              pnr: r.pnr || undefined,
+              pieces: r.total_pcs || 1,
+              excessKg: r.excess_kg || 0,
+              totalKg: r.total_kg || 0,
+              kg: r.excess_kg || 0,
             });
           });
         }
@@ -180,6 +193,11 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
               bank: r.bank,
               hub_id: r.hub_id,
               route: r.destination,
+              destination: r.destination,
+              contentType: r.content_type,
+              pieces: r.total_pcs || 1,
+              kg: r.total_kg || 0,
+              contents: r.contents || undefined,
               enteredByName: enteredByName || undefined,
             });
           });

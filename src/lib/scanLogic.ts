@@ -15,7 +15,8 @@ export async function fetchCargoByRef(ref: string, localTransactions?: any[]): P
       return {
         ...localMatch,
         _table: localMatch.type === 'cargo' ? 'cargo_entries' : 
-                localMatch.type === 'baggage' ? 'manifests' : 'marketing_entries',
+                localMatch.type === 'baggage' ? 'manifests' : 
+                localMatch.type === 'package' ? 'package_entries' : 'marketing_entries',
         awb_tag_number: localMatch.awb_tag_number || localMatch.id,
         route: localMatch.detail?.split(' · ')[4] || '',
         destination: localMatch.detail?.split(' · ')[4] || '',

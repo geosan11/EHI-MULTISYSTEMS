@@ -285,7 +285,7 @@ export const TransactionLedger = ({
     if (finalTx.type === 'cargo') {
       finalTx.detail = `${finalTx.airline || ''} · ${finalTx.awb_tag_number || ''} · ${pieces}pcs · ${kg}kg · ${finalTx.route || ''} · ${finalTx.contentType || ''}`;
     } else if (finalTx.type === 'baggage') {
-      finalTx.detail = `${finalTx.flight || ''} · ${finalTx.destination || ''} · ${finalTx.excessKg || 0}kg excess`;
+      finalTx.detail = `${finalTx.flight || ''} · ${finalTx.destination || ''} · ${pieces}pcs · +${finalTx.excessKg || 0}kg excess`;
     } else if (finalTx.type === 'marketing') {
       finalTx.detail = `${finalTx.route || ''} · ${bb}BB ${mb}MB ${sb}SB`;
       (finalTx as any)._bb = bb;
@@ -595,7 +595,7 @@ export const TransactionLedger = ({
       }
 
       const { printCargoTagPDF } = await import('./CargoTagPDF');
-      const route = tx.route || (tx.detail ? tx.detail.split(' · ')[0] : 'Unknown') || 'Unknown';
+      const route = tx.route || (tx.detail ? tx.detail.split(' · ')[4] : 'Unknown') || 'Unknown';
       const data = {
         id: tx.awb_tag_number || tx.entryRef || tx.id,
         name: tx.name,

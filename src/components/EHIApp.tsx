@@ -306,7 +306,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             allTx.push({
               id: r.transaction_id || r.id,
               name: r.passenger_name || 'Baggage Passenger',
-              detail: `${r.flight_no || ''} · ${r.destination || ''} · ${r.excess_kg || 0}kg excess`,
+              detail: `${r.flight_no || ''} · ${r.destination || ''} · ${r.total_pcs || 1}pcs · +${r.excess_kg || 0}kg excess`,
               amount: r.amount || 0,
               mode: r.payment_mode === 'Debt' && (r.amount_paid || 0) >= (r.amount || 0) ? 'Debt Paid' : (r.payment_mode || 'POS'),
               time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
