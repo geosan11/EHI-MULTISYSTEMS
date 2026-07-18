@@ -357,3 +357,52 @@ export function cleanRoute(route: string | null | undefined): string {
   if (!route) return '—';
   return route.replace(/\s*(Air\s+)?Cargo\s+Station/gi, '').trim().toUpperCase();
 }
+
+// ── SHIFT BOUNDARY ────────────────────────────────────────────
+// The "cargo day" in Nigerian domestic stations runs from a hub-
+// configured hour (default 19 = 7 PM) to the same hour the next
+// calendar day. This replaces the old midnight (00:00) cutoff
+// used by EODReconciliation, which was assigning post-midnight
+// entries to the wrong operational shift every single day.
+//
+// Returns { start, end } in local time:
+//   - start: today at shiftHour if current time >= shiftHour,
+//            else yesterday at shiftHour (we're in previous shift)
+//   - end:   start + 24 hours (exclusive)
+//
+// Example (shiftHour = 19, current time = 23:00 Thursday):
+//   start = Thursday 19:00, end = Friday 19:00
+//
+// Example (shiftHour = 19, current time = 03:00 Friday):
+//   start = Thursday 19:00, end = Friday 19:00  ← same shift
+//
+export function getShiftBoundary(shiftHour: number = 19): { start: Date; end: Date } {
+  const now = new Date();
+  const currentHour = now.getHours();
+
+  const start = new Date(now);
+  start.setMinutes(0, 0, 0);
+  start.setHours(shiftHour);
+
+  // If we haven't reached today's shift start yet, we are still
+  // inside the shift that started yesterday at shiftHour.
+  if (currentHour < shiftHour) {
+    start.setDate(start.getDate() - 1);
+  }
+
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+
+  return { start, end };
+}
+
+// Formats a shift boundary as a human-readable label for display
+// in the EOD header and ledger shift selector.
+// e.g. "Thu 17 Jul 7:00 PM → Fri 18 Jul 7:00 PM"
+export function formatShiftLabel(start: Date, end: Date): string {
+  const fmt = (d: Date) =>
+    d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) +
+    ' ' +
+    d.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase();
+  return `${fmt(start)} → ${fmt(end)}`;
+}

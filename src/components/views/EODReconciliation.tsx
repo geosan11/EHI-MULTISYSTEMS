@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { User, Transaction, Expense } from '../../lib/types';
-import { fmt, tnow } from '../../lib/helpers';
+import { fmt, tnow, getShiftBoundary, formatShiftLabel } from '../../lib/helpers';
 import { Check, AlertTriangle, Printer, Lock, ChevronRight } from 'lucide-react';
 import { BackButton } from '../BackButton';
 import { LoadingState } from './LoadingState';
@@ -38,52 +38,76 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Filter to only include today's transactions
+  // ── Shift boundary (replaces the old midnight hardcode) ───────────────────
+  // hub.shift_start_hour is loaded from Supabase via the user object when
+  // available; falls back to 19 (7 PM) which matches the Nigerian domestic
+  // cargo station standard.
+  const shiftHour: number = (user as any).shift_start_hour ?? 19;
+  const shiftBoundary = useMemo(() => getShiftBoundary(shiftHour), [shiftHour]);
+  const shiftLabel = useMemo(() => formatShiftLabel(shiftBoundary.start, shiftBoundary.end), [shiftBoundary]);
+
+  // Filter to transactions inside the current operational shift
   const todaysTx = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const { start, end } = shiftBoundary;
     return transactions.filter(t => {
-      let d = new Date();
-      if (t.created_at) d = new Date(t.created_at);
-      return d >= today;
+      const d = t.created_at ? new Date(t.created_at) : new Date();
+      return d >= start && d < end;
     });
-  }, [transactions]);
+  }, [transactions, shiftBoundary]);
 
   const todaysExp = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const { start, end } = shiftBoundary;
     return expenses.filter(e => {
       const d = e.created_at ? new Date(e.created_at) : new Date();
-      return d >= today;
+      return d >= start && d < end;
     });
-  }, [expenses]);
+  }, [expenses, shiftBoundary]);
 
-  // System Totals
+  // ── System Totals ──────────────────────────────────────────────────────────
   const expectedTotals = useMemo(() => {
-    const cargoTx = todaysTx.filter(t => t.type === 'cargo');
-    const mktgTx  = todaysTx.filter(t => t.type === 'marketing');
-    const vjTx    = todaysTx.filter(t => t.type === 'baggage');
-    const packageTx = todaysTx.filter(t => t.type === 'package');
+    // Split debt-clearance shadow entries from real new sales
+    const newSalesTx = todaysTx.filter(t => !t.is_debt_clearance);
+    const debtClearTx = todaysTx.filter(t => t.is_debt_clearance === true);
 
-    const cargoTotal = cargoTx.reduce((s, t) => s + t.amount, 0);
-    const mktgTotal = mktgTx.reduce((s, t)  => s + t.amount, 0);
-    const vjTotal = vjTx.reduce((s, t)    => s + t.amount, 0);
+    const cargoTx   = newSalesTx.filter(t => t.type === 'cargo');
+    const mktgTx    = newSalesTx.filter(t => t.type === 'marketing');
+    const vjTx      = newSalesTx.filter(t => t.type === 'baggage');
+    const packageTx = newSalesTx.filter(t => t.type === 'package');
+
+    const cargoTotal   = cargoTx.reduce((s, t) => s + t.amount, 0);
+    const mktgTotal    = mktgTx.reduce((s, t)  => s + t.amount, 0);
+    const vjTotal      = vjTx.reduce((s, t)    => s + t.amount, 0);
     const packageTotal = packageTx.reduce((s, t) => s + t.amount, 0);
-    const grossTotal = cargoTotal + mktgTotal + vjTotal + packageTotal;
+    const grossNewSalesTotal = cargoTotal + mktgTotal + vjTotal + packageTotal;
 
-    const cashTotal = todaysTx.filter(t => t.mode === 'Cash').reduce((s, t) => s + t.amount, 0);
+    // Collections: prior-debt payments received today
+    const debtClearedTotal = debtClearTx.reduce((s, t) => s + t.amount, 0);
+
+    // Combined gross (for backward compat with existing eod_records fields)
+    const grossTotal = grossNewSalesTotal + debtClearedTotal;
+
+    // Payment channels (all transactions including debt-clearance,
+    // since the cash DID arrive in the till regardless of source)
+    const cashTotal     = todaysTx.filter(t => t.mode === 'Cash').reduce((s, t) => s + t.amount, 0);
     const transferTotal = todaysTx.filter(t => t.mode === 'Transfer').reduce((s, t) => s + t.amount, 0);
-    const posTotal = todaysTx.filter(t => t.mode === 'POS').reduce((s, t) => s + t.amount, 0);
-    const debtTotal = todaysTx.filter(t => t.mode === 'Debt').reduce((s, t) => s + t.amount, 0);
+    const posTotal      = todaysTx.filter(t => t.mode === 'POS').reduce((s, t) => s + t.amount, 0);
+    const debtTotal     = newSalesTx.filter(t => t.mode === 'Debt').reduce((s, t) => s + t.amount, 0);
+    // Wallet deductions: real revenue, but cash moved on an earlier day
+    const walletTotal   = todaysTx.filter(t => t.mode === 'Wallet').reduce((s, t) => s + (t.wallet_deduction_amount ?? t.amount), 0);
+
     const expensesTotal = todaysExp.filter(e => !e.mode || e.mode === 'Cash').reduce((s, e) => s + e.amount, 0);
-    
-    // Net expected cash
+
+    // Net cash = cash-in-till minus cash expenses
+    // Includes both new-sale cash and debt-clearance cash
     const netExpectedCash = cashTotal - expensesTotal;
 
     return {
-      cargoTotal, mktgTotal, vjTotal, packageTotal, grossTotal,
-      cashTotal, transferTotal, posTotal, debtTotal, expensesTotal, netExpectedCash,
-      cargoCount: cargoTx.length, mktgCount: mktgTx.length, vjCount: vjTx.length, packageCount: packageTx.length
+      cargoTotal, mktgTotal, vjTotal, packageTotal,
+      grossNewSalesTotal, debtClearedTotal, grossTotal,
+      cashTotal, transferTotal, posTotal, debtTotal, walletTotal,
+      expensesTotal, netExpectedCash,
+      cargoCount: cargoTx.length, mktgCount: mktgTx.length,
+      vjCount: vjTx.length, packageCount: packageTx.length,
     };
   }, [todaysTx, todaysExp]);
 
@@ -298,9 +322,17 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
 
   const renderStep1 = () => (
     <div className="animate-in fade-in space-y-4">
-      <div className="text-[12px] font-mono text-[var(--color-muted)] mb-4">Review System Expected Totals</div>
-      
+      {/* Shift window being closed */}
+      <div className="ehi-card p-3 flex items-center gap-2 bg-[rgba(245,158,11,0.04)] border-[var(--color-accent-amber)]">
+        <span className="text-[10px] font-mono text-[var(--color-accent-amber)] uppercase tracking-wider shrink-0">SHIFT</span>
+        <span className="text-[11px] font-mono text-[var(--color-foreground)]">{shiftLabel}</span>
+      </div>
+
+      {/* New Sales breakdown */}
       <div className="ehi-card overflow-hidden flex flex-col">
+        <div className="px-3 pt-2 pb-1">
+          <span className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wider">New Sales This Shift</span>
+        </div>
         <div className="p-3 border-b border-[var(--color-border)] flex justify-between items-center bg-[rgba(245,158,11,0.05)]">
           <span className="text-[11px] font-mono text-[var(--color-muted)]">Cargo Station</span>
           <span className="text-[14px] font-bold font-mono text-[var(--color-accent-amber)]">{fmt(expectedTotals.cargoTotal)}</span>
@@ -313,37 +345,67 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
           <span className="text-[11px] font-mono text-[var(--color-muted)]">Excess Baggage</span>
           <span className="text-[14px] font-bold font-mono text-[var(--color-accent-cobalt)]">{fmt(expectedTotals.vjTotal)}</span>
         </div>
-        <div className="p-3 border-b border-[var(--color-border)] flex justify-between items-center bg-[rgba(255,255,255,0.02)]">
-          <span className="text-[11px] font-bold font-mono text-[var(--color-foreground)]">Gross Total</span>
+        <div className="p-3 border-b border-[var(--color-border)] flex justify-between items-center">
+          <span className="text-[11px] font-bold font-mono text-[var(--color-foreground)]">Gross New Sales</span>
+          <span className="text-[14px] font-bold font-mono text-[var(--color-foreground)]">{fmt(expectedTotals.grossNewSalesTotal)}</span>
+        </div>
+
+        {/* Collections (prior debt recovered) — shown separately as agreed */}
+        {expectedTotals.debtClearedTotal > 0 && (
+          <div className="p-3 border-b border-[var(--color-border)] flex justify-between items-center bg-[rgba(59,130,246,0.06)]">
+            <div>
+              <span className="text-[11px] font-mono text-[var(--color-accent-cobalt)]">Collections (Prior Debt Recovered)</span>
+              <div className="text-[10px] font-mono text-[var(--color-muted)] mt-0.5">Cash already owed — now received</div>
+            </div>
+            <span className="text-[14px] font-bold font-mono text-[var(--color-accent-cobalt)]">{fmt(expectedTotals.debtClearedTotal)}</span>
+          </div>
+        )}
+
+        {/* Wallet deductions — revenue earned but no new cash */}
+        {expectedTotals.walletTotal > 0 && (
+          <div className="p-3 border-b border-[var(--color-border)] flex justify-between items-center opacity-70">
+            <div>
+              <span className="text-[11px] font-mono text-[var(--color-accent-amber)]">Wallet Deductions</span>
+              <div className="text-[10px] font-mono text-[var(--color-muted)] mt-0.5">Revenue earned; cash held from prior top-up</div>
+            </div>
+            <span className="text-[14px] font-bold font-mono text-[var(--color-accent-amber)]">{fmt(expectedTotals.walletTotal)}</span>
+          </div>
+        )}
+
+        <div className="p-3 flex justify-between items-center bg-[rgba(255,255,255,0.02)]">
+          <span className="text-[11px] font-bold font-mono text-[var(--color-foreground)]">COMBINED GROSS</span>
           <span className="text-[14px] font-bold font-mono text-[var(--color-foreground)]">{fmt(expectedTotals.grossTotal)}</span>
         </div>
       </div>
 
+      {/* Payment channels / cash breakdown */}
       <div className="ehi-card space-y-3">
-        <div className="ehi-label">Expected Channels</div>
+        <div className="ehi-label">Expected Cash & Channels</div>
         <div className="flex justify-between items-center">
-          <span className="text-[12px] font-mono text-[var(--color-muted)]">Cash Received</span>
+          <span className="text-[12px] font-mono text-[var(--color-muted)]">Cash Received (New Sales)</span>
           <span className="text-[14px] font-mono text-[var(--color-foreground)]">{fmt(expectedTotals.cashTotal)}</span>
         </div>
+        {expectedTotals.debtClearedTotal > 0 && (
+          <div className="flex justify-between items-center">
+            <span className="text-[12px] font-mono text-[var(--color-accent-cobalt)]">+ Collections (Debt Cash)</span>
+            <span className="text-[14px] font-mono text-[var(--color-accent-cobalt)]">{fmt(expectedTotals.debtClearedTotal)}</span>
+          </div>
+        )}
         <div className="flex justify-between items-center text-[var(--color-error)]">
           <span className="text-[12px] font-mono">Less: Cash Expenses</span>
           <span className="text-[14px] font-mono">-{fmt(expectedTotals.expensesTotal)}</span>
         </div>
         <div className="flex justify-between items-center pt-2 border-t border-[var(--color-border)]">
-          <span className="text-[12px] font-bold font-mono text-[var(--color-foreground)]">Net Cash Expected</span>
+          <span className="text-[12px] font-bold font-mono text-[var(--color-foreground)]">Net Cash Expected in Till</span>
           <span className="text-[16px] font-bold font-mono text-[var(--color-success)]">{fmt(expectedTotals.netExpectedCash)}</span>
         </div>
-        
+
         <div className="flex justify-between items-center mt-4 pt-4 border-t border-[var(--color-border)]">
-          <span className="text-[12px] font-mono text-[var(--color-muted)]">Transfer</span>
-          <span className="text-[14px] font-mono text-[var(--color-foreground)]">{fmt(expectedTotals.transferTotal)}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-[12px] font-mono text-[var(--color-muted)]">POS Terminal</span>
-          <span className="text-[14px] font-mono text-[var(--color-foreground)]">{fmt(expectedTotals.posTotal)}</span>
+          <span className="text-[12px] font-mono text-[var(--color-muted)]">Transfer / POS Terminal</span>
+          <span className="text-[14px] font-mono text-[var(--color-foreground)]">{fmt(expectedTotals.transferTotal + expectedTotals.posTotal)}</span>
         </div>
         <div className="flex justify-between items-center opacity-60">
-          <span className="text-[12px] font-mono text-[var(--color-muted)]">Debt (Credit)</span>
+          <span className="text-[12px] font-mono text-[var(--color-muted)]">Debt (Credit Given)</span>
           <span className="text-[14px] font-mono text-[var(--color-foreground)]">{fmt(expectedTotals.debtTotal)}</span>
         </div>
       </div>

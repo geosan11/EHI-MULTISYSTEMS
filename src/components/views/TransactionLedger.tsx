@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Transaction, User, Expense } from "../../lib/types";
-import { fmt, tnow, isStandalonePWA, getHubCode } from "../../lib/helpers";
+import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary } from "../../lib/helpers";
 import { MIN_PACKAGE_AMOUNT } from "../../lib/constants";
 import { useContentTypes } from "../../lib/contentTypes";
 import { useBanks } from "../../lib/banks";
@@ -95,8 +95,15 @@ export const TransactionLedger = ({
   const [posCodeInput, setPosCodeInput] = useState<{ id: string; code: string }>({ id: '', code: '' });
   const [vjFlightFilter, setVjFlightFilter] = useState("All");
   const [vjDestFilter, setVjDestFilter] = useState("All");
+  // 'current' = only entries within the current operational shift (7PM–7PM).
+  // 'all' = unfiltered by shift (shows all loaded transactions as before).
+  const [shiftFilter, setShiftFilter] = useState<'current' | 'all'>('current');
   const { showToast } = useToast();
   const confirm = useConfirm();
+
+  // Current shift boundary — hub shift_start_hour from user object, default 19
+  const shiftHour: number = (user as any).shift_start_hour ?? 19;
+  const shiftBoundary = useMemo(() => getShiftBoundary(shiftHour), [shiftHour]);
 
   const entries = useMemo(() => {
     const list: Entry[] = [
@@ -210,6 +217,19 @@ export const TransactionLedger = ({
       }
     }
 
+    // Shift filter — only show entries inside the current operational shift
+    // when shiftFilter === 'current'. This is the key fix that replaces the
+    // implicit "today since midnight" assumption with the real 7PM–7PM window.
+    if (shiftFilter === 'current') {
+      const { start, end } = shiftBoundary;
+      const entryTime = e.raw?.created_at
+        ? new Date(e.raw.created_at)
+        : (e as any)._sortTime
+        ? new Date((e as any)._sortTime)
+        : null;
+      if (entryTime && (entryTime < start || entryTime >= end)) return false;
+    }
+
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       const raw = e.raw as any;
@@ -219,7 +239,7 @@ export const TransactionLedger = ({
     }
 
     return true;
-  }), [entries, typeFilter, modeFilter, timeFilter, timeStart, timeEnd, searchQuery]);
+  }), [entries, typeFilter, modeFilter, timeFilter, timeStart, timeEnd, searchQuery, shiftFilter, shiftBoundary, vjFlightFilter, vjDestFilter]);
 
   const handleEditClick = (e: Entry, evt: React.MouseEvent) => {
     evt.stopPropagation();
@@ -1005,6 +1025,30 @@ export const TransactionLedger = ({
         </div>
       ) : (
         <>
+          {/* Shift scope toggle — Current Shift (7PM–7PM) vs All Time */}
+          <div className="px-4 pt-2 flex gap-2 shrink-0">
+            {(['current', 'all'] as const).map((scope) => (
+              <button
+                key={scope}
+                onClick={() => setShiftFilter(scope)}
+                className={`px-3 py-1 rounded-full text-[10px] font-mono font-bold transition-all border ${
+                  shiftFilter === scope
+                    ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] border-[var(--color-accent-amber)]'
+                    : 'bg-transparent text-[var(--color-muted)] border-[var(--color-border)] hover:border-[var(--color-accent-amber)] hover:text-[var(--color-accent-amber)]'
+                }`}
+              >
+                {scope === 'current' ? 'Current Shift' : 'All Time'}
+              </button>
+            ))}
+            {shiftFilter === 'current' && (
+              <span className="text-[9px] font-mono text-[var(--color-muted)] self-center">
+                {new Date(shiftBoundary.start).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase()}
+                {' → '}
+                {new Date(shiftBoundary.end).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase()}
+              </span>
+            )}
+          </div>
+
           {/* Summary Strip */}
           <div className="px-4 py-2 bg-[var(--color-surface-card)] border-b border-[var(--color-border)] flex gap-2 overflow-x-auto no-scrollbar whitespace-nowrap shrink-0">
         <div className="px-2 py-1 rounded-full bg-[var(--color-border)] text-[10px] font-mono border border-[var(--color-border)] text-[var(--color-foreground)]">
@@ -1234,7 +1278,9 @@ export const TransactionLedger = ({
                     ref={rowVirtualizer.measureElement}
                     data-index={virtualRow.index}
                     onClick={() => setViewingDetail(e)}
-                    className="border-b border-[var(--color-border)] hover:bg-[var(--color-border)] transition-colors cursor-pointer group"
+                    className={`border-b border-[var(--color-border)] hover:bg-[var(--color-border)] transition-colors cursor-pointer group ${
+                      e.raw?.retrieved ? 'opacity-50' : ''
+                    }`}
                   >
                     {(isAccountantOrAdmin || !viewOnly) && (
                       <td className="py-2.5 px-3">
@@ -1311,6 +1357,29 @@ export const TransactionLedger = ({
                     </td>
                     {/* Customer + Detail */}
                     <td className="py-2.5 px-2">
+                      {/* Row-level badges for special transaction types */}
+                      <div className="flex flex-wrap gap-1 mb-0.5">
+                        {e.raw?.is_debt_clearance && (
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[rgba(59,130,246,0.3)]">
+                            COLLECTION
+                          </span>
+                        )}
+                        {e.raw?.retrieved && (
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(239,68,68,0.12)] text-[var(--color-error)] border border-[rgba(239,68,68,0.25)] line-through">
+                            RETRIEVED
+                          </span>
+                        )}
+                        {e.raw?.linked_as_office_work && (
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(139,92,246,0.15)] text-[#a78bfa] border border-[rgba(139,92,246,0.3)]">
+                            OFFICE WORK
+                          </span>
+                        )}
+                        {e.raw?.wallet_id && (
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(245,158,11,0.12)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.25)]">
+                            WALLET
+                          </span>
+                        )}
+                      </div>
                       <div className={`font-sans font-bold text-[12px] leading-snug ${e.source === "expense" ? "text-[var(--color-error)]" : "text-[var(--color-foreground)]"}`}>
                         {e.name}
                       </div>
@@ -1343,9 +1412,10 @@ export const TransactionLedger = ({
                             e.mode === "POS" ? "bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)]" :
                             e.mode === "Expense" ? "bg-[rgba(239,68,68,0.15)] text-[var(--color-error)]" :
                             e.mode === "Debt Paid" ? "bg-[rgba(16,185,129,0.15)] text-[var(--color-success)]" :
+                            e.mode === "Wallet" ? "bg-[rgba(245,158,11,0.12)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.3)]" :
                             "border border-[var(--color-error)] text-[var(--color-error)]"
                           }`}>
-                            {e.mode === "Debt" ? "Debt" : e.mode === "Debt Paid" ? "Debt Cleared" : e.mode}
+                            {e.mode === "Debt" ? "Debt" : e.mode === "Debt Paid" ? "Debt Cleared" : e.mode === "Wallet" ? "💰 Wallet" : e.mode}
                             {e.raw.paymentConfirmed && e.mode !== 'Debt' && e.mode !== 'Expense' && e.mode !== 'Debt Paid' && (
                               <Check size={10} strokeWidth={3} className="text-current opacity-80" />
                             )}

@@ -161,7 +161,7 @@ export const Settings = ({
   const [hubs, setHubs] = useState<any[]>([]);
 
   useEffect(() => {
-    supabase.from('hubs').select('id, name, code, type, active').order('name').then(({ data }) => {
+    supabase.from('hubs').select('id, name, code, type, active, shift_start_hour').order('name').then(({ data }) => {
       if (data) {
         setHubs(data.map((h: any) => ({
           id: h.id,
@@ -169,6 +169,7 @@ export const Settings = ({
           code: h.code,
           type: h.type,
           active: h.active,
+          shift_start_hour: h.shift_start_hour ?? 19,
         })));
       }
     });
@@ -200,13 +201,21 @@ export const Settings = ({
     const newActive = !target.active;
     const prev = hubs;
     setHubs((prevHubs: any) => prevHubs.map((h: any) => h.id === id ? { ...h, active: newActive } : h));
-    // Persist to Supabase -- previously never checked for an error, so this
-    // was silently failing at the DB layer for as long as `hubs` had no
-    // UPDATE policy (fixed alongside the INSERT policy this form needs).
     const { error } = await supabase.from('hubs').update({ active: newActive }).eq('id', id);
     if (error) {
       setHubs(prev);
       showToast({ message: `Failed to update hub: ${error.message}`, type: 'error' });
+    }
+  };
+
+  const handleShiftHourChange = async (id: string, hour: number) => {
+    // Optimistic update for instant UI feedback
+    setHubs((prevHubs: any) => prevHubs.map((h: any) => h.id === id ? { ...h, shift_start_hour: hour } : h));
+    const { error } = await supabase.from('hubs').update({ shift_start_hour: hour }).eq('id', id);
+    if (error) {
+      showToast({ message: `Failed to save shift time: ${error.message}`, type: 'error' });
+    } else {
+      showToast({ message: `Shift start hour updated to ${hour}:00`, type: 'success' });
     }
   };
 
@@ -695,21 +704,36 @@ export const Settings = ({
 
         <div className="space-y-2">
           {hubs.map((hub: any) => (
-            <div key={hub.id} className="p-2.5 bg-[var(--color-surface-2)] rounded border border-[var(--color-border)] flex justify-between items-center text-[11px]">
-              <div>
-                <span className="font-bold text-[var(--color-foreground)] block">{hub.name}</span>
-                <span className="text-[8px] font-mono text-[var(--color-muted)] uppercase block">{hub.type} · ID: {hub.code}</span>
+            <div key={hub.id} className="p-2.5 bg-[var(--color-surface-2)] rounded border border-[var(--color-border)] space-y-2">
+              <div className="flex justify-between items-center text-[11px]">
+                <div>
+                  <span className="font-bold text-[var(--color-foreground)] block">{hub.name}</span>
+                  <span className="text-[8px] font-mono text-[var(--color-muted)] uppercase block">{hub.type} · ID: {hub.code}</span>
+                </div>
+                
+                <button 
+                  onClick={() => handleToggleHub(hub.id)}
+                  className={`text-[9px] font-mono px-2 py-0.5 rounded border border-solid font-bold uppercase cursor-pointer ${
+                    hub.active ? 'bg-[rgba(16,185,129,0.15)] text-[var(--color-success)] border-[rgba(16,185,129,0.3)]' :
+                    'bg-[var(--color-surface-2)] text-[var(--color-muted)] border-none'
+                  }`}
+                >
+                  {hub.active ? 'Active' : 'Offline'}
+                </button>
               </div>
-              
-              <button 
-                onClick={() => handleToggleHub(hub.id)}
-                className={`text-[9px] font-mono px-2 py-0.5 rounded border border-solid font-bold uppercase cursor-pointer ${
-                  hub.active ? 'bg-[rgba(16,185,129,0.15)] text-[var(--color-success)] border-[rgba(16,185,129,0.3)]' :
-                  'bg-[var(--color-surface-2)] text-[var(--color-muted)] border-none'
-                }`}
-              >
-                {hub.active ? 'Active' : 'Offline'}
-              </button>
+              {/* Shift start hour picker — configures the 7PM–7PM window for EOD and ledger */}
+              <div className="flex items-center gap-2 pt-1 border-t border-[var(--color-border)]">
+                <span className="text-[9px] font-mono text-[var(--color-muted)] shrink-0">Shift starts at</span>
+                <select
+                  value={hub.shift_start_hour ?? 19}
+                  onChange={e => handleShiftHourChange(hub.id, parseInt(e.target.value))}
+                  className="flex-1 h-7 px-2 text-[10px] font-mono rounded bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] cursor-pointer"
+                >
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <option key={i} value={i}>{String(i).padStart(2,'0')}:00 {i < 12 ? 'AM' : 'PM'} ({i === 0 ? '12AM midnight' : i === 12 ? '12 Noon' : i < 12 ? `${i}AM` : `${i-12}PM`})</option>
+                  ))}
+                </select>
+              </div>
             </div>
           ))}
         </div>

@@ -68,7 +68,7 @@ export interface ExcessBaggageAirline {
   active: boolean;
 }
 
-export type PaymentMode = 'Cash' | 'POS' | 'Transfer' | 'Debt' | 'Debt Paid';
+export type PaymentMode = 'Cash' | 'POS' | 'Transfer' | 'Debt' | 'Debt Paid' | 'Wallet';
 
 export type ShipmentType = 'marketing' | 'cargo';
 
@@ -230,6 +230,33 @@ export interface Transaction {
   // Retail cargo debtor contact, for following up on an individual (not
   // corporate-monthly) debt -- captured at entry, optional.
   consigneePhone?: string;
+
+  // ── Tag Retrieval (edit-in-place) ──────────────────────────────────────
+  // When a cargo is retrieved (flight cancelled / airline change), the
+  // original entry is updated in-place and these fields are populated.
+  retrieved?: boolean;
+  retrievalNote?: string;   // structured: "Retrieved by X at T. Was: Arik ₦12k → Now: United ₦11.5k"
+  retrievedAt?: string;     // ISO timestamp
+  retrievedBy?: string;     // staff name
+
+  // ── Debt Clearance (shadow ledger event) ───────────────────────────────
+  // A synthetic entry created when a prior-debt payment is recorded via
+  // DebtorsTab so it appears as a visible row in today's ledger and EOD.
+  is_debt_clearance?: boolean;
+  related_tx_id?: string;   // id of the original debt transaction
+
+  // ── Office Work Linking ────────────────────────────────────────────────
+  // Set when a retail-form entry is linked to a registered corporate client,
+  // either at point of entry (banner detection) or via reclassification.
+  linked_as_office_work?: boolean;
+  reclassification_note?: string;
+  reclassification_by?: string;
+  reclassification_at?: string;
+  original_amount?: number; // retail amount before office-rate correction
+
+  // ── Customer Wallet Payment ────────────────────────────────────────────
+  wallet_id?: string;               // UUID of the CustomerWallet used
+  wallet_deduction_amount?: number; // portion of this entry paid from wallet
 }
 
 export interface ParsedBankAlert {
@@ -448,4 +475,43 @@ export interface PeriodLock {
   lockedBy: string;
   lockedAt: string;
   type: 'day' | 'month';
+}
+
+// ── Customer Credit Wallet ──────────────────────────────────────────────────
+// Holds money EHI owes back to a customer (e.g. a cargo retrieval refund
+// the customer chose to leave as credit for future consignments).
+// One wallet per customer — top-ups add to the same record's balance.
+// Purely internal: no customer-facing portal or SMS balance alerts.
+export interface CustomerWallet {
+  id: string;
+  hub_id?: string;
+  customer_name: string;
+  customer_phone?: string;
+  opening_balance: number;      // amount at wallet creation
+  balance: number;              // current remaining balance
+  total_topped_up: number;      // all-time sum of all top-ups
+  total_used: number;           // all-time sum of all deductions
+  source_type: 'airline_retrieval' | 'advance_deposit' | 'refund' | 'manual_credit';
+  source_ref?: string;          // e.g. original AWB of the retrieval
+  source_note?: string;         // free text description of origin
+  status: 'active' | 'exhausted' | 'frozen';
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// One row per debit or credit to a wallet — the full audit trail.
+export interface WalletTransaction {
+  id: string;
+  wallet_id: string;
+  hub_id?: string;
+  type: 'top_up' | 'deduction' | 'refund' | 'adjustment';
+  amount: number;               // always positive
+  balance_before: number;       // snapshot before this transaction
+  balance_after: number;        // snapshot after this transaction
+  cargo_ref?: string;           // AWB of the cargo entry this deduction paid for
+  cargo_entry_id?: string;
+  description?: string;
+  logged_by: string;
+  created_at: string;
 }

@@ -1,11 +1,21 @@
 import React, { useState } from 'react';
 import { Transaction, User } from '../../lib/types';
-import { fmt } from '../../lib/helpers';
+import { fmt, tnow } from '../../lib/helpers';
 import { ChevronDown, ChevronUp, Printer, Plus, HandCoins } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '../../lib/ToastContext';
 
-export const DebtorsTab = ({ transactions = [], user, onUpdateTx }: { transactions?: Transaction[], user?: User, onUpdateTx?: (id: string, update: Partial<Transaction>) => void }) => {
+export const DebtorsTab = ({
+  transactions = [],
+  user,
+  onUpdateTx,
+  onAddTx,
+}: {
+  transactions?: Transaction[];
+  user?: User;
+  onUpdateTx?: (id: string, update: Partial<Transaction>) => void;
+  onAddTx?: (tx: Transaction) => void;
+}) => {
   const { showToast } = useToast();
   const [filter, setFilter] = useState<'All' | 'Corporate' | 'Individual'>('All');
   const [sort, setSort] = useState<'Highest Amount' | 'Oldest First' | 'Newest First' | 'Alphabetical'>('Highest Amount');
@@ -103,6 +113,8 @@ export const DebtorsTab = ({ transactions = [], user, onUpdateTx }: { transactio
     const historyEntry = { amount: cappedPaid, mode: paymentMode, by: user?.name || 'Unknown', at: new Date().toISOString() };
     const newHistory = [...(((debt as any).paymentHistory) || []), historyEntry];
     const remaining = debt.balance - cappedPaid;
+
+    // 1. Update the original debt entry (existing behaviour)
     if (onUpdateTx) {
       onUpdateTx(id, {
         amountPaid: newAmountPaid,
@@ -110,8 +122,38 @@ export const DebtorsTab = ({ transactions = [], user, onUpdateTx }: { transactio
         mode: remaining <= 0 ? 'Debt Paid' : 'Debt'
       } as any);
     }
+
+    // 2. Emit a visible debt-clearance shadow transaction so today's
+    //    ledger and EOD show this collection separately from new sales.
+    //    Without this, the cash arrives in the till but the system cannot
+    //    explain it — staff write "unexplained excess" in every variance
+    //    reason. The shadow entry carries the full context the accountant needs.
+    if (onAddTx) {
+      const awbLabel = (debt as any).awb_tag_number ? ` · AWB: ${(debt as any).awb_tag_number}` : '';
+      const shadowTx: Transaction = {
+        id: `DC-${Date.now()}-${id.slice(-6)}`,
+        name: debt.name,
+        detail: `DEBT CLEARANCE${awbLabel} · Orig: ${fmt(debt.amount)} · Paid: ${fmt(cappedPaid)} · Bal: ${fmt(remaining)} · Age: ${debt.ageInDays}d`,
+        amount: cappedPaid,
+        mode: paymentMode,
+        bank: paymentMode === 'Transfer' ? paymentBank : undefined,
+        time: tnow(),
+        created_at: new Date().toISOString(),
+        type: 'cargo',
+        status: 'Intake',
+        is_debt_clearance: true,
+        related_tx_id: id,
+        clientType: (debt as any).clientType || 'Individual',
+        enteredByName: user?.name || 'Unknown',
+        hub_id: user?.hub_id,
+        hub: user?.hub,
+      };
+      onAddTx(shadowTx);
+    }
+
     setShowPaymentForm(null);
     setPaymentAmount('');
+    showToast({ message: `₦${cappedPaid.toLocaleString()} recorded. ${remaining > 0 ? `Balance: ${fmt(remaining)}` : 'Debt fully cleared.'}`, type: 'success' });
   };
 
   return (

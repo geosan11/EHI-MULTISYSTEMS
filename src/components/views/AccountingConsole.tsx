@@ -21,9 +21,11 @@ export interface AccountingConsoleProps {
   onUpdateTx?: (id: string, update: Partial<Transaction>) => void;
   onOpenBankRecon: () => void;
   onFullUpdateTx?: (tx: Transaction) => void;
+  /** Used by DebtorsTab to emit a debt-clearance shadow transaction into the ledger */
+  onAddTx?: (tx: Transaction) => void;
 }
 
-export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddExpense, onUpdateExpense, onUpdateTx, onOpenBankRecon, onFullUpdateTx }: AccountingConsoleProps) => {
+export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddExpense, onUpdateExpense, onUpdateTx, onOpenBankRecon, onFullUpdateTx, onAddTx }: AccountingConsoleProps) => {
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<'Summary' | 'Cash Register' | 'Credit Sales' | 'B2B Sales' | 'Expenses' | 'Remittances' | 'Payment Validation'>('Summary');
   const [period, setPeriod] = useState<'Today' | 'This Week' | 'This Month' | 'Custom'>('Today');
@@ -574,6 +576,7 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
               if (tx) onFullUpdateTx({ ...tx, ...update });
             }
           }}
+          onAddTx={onAddTx}
         />
       )}
       {activeTab === 'B2B Sales' && (

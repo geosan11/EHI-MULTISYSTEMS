@@ -633,6 +633,23 @@ export const CargoForm = ({
     return () => { active = false; };
   }, []);
 
+  // Customer Wallets state for detecting prepaid credit balances at point of consignment
+  const [customerWallets, setCustomerWallets] = useState<any[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('customer_wallets')
+          .select('*')
+          .gt('balance', 0);
+        if (active && data) setCustomerWallets(data);
+      } catch { /* keep local if offline */ }
+    })();
+    return () => { active = false; };
+  }, []);
+
   // Options for the Retail Entry Consignee dropdown -- the real corporate
   // client list from Supabase (kept live-synced above), not a hardcoded
   // roster. "Other" always stays last so staff can type a one-off name for
@@ -641,6 +658,46 @@ export const CargoForm = ({
     () => [...corpClients.map((c) => c.company_name), "Other"],
     [corpClients],
   );
+
+  // Office-work detection: when a retail consignee name closely matches a
+  // registered corporate/office-work client, we surface a banner so the
+  // staff member can link this entry to that account. This addresses the
+  // "forgot to go through the Office Work tab" pattern that was causing
+  // retail entries to be silently recorded at the wrong (retail) rate.
+  const detectedOfficeClient = useMemo(() => {
+    const q = (consignee === 'Other' ? customConsignee : consignee).trim().toLowerCase();
+    if (q.length < 3) return null;
+    // Exact match or leading-substring match
+    const exact = corpClients.find(c => c.company_name.toLowerCase() === q);
+    if (exact) return exact;
+    const starts = corpClients.find(c => c.company_name.toLowerCase().startsWith(q) || q.startsWith(c.company_name.toLowerCase().slice(0, 4)));
+    return starts || null;
+  }, [consignee, customConsignee, corpClients]);
+
+  const [linkedAsOfficeWork, setLinkedAsOfficeWork] = useState(false);
+
+  // Active Customer Wallet matching the typed consignee name
+  const activeWallet = useMemo(() => {
+    const q = (consignee === 'Other' ? customConsignee : consignee).trim().toLowerCase();
+    if (q.length < 2) return null;
+    return customerWallets.find(w => w.customer_name.trim().toLowerCase() === q && w.balance > 0) || null;
+  }, [consignee, customConsignee, customerWallets]);
+
+  // When the consignee changes, reset the link flag so the banner appears
+  // fresh for each new consignee.
+  useEffect(() => {
+    setLinkedAsOfficeWork(false);
+  }, [consignee, customConsignee]);
+
+  // When the entry is linked as office work, try to find the corporate route
+  // rate for the selected route and pre-fill the amount.
+  const officeWorkRate = useMemo(() => {
+    if (!linkedAsOfficeWork || !detectedOfficeClient) return null;
+    const rate = corpRates.find(
+      r => r.corporate_client_id === detectedOfficeClient.id && r.route_name === route
+    );
+    return rate || null;
+  }, [linkedAsOfficeWork, detectedOfficeClient, corpRates, route]);
 
   // Load real corporate contract rates from Supabase — this table was
   // NEVER fetched here at all: corpRates only ever came from localStorage
@@ -1130,13 +1187,49 @@ export const CargoForm = ({
       kg: Math.round(parseFloat(kg)) || 0,
       pickupPin,
       consigneePhone: consigneePhone.trim(),
+      // Office-work linking: when staff confirm this retail entry belongs to
+      // a corporate/office client, flag it so the ledger shows OFFICE WORK
+      // badge and the EOD/accountant can correctly attribute it.
+      linked_as_office_work: linkedAsOfficeWork || undefined,
+      corporate_client_id: linkedAsOfficeWork && detectedOfficeClient ? detectedOfficeClient.id : undefined,
       // Retail walk-in sale -- distinct from the B2B corporate path below,
-      // which sets 'Corporate' instead. Lets DebtorsTab's Individual/
-      // Corporate filter and the success-screen copy tell them apart
-      // reliably instead of guessing from a hardcoded client-name list.
-      clientType: "Individual",
+      // which sets 'Corporate' instead.
+      clientType: linkedAsOfficeWork ? "Corporate" : "Individual",
       enteredByName: user.name,
     } as Transaction;
+
+    // Handle Customer Wallet Deduction if paying via Wallet
+    if (mode === "Wallet" && activeWallet) {
+      const deductAmt = Math.min(parsedAmount, activeWallet.balance);
+      tx.wallet_id = activeWallet.id;
+      tx.wallet_deduction_amount = deductAmt;
+
+      const newBalance = activeWallet.balance - deductAmt;
+      supabase.from("customer_wallets").update({
+        balance: newBalance,
+        total_used: (activeWallet.total_used || 0) + deductAmt,
+        status: newBalance <= 0 ? 'exhausted' : 'active',
+        updated_at: new Date().toISOString(),
+      }).eq("id", activeWallet.id).then(({ error }) => {
+        if (error) console.error("Wallet update error:", error);
+      });
+
+      supabase.from("wallet_transactions").insert({
+        wallet_id: activeWallet.id,
+        hub_id: user.hub_id,
+        type: 'deduction',
+        amount: deductAmt,
+        balance_before: activeWallet.balance,
+        balance_after: newBalance,
+        cargo_ref: resolvedAwb,
+        description: `Cargo Consignment ${resolvedAwb}`,
+        logged_by: user.name,
+      }).then(({ error }) => {
+        if (error) console.error("Wallet tx log error:", error);
+      });
+
+      setCustomerWallets(prev => prev.map(w => w.id === activeWallet.id ? { ...w, balance: newBalance } : w));
+    }
 
     onAddTx(tx);
     setSuccessTx(tx);
@@ -1653,6 +1746,89 @@ export const CargoForm = ({
                     onChange={(e) => setConsigneePhone(e.target.value)}
                     className={formInputClass}
                   />
+                  {/* Active Customer Wallet Banner */}
+                  {activeWallet && (
+                    <div className="mt-2 p-2.5 rounded-lg border border-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.08)] flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Coins size={16} className="text-[var(--color-accent-amber)] shrink-0" />
+                        <div className="min-w-0">
+                          <div className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)]">
+                            💰 WALLET BALANCE DETECTED
+                          </div>
+                          <div className="text-[10px] font-mono text-[var(--color-muted)]">
+                            {activeWallet.customer_name} has <span className="font-bold text-[var(--color-foreground)]">₦{fmt(activeWallet.balance)}</span> available credit
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setMode("Wallet")}
+                        className={`px-2.5 py-1 rounded text-[10px] font-mono font-bold cursor-pointer transition-colors ${
+                          mode === "Wallet"
+                            ? "bg-[var(--color-accent-amber)] text-[var(--color-obsidian)]"
+                            : "border border-[var(--color-accent-amber)] text-[var(--color-accent-amber)] hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-obsidian)]"
+                        }`}
+                      >
+                        {mode === "Wallet" ? "Using Wallet" : "Use Wallet"}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Office-work detection banner */}
+                  {detectedOfficeClient && !linkedAsOfficeWork && (
+                    <div className="mt-2 p-3 rounded-lg border border-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.08)] flex items-start gap-3">
+                      <AlertTriangle size={16} className="text-[var(--color-accent-amber)] shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)]">
+                          Office Work Client Detected
+                        </div>
+                        <div className="text-[10px] font-mono text-[var(--color-muted)] mt-0.5">
+                          <span className="font-semibold text-[var(--color-foreground)]">{detectedOfficeClient.company_name}</span> is a registered corporate account.
+                          {officeWorkRate
+                            ? ` Contract rate for ${route}: ₦${officeWorkRate.rate_per_kg}/kg`
+                            : ' No contract rate configured for this route — amount stays manual.'}
+                        </div>
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLinkedAsOfficeWork(true);
+                              // Auto-apply contract rate if one exists
+                              if (officeWorkRate && kg) {
+                                const w = Math.round(parseFloat(kg)) || 0;
+                                if (w > 0) {
+                                  const computed = Math.max(
+                                    w * officeWorkRate.rate_per_kg,
+                                    officeWorkRate.minimum_amount ?? 0
+                                  );
+                                  setAmount(String(computed));
+                                }
+                              }
+                            }}
+                            className="px-3 py-1 rounded bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[10px] font-bold font-mono"
+                          >
+                            Yes, Link as Office Work
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setLinkedAsOfficeWork(false)}
+                            className="px-3 py-1 rounded border border-[var(--color-border)] text-[var(--color-muted)] text-[10px] font-mono"
+                          >
+                            No, Keep as Retail
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {linkedAsOfficeWork && detectedOfficeClient && (
+                    <div className="mt-2 p-2 rounded border border-[rgba(139,92,246,0.4)] bg-[rgba(139,92,246,0.08)] flex items-center gap-2">
+                      <span className="text-[9px] font-bold font-mono text-[#a78bfa] uppercase tracking-wider">OFFICE WORK</span>
+                      <span className="text-[10px] font-mono text-[var(--color-muted)] flex-1">{detectedOfficeClient.company_name}</span>
+                      <button type="button" onClick={() => setLinkedAsOfficeWork(false)} className="text-[9px] font-mono text-[var(--color-muted)] hover:text-[var(--color-error)]">
+                        unlink
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1835,7 +2011,7 @@ export const CargoForm = ({
               <div>
                 {renderLabel(CreditCard, "Receipt / Payment Mode")}
                 <div className="flex bg-[var(--color-surface-3)] rounded-[var(--radius-sm)] p-1 border border-[var(--color-border)] mb-3">
-                  {["Cash", "Transfer", "POS"].map((m) => (
+                  {["Cash", "Transfer", "POS", ...(activeWallet ? ["Wallet"] : [])].map((m) => (
                     <button
                       key={m}
                       type="button"
@@ -1849,12 +2025,23 @@ export const CargoForm = ({
                             : "var(--color-muted)",
                         border: "none",
                       }}
-                      className={`flex-1 py-2 text-[13px] font-sans font-semibold rounded-[var(--radius-xs)] shadow-sm transition-all focus:outline-none cursor-pointer`}
+                      className={`flex-1 py-2 text-[13px] font-sans font-semibold rounded-[var(--radius-xs)] shadow-sm transition-all focus:outline-none cursor-pointer flex items-center justify-center gap-1`}
                     >
-                      {m}
+                      {m === "Wallet" ? "💰 Wallet" : m}
                     </button>
                   ))}
                 </div>
+
+                {mode === "Wallet" && activeWallet && (
+                  <div className="mb-3 text-[11px] font-mono text-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.08)] p-2.5 rounded-[var(--radius-sm)] border border-[rgba(245,158,11,0.2)] flex items-center justify-between">
+                    <span>Available Wallet Balance: <b>₦{fmt(activeWallet.balance)}</b></span>
+                    {parsedAmount > activeWallet.balance && (
+                      <span className="text-[var(--color-error)] font-bold">
+                        (₦{fmt(parsedAmount - activeWallet.balance)} Shortfall)
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex items-center justify-center space-x-3 my-3">
                   <div className="flex-1 h-px bg-[var(--color-border)]" />

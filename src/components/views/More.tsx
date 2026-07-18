@@ -23,6 +23,7 @@ import { Banks } from './Banks';
 import { SpecialGoodsRates } from './SpecialGoodsRates';
 import { MinimumCharges } from './MinimumCharges';
 import { RatesList } from './RatesList';
+import { CustomerWallets } from './CustomerWallets';
 
 import { useState } from 'react';
 import { User, TabView, Transaction, Expense, ExcessBaggageAirline } from '../../lib/types';
@@ -93,6 +94,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
   const [hubCargoRatesView, setHubCargoRatesView] = useState(false);
   const [supportView, setSupportView] = useState(false);
   const [staffView, setStaffView] = useState(false);
+  const [customerWalletsView, setCustomerWalletsView] = useState(false);
 
   // View controllers
   if (eodView) {
@@ -100,7 +102,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
   }
 
   if (accountingView) {
-    return <AccountingConsole user={user} transactions={transactions} expenses={expenses} onBack={() => setAccountingView(false)} onAddExpense={onAddExpense} onUpdateExpense={onUpdateExpense} onOpenBankRecon={() => setBankReconView(true)} onFullUpdateTx={onFullUpdateTx} />;
+    return <AccountingConsole user={user} transactions={transactions} expenses={expenses} onBack={() => setAccountingView(false)} onAddExpense={onAddExpense} onUpdateExpense={onUpdateExpense} onOpenBankRecon={() => setBankReconView(true)} onFullUpdateTx={onFullUpdateTx} onAddTx={onAddTx} />;
   }
 
   if (reportsView) {
@@ -139,6 +141,10 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
 
   if (fraudAlertsView) {
     return <FraudAlerts onBack={() => setFraudAlertsView(false)} />;
+  }
+
+  if (customerWalletsView) {
+    return <CustomerWallets user={user} onBack={() => setCustomerWalletsView(false)} />;
   }
 
   if (ledgerView) {
@@ -375,6 +381,12 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
           subtitle="Generate a shipment statement for a corporate account"
           onClick={() => { if (canAccessTab(user, 'More:CorporateBilling', excessBaggageAirlines)) setCorporateBillingView(true); }}
           disabled={!canAccessTab(user, 'More:CorporateBilling', excessBaggageAirlines)}
+        />
+        <MenuItem
+          icon={CurrencyDollarIcon}
+          title="Customer Credit Wallets"
+          subtitle="Manage customer advance balances, top-ups, and credit history"
+          onClick={() => setCustomerWalletsView(true)}
         />
       </div>
 
