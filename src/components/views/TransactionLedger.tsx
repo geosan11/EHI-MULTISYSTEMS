@@ -853,6 +853,90 @@ export const TransactionLedger = ({
     }
   };
 
+  const handleMarkRetrievedAndDeposit = async (entry: Entry) => {
+    const customerName = entry.name;
+    const amount = entry.amount;
+    const ok = await confirm({
+      title: 'Refund Retrieved Cargo to Customer Credit Wallet?',
+      message: `Deposit ₦${fmt(amount)} to ${customerName}'s Customer Credit Wallet for retrieved entry ${entry.id}?`,
+      confirmLabel: 'Deposit to Wallet & Mark Retrieved',
+      tone: 'danger',
+    });
+    if (!ok) return;
+
+    try {
+      // 1. Mark cargo retrieved in cargo_entries
+      const { error: cargoErr } = await supabase
+        .from('cargo_entries')
+        .update({
+          retrieved: true,
+          retrieved_at: new Date().toISOString(),
+          retrieved_by: user.name,
+          retrieval_note: `Retrieved goods refund ₦${amount} credited to wallet`,
+          status: 'Retrieved',
+        })
+        .eq('entry_ref', entry.id);
+
+      if (cargoErr) console.warn('Cargo update warning:', cargoErr);
+
+      // 2. Find or create customer wallet
+      const { data: existingWallets } = await supabase
+        .from('customer_wallets')
+        .select('*')
+        .ilike('customer_name', customerName.trim());
+
+      let wallet = existingWallets && existingWallets.length > 0 ? existingWallets[0] : null;
+      let walletId = wallet?.id;
+      let balBefore = wallet ? wallet.balance : 0;
+      let balAfter = balBefore + amount;
+
+      if (wallet) {
+        await supabase.from('customer_wallets').update({
+          balance: balAfter,
+          total_topped_up: (wallet.total_topped_up || 0) + amount,
+          updated_at: new Date().toISOString(),
+        }).eq('id', wallet.id);
+      } else {
+        const { data: newW, error: insertErr } = await supabase.from('customer_wallets').insert({
+          hub_id: user.hub_id,
+          customer_name: customerName,
+          opening_balance: amount,
+          balance: amount,
+          total_topped_up: amount,
+          total_used: 0,
+          source_type: 'airline_retrieval',
+          source_ref: entry.id,
+          source_note: `Credit from retrieved cargo ${entry.id}`,
+          status: 'active',
+          created_by: user.name,
+        }).select('id').single();
+        if (insertErr) throw insertErr;
+        walletId = newW.id;
+      }
+
+      // 3. Log wallet transaction
+      await supabase.from('wallet_transactions').insert({
+        wallet_id: walletId,
+        hub_id: user.hub_id,
+        type: 'top_up',
+        amount: amount,
+        balance_before: balBefore,
+        balance_after: balAfter,
+        cargo_ref: entry.id,
+        description: `Airline retrieval refund for ${entry.id}`,
+        logged_by: user.name,
+      });
+
+      // 4. Update optimistic local transaction
+      const updatedTx = { ...entry.raw, retrieved: true, status: 'Retrieved' };
+      onUpdateTx(updatedTx);
+      showToast({ message: `Successfully deposited ₦${fmt(amount)} to ${customerName}'s wallet!`, type: 'success' });
+      setViewingDetail(null);
+    } catch (err: any) {
+      showToast({ message: 'Failed to complete retrieval deposit: ' + err.message, type: 'error' });
+    }
+  };
+
   // Edit allowed only when not view-only AND user has can_print_ledger or is super_admin
   const canEdit = !viewOnly &&
     ['accountant', 'admin', 'super_admin'].includes(user.role) &&
@@ -1668,6 +1752,15 @@ export const TransactionLedger = ({
                     >
                       <QrCode size={14} /> Scan
                     </button>
+                    {viewingDetail.type === 'cargo' && !viewOnly && (
+                      <button
+                        onClick={() => handleMarkRetrievedAndDeposit(viewingDetail)}
+                        className="flex-1 py-2.5 flex items-center justify-center gap-1.5 bg-[rgba(245,158,11,0.12)] hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-obsidian)] text-[var(--color-accent-amber)] rounded-lg transition-colors border border-[rgba(245,158,11,0.3)] text-[11px] font-mono font-bold"
+                        title="Deposit retrieved cargo refund directly into customer credit wallet"
+                      >
+                        <HandCoins size={14} /> 💰 Refund to Wallet
+                      </button>
+                    )}
                     {viewingDetail.mode === 'Debt' && !viewOnly && (
                       <button 
                         onClick={(evt) => handleClearDebt(viewingDetail, evt)}
