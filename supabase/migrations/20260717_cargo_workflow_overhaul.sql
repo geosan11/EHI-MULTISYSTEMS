@@ -103,15 +103,29 @@ CREATE TABLE IF NOT EXISTS wallet_transactions (
   created_at      TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
--- ─── 8. CARGO ENTRIES: wallet payment tracking ───────────────
+-- ─── 8. CARGO ENTRIES: wallet payment tracking & constraint update ───
 -- When a cargo entry is paid wholly or partly from a wallet.
 ALTER TABLE cargo_entries
   ADD COLUMN IF NOT EXISTS wallet_id               UUID
     REFERENCES customer_wallets(id),
   ADD COLUMN IF NOT EXISTS wallet_deduction_amount NUMERIC(12,2);
-  -- wallet_deduction_amount: the portion paid from wallet.
-  -- If there is a shortfall, the remainder uses the normal mode
-  -- (Cash/POS/Transfer/Debt) stored in receipt_mode.
+
+-- Update check constraints on all 4 transaction tables to allow 'Wallet' payment mode
+ALTER TABLE cargo_entries DROP CONSTRAINT IF EXISTS cargo_entries_receipt_mode_check;
+ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check
+  CHECK (receipt_mode IN ('Cash', 'Transfer', 'TransferCash', 'POS', 'Debt', 'Wallet', 'Complementary'));
+
+ALTER TABLE manifests DROP CONSTRAINT IF EXISTS manifests_payment_mode_check;
+ALTER TABLE manifests ADD CONSTRAINT manifests_payment_mode_check
+  CHECK (payment_mode IN ('Cash', 'Transfer', 'TransferCash', 'POS', 'Debt', 'Wallet', 'Complementary'));
+
+ALTER TABLE marketing_entries DROP CONSTRAINT IF EXISTS marketing_entries_payment_mode_check;
+ALTER TABLE marketing_entries ADD CONSTRAINT marketing_entries_payment_mode_check
+  CHECK (payment_mode IN ('Cash', 'Transfer', 'TransferCash', 'POS', 'Debt', 'Wallet', 'Complementary'));
+
+ALTER TABLE package_entries DROP CONSTRAINT IF EXISTS package_entries_payment_mode_check;
+ALTER TABLE package_entries ADD CONSTRAINT package_entries_payment_mode_check
+  CHECK (payment_mode IN ('Cash', 'Transfer', 'TransferCash', 'POS', 'Debt', 'Wallet', 'Complementary'));
 
 -- ─── 9. INDEXES for performance ──────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_cargo_retrieved
