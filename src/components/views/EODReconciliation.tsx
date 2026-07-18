@@ -40,9 +40,9 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
 
   // ── Shift boundary (replaces the old midnight hardcode) ───────────────────
   // hub.shift_start_hour is loaded from Supabase via the user object when
-  // available; falls back to 19 (7 PM) which matches the Nigerian domestic
+  // available; falls back to 18 (6 PM) which matches the Nigerian domestic
   // cargo station standard.
-  const shiftHour: number = (user as any).shift_start_hour ?? 19;
+  const shiftHour: number = (user as any).shift_start_hour ?? 18;
   const shiftBoundary = useMemo(() => getShiftBoundary(shiftHour), [shiftHour]);
   const shiftLabel = useMemo(() => formatShiftLabel(shiftBoundary.start, shiftBoundary.end), [shiftBoundary]);
 

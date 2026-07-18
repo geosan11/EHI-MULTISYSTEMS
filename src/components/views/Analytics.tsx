@@ -66,7 +66,7 @@ export const Analytics = ({
   
   // Custom Date Range State
   const defaultShift = useMemo(() => {
-    const b = getShiftBoundary(19);
+    const b = getShiftBoundary(18);
     return {
       start: b.start.toISOString().slice(0, 16),
       end: b.end.toISOString().slice(0, 16)
@@ -128,7 +128,7 @@ export const Analytics = ({
   // Date/Time Filtered Transactions
   const periodFilteredTxs = useMemo(() => {
     const now = new Date();
-    const shiftBoundary = getShiftBoundary(19);
+    const shiftBoundary = getShiftBoundary(18);
 
     return hubFilteredTxs.filter(t => {
       const txDate = t.created_at ? new Date(t.created_at) : new Date();

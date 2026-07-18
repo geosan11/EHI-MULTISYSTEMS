@@ -43,7 +43,7 @@ interface AirlineStat {
 
 function getDefaultStartEnd() {
   const now = new Date();
-  const shiftBoundary = getShiftBoundary(19);
+  const shiftBoundary = getShiftBoundary(18);
   const startStr = shiftBoundary.start.toISOString().slice(0, 16);
   const endStr = shiftBoundary.end.toISOString().slice(0, 16);
   return { startStr, endStr };
@@ -67,7 +67,7 @@ export const AirlinePerformance = ({ user, onBack }: AirlinePerformanceProps) =>
     let end = new Date();
 
     if (preset === 'shift') {
-      const b = getShiftBoundary(19);
+      const b = getShiftBoundary(18);
       start = b.start;
       end = b.end;
     } else if (preset === 'today') {

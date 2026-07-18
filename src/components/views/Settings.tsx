@@ -169,7 +169,7 @@ export const Settings = ({
           code: h.code,
           type: h.type,
           active: h.active,
-          shift_start_hour: h.shift_start_hour ?? 19,
+          shift_start_hour: h.shift_start_hour ?? 18,
         })));
       }
     });
@@ -721,11 +721,11 @@ export const Settings = ({
                   {hub.active ? 'Active' : 'Offline'}
                 </button>
               </div>
-              {/* Shift start hour picker — configures the 7PM–7PM window for EOD and ledger */}
+              {/* Shift start hour picker — configures the 6PM–6PM window for EOD and ledger */}
               <div className="flex items-center gap-2 pt-1 border-t border-[var(--color-border)]">
                 <span className="text-[9px] font-mono text-[var(--color-muted)] shrink-0">Shift starts at</span>
                 <select
-                  value={hub.shift_start_hour ?? 19}
+                  value={hub.shift_start_hour ?? 18}
                   onChange={e => handleShiftHourChange(hub.id, parseInt(e.target.value))}
                   className="flex-1 h-7 px-2 text-[10px] font-mono rounded bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] cursor-pointer"
                 >

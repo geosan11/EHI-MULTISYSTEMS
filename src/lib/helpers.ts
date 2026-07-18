@@ -370,13 +370,13 @@ export function cleanRoute(route: string | null | undefined): string {
 //            else yesterday at shiftHour (we're in previous shift)
 //   - end:   start + 24 hours (exclusive)
 //
-// Example (shiftHour = 19, current time = 23:00 Thursday):
-//   start = Thursday 19:00, end = Friday 19:00
+// Example (shiftHour = 18, current time = 23:00 Thursday):
+//   start = Thursday 18:00, end = Friday 18:00
 //
-// Example (shiftHour = 19, current time = 03:00 Friday):
-//   start = Thursday 19:00, end = Friday 19:00  ← same shift
+// Example (shiftHour = 18, current time = 03:00 Friday):
+//   start = Thursday 18:00, end = Friday 18:00  ← same shift
 //
-export function getShiftBoundary(shiftHour: number = 19): { start: Date; end: Date } {
+export function getShiftBoundary(shiftHour: number = 18): { start: Date; end: Date } {
   const now = new Date();
   const currentHour = now.getHours();
 

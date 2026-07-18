@@ -130,8 +130,8 @@ export const TransactionLedger = ({
     };
   }, []);
 
-  // Current shift boundary — hub shift_start_hour from user object, default 19
-  const shiftHour: number = (user as any).shift_start_hour ?? 19;
+  // Current shift boundary — hub shift_start_hour from user object, default 18 (6 PM)
+  const shiftHour: number = (user as any).shift_start_hour ?? 18;
   const shiftBoundary = useMemo(() => getShiftBoundary(shiftHour), [shiftHour]);
 
   const entries = useMemo(() => {
