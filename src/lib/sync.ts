@@ -202,6 +202,149 @@ export async function writeWithOfflineSupport(
   }
 }
 
+export async function getUnsyncedLocalTransactions(): Promise<{ transactions: any[]; expenses: any[] }> {
+  try {
+    const [cargo, baggage, marketing, packages, queue] = await Promise.all([
+      db.cargo_entries.where('synced').equals(0).toArray().catch(() => []),
+      db.manifests.where('synced').equals(0).toArray().catch(() => []),
+      db.marketing_entries.where('synced').equals(0).toArray().catch(() => []),
+      db.package_entries.where('synced').equals(0).toArray().catch(() => []),
+      db.sync_queue.where('synced').equals(0).toArray().catch(() => []),
+    ]);
+
+    const txs: any[] = [];
+    const expenses: any[] = [];
+
+    for (const q of queue) {
+      if (q.table_name === 'expenses') {
+        expenses.push({
+          id: q.record_id || (q.payload as any).id,
+          type: (q.payload as any).category || 'General',
+          amount: (q.payload as any).amount || 0,
+          description: (q.payload as any).description || '',
+          time: q.created_at,
+          created_at: q.created_at,
+          status: 'pending',
+          logged_by: (q.payload as any).logged_by,
+        });
+      }
+    }
+
+    cargo.forEach(item => {
+      const r = item.data as any;
+      if (r) {
+        txs.push({
+          id: r.id || r.entry_ref,
+          name: r.consignee_name || 'Cargo',
+          detail: `${r.airline || ''} · ${r.awb_tag_number || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}`,
+          amount: r.amount || 0,
+          mode: r.receipt_mode || 'Cash',
+          time: new Date(item.created_at || Date.now()).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+          type: 'cargo',
+          status: r.status || 'Intake',
+          awb_tag_number: r.awb_tag_number,
+          kg: r.total_kg,
+          pieces: r.total_pcs,
+          pickupPin: r.pickup_pin || undefined,
+          created_at: item.created_at || r.created_at,
+          airline: r.airline,
+          bank: r.bank,
+          route: r.route,
+          hub_id: r.hub_id,
+          contentType: r.content_type,
+          remarks: r.remark || undefined,
+          amountPaid: r.amount_paid || 0,
+          paymentHistory: r.payment_history || [],
+          paymentConfirmed: r.payment_confirmed,
+          wallet_id: r.wallet_id || undefined,
+          wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
+        });
+      }
+    });
+
+    baggage.forEach(item => {
+      const r = item.data as any;
+      if (r) {
+        txs.push({
+          id: r.id || r.transaction_id,
+          name: r.passenger_name || 'Baggage Passenger',
+          detail: `${r.flight_no || ''} · ${r.destination || ''} · ${r.total_pcs || 1}pcs · +${r.excess_kg || 0}kg excess`,
+          amount: r.amount || 0,
+          mode: r.payment_mode || 'POS',
+          time: new Date(item.created_at || Date.now()).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+          type: 'baggage',
+          status: 'Delivered',
+          created_at: item.created_at || r.created_at,
+          bank: r.bank,
+          hub_id: r.hub_id,
+          airline: r.airline,
+          destination: r.destination,
+          excessKg: r.excess_kg,
+          totalKg: r.total_kg,
+          flight: r.flight_no,
+          pnr: r.pnr || undefined,
+          kg: r.excess_kg,
+          pieces: r.total_pcs,
+          amountPaid: r.amount_paid || 0,
+          paymentHistory: r.payment_history || [],
+          paymentConfirmed: r.payment_confirmed,
+          wallet_id: r.wallet_id || undefined,
+          wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
+        });
+      }
+    });
+
+    marketing.forEach(item => {
+      const r = item.data as any;
+      if (r) {
+        txs.push({
+          id: r.id || r.entry_ref,
+          awb_tag_number: r.awb_tag_number || undefined,
+          name: r.customer_name || 'Customer',
+          detail: `${r.route || ''} · ${r.qty_big_bag || 0}BB ${r.qty_med_bag || 0}MB ${r.qty_small_bag || 0}SB`,
+          amount: r.amount_paid || 0,
+          mode: r.payment_mode || 'Cash',
+          time: new Date(item.created_at || Date.now()).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+          type: 'marketing',
+          status: 'Intake',
+          created_at: item.created_at || r.created_at,
+          hub_id: r.hub_id,
+          route: r.route,
+          wallet_id: r.wallet_id || undefined,
+          wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
+        });
+      }
+    });
+
+    packages.forEach(item => {
+      const r = item.data as any;
+      if (r) {
+        txs.push({
+          id: r.id || r.entry_ref,
+          name: r.customer_name || 'Customer',
+          detail: `${r.destination || ''} · ${r.content_type || 'Package'} · ${r.contents || ''}`,
+          amount: r.amount || 0,
+          mode: r.payment_mode || 'Cash',
+          time: new Date(item.created_at || Date.now()).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+          type: 'package',
+          status: r.status || 'Intake',
+          created_at: item.created_at || r.created_at,
+          hub_id: r.hub_id,
+          destination: r.destination,
+          contents: r.contents,
+          wallet_id: r.wallet_id || undefined,
+          wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
+        });
+      }
+    });
+
+    return { transactions: txs, expenses };
+  } catch (err) {
+    console.error('Failed to read unsynced local transactions:', err);
+    return { transactions: [], expenses: [] };
+  }
+}
+
 export async function processSyncQueue(): Promise<number> {
   const pending = await db.sync_queue.where('synced').equals(0).toArray();
   let synced = 0;
@@ -231,6 +374,14 @@ export async function processSyncQueue(): Promise<number> {
         .upsert(supabasePayload, { onConflict: onConflictColumn });
       if (!error) {
         await db.sync_queue.delete(item.id!);
+        if (['cargo_entries', 'manifests', 'marketing_entries', 'package_entries'].includes(item.table_name)) {
+          const recId = item.record_id || (item.payload as any).id || (item.payload as any).entry_ref || (item.payload as any).transaction_id;
+          if (recId) {
+            try {
+              await (db[item.table_name as keyof typeof db] as Dexie.Table).where('id').equals(recId).modify({ synced: 1 });
+            } catch {}
+          }
+        }
         synced++;
       } else {
         const errMsg = error.message || error.details || JSON.stringify(error);
@@ -243,3 +394,4 @@ export async function processSyncQueue(): Promise<number> {
   }
   return synced;
 }
+

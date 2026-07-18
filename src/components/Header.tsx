@@ -1,4 +1,4 @@
-import { Wifi, WifiOff, LogOut, Sun, Moon, ChevronDown } from 'lucide-react';
+import { Wifi, WifiOff, LogOut, Sun, Moon, ChevronDown, RefreshCw } from 'lucide-react';
 import { User } from '../lib/types';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -14,7 +14,8 @@ export const Header = ({
   onToggleWifi, 
   onLogout,
   theme,
-  onToggleTheme
+  onToggleTheme,
+  onManualSync,
 }: { 
   user: User; 
   isOffline: boolean; 
@@ -23,6 +24,7 @@ export const Header = ({
   onLogout: () => void;
   theme: Theme;
   onToggleTheme: () => void;
+  onManualSync?: () => void;
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -119,6 +121,20 @@ export const Header = ({
               : <Moon size={18} strokeWidth={1.5} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
             }
           </button>
+
+          {/* Pending Sync Badge */}
+          {pendingCount > 0 && (
+            <button
+              onClick={() => {
+                if (onManualSync) onManualSync();
+              }}
+              title="Click to force sync offline entries"
+              className="px-2 py-1 rounded flex items-center gap-1 bg-[rgba(245,158,11,0.15)] border border-[rgba(245,158,11,0.3)] text-[var(--color-accent-amber)] font-mono text-[10px] font-bold animate-pulse cursor-pointer hover:bg-[rgba(245,158,11,0.25)] transition-colors"
+            >
+              <RefreshCw size={11} className="animate-spin" />
+              <span>{pendingCount} Queued</span>
+            </button>
+          )}
 
           {/* Wifi */}
           <button

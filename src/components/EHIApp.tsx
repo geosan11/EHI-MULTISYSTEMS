@@ -1,6 +1,6 @@
 import { useState, useEffect, lazy, Suspense, useRef, useCallback, memo, useMemo } from 'react';
 import { User, TabView, Transaction, Expense, ExcessBaggageAirline, CustomerWallet } from '../lib/types';
-import { processSyncQueue, writeWithOfflineSupport, cleanupOldQueue } from '../lib/sync';
+import { processSyncQueue, writeWithOfflineSupport, cleanupOldQueue, getUnsyncedLocalTransactions } from '../lib/sync';
 import { db } from '../lib/db';
 import Dexie from 'dexie';
 import { refillPoolIfLow } from '../lib/tagPool';
@@ -156,72 +156,6 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
   // Keep a ref mirror of transactions for synchronous dedup checks in realtime handlers
   useEffect(() => { transactionsRef.current = transactions; }, [transactions]);
 
-  useEffect(() => {
-    cleanupOldQueue();
-    const handleOnline = async () => {
-      setIsOffline(false);
-      const count = await processSyncQueue();
-      if (count > 0) {
-        showToast({ message: `${count} transaction(s) synced to server`, type: 'success' });
-        setPendingSyncCount(0);
-      }
-
-      // Top up this user's tag-number pools (src/lib/tagPool.ts) the
-      // moment connectivity returns, rather than waiting for whichever
-      // form they next happen to open -- keeps a busy hub's pools full
-      // through the next connectivity gap instead of only reacting to one
-      // once it's already been hit. Scoped to whichever streams this
-      // user's role can actually reach (getAllowedTabs is the single
-      // source of truth for that, same as the nav itself uses).
-      const hubCode = getHubCode(user.hub_code || user.hub);
-      const allowedTabs = getAllowedTabs(user, excessBaggageAirlines);
-      if (allowedTabs.includes('Cargo')) refillPoolIfLow(`${hubCode}-CG`);
-      if (allowedTabs.includes('Marketing')) refillPoolIfLow(`${hubCode}-MK`);
-      if (allowedTabs.includes('Packages')) refillPoolIfLow(`${hubCode}-PKG`);
-      allowedTabs.forEach(tab => {
-        if (!tab.startsWith('Baggage:')) return;
-        const airlineName = tab.slice('Baggage:'.length);
-        const airline = excessBaggageAirlines.find(a => a.name === airlineName);
-        if (airline) refillPoolIfLow(`${hubCode}-${airline.tag_code}`);
-      });
-    };
-    const handleOffline = () => setIsOffline(true);
-
-    // The 'online' event only fires on an offline->online transition. If the
-    // app was closed with items still queued and reopens while already
-    // online, that transition never happens and queued records would sit
-    // unsynced indefinitely. Run once on mount, then retry periodically as
-    // a backstop in case a sync attempt failed for a transient reason.
-    if (navigator.onLine) handleOnline();
-    const syncInterval = window.setInterval(() => {
-      if (navigator.onLine) handleOnline();
-    }, 60000);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    // Dashboard empty state CTA buttons dispatch this event. getAllowedTabs
-    // (src/lib/permissions.ts) is the single source of truth for which tabs
-    // this user can reach -- their super-admin-set view_overrides if set,
-    // else the normal role-derived default.
-    const handleEhiNav = (e: Event) => {
-      const requested = (e as CustomEvent).detail as TabView;
-      const allowed = getAllowedTabs(user, excessBaggageAirlines);
-
-      if (allowed.includes(requested) || requested === 'More') {
-        setCurrentTab(requested);
-      }
-    };
-    window.addEventListener('ehi-nav', handleEhiNav);
-
-    return () => {
-      window.clearInterval(syncInterval);
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      window.removeEventListener('ehi-nav', handleEhiNav);
-    };
-  }, [showToast, user.role, user.assigned_airline, user.view_overrides, excessBaggageAirlines]);
-
   const flushPendingTx = useCallback(() => {
     if (pendingTxRef.current.length === 0) return;
     setTransactions(prev => {
@@ -290,6 +224,10 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         }
 
         const allTx: Transaction[] = [];
+
+        // Load unsynced entries from local Dexie DB so locally saved records are immediately visible
+        const { transactions: localUnsyncedTxs } = await getUnsyncedLocalTransactions();
+        localUnsyncedTxs.forEach(t => allTx.push(t));
 
         if (cargoRes.data) {
           cargoRes.data.forEach(r => {
@@ -487,6 +425,68 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         setInitError(true);
       }
   }, [globalDateRange, user.role, user.hub_id]);
+
+  const handleForceSync = useCallback(async () => {
+    setIsOffline(false);
+    const queueCount = await db.sync_queue.where('synced').equals(0).count().catch(() => 0);
+    setPendingSyncCount(queueCount);
+    const count = await processSyncQueue();
+    if (count > 0) {
+      showToast({ message: `${count} transaction(s) synced to server`, type: 'success' });
+      const remaining = await db.sync_queue.where('synced').equals(0).count().catch(() => 0);
+      setPendingSyncCount(remaining);
+      fetchInitial();
+    } else {
+      const remaining = await db.sync_queue.where('synced').equals(0).count().catch(() => 0);
+      setPendingSyncCount(remaining);
+      if (remaining === 0) {
+        showToast({ message: 'All local entries are fully synced', type: 'info' });
+      }
+    }
+
+    const hubCode = getHubCode(user.hub_code || user.hub);
+    const allowedTabs = getAllowedTabs(user, excessBaggageAirlines);
+    if (allowedTabs.includes('Cargo')) refillPoolIfLow(`${hubCode}-CG`);
+    if (allowedTabs.includes('Marketing')) refillPoolIfLow(`${hubCode}-MK`);
+    if (allowedTabs.includes('Packages')) refillPoolIfLow(`${hubCode}-PKG`);
+    allowedTabs.forEach(tab => {
+      if (!tab.startsWith('Baggage:')) return;
+      const airlineName = tab.slice('Baggage:'.length);
+      const airline = excessBaggageAirlines.find(a => a.name === airlineName);
+      if (airline) refillPoolIfLow(`${hubCode}-${airline.tag_code}`);
+    });
+  }, [showToast, fetchInitial, user.hub, user.hub_code, user.role, user.assigned_airline, user.view_overrides, excessBaggageAirlines]);
+
+  useEffect(() => {
+    cleanupOldQueue();
+    const handleOnline = () => handleForceSync();
+    const handleOffline = () => setIsOffline(true);
+
+    if (navigator.onLine) handleOnline();
+    const syncInterval = window.setInterval(() => {
+      if (navigator.onLine) handleOnline();
+    }, 60000);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    const handleEhiNav = (e: Event) => {
+      const requested = (e as CustomEvent).detail as TabView;
+      const allowed = getAllowedTabs(user, excessBaggageAirlines);
+
+      if (allowed.includes(requested) || requested === 'More') {
+        setCurrentTab(requested);
+      }
+    };
+    window.addEventListener('ehi-nav', handleEhiNav);
+
+    return () => {
+      window.clearInterval(syncInterval);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('ehi-nav', handleEhiNav);
+    };
+  }, [handleForceSync, user, excessBaggageAirlines]);
 
   useEffect(() => {
     if (isOffline) return;
@@ -1165,6 +1165,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           onLogout={onLogout}
           theme={theme}
           onToggleTheme={toggle}
+          onManualSync={handleForceSync}
         />
 
         <main
