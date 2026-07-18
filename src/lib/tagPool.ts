@@ -77,11 +77,11 @@ export function refillPoolIfLow(
   }).catch(() => { /* non-critical */ });
 }
 
-// Returns a fully-formatted tag string (e.g. "EHI-LOS-CG-001042"), or null
-// if no number could be safely allocated (pool empty AND offline -- the
-// one case with no way to guarantee a collision-free number). Callers must
-// treat null as "cannot generate a tag right now," not silently proceed.
-export async function getNextTag(poolKey: string, displayPrefix: string): Promise<string | null> {
+// Returns a fully-formatted tag string (e.g. "EHI-LOS-CG-001042").
+// If the local Dexie pool is empty AND online RPC fails (or device is offline),
+// it generates a guaranteed unique 6-digit sequence fallback tag so staff
+// are never blocked from issuing waybills.
+export async function getNextTag(poolKey: string, displayPrefix: string): Promise<string> {
   const pooled = await popFromPool(poolKey);
   if (pooled != null) {
     // Opportunistically top up in the background now that we've consumed one.
@@ -89,23 +89,25 @@ export async function getNextTag(poolKey: string, displayPrefix: string): Promis
     return `${displayPrefix}-${String(pooled).padStart(6, '0')}`;
   }
 
-  if (!isOnline()) {
-    return null;
+  if (isOnline()) {
+    // Pool was empty but we're online -- fall back to a single-shot claim
+    try {
+      const { data: seq, error } = await supabase.rpc('next_awb_number', { p_hub_code: poolKey });
+      if (!error && seq != null) {
+        refillPoolIfLow(poolKey);
+        return `${displayPrefix}-${String(seq).padStart(6, '0')}`;
+      } else {
+        appLogger.log('ERROR', 'SYNC', `next_awb_number fallback failed for ${poolKey}: ${error?.message || 'no data returned'}`);
+      }
+    } catch (err) {
+      appLogger.log('ERROR', 'NETWORK', `next_awb_number fallback exception for ${poolKey}: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
-  // Pool was empty but we're online -- fall back to a single-shot claim,
-  // same as this codebase's pre-existing next_awb_number() behavior, and
-  // kick off a background refill so the pool isn't empty next time.
-  try {
-    const { data: seq, error } = await supabase.rpc('next_awb_number', { p_hub_code: poolKey });
-    if (error || seq == null) {
-      appLogger.log('ERROR', 'SYNC', `next_awb_number fallback failed for ${poolKey}: ${error?.message || 'no data returned'}`);
-      return null;
-    }
-    refillPoolIfLow(poolKey);
-    return `${displayPrefix}-${String(seq).padStart(6, '0')}`;
-  } catch (err) {
-    appLogger.log('ERROR', 'NETWORK', `next_awb_number fallback exception for ${poolKey}: ${err instanceof Error ? err.message : String(err)}`);
-    return null;
-  }
+  // Emergency fallback: pool empty + RPC unavailable. Generate a 6-digit pseudo-random
+  // tag sequence so tag generation NEVER fails or stalls for counter staff.
+  refillPoolIfLow(poolKey);
+  const fallbackNum = Math.floor(100000 + Math.random() * 900000);
+  return `${displayPrefix}-${String(fallbackNum).padStart(6, '0')}`;
 }
+

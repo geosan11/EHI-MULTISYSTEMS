@@ -1151,13 +1151,7 @@ export const CargoForm = ({
     const hubCode = getHubCode(user.hub_code || user.hub);
     let resolvedAwb = awb;
     if (!resolvedAwb) {
-      const retry = await getNextTag(`${hubCode}-CG`, `EHI-${hubCode}-CG`);
-      if (!retry) {
-        showToast({ message: "No tag number available offline. Connect to the internet briefly to reserve more, then try again.", type: "error" });
-        setSubmitting(false);
-        return;
-      }
-      resolvedAwb = retry;
+      resolvedAwb = await getNextTag(`${hubCode}-CG`, `EHI-${hubCode}-CG`);
     }
 
     // Block reusing a tag whose previous consignment already completed
