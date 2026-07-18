@@ -938,8 +938,13 @@ export const CargoForm = ({
       }
     }
 
-    // Build central ledger transaction record (Debt contract)
-    const finalTxDetail = `${selectedIntake.sender || selectedIntake.consignee} · ${selectedIntake.consignee} · ${selectedIntake.airline} · ${selectedIntake.awb} · ${selectedIntake.route} · ${selectedIntake.contentType || selectedIntake.content_type || ''} · ${weightNum}kg`;
+    const gateHubCode = getHubCode(user.hub_code || user.hub);
+    const gateResolvedId = await getNextTag(`${gateHubCode}-CG`, `EHI-${gateHubCode}-CG`);
+    if (!gateResolvedId) {
+      showToast({ message: "No tag number available offline. Connect to the internet briefly to reserve more, then try again.", type: "error" });
+      setIsWeighingSubmitting(false);
+      return;
+    }
 
     // Lock in the commission rate at entry time (see retail submit path for why).
     let gateWeighCommissionRate = 0;
@@ -953,13 +958,8 @@ export const CargoForm = ({
       // Ignore -- gateWeighCommissionRate stays 0
     }
 
-    const gateHubCode = getHubCode(user.hub_code || user.hub);
-    const gateResolvedId = await getNextTag(`${gateHubCode}-CG`, `EHI-${gateHubCode}-CG`);
-    if (!gateResolvedId) {
-      showToast({ message: "No tag number available offline. Connect to the internet briefly to reserve more, then try again.", type: "error" });
-      setIsWeighingSubmitting(false);
-      return;
-    }
+    // Build central ledger transaction record (Debt contract)
+    const finalTxDetail = `${selectedIntake.airline} · ${gateResolvedId} · ${selectedIntake.pieces || 1}pcs · ${weightNum}kg · ${selectedIntake.route} · ${selectedIntake.contentType || selectedIntake.content_type || 'General Goods'}`;
 
     // Block reusing a physical AWB whose previous consignment already
     // completed delivery -- the same check the retail flow already has.
@@ -996,6 +996,8 @@ export const CargoForm = ({
       commissionRate: gateWeighCommissionRate,
       pieces: selectedIntake.pieces,
       kg: weightNum,
+      route: selectedIntake.route,
+      contentType: selectedIntake.contentType || selectedIntake.content_type || 'General Goods',
       enteredByName: user.name,
     };
 

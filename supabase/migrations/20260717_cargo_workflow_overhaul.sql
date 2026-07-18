@@ -135,3 +135,16 @@ CREATE INDEX IF NOT EXISTS idx_wallets_phone
 
 CREATE INDEX IF NOT EXISTS idx_wallet_txns_wallet
   ON wallet_transactions(wallet_id, created_at DESC);
+
+-- ─── 10. REPAIR HISTORICAL OFFICE WORK KG & TAG NUMBERS ──────
+-- Fixes past entries where total_kg was saved as 0 due to custom detail format in Office Work intakes
+UPDATE cargo_entries
+SET total_kg = ROUND(amount / NULLIF(CAST(substring(remark from 'Gate Weight Finalized \((\d+) N/KG Contract\)') AS NUMERIC), 0))
+WHERE (total_kg = 0 OR total_kg IS NULL)
+  AND amount > 0
+  AND remark LIKE 'Gate Weight Finalized (%';
+
+-- Repair awb_tag_number where it was erroneously set to consignee_name (e.g. 'SLOT')
+UPDATE cargo_entries
+SET awb_tag_number = entry_ref
+WHERE awb_tag_number = consignee_name OR awb_tag_number IS NULL OR awb_tag_number = '';
