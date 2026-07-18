@@ -232,8 +232,11 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
     return sum + todays.reduce((s, p) => s + p.amount, 0);
   }, 0);
   const regReceipts = transactions
-    .filter(t => t.mode === 'Cash' && t.created_at && t.created_at.split('T')[0] === regDate)
-    .reduce((sum, t) => sum + t.amount, 0) + debtCashRecoveredToday;
+    .filter(t => (t.mode === 'Cash' || t.wallet_deduction_amount) && t.created_at && t.created_at.split('T')[0] === regDate)
+    .reduce((sum, t) => {
+      const cashPortion = t.mode === 'Cash' ? Math.max(0, t.amount - (t.wallet_deduction_amount || 0)) : 0;
+      return sum + cashPortion;
+    }, 0) + debtCashRecoveredToday;
   // Only approved expenses actually left the register -- a pending or
   // rejected expense hasn't (or won't) be paid out, so counting it here
   // would falsely shrink the expected closing balance.

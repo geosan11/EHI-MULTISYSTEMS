@@ -87,13 +87,12 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
     const grossTotal = grossNewSalesTotal + debtClearedTotal;
 
     // Payment channels (all transactions including debt-clearance,
-    // since the cash DID arrive in the till regardless of source)
-    const cashTotal     = todaysTx.filter(t => t.mode === 'Cash').reduce((s, t) => s + t.amount, 0);
-    const transferTotal = todaysTx.filter(t => t.mode === 'Transfer').reduce((s, t) => s + t.amount, 0);
-    const posTotal      = todaysTx.filter(t => t.mode === 'POS').reduce((s, t) => s + t.amount, 0);
-    const debtTotal     = newSalesTx.filter(t => t.mode === 'Debt').reduce((s, t) => s + t.amount, 0);
-    // Wallet deductions: real revenue, but cash moved on an earlier day
-    const walletTotal   = todaysTx.filter(t => t.mode === 'Wallet').reduce((s, t) => s + (t.wallet_deduction_amount ?? t.amount), 0);
+    // supporting split payments where wallet_deduction_amount handles partial credit)
+    const walletTotal   = todaysTx.reduce((s, t) => s + (t.wallet_deduction_amount || (t.mode === 'Wallet' ? t.amount : 0)), 0);
+    const cashTotal     = todaysTx.reduce((s, t) => s + (t.mode === 'Cash' ? Math.max(0, t.amount - (t.wallet_deduction_amount || 0)) : 0), 0);
+    const transferTotal = todaysTx.reduce((s, t) => s + (t.mode === 'Transfer' ? Math.max(0, t.amount - (t.wallet_deduction_amount || 0)) : 0), 0);
+    const posTotal      = todaysTx.reduce((s, t) => s + (t.mode === 'POS' ? Math.max(0, t.amount - (t.wallet_deduction_amount || 0)) : 0), 0);
+    const debtTotal     = newSalesTx.reduce((s, t) => s + (t.mode === 'Debt' ? Math.max(0, t.amount - (t.wallet_deduction_amount || 0)) : 0), 0);
 
     const expensesTotal = todaysExp.filter(e => !e.mode || e.mode === 'Cash').reduce((s, e) => s + e.amount, 0);
 

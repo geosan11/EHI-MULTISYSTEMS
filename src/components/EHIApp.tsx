@@ -236,10 +236,10 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         const endISO = endDate.toISOString();
 
         const [cargoRes, baggageRes, mktRes, packageRes, expRes, profilesRes] = await Promise.all([
-          addHubFilter(supabase.from('cargo_entries').select(`entry_ref,consignee_name,consignee_phone,client_type,corporate_client_id,airline,commission_rate,awb_tag_number,total_pcs,total_kg,route,content_type,amount,receipt_mode,created_at,status,bank,hub_id,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,remark,entered_by${canSeePin ? ',pickup_pin' : ''}`).gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
-          addHubFilter(supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs,amount_paid,payment_history,airline,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,entered_by').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
-          addHubFilter(supabase.from('marketing_entries').select('entry_ref,awb_tag_number,customer_name,route,qty_big_bag,qty_med_bag,qty_small_bag,bb_kg,mb_kg,sb_kg,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,debt_amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
-          addHubFilter(supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,total_pcs,total_kg,contents,status,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,amount_paid,payment_history,created_at,hub_id,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,entered_by').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
+          addHubFilter(supabase.from('cargo_entries').select('entry_ref,consignee_name,airline,awb_tag_number,total_pcs,total_kg,route,content_type,amount,receipt_mode,pickup_pin,status,created_at,commission_rate,bank,hub_id,remark,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,consignee_phone,client_type,corporate_client_id,bank_reference,bank_sender,bank_alert_text,entered_by,wallet_id,wallet_deduction_amount').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
+          addHubFilter(supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs,amount_paid,payment_history,airline,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,entered_by,wallet_id,wallet_deduction_amount').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
+          addHubFilter(supabase.from('marketing_entries').select('entry_ref,awb_tag_number,customer_name,route,qty_big_bag,qty_med_bag,qty_small_bag,bb_kg,mb_kg,sb_kg,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,debt_amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,wallet_id,wallet_deduction_amount').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
+          addHubFilter(supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,total_pcs,total_kg,contents,status,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,amount_paid,payment_history,created_at,hub_id,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,entered_by,wallet_id,wallet_deduction_amount').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
           addHubFilter(supabase.from('expenses').select('*').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
           supabase.from('user_profiles').select('id,name')
         ]);
@@ -296,6 +296,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               bankReference: r.bank_reference || undefined,
               bankSender: r.bank_sender || undefined,
               bankAlertText: r.bank_alert_text || undefined,
+              wallet_id: r.wallet_id || undefined,
+              wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
             });
           });
         }
@@ -333,6 +335,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               bankReference: r.bank_reference || undefined,
               bankSender: r.bank_sender || undefined,
               bankAlertText: r.bank_alert_text || undefined,
+              wallet_id: r.wallet_id || undefined,
+              wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
             });
           });
         }
@@ -398,6 +402,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               posApprovalCode: r.pos_approval_code || undefined,
               confirmedBy: r.confirmed_by || undefined,
               confirmedAt: r.confirmed_at || undefined,
+              wallet_id: r.wallet_id || undefined,
+              wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
             });
           });
         }
