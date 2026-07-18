@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useEnterToNextField } from '../../lib/useEnterToNextField';
 import { PaymentMode, Transaction, User, ExcessBaggageAirline } from '../../lib/types';
 import { fmt, roundMoney, tnow, getHubCode, upperOnChange } from '../../lib/helpers';
@@ -11,18 +11,26 @@ import { useBanks } from '../../lib/banks';
 import { useToast } from '../../lib/ToastContext';
 import { useHubRoutes, useValidatedRouteSelection } from '../../lib/hubRoutes';
 
+import { supabase } from '../../lib/supabase';
+import { CustomerWalletPicker } from '../CustomerWalletPicker';
+import { CustomerWallet } from '../../lib/types';
+
 export const ExcessBaggageForm = ({
   airline,
   onAddTx,
   user,
   onShowHistory,
   transactions = [],
+  customerWallets = [],
+  setCustomerWallets,
 }: {
   airline: ExcessBaggageAirline;
   onAddTx: (tx: Transaction) => void;
   user: User;
   onShowHistory?: () => void;
   transactions?: Transaction[];
+  customerWallets?: CustomerWallet[];
+  setCustomerWallets?: React.Dispatch<React.SetStateAction<CustomerWallet[]>>;
 }) => {
   const [name, setName] = useState('');
   const [pnr, setPnr]   = useState('');
@@ -38,6 +46,14 @@ export const ExcessBaggageForm = ({
   const [pcs, setPcs] = useState('');
   const [phone, setPhone] = useState('');
   const [mode, setMode] = useState<PaymentMode>('POS');
+
+  const [selectedWalletOverride, setSelectedWalletOverride] = useState<CustomerWallet | null>(null);
+  const activeWallet = useMemo(() => {
+    if (selectedWalletOverride) return selectedWalletOverride;
+    const q = name.trim().toLowerCase();
+    if (q.length < 2) return null;
+    return customerWallets.find(w => w.customer_name.trim().toLowerCase() === q && w.balance > 0) || null;
+  }, [name, customerWallets, selectedWalletOverride]);
   const banks = useBanks();
   const [bank, setBank] = useState(banks[0] || 'Sterling Bank');
   const [amountOverride, setAmountOverride] = useState<string>('');
@@ -118,6 +134,47 @@ export const ExcessBaggageForm = ({
     } as any;
     // Attach phone for EHIApp to write to passenger_phone column
     (tx as any).phone = phone.trim() || undefined;
+
+    // Handle Customer Wallet Deduction if paying via Wallet
+    if (mode === "Wallet" && activeWallet) {
+      const deductAmt = Math.min(totalAmount, activeWallet.balance);
+      tx.wallet_id = activeWallet.id;
+      tx.wallet_deduction_amount = deductAmt;
+      (tx as any).wallet_balance_before = activeWallet.balance;
+      (tx as any).wallet_balance_after = activeWallet.balance - deductAmt;
+
+      const newBalance = activeWallet.balance - deductAmt;
+      supabase.from("customer_wallets").update({
+        balance: newBalance,
+        total_used: (activeWallet.total_used || 0) + deductAmt,
+        status: newBalance <= 0 ? 'exhausted' : 'active',
+        updated_at: new Date().toISOString(),
+      }).eq("id", activeWallet.id).then(({ error }) => {
+        if (error) console.error("Wallet update error:", error);
+      });
+
+      supabase.from("wallet_transactions").insert({
+        wallet_id: activeWallet.id,
+        hub_id: user.hub_id,
+        type: 'deduction',
+        amount: deductAmt,
+        balance_before: activeWallet.balance,
+        balance_after: newBalance,
+        cargo_ref: resolvedTag,
+        description: `Excess Baggage ${resolvedTag}`,
+        logged_by: user.name,
+      }).then(({ error }) => {
+        if (error) console.error("Wallet tx log error:", error);
+      });
+
+      if (setCustomerWallets) {
+        setCustomerWallets(prev => prev.map(w => w.id === activeWallet.id ? { ...w, balance: newBalance } : w));
+      }
+      showToast({ 
+        message: `💰 ₦${fmt(deductAmt)} deducted from ${activeWallet.customer_name}'s Credit Wallet. Remaining Balance: ₦${fmt(newBalance)}`, 
+        type: 'success' 
+      });
+    }
 
     setSuccessTx({ tx, kgs: kgVal, exc: excessKg, pcs: pcsVal });
     setSubmitting(false);
@@ -598,6 +655,22 @@ export const ExcessBaggageForm = ({
                 </button>
               ))}
             </div>
+            {mode === "Wallet" && (
+              <div className="mt-2 space-y-2">
+                <CustomerWalletPicker
+                  wallets={customerWallets}
+                  selectedWallet={activeWallet}
+                  onSelectWallet={(w) => setSelectedWalletOverride(w)}
+                  currentCustomerName={name}
+                />
+                {activeWallet && totalAmount > activeWallet.balance && (
+                  <div className="text-[11px] font-mono text-[var(--color-error)] bg-[rgba(239,68,68,0.08)] p-2.5 rounded-[var(--radius-sm)] border border-[rgba(239,68,68,0.2)] flex items-center justify-between">
+                    <span>Shortfall to collect via secondary mode:</span>
+                    <span className="font-bold text-[13px]">₦{fmt(totalAmount - activeWallet.balance)}</span>
+                  </div>
+                )}
+              </div>
+            )}
             {(mode === 'Transfer' || mode === 'POS') && (
               <div className="space-y-1.5 pt-1 animate-in fade-in slide-in-from-top-2 duration-200">
                 <span className="text-[12px] font-sans font-semibold text-[var(--color-light-muted)]">

@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense, useRef, useCallback, memo, useMemo } from 'react';
-import { User, TabView, Transaction, Expense, ExcessBaggageAirline } from '../lib/types';
+import { User, TabView, Transaction, Expense, ExcessBaggageAirline, CustomerWallet } from '../lib/types';
 import { processSyncQueue, writeWithOfflineSupport, cleanupOldQueue } from '../lib/sync';
 import { db } from '../lib/db';
 import Dexie from 'dexie';
@@ -122,6 +122,35 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
   const pendingExpenseRef = useRef<Expense[]>([]);
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const transactionsRef = useRef<Transaction[]>([]);
+
+  // Global Customer Wallets state and real-time synchronization
+  const [customerWallets, setCustomerWallets] = useState<CustomerWallet[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    const fetchWallets = async () => {
+      try {
+        const { data } = await supabase.from('customer_wallets').select('*').order('updated_at', { ascending: false });
+        if (active && data) setCustomerWallets(data as CustomerWallet[]);
+      } catch (err) {}
+    };
+    fetchWallets();
+
+    const channel = supabase
+      .channel('customer_wallets_realtime_global')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customer_wallets' }, () => {
+        fetchWallets();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_transactions' }, () => {
+        fetchWallets();
+      })
+      .subscribe();
+
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   // Keep a ref mirror of transactions for synchronous dedup checks in realtime handlers
   useEffect(() => { transactionsRef.current = transactions; }, [transactions]);
@@ -1183,6 +1212,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                   user={user}
                   transactions={transactions}
                   onShowHistory={handleShowCargoHistory}
+                  customerWallets={customerWallets}
+                  setCustomerWallets={setCustomerWallets}
                 />
               )}
               {currentTab === 'Marketing' && (
@@ -1193,6 +1224,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                   onAddTx={handleAddTx}
                   onAddExpense={handleAddExpense}
                   onShowHistory={handleShowMarketingHistory}
+                  customerWallets={customerWallets}
+                  setCustomerWallets={setCustomerWallets}
                 />
               )}
               {currentTab.startsWith('Baggage:') && (
@@ -1213,6 +1246,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                       user={user}
                       onShowHistory={handleShowBaggageHistory}
                       transactions={transactions}
+                      customerWallets={customerWallets}
+                      setCustomerWallets={setCustomerWallets}
                     />
                   );
                 })()
@@ -1224,6 +1259,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                   expenses={expenses}
                   onAddTx={handleAddTx}
                   onAddExpense={handleAddExpense}
+                  customerWallets={customerWallets}
+                  setCustomerWallets={setCustomerWallets}
                 />
               )}
               {currentTab === 'Scan' && <Scanner transactions={transactions} user={user} showToast={showToast} />}

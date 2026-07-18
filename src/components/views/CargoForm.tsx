@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Transaction, User, Expense } from "../../lib/types";
+import { Transaction, User, Expense, CustomerWallet } from "../../lib/types";
 import { fmt, roundMoney, tnow, generatePickupPin, normalizeAirlineName, getHubCode, upperOnChange, isStandalonePWA } from "../../lib/helpers";
 import { useHubRoutes, useValidatedRouteSelection } from "../../lib/hubRoutes";
 import { useAirlines, addAirlineIfMissing } from "../../lib/airlines";
@@ -124,11 +124,15 @@ export const CargoForm = ({
   user,
   transactions = [],
   onShowHistory,
+  customerWallets: passedWallets,
+  setCustomerWallets: passedSetWallets,
 }: {
   onAddTx: (tx: Transaction) => void;
   user: User;
   transactions?: Transaction[];
   onShowHistory?: () => void;
+  customerWallets?: CustomerWallet[];
+  setCustomerWallets?: React.Dispatch<React.SetStateAction<CustomerWallet[]>>;
 }) => {
   // Navigation tabs between Regular & Corporate Billing
   const [activePortal, setActivePortal] = useState<"retail" | "corporate">(
@@ -635,9 +639,12 @@ export const CargoForm = ({
   }, []);
 
   // Customer Wallets state for detecting prepaid credit balances at point of consignment
-  const [customerWallets, setCustomerWallets] = useState<any[]>([]);
+  const [internalWallets, setInternalWallets] = useState<CustomerWallet[]>([]);
+  const customerWallets = passedWallets && passedWallets.length > 0 ? passedWallets : internalWallets;
+  const setCustomerWallets = passedSetWallets || setInternalWallets;
 
   useEffect(() => {
+    if (passedWallets && passedWallets.length > 0) return;
     let active = true;
     (async () => {
       try {
@@ -645,11 +652,11 @@ export const CargoForm = ({
           .from('customer_wallets')
           .select('*')
           .gt('balance', 0);
-        if (active && data) setCustomerWallets(data);
+        if (active && data) setInternalWallets(data as CustomerWallet[]);
       } catch { /* keep local if offline */ }
     })();
     return () => { active = false; };
-  }, []);
+  }, [passedWallets]);
 
   // Options for the Retail Entry Consignee dropdown -- the real corporate
   // client list from Supabase (kept live-synced above), not a hardcoded
@@ -1208,6 +1215,8 @@ export const CargoForm = ({
       const deductAmt = Math.min(parsedAmount, activeWallet.balance);
       tx.wallet_id = activeWallet.id;
       tx.wallet_deduction_amount = deductAmt;
+      (tx as any).wallet_balance_before = activeWallet.balance;
+      (tx as any).wallet_balance_after = activeWallet.balance - deductAmt;
 
       const newBalance = activeWallet.balance - deductAmt;
       supabase.from("customer_wallets").update({
@@ -1234,6 +1243,10 @@ export const CargoForm = ({
       });
 
       setCustomerWallets(prev => prev.map(w => w.id === activeWallet.id ? { ...w, balance: newBalance } : w));
+      showToast({ 
+        message: `💰 ₦${fmt(deductAmt)} deducted from ${activeWallet.customer_name}'s Credit Wallet. Remaining Balance: ₦${fmt(newBalance)}`, 
+        type: 'success' 
+      });
     }
 
     onAddTx(tx);
@@ -1512,6 +1525,26 @@ export const CargoForm = ({
                 {successTx.name}
               </span>
             </div>
+
+            {/* WALLET DEBITED SUMMARY BOX */}
+            {successTx.wallet_deduction_amount && (
+              <div className="p-3 bg-[rgba(245,158,11,0.08)] border border-[var(--color-accent-amber)] rounded-lg text-left space-y-1.5 my-3 animate-in zoom-in-95">
+                <div className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)] flex items-center justify-between">
+                  <span>💰 CREDIT WALLET DEBITED</span>
+                  <span className="bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] px-1.5 py-0.5 rounded text-[10px] uppercase font-bold">SUCCESS</span>
+                </div>
+                <div className="flex justify-between text-[12px] font-mono text-[var(--color-foreground)]">
+                  <span>Amount Deducted:</span>
+                  <span className="font-bold text-[var(--color-error)]">-₦{fmt(successTx.wallet_deduction_amount)}</span>
+                </div>
+                {(successTx as any).wallet_balance_after != null && (
+                  <div className="flex justify-between text-[12px] font-mono border-t border-[rgba(245,158,11,0.2)] pt-1.5 font-bold">
+                    <span className="text-[var(--color-muted)]">Remaining Credit Balance:</span>
+                    <span className="text-[var(--color-success)] text-[13px]">₦{fmt((successTx as any).wallet_balance_after)}</span>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex justify-between border-b border-[var(--color-border)] pb-2">
               <span className="text-[13px] font-sans text-[var(--color-muted)]">
                 AWB / Tag No

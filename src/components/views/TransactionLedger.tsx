@@ -106,13 +106,28 @@ export const TransactionLedger = ({
   const [wallets, setWallets] = useState<CustomerWallet[]>([]);
   useEffect(() => {
     let active = true;
-    (async () => {
+    const fetchWallets = async () => {
       try {
         const { data } = await supabase.from('customer_wallets').select('*').order('updated_at', { ascending: false });
         if (active && data) setWallets(data as CustomerWallet[]);
       } catch {}
-    })();
-    return () => { active = false; };
+    };
+    fetchWallets();
+
+    const channel = supabase
+      .channel('customer_wallets_ledger_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customer_wallets' }, () => {
+        fetchWallets();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_transactions' }, () => {
+        fetchWallets();
+      })
+      .subscribe();
+
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // Current shift boundary — hub shift_start_hour from user object, default 19

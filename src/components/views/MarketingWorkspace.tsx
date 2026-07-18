@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useEnterToNextField } from "../../lib/useEnterToNextField";
 import { User, Transaction, Expense } from "../../lib/types";
 import { PRICING } from "../../lib/constants";
@@ -19,6 +19,8 @@ import { PaymentNarrationBox } from "../PaymentNarrationBox";
 import { useToast } from "../../lib/ToastContext";
 import { useConfirm } from "../../lib/ConfirmContext";
 import { EmptyState } from "./EmptyState";
+import { CustomerWalletPicker } from "../CustomerWalletPicker";
+import { CustomerWallet } from "../../lib/types";
 
 export const MarketingWorkspace = ({
   user,
@@ -27,6 +29,8 @@ export const MarketingWorkspace = ({
   onAddTx,
   onAddExpense,
   onShowHistory,
+  customerWallets = [],
+  setCustomerWallets,
 }: {
   user: User;
   transactions: Transaction[];
@@ -34,6 +38,8 @@ export const MarketingWorkspace = ({
   onAddTx: (tx: Transaction) => void;
   onAddExpense: (exp: Expense) => void;
   onShowHistory?: () => void;
+  customerWallets?: CustomerWallet[];
+  setCustomerWallets?: React.Dispatch<React.SetStateAction<CustomerWallet[]>>;
 }) => {
   const { showToast } = useToast();
   const confirm = useConfirm();
@@ -180,6 +186,14 @@ export const MarketingWorkspace = ({
   const [lessTransfer, setLessTransfer] = useState(0);
   const [lessTransferInput, setLessTransferInput] = useState('');
   const [lessTransferLabel, setLessTransferLabel] = useState('');
+
+  const [selectedWalletOverride, setSelectedWalletOverride] = useState<CustomerWallet | null>(null);
+  const activeWallet = useMemo(() => {
+    if (selectedWalletOverride) return selectedWalletOverride;
+    const q = name.trim().toLowerCase();
+    if (q.length < 2) return null;
+    return customerWallets.find(w => w.customer_name.trim().toLowerCase() === q && w.balance > 0) || null;
+  }, [name, customerWallets, selectedWalletOverride]);
 
   const marketingTxs = transactions.filter((t) => t.type === "marketing");
   const totalSales = marketingTxs.reduce((sum, t) => sum + t.amount, 0);
@@ -345,6 +359,47 @@ export const MarketingWorkspace = ({
       ...(totalKg > 0 ? { _bbKg: parseFloat(bbKg) || 0, _mbKg: parseFloat(mbKg) || 0, _sbKg: parseFloat(sbKg) || 0 } as any : {}),
       // TODO: capture client_type at entry
     };
+
+    // Handle Customer Wallet Deduction if paying via Wallet
+    if (mode === "Wallet" && activeWallet) {
+      const deductAmt = Math.min(totalAmount, activeWallet.balance);
+      tx.wallet_id = activeWallet.id;
+      tx.wallet_deduction_amount = deductAmt;
+      (tx as any).wallet_balance_before = activeWallet.balance;
+      (tx as any).wallet_balance_after = activeWallet.balance - deductAmt;
+
+      const newBalance = activeWallet.balance - deductAmt;
+      supabase.from("customer_wallets").update({
+        balance: newBalance,
+        total_used: (activeWallet.total_used || 0) + deductAmt,
+        status: newBalance <= 0 ? 'exhausted' : 'active',
+        updated_at: new Date().toISOString(),
+      }).eq("id", activeWallet.id).then(({ error }) => {
+        if (error) console.error("Wallet update error:", error);
+      });
+
+      supabase.from("wallet_transactions").insert({
+        wallet_id: activeWallet.id,
+        hub_id: user.hub_id,
+        type: 'deduction',
+        amount: deductAmt,
+        balance_before: activeWallet.balance,
+        balance_after: newBalance,
+        cargo_ref: awb,
+        description: `Marketing Consignment ${awb}`,
+        logged_by: user.name,
+      }).then(({ error }) => {
+        if (error) console.error("Wallet tx log error:", error);
+      });
+
+      if (setCustomerWallets) {
+        setCustomerWallets(prev => prev.map(w => w.id === activeWallet.id ? { ...w, balance: newBalance } : w));
+      }
+      showToast({ 
+        message: `💰 ₦${fmt(deductAmt)} deducted from ${activeWallet.customer_name}'s Credit Wallet. Remaining Balance: ₦${fmt(newBalance)}`, 
+        type: 'success' 
+      });
+    }
 
     setSuccessTx(tx);
     setSubmitting(false);
@@ -739,6 +794,23 @@ export const MarketingWorkspace = ({
                     <option value="Debt">Debt / Credit</option>
                   </select>
                 </div>
+
+                {mode === "Wallet" && (
+                  <div className="mb-3 space-y-2">
+                    <CustomerWalletPicker
+                      wallets={customerWallets}
+                      selectedWallet={activeWallet}
+                      onSelectWallet={(w) => setSelectedWalletOverride(w)}
+                      currentCustomerName={name}
+                    />
+                    {activeWallet && totalAmount > activeWallet.balance && (
+                      <div className="text-[11px] font-mono text-[var(--color-error)] bg-[rgba(239,68,68,0.08)] p-2.5 rounded-[var(--radius-sm)] border border-[rgba(239,68,68,0.2)] flex items-center justify-between">
+                        <span>Shortfall to collect via secondary mode:</span>
+                        <span className="font-bold text-[13px]">₦{fmt(totalAmount - activeWallet.balance)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {(mode === "Transfer" || mode === "TransferCash" || mode === "POS") && (
                   <div className="space-y-2">

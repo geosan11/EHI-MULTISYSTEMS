@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useEnterToNextField } from "../../lib/useEnterToNextField";
 import { User, Transaction, Expense } from "../../lib/types";
 import { fmt, uid, tnow, generatePaymentNarration, getHubCode, upperOnChange, isStandalonePWA } from "../../lib/helpers";
@@ -14,6 +14,8 @@ import { sendReceiptWhatsApp, buildPackageWhatsApp } from "../../lib/notificatio
 import { useToast } from "../../lib/ToastContext";
 import { useConfirm } from "../../lib/ConfirmContext";
 import { EmptyState } from "./EmptyState";
+import { CustomerWalletPicker } from "../CustomerWalletPicker";
+import { CustomerWallet } from "../../lib/types";
 
 export const PackageForm = ({
   user,
@@ -22,6 +24,8 @@ export const PackageForm = ({
   onAddTx,
   onAddExpense,
   onShowHistory,
+  customerWallets = [],
+  setCustomerWallets,
 }: {
   user: User;
   transactions: Transaction[];
@@ -29,6 +33,8 @@ export const PackageForm = ({
   onAddTx: (tx: Transaction) => void;
   onAddExpense: (exp: Expense) => void;
   onShowHistory?: () => void;
+  customerWallets?: CustomerWallet[];
+  setCustomerWallets?: React.Dispatch<React.SetStateAction<CustomerWallet[]>>;
 }) => {
   // Destinations are the live hub list from Supabase (not a hardcoded
   // constant) so a new hub added in Settings shows up here immediately --
@@ -152,9 +158,16 @@ export const PackageForm = ({
   // never this component's own debtPaid flag, so checking debtPaid alone
   // left debts paid off elsewhere still showing as unpaid here.
   const unpaidDebts = packageTxs.filter(t => t.mode === 'Debt' && (t.amount - (t.amountPaid || 0)) > 0);
-
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [closingDay, setClosingDay] = useState(false);
+
+  const [selectedWalletOverride, setSelectedWalletOverride] = useState<CustomerWallet | null>(null);
+  const activeWallet = useMemo(() => {
+    if (selectedWalletOverride) return selectedWalletOverride;
+    const q = name.trim().toLowerCase();
+    if (q.length < 2) return null;
+    return customerWallets.find(w => w.customer_name.trim().toLowerCase() === q && w.balance > 0) || null;
+  }, [name, customerWallets, selectedWalletOverride]);
 
   const handleAddEntry = () => {
     if (parsedAmount < MIN_PACKAGE_AMOUNT) {
@@ -186,6 +199,47 @@ export const PackageForm = ({
       enteredByName: user.name,
       debtPaid: mode === "Debt" ? false : undefined,
     };
+
+    // Handle Customer Wallet Deduction if paying via Wallet
+    if (mode === "Wallet" && activeWallet) {
+      const deductAmt = Math.min(parsedAmount, activeWallet.balance);
+      tx.wallet_id = activeWallet.id;
+      tx.wallet_deduction_amount = deductAmt;
+      (tx as any).wallet_balance_before = activeWallet.balance;
+      (tx as any).wallet_balance_after = activeWallet.balance - deductAmt;
+
+      const newBalance = activeWallet.balance - deductAmt;
+      supabase.from("customer_wallets").update({
+        balance: newBalance,
+        total_used: (activeWallet.total_used || 0) + deductAmt,
+        status: newBalance <= 0 ? 'exhausted' : 'active',
+        updated_at: new Date().toISOString(),
+      }).eq("id", activeWallet.id).then(({ error }) => {
+        if (error) console.error("Wallet update error:", error);
+      });
+
+      supabase.from("wallet_transactions").insert({
+        wallet_id: activeWallet.id,
+        hub_id: user.hub_id,
+        type: 'deduction',
+        amount: deductAmt,
+        balance_before: activeWallet.balance,
+        balance_after: newBalance,
+        cargo_ref: trackingRef,
+        description: `Package Consignment ${trackingRef}`,
+        logged_by: user.name,
+      }).then(({ error }) => {
+        if (error) console.error("Wallet tx log error:", error);
+      });
+
+      if (setCustomerWallets) {
+        setCustomerWallets(prev => prev.map(w => w.id === activeWallet.id ? { ...w, balance: newBalance } : w));
+      }
+      showToast({ 
+        message: `💰 ₦${fmt(deductAmt)} deducted from ${activeWallet.customer_name}'s Credit Wallet. Remaining Balance: ₦${fmt(newBalance)}`, 
+        type: 'success' 
+      });
+    }
 
     setSuccessTx(tx);
     setSubmitting(false);
@@ -595,6 +649,23 @@ export const PackageForm = ({
                   <option value="Wallet">💰 Customer Credit Wallet</option>
                   <option value="Debt">Debt / Credit</option>
                 </select>
+
+                {mode === "Wallet" && (
+                  <div className="mb-3 space-y-2">
+                    <CustomerWalletPicker
+                      wallets={customerWallets}
+                      selectedWallet={activeWallet}
+                      onSelectWallet={(w) => setSelectedWalletOverride(w)}
+                      currentCustomerName={name}
+                    />
+                    {activeWallet && parsedAmount > activeWallet.balance && (
+                      <div className="text-[11px] font-mono text-[var(--color-error)] bg-[rgba(239,68,68,0.08)] p-2.5 rounded-[var(--radius-sm)] border border-[rgba(239,68,68,0.2)] flex items-center justify-between">
+                        <span>Shortfall to collect via secondary mode:</span>
+                        <span className="font-bold text-[13px]">₦{fmt(parsedAmount - activeWallet.balance)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {(mode === "Transfer" || mode === "POS") && (
                   <select
