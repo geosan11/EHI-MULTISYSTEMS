@@ -12,7 +12,7 @@ import {
   Eye, EyeOff, Wifi, WifiOff, Phone, Mail, Building2, Key, Printer
 } from 'lucide-react';
 import { BackButton } from '../BackButton';
-import { reinitSupabase, getConnectionMode, testSupabaseConnection, supabase } from '../../lib/supabase';
+import { reinitSupabase, getConnectionMode, testSupabaseConnection, supabase, writeAuditLog } from '../../lib/supabase';
 import { getConfiguredPrinter, setConfiguredPrinter, listPrinters } from '../../lib/qzPrint';
 import { useToast } from '../../lib/ToastContext';
 import { useAirlines } from '../../lib/airlines';
@@ -30,7 +30,7 @@ export const Settings = ({
 
   // Connection & API panel state
   const [configTab, setConfigTab] = useState<
-    'CONNECTION' | 'PAYMENTS' | 'NOTIFICATIONS' | 'COMPANY'
+    'CONNECTION' | 'PAYMENTS' | 'NOTIFICATIONS' | 'COMPANY' | 'DATABASE'
   >('CONNECTION');
 
   // Connection tab
@@ -225,25 +225,61 @@ export const Settings = ({
   
   const [migrating, setMigrating] = useState(false);
   const handleMigrateOrphans = async () => {
-    if (!window.confirm("WARNING: This will assign ALL historical transactions with NO hub to 'Lagos'. Are you sure?")) return;
-    setMigrating(true);
-    
-    // Cargo Entries
-    const { error: e1 } = await supabase.from('cargo_entries').update({ hub_id: 'LOS/Lagos' }).is('hub_id', null);
-    // Pending Corporate Intakes
-    const { error: e2 } = await supabase.from('pending_corporate_intakes').update({ hub_id: 'LOS/Lagos' }).is('hub_id', null);
-    // Package Desk
-    const { error: e3 } = await supabase.from('package_desk').update({ hub_id: 'LOS/Lagos' }).is('hub_id', null);
-    // Marketing
-    const { error: e4 } = await supabase.from('marketing_shipments').update({ hub_id: 'LOS/Lagos' }).is('hub_id', null);
-    // Excess Baggage
-    const { error: e5 } = await supabase.from('excess_baggage').update({ hub_id: 'LOS/Lagos' }).is('hub_id', null);
-    
-    if (e1 || e2 || e3 || e4 || e5) {
-      showToast({ message: 'Migration completed with some errors.', type: 'error' });
-    } else {
-      showToast({ message: 'Success! All orphan transactions migrated to Lagos.', type: 'success' });
+    // hub_id is a uuid FK into hubs(id) on every one of these tables --
+    // not the 'LOS/Lagos' route-label string CARGO_ROUTES uses elsewhere.
+    // Resolve the real Lagos hub row from the already-loaded hubs list
+    // (fetched above: id, name, code, type, active, shift_start_hour)
+    // instead of hardcoding a string that was never a valid hub_id value.
+    const lagosHub = hubs.find((h: any) =>
+      h.code?.toUpperCase() === 'LOS' || h.name?.toLowerCase().includes('lagos')
+    );
+    if (!lagosHub) {
+      showToast({ message: 'No Lagos hub found in the hubs list -- cannot migrate orphan records.', type: 'error' });
+      return;
     }
+
+    if (!window.confirm(`WARNING: This will assign ALL historical transactions with NO hub to "${lagosHub.name}". Are you sure?`)) return;
+    setMigrating(true);
+
+    // Real table names -- package_desk/marketing_shipments/excess_baggage
+    // were never the actual tables (see src/lib/db.ts / supabase/migrations/
+    // 20260706_full_schema.sql, 20260709_package_desk.sql): the real names
+    // are package_entries, marketing_entries, and manifests.
+    const targets = [
+      'cargo_entries',
+      'pending_corporate_intakes',
+      'package_entries',
+      'marketing_entries',
+      'manifests',
+    ];
+    const results = await Promise.all(
+      targets.map(table => supabase.from(table).update({ hub_id: lagosHub.id }).is('hub_id', null).select('id'))
+    );
+
+    const failures = results
+      .map((r, i) => ({ table: targets[i], error: r.error, count: r.data?.length ?? 0 }))
+      .filter(r => r.error);
+    const totalMigrated = results.reduce((sum, r) => sum + (r.data?.length ?? 0), 0);
+
+    if (failures.length > 0) {
+      showToast({
+        message: `Migration completed with errors on: ${failures.map(f => f.table).join(', ')}. Check console for details.`,
+        type: 'error',
+      });
+      failures.forEach(f => console.error(`Orphan migration failed for ${f.table}:`, f.error));
+    } else {
+      showToast({ message: `Success! ${totalMigrated} orphan record(s) migrated to ${lagosHub.name}.`, type: 'success' });
+    }
+
+    await writeAuditLog({
+      user_id: user.id,
+      user_name: user.name,
+      action: 'UPDATE',
+      table_name: 'multiple',
+      description: `Orphan-hub migration run: ${totalMigrated} record(s) assigned to ${lagosHub.name}${failures.length ? `, errors on ${failures.map(f => f.table).join(', ')}` : ''}`,
+      hub_id: lagosHub.id,
+    });
+
     setMigrating(false);
   };
 
