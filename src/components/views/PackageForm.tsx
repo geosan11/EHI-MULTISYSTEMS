@@ -6,7 +6,7 @@ import { useHubRoutes, useValidatedRouteSelection } from "../../lib/hubRoutes";
 import { useContentTypes } from "../../lib/contentTypes";
 import { useExpenseCategories } from "../../lib/expenseCategories";
 import { useBanks } from "../../lib/banks";
-import { MIN_PACKAGE_AMOUNT } from "../../lib/constants";
+import {  MIN_PACKAGE_AMOUNT , CARGO_ROUTES } from "../../lib/constants";
 import { getNextTag } from "../../lib/tagPool";
 import { Plus, CheckCircle, Loader2, ClipboardList, BarChart2, Printer, MessageSquare, Bluetooth } from "lucide-react";
 import { supabase } from "../../lib/supabase";
@@ -18,7 +18,7 @@ import { CustomerWalletPicker } from "../CustomerWalletPicker";
 import { CustomerWallet } from "../../lib/types";
 
 export const PackageForm = ({
-  user,
+  user: propUser,
   transactions,
   expenses,
   onAddTx,
@@ -36,6 +36,10 @@ export const PackageForm = ({
   customerWallets?: CustomerWallet[];
   setCustomerWallets?: React.Dispatch<React.SetStateAction<CustomerWallet[]>>;
 }) => {
+  const isAdmin = ['super_admin', 'admin', 'accountant'].includes(propUser.role);
+  const [adminSelectedHub, setAdminSelectedHub] = useState(propUser.hub_id || 'LOS/Lagos');
+  const user = isAdmin ? { ...propUser, hub_id: adminSelectedHub, hub: adminSelectedHub } : propUser;
+
   // Destinations are the live hub list from Supabase (not a hardcoded
   // constant) so a new hub added in Settings shows up here immediately --
   // each option is prefixed with its IATA-style hub code for consistency
@@ -369,6 +373,19 @@ export const PackageForm = ({
 
   return (
     <div ref={formRootRef} className="p-4 max-w-5xl mx-auto" style={{ width: "100%", boxSizing: "border-box", minHeight: 0, flex: 1 }}>
+      
+      {isAdmin && (
+        <div className="mb-4 p-3 bg-[var(--color-surface-2)] rounded-lg border border-[var(--color-accent-amber)] border-opacity-30 animate-in fade-in">
+           <label className="text-[10px] uppercase font-bold text-[var(--color-accent-amber)] mb-1 block flex items-center gap-1">
+             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+             Admin: Global Hub Context
+           </label>
+           <select value={adminSelectedHub} onChange={(e) => setAdminSelectedHub(e.target.value)} className="w-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] font-bold text-[13px] p-2 rounded border border-[var(--color-border)] focus:border-[var(--color-accent-amber)] focus:outline-none cursor-pointer">
+             {CARGO_ROUTES.map(route => <option key={route} value={route}>{route}</option>)}
+           </select>
+        </div>
+      )}
+
       <div className="flex justify-between items-center text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-widest border-b border-[var(--color-border)] pb-2 mb-6">
         <div>{new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</div>
         <div className="flex items-center gap-3">

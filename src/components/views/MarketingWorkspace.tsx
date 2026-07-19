@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useEnterToNextField } from "../../lib/useEnterToNextField";
 import { User, Transaction, Expense } from "../../lib/types";
-import { PRICING } from "../../lib/constants";
+import {  PRICING , CARGO_ROUTES } from "../../lib/constants";
 import { useAirlines } from "../../lib/airlines";
 import { useExpenseCategories } from "../../lib/expenseCategories";
 import { useBanks } from "../../lib/banks";
@@ -23,7 +23,7 @@ import { CustomerWalletPicker } from "../CustomerWalletPicker";
 import { CustomerWallet } from "../../lib/types";
 
 export const MarketingWorkspace = ({
-  user,
+  user: propUser,
   transactions,
   expenses,
   onAddTx,
@@ -41,6 +41,10 @@ export const MarketingWorkspace = ({
   customerWallets?: CustomerWallet[];
   setCustomerWallets?: React.Dispatch<React.SetStateAction<CustomerWallet[]>>;
 }) => {
+  const isAdmin = ['super_admin', 'admin', 'accountant'].includes(propUser.role);
+  const [adminSelectedHub, setAdminSelectedHub] = useState(propUser.hub_id || 'LOS/Lagos');
+  const user = isAdmin ? { ...propUser, hub_id: adminSelectedHub, hub: adminSelectedHub } : propUser;
+
   const { showToast } = useToast();
   const confirm = useConfirm();
   // New Entry State

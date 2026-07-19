@@ -1,3 +1,4 @@
+import { CARGO_ROUTES } from "../../lib/constants";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Transaction, User, Expense, CustomerWallet } from "../../lib/types";
 import { fmt, roundMoney, tnow, generatePickupPin, normalizeAirlineName, getHubCode, upperOnChange, isStandalonePWA } from "../../lib/helpers";
@@ -86,6 +87,10 @@ interface PendingWeighingIntake {
 }
 
 const LOCAL_SERIAL_KEY = () => {
+  const isAdmin = ['super_admin', 'admin', 'accountant'].includes(propUser.role);
+  const [adminSelectedHub, setAdminSelectedHub] = useState(propUser.hub_id || 'LOS/Lagos');
+  const user = isAdmin ? { ...propUser, hub_id: adminSelectedHub, hub: adminSelectedHub } : propUser;
+
   const today = new Date().toISOString().split("T")[0];
   return `ehi_cargo_serial_${today}`;
 };
@@ -121,7 +126,7 @@ import { PaymentNarrationBox } from "../PaymentNarrationBox";
 
 export const CargoForm = ({
   onAddTx,
-  user,
+  user: propUser,
   transactions = [],
   onShowHistory,
   customerWallets: passedWallets,
@@ -1671,6 +1676,19 @@ export const CargoForm = ({
     >
       {/* SECTION SELECTOR / HUB MODE NAVIGATION */}
       <div className="px-4 pt-4">
+
+      {isAdmin && (
+        <div className="mb-4 p-3 bg-[var(--color-surface-2)] rounded-lg border border-[var(--color-accent-amber)] border-opacity-30 animate-in fade-in">
+           <label className="text-[10px] uppercase font-bold text-[var(--color-accent-amber)] mb-1 block flex items-center gap-1">
+             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+             Admin: Global Hub Context
+           </label>
+           <select value={adminSelectedHub} onChange={(e) => setAdminSelectedHub(e.target.value)} className="w-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] font-bold text-[13px] p-2 rounded border border-[var(--color-border)] focus:border-[var(--color-accent-amber)] focus:outline-none cursor-pointer">
+             {CARGO_ROUTES.map(route => <option key={route} value={route}>{route}</option>)}
+           </select>
+        </div>
+      )}
+
       <div className="flex items-center justify-end mb-3">
         <button
           onClick={() => setShowCloseModal(true)}

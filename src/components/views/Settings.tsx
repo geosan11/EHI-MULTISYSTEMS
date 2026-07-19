@@ -222,6 +222,31 @@ export const Settings = ({
   // Add Hub — writes straight to Supabase (single source of truth, same as
   // the hub list itself); requires the 'Admins insert hubs' RLS policy
   // (supabase/migrations/20260802_hubs_write_policies.sql) to be applied.
+  
+  const [migrating, setMigrating] = useState(false);
+  const handleMigrateOrphans = async () => {
+    if (!window.confirm("WARNING: This will assign ALL historical transactions with NO hub to 'Lagos'. Are you sure?")) return;
+    setMigrating(true);
+    
+    // Cargo Entries
+    const { error: e1 } = await supabase.from('cargo_entries').update({ hub_id: 'LOS/Lagos' }).is('hub_id', null);
+    // Pending Corporate Intakes
+    const { error: e2 } = await supabase.from('pending_corporate_intakes').update({ hub_id: 'LOS/Lagos' }).is('hub_id', null);
+    // Package Desk
+    const { error: e3 } = await supabase.from('package_desk').update({ hub_id: 'LOS/Lagos' }).is('hub_id', null);
+    // Marketing
+    const { error: e4 } = await supabase.from('marketing_shipments').update({ hub_id: 'LOS/Lagos' }).is('hub_id', null);
+    // Excess Baggage
+    const { error: e5 } = await supabase.from('excess_baggage').update({ hub_id: 'LOS/Lagos' }).is('hub_id', null);
+    
+    if (e1 || e2 || e3 || e4 || e5) {
+      showToast({ message: 'Migration completed with some errors.', type: 'error' });
+    } else {
+      showToast({ message: 'Success! All orphan transactions migrated to Lagos.', type: 'success' });
+    }
+    setMigrating(false);
+  };
+
   const [newHubName, setNewHubName] = useState('');
   const [newHubCode, setNewHubCode] = useState('');
   const [newHubState, setNewHubState] = useState('');
@@ -315,7 +340,7 @@ export const Settings = ({
 
           {/* Sub-tabs — min 11px for mobile readability */}
           <div className="flex border-b border-[var(--color-border)] overflow-x-auto">
-            {(['CONNECTION','PAYMENTS','NOTIFICATIONS','COMPANY'] as const).map(tab => (
+            {(['CONNECTION','PAYMENTS','NOTIFICATIONS','COMPANY','DATABASE'] as const).map(tab => (
               <button
                 key={tab}
                 onClick={() => setConfigTab(tab)}
@@ -496,6 +521,28 @@ export const Settings = ({
                 >
                   SAVE
                 </button>
+              </div>
+            )}
+
+            
+            {/* DATABASE TAB */}
+            {configTab === 'DATABASE' && (
+              <div className="space-y-4">
+                <div className="p-4 rounded border border-red-500 bg-red-500/10">
+                  <h4 className="text-[12px] font-bold text-red-500 mb-2 uppercase">Fix Historical Data Visibility</h4>
+                  <p className="text-[11px] text-[var(--color-muted)] mb-4">
+                    Before Hub Isolation was introduced, some transactions were recorded without a specific Hub ID. 
+                    This causes them to be invisible to agents (e.g. Lagos agents) and missing from Sales Analysis.
+                    Click below to safely assign all past orphan transactions to "Lagos".
+                  </p>
+                  <button
+                    onClick={handleMigrateOrphans}
+                    disabled={migrating}
+                    className="w-full py-2.5 bg-red-500 hover:bg-red-600 text-white text-[12px] font-bold rounded flex justify-center items-center gap-2 cursor-pointer transition-colors"
+                  >
+                    {migrating ? 'MIGRATING...' : 'MIGRATE ORPHAN TRANSACTIONS TO LAGOS'}
+                  </button>
+                </div>
               </div>
             )}
 
