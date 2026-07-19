@@ -84,6 +84,7 @@ ALTER TABLE public.corporate_clients ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Hub-scoped read corporate_clients"    ON public.corporate_clients;
 DROP POLICY IF EXISTS "Super admin insert corporate_clients" ON public.corporate_clients;
 DROP POLICY IF EXISTS "Authenticated update corporate_clients" ON public.corporate_clients;
+DROP POLICY IF EXISTS "Hub-scoped read corporate_clients" ON public.corporate_clients;
 CREATE POLICY "Hub-scoped read corporate_clients" ON public.corporate_clients FOR SELECT TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
 CREATE POLICY "Super admin insert corporate_clients" ON public.corporate_clients FOR INSERT TO authenticated
@@ -99,6 +100,7 @@ ALTER TABLE public.corporate_route_rates ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Hub-scoped read corporate_route_rates"   ON public.corporate_route_rates;
 DROP POLICY IF EXISTS "Super admin insert corporate_route_rates" ON public.corporate_route_rates;
 DROP POLICY IF EXISTS "Super admin update corporate_route_rates" ON public.corporate_route_rates;
+DROP POLICY IF EXISTS "Hub-scoped read corporate_route_rates" ON public.corporate_route_rates;
 CREATE POLICY "Hub-scoped read corporate_route_rates" ON public.corporate_route_rates FOR SELECT TO authenticated
   USING (
     public.is_hub_unrestricted()
@@ -133,9 +135,12 @@ ALTER TABLE public.standard_cargo_rates ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Authenticated read standard_cargo_rates"  ON public.standard_cargo_rates;
 DROP POLICY IF EXISTS "Super admin insert standard_cargo_rates"  ON public.standard_cargo_rates;
 DROP POLICY IF EXISTS "Super admin update standard_cargo_rates"  ON public.standard_cargo_rates;
+DROP POLICY IF EXISTS "Authenticated read standard_cargo_rates" ON public.standard_cargo_rates;
 CREATE POLICY "Authenticated read standard_cargo_rates" ON public.standard_cargo_rates FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Super admin insert standard_cargo_rates" ON public.standard_cargo_rates;
 CREATE POLICY "Super admin insert standard_cargo_rates" ON public.standard_cargo_rates FOR INSERT TO authenticated
   WITH CHECK (public.current_user_role() = 'super_admin');
+DROP POLICY IF EXISTS "Super admin update standard_cargo_rates" ON public.standard_cargo_rates;
 CREATE POLICY "Super admin update standard_cargo_rates" ON public.standard_cargo_rates FOR UPDATE TO authenticated
   USING (public.current_user_role() = 'super_admin');
 
@@ -159,6 +164,7 @@ REVOKE ALL ON TABLE public.trip_pings FROM anon;
 ALTER TABLE public.trip_pings ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Hub-scoped read trip_pings"   ON public.trip_pings;
 DROP POLICY IF EXISTS "Hub-scoped insert trip_pings" ON public.trip_pings;
+DROP POLICY IF EXISTS "Hub-scoped read trip_pings" ON public.trip_pings;
 CREATE POLICY "Hub-scoped read trip_pings" ON public.trip_pings FOR SELECT TO authenticated
   USING (
     public.is_hub_unrestricted()
@@ -219,8 +225,10 @@ CREATE POLICY "Authenticated read routing_hubs" ON public.routing_hubs FOR SELEC
 REVOKE ALL ON TABLE public.bank_reconciliations FROM anon;
 DROP POLICY IF EXISTS "Authenticated read bank_reconciliations"   ON public.bank_reconciliations;
 DROP POLICY IF EXISTS "Authenticated insert bank_reconciliations" ON public.bank_reconciliations;
+DROP POLICY IF EXISTS "Recon-role read bank_reconciliations" ON public.bank_reconciliations;
 CREATE POLICY "Recon-role read bank_reconciliations" ON public.bank_reconciliations FOR SELECT TO authenticated
   USING (public.current_user_role() IN ('super_admin', 'accountant'));
+DROP POLICY IF EXISTS "Recon-role insert bank_reconciliations" ON public.bank_reconciliations;
 CREATE POLICY "Recon-role insert bank_reconciliations" ON public.bank_reconciliations FOR INSERT TO authenticated
   WITH CHECK (public.current_user_role() IN ('super_admin', 'accountant'));
 
@@ -233,6 +241,7 @@ CREATE POLICY "Recon-role insert bank_reconciliations" ON public.bank_reconcilia
 REVOKE ALL ON TABLE public.proof_of_delivery FROM anon;
 DROP POLICY IF EXISTS "Authenticated read proof_of_delivery"   ON public.proof_of_delivery;
 DROP POLICY IF EXISTS "Authenticated insert proof_of_delivery" ON public.proof_of_delivery;
+DROP POLICY IF EXISTS "Hub-scoped read proof_of_delivery" ON public.proof_of_delivery;
 CREATE POLICY "Hub-scoped read proof_of_delivery" ON public.proof_of_delivery FOR SELECT TO authenticated
   USING (
     public.is_hub_unrestricted()

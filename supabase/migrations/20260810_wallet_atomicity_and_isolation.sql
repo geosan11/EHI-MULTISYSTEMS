@@ -249,8 +249,10 @@ DROP POLICY IF EXISTS "Allow full access to customer_wallets"   ON public.custom
 DROP POLICY IF EXISTS "Allow public access to customer_wallets" ON public.customer_wallets;
 CREATE POLICY "Hub-scoped read customer_wallets"   ON public.customer_wallets FOR SELECT TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped insert customer_wallets" ON public.customer_wallets;
 CREATE POLICY "Hub-scoped insert customer_wallets" ON public.customer_wallets FOR INSERT TO authenticated
   WITH CHECK (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped update customer_wallets" ON public.customer_wallets;
 CREATE POLICY "Hub-scoped update customer_wallets" ON public.customer_wallets FOR UPDATE TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
 
@@ -258,5 +260,6 @@ DROP POLICY IF EXISTS "Allow full access to wallet_transactions"   ON public.wal
 DROP POLICY IF EXISTS "Allow public access to wallet_transactions" ON public.wallet_transactions;
 CREATE POLICY "Hub-scoped read wallet_transactions"   ON public.wallet_transactions FOR SELECT TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped insert wallet_transactions" ON public.wallet_transactions;
 CREATE POLICY "Hub-scoped insert wallet_transactions" ON public.wallet_transactions FOR INSERT TO authenticated
   WITH CHECK (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());

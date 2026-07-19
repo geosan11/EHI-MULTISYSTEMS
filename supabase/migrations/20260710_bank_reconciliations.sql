@@ -11,5 +11,7 @@ CREATE TABLE IF NOT EXISTS public.bank_reconciliations (
   created_at    timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE public.bank_reconciliations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Authenticated read bank_reconciliations" ON public.bank_reconciliations;
 CREATE POLICY "Authenticated read bank_reconciliations" ON public.bank_reconciliations FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Authenticated insert bank_reconciliations" ON public.bank_reconciliations;
 CREATE POLICY "Authenticated insert bank_reconciliations" ON public.bank_reconciliations FOR INSERT TO authenticated WITH CHECK (true);

@@ -71,14 +71,18 @@ ALTER TABLE public.package_day_close ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Hub-scoped read package_entries"   ON public.package_entries FOR SELECT TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped insert package_entries" ON public.package_entries;
 CREATE POLICY "Hub-scoped insert package_entries" ON public.package_entries FOR INSERT TO authenticated
   WITH CHECK (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped update package_entries" ON public.package_entries;
 CREATE POLICY "Hub-scoped update package_entries" ON public.package_entries FOR UPDATE TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
 
 CREATE POLICY "Hub-scoped read package_day_close"   ON public.package_day_close FOR SELECT TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped upsert package_day_close" ON public.package_day_close;
 CREATE POLICY "Hub-scoped upsert package_day_close" ON public.package_day_close FOR INSERT TO authenticated
   WITH CHECK (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+DROP POLICY IF EXISTS "Hub-scoped update package_day_close" ON public.package_day_close;
 CREATE POLICY "Hub-scoped update package_day_close" ON public.package_day_close FOR UPDATE TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());

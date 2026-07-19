@@ -448,7 +448,9 @@ DROP POLICY IF EXISTS "Authenticated read marketing_day_close"    ON public.mark
 DROP POLICY IF EXISTS "Authenticated upsert marketing_day_close"  ON public.marketing_day_close;
 DROP POLICY IF EXISTS "Authenticated update marketing_day_close"  ON public.marketing_day_close;
 CREATE POLICY "Authenticated read marketing_day_close"   ON public.marketing_day_close FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Authenticated upsert marketing_day_close" ON public.marketing_day_close;
 CREATE POLICY "Authenticated upsert marketing_day_close" ON public.marketing_day_close FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "Authenticated update marketing_day_close" ON public.marketing_day_close;
 CREATE POLICY "Authenticated update marketing_day_close" ON public.marketing_day_close FOR UPDATE TO authenticated USING (true);
 
 DROP POLICY IF EXISTS "Authenticated read expenses"   ON public.expenses;

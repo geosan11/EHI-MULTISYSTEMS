@@ -43,6 +43,7 @@ DROP POLICY IF EXISTS "Hub-scoped read pending_corporate_intakes"   ON public.pe
 DROP POLICY IF EXISTS "Hub-scoped insert pending_corporate_intakes" ON public.pending_corporate_intakes;
 DROP POLICY IF EXISTS "Hub-scoped delete pending_corporate_intakes" ON public.pending_corporate_intakes;
 
+DROP POLICY IF EXISTS "Hub-scoped read pending_corporate_intakes" ON public.pending_corporate_intakes;
 CREATE POLICY "Hub-scoped read pending_corporate_intakes" ON public.pending_corporate_intakes FOR SELECT TO authenticated
   USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
 CREATE POLICY "Hub-scoped insert pending_corporate_intakes" ON public.pending_corporate_intakes FOR INSERT TO authenticated
