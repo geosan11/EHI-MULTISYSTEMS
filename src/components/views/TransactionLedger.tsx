@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Transaction, User, Expense } from "../../lib/types";
 import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary } from "../../lib/helpers";
+import { applyWalletTransaction, processCargoRetrieval } from "../../lib/wallet";
 import { useHubRoutes } from "../../lib/hubRoutes";
 import { MIN_PACKAGE_AMOUNT } from "../../lib/constants";
 import { useContentTypes } from "../../lib/contentTypes";
@@ -916,107 +917,42 @@ export const TransactionLedger = ({
     if (!retrievalModalEntry) return;
     const entry = retrievalModalEntry;
     const customerName = entry.name;
-    const amount = data.refundAmount;
 
-    try {
-      if (!data.isPartial) {
-        // 1. Mark cargo retrieved in cargo_entries
-        const { error: cargoErr } = await supabase
-          .from('cargo_entries')
-          .update({
-            retrieved: true,
-            retrieved_at: new Date().toISOString(),
-            retrieved_by: user.name,
-            retrieval_note: `Retrieved goods refund ₦${amount} credited to wallet`,
-            status: 'Retrieved',
-          })
-          .eq('entry_ref', entry.id);
+    // process_cargo_retrieval locks the cargo entry, rejects a refund that
+    // would push cumulative retrieved_amount past the entry's original
+    // amount, updates retrieval tracking, and credits the wallet -- all in
+    // one atomic call. See supabase/migrations/20260810_wallet_atomicity_and_isolation.sql.
+    const result = await processCargoRetrieval({
+      entryRef: entry.id,
+      isPartial: data.isPartial,
+      refundAmount: data.refundAmount,
+      retrievedPieces: data.retrievedPieces,
+      retrievedKg: data.retrievedKg,
+      customerName,
+      hubId: user.hub_id,
+      loggedBy: user.name,
+    });
 
-        if (cargoErr) console.warn('Cargo update warning:', cargoErr);
-      } else {
-        // Log partial retrieval shadow transaction in cargo_entries
-        const partialId = `RET-${Date.now()}-${entry.id.slice(-6)}`;
-        const { error: cargoErr } = await supabase
-          .from('cargo_entries')
-          .insert({
-            entry_ref: partialId,
-            hub_id: user.hub_id,
-            client_name: customerName,
-            content_type: 'Partial Retrieval',
-            pieces: data.retrievedPieces,
-            kg: data.retrievedKg,
-            amount: amount,
-            mode: 'Wallet',
-            status: 'Retrieved',
-            retrieved: true,
-            retrieved_at: new Date().toISOString(),
-            retrieved_by: user.name,
-            retrieval_note: `Partial retrieval of ${data.retrievedPieces}pcs (${data.retrievedKg}kg) from ${entry.id}`,
-            entered_by: user.id
-          });
-      }
-
-      // 2. Find or create customer wallet
-      const { data: existingWallets } = await supabase
-        .from('customer_wallets')
-        .select('*')
-        .ilike('customer_name', customerName.trim());
-
-      let wallet = existingWallets && existingWallets.length > 0 ? existingWallets[0] : null;
-      let walletId = wallet?.id;
-      let balBefore = wallet ? wallet.balance : 0;
-      let balAfter = balBefore + amount;
-
-      if (wallet) {
-        await supabase.from('customer_wallets').update({
-          balance: balAfter,
-          total_topped_up: (wallet.total_topped_up || 0) + amount,
-          updated_at: new Date().toISOString(),
-        }).eq('id', wallet.id);
-      } else {
-        const { data: newW, error: insertErr } = await supabase.from('customer_wallets').insert({
-          hub_id: user.hub_id,
-          customer_name: customerName,
-          opening_balance: amount,
-          balance: amount,
-          total_topped_up: amount,
-          total_used: 0,
-          source_type: 'airline_retrieval',
-          source_ref: entry.id,
-          source_note: `Credit from ${data.isPartial ? 'partial ' : ''}retrieved cargo ${entry.id}`,
-          status: 'active',
-          created_by: user.name,
-        }).select('id').single();
-        if (insertErr) throw insertErr;
-        walletId = newW.id;
-      }
-
-      // 3. Log wallet transaction
-      await supabase.from('wallet_transactions').insert({
-        wallet_id: walletId,
-        hub_id: user.hub_id,
-        type: 'top_up',
-        amount: amount,
-        balance_before: balBefore,
-        balance_after: balAfter,
-        cargo_ref: entry.id,
-        description: `Airline ${data.isPartial ? 'partial ' : ''}retrieval refund for ${entry.id}`,
-        logged_by: user.name,
-      });
-
-      // 4. Update optimistic local transaction
-      if (!data.isPartial) {
-        const updatedTx = { ...entry.raw, retrieved: true, status: 'Retrieved' };
-        onUpdateTx(updatedTx);
-      } else {
-        // Since we don't modify the original, we just show toast and maybe close details
-      }
-      showToast({ message: `Successfully deposited ₦${fmt(amount)} to ${customerName}'s wallet!`, type: 'success' });
-      setViewingDetail(null);
-      setRetrievalModalEntry(null);
-    } catch (err: any) {
-      showToast({ message: 'Failed to complete retrieval deposit: ' + err.message, type: 'error' });
+    if (!result.ok) {
+      showToast({ message: 'Failed to complete retrieval deposit: ' + result.error, type: 'error' });
+      return;
     }
+
+    const priorRetrievedAmount = (entry.raw as any)?.retrieved_amount || 0;
+    const newRetrievedAmount = priorRetrievedAmount + data.refundAmount;
+    const fullyRetrieved = newRetrievedAmount >= (entry.raw as any)?.amount;
+    onUpdateTx({
+      ...entry.raw,
+      retrieved_amount: newRetrievedAmount,
+      retrieved_pieces: ((entry.raw as any)?.retrieved_pieces || 0) + data.retrievedPieces,
+      retrieved_kg: ((entry.raw as any)?.retrieved_kg || 0) + data.retrievedKg,
+      retrieved: fullyRetrieved,
+      status: fullyRetrieved ? 'Retrieved' : (entry.raw as any)?.status,
+    });
+
+    showToast({ message: `Successfully deposited ₦${fmt(data.refundAmount)} to ${customerName}'s wallet!`, type: 'success' });
+    setViewingDetail(null);
+    setRetrievalModalEntry(null);
   };
 
   // Edit allowed only when not view-only AND user has can_print_ledger or is super_admin
@@ -1855,7 +1791,7 @@ export const TransactionLedger = ({
                     >
                       <QrCode size={14} /> Scan
                     </button>
-                    {viewingDetail.type === 'cargo' && !viewOnly && (
+                    {viewingDetail.type === 'cargo' && !viewOnly && !viewingDetail.raw?.retrieved && (
                       <button
                         onClick={() => handleMarkRetrievedAndDeposit(viewingDetail)}
                         className="flex-1 py-2.5 flex items-center justify-center gap-1.5 bg-[rgba(245,158,11,0.12)] hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-obsidian)] text-[var(--color-accent-amber)] rounded-lg transition-colors border border-[rgba(245,158,11,0.3)] text-[11px] font-mono font-bold"

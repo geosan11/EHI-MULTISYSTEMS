@@ -140,7 +140,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
   }
 
   if (fraudAlertsView) {
-    return <FraudAlerts onBack={() => setFraudAlertsView(false)} />;
+    return <FraudAlerts user={user} onBack={() => setFraudAlertsView(false)} />;
   }
 
   if (customerWalletsView) {

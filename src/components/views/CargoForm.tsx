@@ -2,6 +2,7 @@ import { CARGO_ROUTES } from "../../lib/constants";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Transaction, User, Expense, CustomerWallet } from "../../lib/types";
 import { fmt, roundMoney, tnow, generatePickupPin, normalizeAirlineName, getHubCode, upperOnChange, isStandalonePWA } from "../../lib/helpers";
+import { applyWalletTransaction } from "../../lib/wallet";
 import { useHubRoutes, useValidatedRouteSelection } from "../../lib/hubRoutes";
 import { useAirlines, addAirlineIfMissing } from "../../lib/airlines";
 import { useContentTypes } from "../../lib/contentTypes";
@@ -1214,39 +1215,30 @@ export const CargoForm = ({
     // Handle Customer Wallet Deduction if paying via Wallet
     if (mode === "Wallet" && activeWallet) {
       const deductAmt = Math.min(parsedAmount, activeWallet.balance);
+      const result = await applyWalletTransaction({
+        walletId: activeWallet.id,
+        type: 'deduction',
+        amount: deductAmt,
+        cargoRef: resolvedAwb,
+        description: `Cargo Consignment ${resolvedAwb}`,
+        loggedBy: user.name,
+      });
+
+      if (!result.ok) {
+        showToast({ message: `Wallet deduction failed: ${result.error}. Entry was not logged.`, type: "error" });
+        setSubmitting(false);
+        return;
+      }
+
       tx.wallet_id = activeWallet.id;
       tx.wallet_deduction_amount = deductAmt;
       (tx as any).wallet_balance_before = activeWallet.balance;
-      (tx as any).wallet_balance_after = activeWallet.balance - deductAmt;
+      (tx as any).wallet_balance_after = result.newBalance;
 
-      const newBalance = activeWallet.balance - deductAmt;
-      supabase.from("customer_wallets").update({
-        balance: newBalance,
-        total_used: (activeWallet.total_used || 0) + deductAmt,
-        status: newBalance <= 0 ? 'exhausted' : 'active',
-        updated_at: new Date().toISOString(),
-      }).eq("id", activeWallet.id).then(({ error }) => {
-        if (error) console.error("Wallet update error:", error);
-      });
-
-      supabase.from("wallet_transactions").insert({
-        wallet_id: activeWallet.id,
-        hub_id: user.hub_id,
-        type: 'deduction',
-        amount: deductAmt,
-        balance_before: activeWallet.balance,
-        balance_after: newBalance,
-        cargo_ref: resolvedAwb,
-        description: `Cargo Consignment ${resolvedAwb}`,
-        logged_by: user.name,
-      }).then(({ error }) => {
-        if (error) console.error("Wallet tx log error:", error);
-      });
-
-      setCustomerWallets(prev => prev.map(w => w.id === activeWallet.id ? { ...w, balance: newBalance } : w));
-      showToast({ 
-        message: `👜 ₦${fmt(deductAmt)} deducted from ${activeWallet.customer_name}'s wallet. Remaining: ₦${fmt(newBalance)}`, 
-        type: "success" 
+      setCustomerWallets(prev => prev.map(w => w.id === activeWallet.id ? { ...w, balance: result.newBalance! } : w));
+      showToast({
+        message: `👜 ₦${fmt(deductAmt)} deducted from ${activeWallet.customer_name}'s wallet. Remaining: ₦${fmt(result.newBalance!)}`,
+        type: "success"
       });
     }
 

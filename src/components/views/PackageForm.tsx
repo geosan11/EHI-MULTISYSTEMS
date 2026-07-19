@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useEnterToNextField } from "../../lib/useEnterToNextField";
 import { User, Transaction, Expense } from "../../lib/types";
 import { fmt, uid, tnow, generatePaymentNarration, getHubCode, upperOnChange, isStandalonePWA } from "../../lib/helpers";
+import { applyWalletTransaction } from "../../lib/wallet";
 import { useHubRoutes, useValidatedRouteSelection } from "../../lib/hubRoutes";
 import { useContentTypes } from "../../lib/contentTypes";
 import { useExpenseCategories } from "../../lib/expenseCategories";
@@ -175,7 +176,7 @@ export const PackageForm = ({
     return customerWallets.find(w => w.customer_name.trim().toLowerCase() === q && w.balance > 0) || null;
   }, [name, customerWallets, selectedWalletOverride]);
 
-  const handleAddEntry = () => {
+  const handleAddEntry = async () => {
     if (parsedAmount < MIN_PACKAGE_AMOUNT) {
       showToast({ message: `Amount must be at least ₦${MIN_PACKAGE_AMOUNT.toLocaleString()}`, type: 'warning' });
       return;
@@ -209,41 +210,32 @@ export const PackageForm = ({
     // Handle Customer Wallet Deduction if paying via Wallet
     if (mode === "Wallet" && activeWallet) {
       const deductAmt = Math.min(parsedAmount, activeWallet.balance);
+      const result = await applyWalletTransaction({
+        walletId: activeWallet.id,
+        type: 'deduction',
+        amount: deductAmt,
+        cargoRef: trackingRef,
+        description: `Package Consignment ${trackingRef}`,
+        loggedBy: user.name,
+      });
+
+      if (!result.ok) {
+        showToast({ message: `Wallet deduction failed: ${result.error}. Entry was not logged.`, type: 'error' });
+        setSubmitting(false);
+        return;
+      }
+
       tx.wallet_id = activeWallet.id;
       tx.wallet_deduction_amount = deductAmt;
       (tx as any).wallet_balance_before = activeWallet.balance;
-      (tx as any).wallet_balance_after = activeWallet.balance - deductAmt;
-
-      const newBalance = activeWallet.balance - deductAmt;
-      supabase.from("customer_wallets").update({
-        balance: newBalance,
-        total_used: (activeWallet.total_used || 0) + deductAmt,
-        status: newBalance <= 0 ? 'exhausted' : 'active',
-        updated_at: new Date().toISOString(),
-      }).eq("id", activeWallet.id).then(({ error }) => {
-        if (error) console.error("Wallet update error:", error);
-      });
-
-      supabase.from("wallet_transactions").insert({
-        wallet_id: activeWallet.id,
-        hub_id: user.hub_id,
-        type: 'deduction',
-        amount: deductAmt,
-        balance_before: activeWallet.balance,
-        balance_after: newBalance,
-        cargo_ref: trackingRef,
-        description: `Package Consignment ${trackingRef}`,
-        logged_by: user.name,
-      }).then(({ error }) => {
-        if (error) console.error("Wallet tx log error:", error);
-      });
+      (tx as any).wallet_balance_after = result.newBalance;
 
       if (setCustomerWallets) {
-        setCustomerWallets(prev => prev.map(w => w.id === activeWallet.id ? { ...w, balance: newBalance } : w));
+        setCustomerWallets(prev => prev.map(w => w.id === activeWallet.id ? { ...w, balance: result.newBalance! } : w));
       }
-      showToast({ 
-        message: `💰 ₦${fmt(deductAmt)} deducted from ${activeWallet.customer_name}'s Credit Wallet. Remaining Balance: ₦${fmt(newBalance)}`, 
-        type: 'success' 
+      showToast({
+        message: `💰 ₦${fmt(deductAmt)} deducted from ${activeWallet.customer_name}'s Credit Wallet. Remaining Balance: ₦${fmt(result.newBalance!)}`,
+        type: 'success'
       });
     }
 

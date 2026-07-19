@@ -2,8 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { ShieldAlert, CheckCircle, RefreshCcw, Eye, AlertOctagon, Loader } from 'lucide-react';
 import { BackButton } from '../BackButton';
 import { fmt } from '../../lib/helpers';
-import { supabase } from '../../lib/supabase';
+import { supabase, writeAuditLog } from '../../lib/supabase';
+import { applyWalletTransaction } from '../../lib/wallet';
 import { useConfirm } from '../../lib/ConfirmContext';
+import { useToast } from '../../lib/ToastContext';
+import { User } from '../../lib/types';
 
 interface FraudAlert {
   id: string;
@@ -18,8 +21,10 @@ interface FraudAlert {
 }
 
 export const FraudAlerts = ({
+  user,
   onBack
 }: {
+  user: User;
   onBack: () => void;
 }) => {
   const [activeTab, setActiveTab] = useState<'pending' | 'reviewed'>('pending');
@@ -28,6 +33,7 @@ export const FraudAlerts = ({
   const [loading, setLoading] = useState(true);
   const [alerts, setAlerts] = useState<FraudAlert[]>([]);
   const confirm = useConfirm();
+  const { showToast } = useToast();
 
   useEffect(() => {
     const runDetectionRules = async () => {
@@ -41,7 +47,7 @@ export const FraudAlerts = ({
         // Rule 1: Duplicate AWB detection (last 24 hours)
         const { data: cargoData } = await supabase
           .from('cargo_entries')
-          .select('id, awb_tag_number, consignee_name, amount, route, total_kg, logged_by, created_at, receipt_mode')
+          .select('id, hub_id, awb_tag_number, consignee_name, amount, route, total_kg, logged_by, created_at, receipt_mode')
           .gte('created_at', last24h);
 
         if (cargoData && cargoData.length > 0) {
@@ -234,45 +240,66 @@ export const FraudAlerts = ({
 
     setLoading(true);
     try {
-      // 1. Get or create wallet
+      // 1. Get or create wallet (created at zero balance -- the actual
+      // credit happens via applyWalletTransaction below, same pattern as
+      // every other wallet-crediting path in the app).
       let { data: wallets } = await supabase.from('customer_wallets').select('*').ilike('customer_name', alert.corpClient.company_name);
       let wallet = wallets?.[0];
       if (!wallet) {
-        const { data: newWallet } = await supabase.from('customer_wallets').insert({
+        const { data: newWallet, error: insertErr } = await supabase.from('customer_wallets').insert({
+          hub_id: alert.rawEntry.hub_id,
           customer_name: alert.corpClient.company_name,
-          phone: '',
-          balance: 0
+          customer_phone: alert.corpClient.phone || null,
+          opening_balance: 0,
+          balance: 0,
+          source_type: 'refund',
+          source_ref: alert.rawEntry.awb_tag_number,
+          source_note: `Overcharge refund for AWB ${alert.rawEntry.awb_tag_number}`,
+          status: 'active',
+          created_by: user.name,
         }).select().single();
+        if (insertErr) throw insertErr;
         wallet = newWallet;
       }
 
-      // 2. Add refund to wallet
-      await supabase.from('wallet_transactions').insert({
-        wallet_id: wallet.id,
-        type: 'credit',
+      // 2. Atomically credit the wallet + write its wallet_transactions audit row
+      const result = await applyWalletTransaction({
+        walletId: wallet.id,
+        type: 'refund',
         amount: alert.overcharge,
+        cargoRef: alert.rawEntry.awb_tag_number,
+        cargoEntryId: alert.rawEntry.id,
         description: `Overcharge refund for AWB ${alert.rawEntry.awb_tag_number}`,
-        logged_by: 'IT Auto-Audit'
+        loggedBy: user.name,
       });
+      if (!result.ok) throw new Error(result.error);
 
-      // 3. Update wallet balance
-      await supabase.rpc('increment_wallet_balance', {
-        w_id: wallet.id,
-        amount: alert.overcharge
-      });
-
-      // 4. Update transaction
-      await supabase.from('cargo_entries').update({
+      // 3. Update transaction
+      const { error: updateErr } = await supabase.from('cargo_entries').update({
         amount: alert.correctAmount,
         receipt_mode: 'Wallet'
       }).eq('id', alert.rawEntry.id);
+      if (updateErr) throw updateErr;
 
-      // 5. Mark alert resolved
+      await writeAuditLog({
+        user_id: user.id,
+        user_name: user.name,
+        action: 'UPDATE',
+        table_name: 'cargo_entries',
+        record_id: alert.rawEntry.id,
+        description: `Fraud alert auto-resolved: overcharge on AWB ${alert.rawEntry.awb_tag_number} corrected to ₦${fmt(alert.correctAmount)}, ₦${fmt(alert.overcharge)} refunded to ${alert.corpClient.company_name}'s wallet`,
+        hub_id: alert.rawEntry.hub_id,
+        old_values: { amount: alert.rawEntry.amount },
+        new_values: { amount: alert.correctAmount },
+      });
+
+      // 4. Mark alert resolved
       setAlerts(prev => prev.map(a => a.id === alert.id ? {
         ...a, reviewed: true, resolution: `Auto-resolved. ₦${fmt(alert.overcharge)} refunded to wallet.`
       } : a));
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      showToast({ message: 'Failed to resolve overcharge: ' + err.message, type: 'error' });
     }
     setLoading(false);
   };
@@ -289,15 +316,29 @@ export const FraudAlerts = ({
 
     setLoading(true);
     try {
-      await supabase.from('cargo_entries').update({
+      const { error: updateErr } = await supabase.from('cargo_entries').update({
         amount: alert.floorAmount,
       }).eq('id', alert.rawEntry.id);
+      if (updateErr) throw updateErr;
+
+      await writeAuditLog({
+        user_id: user.id,
+        user_name: user.name,
+        action: 'UPDATE',
+        table_name: 'cargo_entries',
+        record_id: alert.rawEntry.id,
+        description: `Fraud alert auto-resolved: underpriced entry adjusted up to standard floor ₦${fmt(alert.floorAmount)}`,
+        hub_id: alert.rawEntry.hub_id,
+        old_values: { amount: alert.rawEntry.amount },
+        new_values: { amount: alert.floorAmount },
+      });
 
       setAlerts(prev => prev.map(a => a.id === alert.id ? {
         ...a, reviewed: true, resolution: `Auto-resolved. Amount adjusted up to ₦${fmt(alert.floorAmount)}.`
       } : a));
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      showToast({ message: 'Failed to resolve underpricing: ' + err.message, type: 'error' });
     }
     setLoading(false);
   };

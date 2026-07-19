@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { User } from '../../lib/types';
 import { fmt, tnow } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
+import { applyWalletTransaction } from '../../lib/wallet';
 import { useToast } from '../../lib/ToastContext';
 import { BackButton } from '../BackButton';
 import { openPdfOrDownload } from '../../lib/helpers';
@@ -175,25 +176,17 @@ export const CustomerWallets = ({
       );
 
       let walletId = existing?.id;
-      let balanceBefore = existing ? existing.balance : 0;
-      let balanceAfter = balanceBefore + amt;
 
       if (existing) {
-        // Update existing wallet
-        const { error: updateErr } = await supabase
-          .from('customer_wallets')
-          .update({
-            balance: balanceAfter,
-            total_topped_up: (existing.total_topped_up || 0) + amt,
-            status: 'active',
-            updated_at: new Date().toISOString(),
-            customer_phone: formPhone.trim() || existing.customer_phone,
-          })
-          .eq('id', existing.id);
-
-        if (updateErr) throw updateErr;
+        if (formPhone.trim() && formPhone.trim() !== existing.customer_phone) {
+          // Not money -- no race risk, safe to update directly alongside
+          // the atomic balance top-up below.
+          await supabase.from('customer_wallets').update({ customer_phone: formPhone.trim() }).eq('id', existing.id);
+        }
       } else {
-        // Insert new wallet
+        // Insert new wallet at zero balance -- the actual credit happens
+        // via applyWalletTransaction below so the balance and its
+        // wallet_transactions audit row are always created together.
         const { data: newWallet, error: insertErr } = await supabase
           .from('customer_wallets')
           .insert({
@@ -201,8 +194,8 @@ export const CustomerWallets = ({
             customer_name: name,
             customer_phone: formPhone.trim() || null,
             opening_balance: amt,
-            balance: amt,
-            total_topped_up: amt,
+            balance: 0,
+            total_topped_up: 0,
             total_used: 0,
             source_type: formSourceType,
             source_ref: formSourceRef.trim() || null,
@@ -217,20 +210,17 @@ export const CustomerWallets = ({
         walletId = newWallet.id;
       }
 
-      // 2. Insert wallet_transactions row
-      const { error: txErr } = await supabase.from('wallet_transactions').insert({
-        wallet_id: walletId,
-        hub_id: user.hub_id,
+      // 2. Atomically credit the wallet + write its wallet_transactions audit row
+      const result = await applyWalletTransaction({
+        walletId: walletId!,
         type: 'top_up',
         amount: amt,
-        balance_before: balanceBefore,
-        balance_after: balanceAfter,
-        cargo_ref: formSourceRef.trim() || null,
+        cargoRef: formSourceRef.trim() || undefined,
         description: formNote.trim() || `Top-up via ${formSourceType.replace('_', ' ')}`,
-        logged_by: user.name,
+        loggedBy: user.name,
       });
 
-      if (txErr) throw txErr;
+      if (!result.ok) throw new Error(result.error);
 
       showToast({ message: `Successfully topped up ₦${fmt(amt)} for ${name}!`, type: 'success' });
       setShowTopUpModal(false);
