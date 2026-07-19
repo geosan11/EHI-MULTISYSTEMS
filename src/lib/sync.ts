@@ -385,6 +385,7 @@ export async function processSyncQueue(): Promise<number> {
         synced++;
       } else {
         const errMsg = error.message || error.details || JSON.stringify(error);
+        console.error(`Background sync failed for ${item.table_name} (record ${item.record_id}):`, error);
         appLogger.log('ERROR', 'SYNC_QUEUE', `Background sync failed for ${item.table_name}: ${errMsg}`);
       }
     } catch (err) {
