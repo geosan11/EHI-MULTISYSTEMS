@@ -199,11 +199,23 @@ export const Analytics = ({
     const marketing = periodFilteredTxs.filter(t => t.type === 'marketing');
     const packages = periodFilteredTxs.filter(t => t.type === 'package');
 
-    const totalRevenue = periodFilteredTxs.reduce((sum, t) => sum + t.amount, 0);
-    const cargoRevenue = cargo.reduce((sum, t) => sum + t.amount, 0);
-    const baggageRevenue = baggage.reduce((sum, t) => sum + t.amount, 0);
-    const marketingRevenue = marketing.reduce((sum, t) => sum + t.amount, 0);
-    const packagesRevenue = packages.reduce((sum, t) => sum + t.amount, 0);
+    // Identify non-liquid/non-revenue transactions
+    const debtTxs = periodFilteredTxs.filter(t => t.mode === 'Debt');
+    const officeWorkTxs = debtTxs.filter(t => t.clientType === 'Office Work');
+    const individualDebtTxs = debtTxs.filter(t => t.clientType !== 'Office Work');
+    const retrievedTxs = periodFilteredTxs.filter(t => t.retrieved === true);
+
+    // Liquid Transactions (The actual real money we can count as Revenue)
+    // We also consider 'is_debt_clearance' as liquid since it's money coming in today for past debts!
+    const validLiquidTxs = periodFilteredTxs.filter(t => (t.mode !== 'Debt' && !t.retrieved) || t.is_debt_clearance);
+
+    const totalRevenue = validLiquidTxs.reduce((sum, t) => sum + t.amount, 0); // Pure liquid
+    const cargoRevenue = validLiquidTxs.filter(t => t.type === 'cargo').reduce((sum, t) => sum + t.amount, 0);
+    const baggageRevenue = validLiquidTxs.filter(t => t.type === 'baggage').reduce((sum, t) => sum + t.amount, 0);
+    const marketingRevenue = validLiquidTxs.filter(t => t.type === 'marketing').reduce((sum, t) => sum + t.amount, 0);
+    const packagesRevenue = validLiquidTxs.filter(t => t.type === 'package').reduce((sum, t) => sum + t.amount, 0);
+
+    const grossVolumeValue = periodFilteredTxs.reduce((sum, t) => sum + t.amount, 0);
 
     const totalKg = periodFilteredTxs.reduce((sum, t) => sum + (t.kg || 0), 0);
     const cargoKg = cargo.reduce((sum, t) => sum + (t.kg || 0), 0);
@@ -221,7 +233,9 @@ export const Analytics = ({
     const transferRevenue = periodFilteredTxs.filter(t => t.mode === 'Transfer').reduce((sum, t) => sum + t.amount, 0);
     const posRevenue = periodFilteredTxs.filter(t => t.mode === 'POS').reduce((sum, t) => sum + t.amount, 0);
     const walletDeductions = periodFilteredTxs.reduce((sum, t) => sum + (t.wallet_deduction_amount || (t.mode === 'Wallet' ? t.amount : 0)), 0);
-    const debtOutstanding = periodFilteredTxs.filter(t => t.mode === 'Debt').reduce((sum, t) => sum + t.amount, 0);
+    const debtOutstanding = debtTxs.reduce((sum, t) => sum + t.amount, 0);
+    const officeWorkValue = officeWorkTxs.reduce((sum, t) => sum + t.amount, 0);
+    const retrievedValue = retrievedTxs.reduce((sum, t) => sum + t.amount, 0);
 
     const unconfirmedTransfers = periodFilteredTxs.filter(t => t.mode === 'Transfer' && !t.paymentConfirmed).reduce((sum, t) => sum + t.amount, 0);
     const unverifiedCash = periodFilteredTxs.filter(t => t.mode === 'Cash' && !t.paymentConfirmed).reduce((sum, t) => sum + t.amount, 0);
@@ -239,6 +253,7 @@ export const Analytics = ({
 
     return {
       totalRevenue,
+      grossVolumeValue,
       cargoRevenue,
       baggageRevenue,
       marketingRevenue,
@@ -255,6 +270,8 @@ export const Analytics = ({
       posRevenue,
       walletDeductions,
       debtOutstanding,
+      officeWorkValue,
+      retrievedValue,
       unconfirmedTransfers,
       unverifiedCash,
       totalCollected,

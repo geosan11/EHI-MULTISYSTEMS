@@ -23,7 +23,7 @@ export const DebtorsTab = ({
 
   const [showPaymentForm, setShowPaymentForm] = useState<string | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
-  const [paymentMode, setPaymentMode] = useState<'Cash' | 'Transfer'>('Cash');
+  const [paymentMode, setPaymentMode] = useState<'Cash' | 'Transfer' | 'POS'>('Cash');
   const [paymentBank, setPaymentBank] = useState('');
 
   const [statementPrint, setStatementPrint] = useState<Transaction | null>(null);
@@ -446,6 +446,7 @@ export const DebtorsTab = ({
                                        >
                                          <option value="Cash">Cash</option>
                                          <option value="Transfer">Transfer</option>
+                                         <option value="POS">POS</option>
                                        </select>
                                      </div>
                                    </div>

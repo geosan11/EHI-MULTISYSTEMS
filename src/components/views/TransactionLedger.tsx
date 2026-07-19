@@ -194,8 +194,13 @@ export const TransactionLedger = ({
   }, [transactions, expenses]);
 
   const filteredEntries = useMemo(() => entries.filter((e) => {
-    if (typeFilter !== "All" && e.type !== typeFilter.toLowerCase())
-      return false;
+    if (typeFilter !== "All") {
+      if (typeFilter === "Office Work") {
+        if (e.raw?.clientType !== 'Office Work') return false;
+      } else if (e.type !== typeFilter.toLowerCase()) {
+        return false;
+      }
+    }
 
     if (typeFilter.toLowerCase() === 'baggage' && e.source === 'transaction') {
       const tx = e.raw as Transaction;
@@ -1293,6 +1298,7 @@ export const TransactionLedger = ({
                     <option value="Baggage">Baggage</option>
                     <option value="Marketing">Marketing</option>
                     <option value="Expense">Expense</option>
+                    <option value="Office Work">Office Work</option>
                   </select>
                 </div>
 
