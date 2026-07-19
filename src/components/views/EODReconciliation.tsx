@@ -626,7 +626,7 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
           onClick={() => setShowLockConfirm(true)}
           className="ehi-btn-destructive ehi-btn"
         >
-          <Lock size={16} className="mr-2" /> LOCK SYSTEM (EOD)
+          <Lock size={16} className="mr-2" /> FINALIZE DAY & SEND TO ACCOUNTANT
         </button>
         <button onClick={() => setStep(3)} className="w-full mt-2 h-10 text-[var(--color-muted)] text-[11px] font-bold font-mono underline hover:text-[var(--color-foreground)]">GO BACK</button>
       </div>
