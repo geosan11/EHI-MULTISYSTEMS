@@ -892,7 +892,7 @@ export const TransactionLedger = ({
 
     const ok = await confirm({
       title: 'Clear Outstanding Debt?',
-      message: `Are you sure you want to mark the remaining debt of ${fmt(remaining)} for ${tx.name} as fully paid?`,
+      message: `Are you sure you want to mark the remaining debt of ₦${fmt(remaining)} for ${tx.name} as fully paid?`,
       confirmLabel: 'Clear Debt',
       tone: 'danger',
     });
@@ -1621,7 +1621,7 @@ export const TransactionLedger = ({
                     </td>
                     {/* Amount */}
                     <td className={`py-2.5 px-2 text-right font-mono text-[11px] whitespace-nowrap ${e.source === "expense" ? "text-[var(--color-error)] font-bold" : "text-[var(--color-success)] font-bold"}`}>
-                      <div>{e.source === "expense" ? "-" : ""}{fmt(e.amount)}</div>
+                      <div>{e.source === "expense" ? "-" : ""}₦{fmt(e.amount)}</div>
                       {e.raw?.wallet_deduction_amount > 0 && (
                         <div className="text-[9px] text-[var(--color-accent-amber)] font-normal">
                           -₦{fmt(e.raw.wallet_deduction_amount)} (Wallet)

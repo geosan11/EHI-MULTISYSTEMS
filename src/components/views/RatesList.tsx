@@ -190,11 +190,11 @@ export const RatesList = ({ onBack, onOpenConfig }: { onBack: () => void; onOpen
             </Section>
 
             <Section id="hubRoute" title="Hub Rate Overrides (any airline)" count={filteredHubRoute.length} editTarget="hubRates">
-              {filteredHubRoute.map((r, i) => <Row key={i} label={`${hubName(r.hub_id)} · ${r.route_name}`} value={`${fmt(r.rate_per_kg)}/kg`} />)}
+              {filteredHubRoute.map((r, i) => <Row key={i} label={`${hubName(r.hub_id)} · ${r.route_name}`} value={`₦${fmt(r.rate_per_kg)}/kg`} />)}
             </Section>
 
             <Section id="hubAirline" title="Hub + Airline Rate Overrides" count={filteredHubAirline.length} editTarget="hubRates">
-              {filteredHubAirline.map((r, i) => <Row key={i} label={`${hubName(r.hub_id)} · ${r.airline} · ${r.route_name}`} value={`${fmt(r.rate_per_kg)}/kg`} />)}
+              {filteredHubAirline.map((r, i) => <Row key={i} label={`${hubName(r.hub_id)} · ${r.airline} · ${r.route_name}`} value={`₦${fmt(r.rate_per_kg)}/kg`} />)}
             </Section>
 
             <Section id="corporate" title="Corporate Client Rates" count={filteredCorporate.length} editTarget="pricing">
@@ -202,17 +202,17 @@ export const RatesList = ({ onBack, onOpenConfig }: { onBack: () => void; onOpen
                 <Row 
                   key={i} 
                   label={`${clientName(r.corporate_client_id)} · ${r.route_name}`} 
-                  value={`${fmt(r.rate_per_kg)}/kg${r.minimum_amount && r.minimum_amount > 0 ? ` (Min: ₦${r.minimum_amount.toLocaleString()})` : ''}`} 
+                  value={`₦${fmt(r.rate_per_kg)}/kg${r.minimum_amount && r.minimum_amount > 0 ? ` (Min: ₦${r.minimum_amount.toLocaleString()})` : ''}`} 
                 />
               ))}
             </Section>
 
             <Section id="marketing" title="Marketing Bag Rates" count={filteredMarketing.length} editTarget="pricing">
-              {filteredMarketing.map(r => <Row key={r.route_name} label={r.route_name} value={`BB ${fmt(r.bb_rate)} · MB ${fmt(r.mb_rate)} · SB ${fmt(r.sb_rate)}`} />)}
+              {filteredMarketing.map(r => <Row key={r.route_name} label={r.route_name} value={`BB ₦${fmt(r.bb_rate)} · MB ₦${fmt(r.mb_rate)} · SB ₦${fmt(r.sb_rate)}`} />)}
             </Section>
 
             <Section id="excess" title="Excess Baggage Airlines" count={filteredExcess.length} editTarget="excessBaggage">
-              {filteredExcess.map(r => <Row key={r.name} label={`${r.name}${r.active ? '' : ' (inactive)'}`} value={`${r.free_allowance_kg}kg free · ${fmt(r.rate_per_kg)}/kg`} />)}
+              {filteredExcess.map(r => <Row key={r.name} label={`${r.name}${r.active ? '' : ' (inactive)'}`} value={`${r.free_allowance_kg}kg free · ₦${fmt(r.rate_per_kg)}/kg`} />)}
             </Section>
 
             <Section id="commissions" title="Airline Commissions" count={filteredCommissions.length} editTarget="airlineCommissions">
@@ -223,7 +223,7 @@ export const RatesList = ({ onBack, onOpenConfig }: { onBack: () => void; onOpen
               {filteredSpecialGoods.map((g, i) => (
                 <div key={i} className="space-y-1 pb-1.5 mb-1.5 border-b border-[var(--color-border)] last:border-0 last:mb-0 last:pb-0">
                   <div className="text-[10px] font-bold text-[var(--color-foreground)]">{g.content_type_name} · {g.airline}</div>
-                  {g.tiers.map(t => <Row key={t.id} label={kgLabel(t.min_kg, t.max_kg)} value={`${fmt(t.rate_per_kg)}/kg`} />)}
+                  {g.tiers.map(t => <Row key={t.id} label={kgLabel(t.min_kg, t.max_kg)} value={`₦${fmt(t.rate_per_kg)}/kg`} />)}
                 </div>
               ))}
             </Section>
@@ -232,7 +232,7 @@ export const RatesList = ({ onBack, onOpenConfig }: { onBack: () => void; onOpen
               {filteredMinCharges.map((g, i) => (
                 <div key={i} className="space-y-1 pb-1.5 mb-1.5 border-b border-[var(--color-border)] last:border-0 last:mb-0 last:pb-0">
                   <div className="text-[10px] font-bold text-[var(--color-foreground)]">{g.airline} · {g.route_name}</div>
-                  {g.tiers.map(t => <Row key={t.id} label={kgLabel(t.min_kg, t.max_kg)} value={fmt(t.minimum_amount)} />)}
+                  {g.tiers.map(t => <Row key={t.id} label={kgLabel(t.min_kg, t.max_kg)} value={`₦${fmt(t.minimum_amount)}`} />)}
                 </div>
               ))}
             </Section>

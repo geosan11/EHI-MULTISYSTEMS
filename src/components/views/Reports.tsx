@@ -694,7 +694,7 @@ const RevenueReportView = ({ data }: { data: any }) => (
         <div key={s.name} className="flex justify-between py-2 border-b border-[var(--color-border)]">
           <span className="text-[12px] text-[var(--color-foreground)] font-medium">{s.name}</span>
           <div className="text-right">
-            <div className="text-[13px] font-mono font-bold text-[var(--color-foreground)]">{fmt(s.amount)}</div>
+            <div className="text-[13px] font-mono font-bold text-[var(--color-foreground)]">₦{fmt(s.amount)}</div>
             <div className="text-[10px] text-[var(--color-muted)]">{s.count} entries</div>
           </div>
         </div>
@@ -705,13 +705,13 @@ const RevenueReportView = ({ data }: { data: any }) => (
       {data.modes.map((m: any) => (
         <div key={m.name} className="flex justify-between py-1.5 border-b border-[var(--color-border)] border-dashed last:border-0">
           <span className="text-[12px] text-[var(--color-foreground)]">{m.name}</span>
-          <span className="text-[12px] font-mono font-bold text-[var(--color-foreground)]">{fmt(m.amount)}</span>
+          <span className="text-[12px] font-mono font-bold text-[var(--color-foreground)]">₦{fmt(m.amount)}</span>
         </div>
       ))}
     </div>
     <div className="pt-3 border-t border-[var(--color-accent-amber)] flex justify-between items-center">
       <span className="text-[12px] font-bold text-[var(--color-accent-amber)] tracking-wider">TOTAL</span>
-      <span className="text-[16px] font-mono font-bold text-[var(--color-accent-amber)]">{fmt(data.total)}</span>
+      <span className="text-[16px] font-mono font-bold text-[var(--color-accent-amber)]">₦{fmt(data.total)}</span>
     </div>
   </div>
 );
@@ -724,10 +724,10 @@ const RouteReportView = ({ data }: { data: any[] }) => (
         <div className="flex-1">
           <div className="text-[13px] font-bold text-[var(--color-foreground)]">{r.route}</div>
           <div className="text-[10px] text-[var(--color-muted)]">
-            Cargo: {fmt(r.cargo)} · Mktg: {fmt(r.mktg)} · {r.count} entries
+            Cargo: ₦{fmt(r.cargo)} · Mktg: ₦{fmt(r.mktg)} · {r.count} entries
           </div>
         </div>
-        <span className="text-[13px] font-mono font-bold text-[var(--color-accent-amber)]">{fmt(r.revenue)}</span>
+        <span className="text-[13px] font-mono font-bold text-[var(--color-accent-amber)]">₦{fmt(r.revenue)}</span>
       </div>
     ))}
   </div>
@@ -742,7 +742,7 @@ const CustomerReportView = ({ data }: { data: any[] }) => (
           <div className="text-[13px] font-bold text-[var(--color-foreground)]">{c.name}</div>
           <div className="text-[10px] text-[var(--color-muted)]">{c.transactions} transactions · Last: {c.lastSeen}</div>
         </div>
-        <span className="text-[13px] font-mono font-bold text-[var(--color-accent-amber)]">{fmt(c.revenue)}</span>
+        <span className="text-[13px] font-mono font-bold text-[var(--color-accent-amber)]">₦{fmt(c.revenue)}</span>
       </div>
     ))}
   </div>
@@ -755,7 +755,7 @@ const DebtorReportView = ({ data }: { data: any }) => (
         <div key={bucket} className="min-w-0 p-2.5 bg-[var(--color-surface-2)] rounded-[var(--radius-sm)] text-center border border-[var(--color-border)]">
           <div className="text-[9px] text-[var(--color-muted)] uppercase tracking-wider font-bold mb-1 truncate">{bucket}</div>
           <div className={`text-[13px] font-mono font-bold ${bucket === 'Write-off risk' ? 'text-[var(--color-error)]' : 'text-[var(--color-foreground)]'}`}>
-            {fmt(amount as number)}
+            ₦{fmt(amount as number)}
           </div>
         </div>
       ))}
@@ -767,13 +767,13 @@ const DebtorReportView = ({ data }: { data: any }) => (
             <div className="text-[12px] font-bold text-[var(--color-foreground)]">{d.name}</div>
             <div className="text-[10px] text-[var(--color-muted)]">Bucket: {d.bucket} · {d.age} days old</div>
           </div>
-          <span className="text-[13px] font-mono font-bold text-[var(--color-error)]">{fmt(d.amount)}</span>
+          <span className="text-[13px] font-mono font-bold text-[var(--color-error)]">₦{fmt(d.amount)}</span>
         </div>
       ))}
     </div>
     <div className="pt-3 border-t border-[var(--color-error)] flex justify-between items-center">
       <span className="text-[12px] font-bold text-[var(--color-error)] tracking-wider">TOTAL OUTSTANDING</span>
-      <span className="text-[16px] font-mono font-bold text-[var(--color-error)]">{fmt(data.total)}</span>
+      <span className="text-[16px] font-mono font-bold text-[var(--color-error)]">₦{fmt(data.total)}</span>
     </div>
   </div>
 );
@@ -786,7 +786,7 @@ const StaffReportView = ({ data }: { data: any[] }) => (
           <div className="text-[13px] font-bold text-[var(--color-foreground)]">{s.role}</div>
           <div className="text-[10px] text-[var(--color-muted)]">{s.entries} entries</div>
         </div>
-        <span className="text-[13px] font-mono font-bold text-[var(--color-accent-amber)]">{fmt(s.revenue)}</span>
+        <span className="text-[13px] font-mono font-bold text-[var(--color-accent-amber)]">₦{fmt(s.revenue)}</span>
       </div>
     ))}
   </div>
@@ -800,7 +800,7 @@ const HubReportView = ({ data }: { data: any[] }) => (
           <div className="text-[13px] font-bold text-[var(--color-foreground)]">{h.hub}</div>
           <div className="text-[10px] text-[var(--color-muted)]">{h.entries} entries</div>
         </div>
-        <span className="text-[13px] font-mono font-bold text-[var(--color-accent-amber)]">{fmt(h.revenue)}</span>
+        <span className="text-[13px] font-mono font-bold text-[var(--color-accent-amber)]">₦{fmt(h.revenue)}</span>
       </div>
     ))}
   </div>

@@ -21,12 +21,10 @@ export const upperOnChange = (setter: (v: string) => void) => (e: ChangeEvent<HT
 export const roundMoney = (amount: number): number => Math.round(amount * 100) / 100;
 
 export const fmt = (amount: number) => {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
+  return new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
-  }).format(amount).replace('NGN', '₦');
+  }).format(amount);
 };
 
 // Deliberately matches against the bundled CARGO_ROUTES constant, not the

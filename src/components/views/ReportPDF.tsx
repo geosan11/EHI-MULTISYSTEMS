@@ -57,7 +57,7 @@ const RevenueTable = ({ data }: { data: any }) => (
         <View style={styles.tableRow} key={i}>
           <View style={styles.tableCol}><Text style={styles.tableCell}>{s.name}</Text></View>
           <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textCenter]}>{s.count}</Text></View>
-          <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textRight]}>{fmt(s.amount)}</Text></View>
+          <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textRight]}>₦{fmt(s.amount)}</Text></View>
         </View>
       ))}
     </View>
@@ -71,14 +71,14 @@ const RevenueTable = ({ data }: { data: any }) => (
       {data.modes.map((m: any, i: number) => (
         <View style={styles.tableRow} key={i}>
           <View style={styles.tableCol}><Text style={styles.tableCell}>{m.name}</Text></View>
-          <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textRight]}>{fmt(m.amount)}</Text></View>
+          <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textRight]}>₦{fmt(m.amount)}</Text></View>
         </View>
       ))}
     </View>
 
     <View style={{ marginTop: 20, flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#F59E0B', paddingTop: 10 }}>
       <Text style={{ fontSize: 12, fontWeight: 'bold' }}>TOTAL REVENUE</Text>
-      <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F59E0B' }}>{fmt(data.total)}</Text>
+      <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F59E0B' }}>₦{fmt(data.total)}</Text>
     </View>
   </View>
 );
@@ -98,7 +98,7 @@ const RoutesTable = ({ data }: { data: any[] }) => (
         <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textCenter]}>{r.count}</Text></View>
         <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textRight]}>{r.cargo.toLocaleString('en-NG', { maximumFractionDigits: 2 })}</Text></View>
         <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textRight]}>{r.mktg.toLocaleString('en-NG', { maximumFractionDigits: 2 })}</Text></View>
-        <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textRight, styles.fontBold]}>{fmt(r.revenue)}</Text></View>
+        <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textRight, styles.fontBold]}>₦{fmt(r.revenue)}</Text></View>
       </View>
     ))}
   </View>
@@ -117,7 +117,7 @@ const CustomersTable = ({ data }: { data: any[] }) => (
         <View style={styles.tableCol}><Text style={styles.tableCell}>{c.name}</Text></View>
         <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textCenter]}>{c.transactions}</Text></View>
         <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textCenter]}>{c.lastSeen}</Text></View>
-        <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textRight, styles.fontBold]}>{fmt(c.revenue)}</Text></View>
+        <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textRight, styles.fontBold]}>₦{fmt(c.revenue)}</Text></View>
       </View>
     ))}
   </View>
@@ -134,10 +134,10 @@ const DebtorsTable = ({ data }: { data: any }) => (
         <View style={styles.tableColHeader}><Text style={[styles.tableCellHeader, styles.textCenter, { color: '#EF4444' }]}>90+ Days</Text></View>
       </View>
       <View style={styles.tableRow}>
-        <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textCenter]}>{fmt(data.buckets['0-30'])}</Text></View>
-        <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textCenter]}>{fmt(data.buckets['31-60'])}</Text></View>
-        <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textCenter]}>{fmt(data.buckets['61-90'])}</Text></View>
-        <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textCenter, styles.fontBold, { color: '#EF4444' }]}>{fmt(data.buckets['90+'])}</Text></View>
+        <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textCenter]}>₦{fmt(data.buckets['0-30'])}</Text></View>
+        <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textCenter]}>₦{fmt(data.buckets['31-60'])}</Text></View>
+        <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textCenter]}>₦{fmt(data.buckets['61-90'])}</Text></View>
+        <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textCenter, styles.fontBold, { color: '#EF4444' }]}>₦{fmt(data.buckets['90+'])}</Text></View>
       </View>
     </View>
 
@@ -154,13 +154,13 @@ const DebtorsTable = ({ data }: { data: any }) => (
           <View style={styles.tableCol}><Text style={styles.tableCell}>{d.name}</Text></View>
           <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textCenter]}>{d.age}</Text></View>
           <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textCenter]}>{d.bucket}</Text></View>
-          <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textRight, { color: '#EF4444' }]}>{fmt(d.amount)}</Text></View>
+          <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textRight, { color: '#EF4444' }]}>₦{fmt(d.amount)}</Text></View>
         </View>
       ))}
     </View>
     <View style={{ marginTop: 20, flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#EF4444', paddingTop: 10 }}>
       <Text style={{ fontSize: 12, fontWeight: 'bold' }}>TOTAL OUTSTANDING DEBT</Text>
-      <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#EF4444' }}>{fmt(data.total)}</Text>
+      <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#EF4444' }}>₦{fmt(data.total)}</Text>
     </View>
   </View>
 );
@@ -176,7 +176,7 @@ const StaffTable = ({ data }: { data: any[] }) => (
       <View style={styles.tableRow} key={i}>
         <View style={styles.tableCol}><Text style={styles.tableCell}>{s.role}</Text></View>
         <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textCenter]}>{s.entries}</Text></View>
-        <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textRight, styles.fontBold]}>{fmt(s.revenue)}</Text></View>
+        <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textRight, styles.fontBold]}>₦{fmt(s.revenue)}</Text></View>
       </View>
     ))}
   </View>
@@ -193,7 +193,7 @@ const HubsTable = ({ data }: { data: any[] }) => (
       <View style={styles.tableRow} key={i}>
         <View style={styles.tableCol}><Text style={styles.tableCell}>{h.hub}</Text></View>
         <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textCenter]}>{h.entries}</Text></View>
-        <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textRight, styles.fontBold]}>{fmt(h.revenue)}</Text></View>
+        <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textRight, styles.fontBold]}>₦{fmt(h.revenue)}</Text></View>
       </View>
     ))}
   </View>
