@@ -27,7 +27,14 @@ export interface AccountingConsoleProps {
 
 export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddExpense, onUpdateExpense, onUpdateTx, onOpenBankRecon, onFullUpdateTx, onAddTx }: AccountingConsoleProps) => {
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState<'Summary' | 'Cash Register' | 'Credit Sales' | 'B2B Sales' | 'Expenses' | 'Remittances' | 'Payment Validation'>('Summary');
+  const [activeTab, setActiveTab] = useState<'Summary' | 'Cash Register' | 'Credit Sales' | 'B2B Sales' | 'Expenses' | 'Remittances' | 'Payment Validation'>(() => {
+    return (sessionStorage.getItem('ehi_accounting_tab') as any) || 'Summary';
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem('ehi_accounting_tab', activeTab);
+  }, [activeTab]);
+
   const [period, setPeriod] = useState<'Today' | 'This Week' | 'This Month' | 'Custom'>('Today');
   const [customStart, setCustomStart] = useState(new Date().toISOString().split('T')[0]);
   const [customEnd, setCustomEnd] = useState(new Date().toISOString().split('T')[0]);

@@ -53,7 +53,13 @@ function DateChips({ value, onChange }: { value: DateFilter; onChange: (f: DateF
 
 export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void }) => {
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState<MainTab>('AWAITING');
+  const [activeTab, setActiveTab] = useState<MainTab>(() => {
+    return (sessionStorage.getItem('ehi_arrivals_tab') as any) || 'AWAITING';
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem('ehi_arrivals_tab', activeTab);
+  }, [activeTab]);
   const [cargoList, setCargoList] = useState<any[]>([]);
   const [logList, setLogList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

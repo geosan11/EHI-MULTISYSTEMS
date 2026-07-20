@@ -27,7 +27,13 @@ export const FraudAlerts = ({
   user: User;
   onBack: () => void;
 }) => {
-  const [activeTab, setActiveTab] = useState<'pending' | 'reviewed'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'reviewed'>(() => {
+    return (sessionStorage.getItem('ehi_fraudalerts_tab') as any) || 'pending';
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem('ehi_fraudalerts_tab', activeTab);
+  }, [activeTab]);
   const [selectedAlert, setSelectedAlert] = useState<FraudAlert | null>(null);
   const [resolutionText, setResolutionText] = useState('');
   const [loading, setLoading] = useState(true);

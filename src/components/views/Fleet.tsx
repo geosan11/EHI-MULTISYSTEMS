@@ -30,7 +30,13 @@ interface FuelLog {
 }
 
 export const Fleet = ({ onBack, user }: { onBack: () => void; user?: User }) => {
-  const [activeTab, setActiveTab] = useState<'vehicles' | 'fuel'>('vehicles');
+  const [activeTab, setActiveTab] = useState<'vehicles' | 'fuel'>(() => {
+    return (sessionStorage.getItem('ehi_fleet_tab') as any) || 'vehicles';
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem('ehi_fleet_tab', activeTab);
+  }, [activeTab]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [fuelLogs, setFuelLogs] = useState<FuelLog[]>([]);
   const [loading, setLoading] = useState(true);

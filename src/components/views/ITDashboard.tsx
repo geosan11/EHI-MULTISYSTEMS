@@ -62,7 +62,13 @@ const PRE_PROPOSALS: ImprovementProposal[] = [
 ];
 
 export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void }) => {
-  const [activeTab, setActiveTab] = useState<'bugs' | 'logs' | 'diagnostics' | 'proposals'>('bugs');
+  const [activeTab, setActiveTab] = useState<'bugs' | 'logs' | 'diagnostics' | 'proposals'>(() => {
+    return (sessionStorage.getItem('ehi_itdashboard_tab') as any) || 'bugs';
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem('ehi_itdashboard_tab', activeTab);
+  }, [activeTab]);
   const [sentryTestState, setSentryTestState] = useState<'idle' | 'sending' | 'sent'>('idle');
 
   const runSentryTest = async () => {

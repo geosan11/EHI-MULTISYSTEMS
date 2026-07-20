@@ -65,7 +65,14 @@ export const Analytics = ({
 }) => {
   const [period, setPeriod] = useState<'shift' | 'today' | '7days' | 'month' | 'custom'>('shift');
   const [selectedHub, setSelectedHub] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'overview' | 'pareto' | 'cargo_types' | 'terminal_shifts' | 'cash_flow' | 'past_shifts'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'pareto' | 'cargo_types' | 'terminal_shifts' | 'cash_flow' | 'past_shifts'>(() => {
+    return (sessionStorage.getItem('ehi_analytics_tab') as any) || 'overview';
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem('ehi_analytics_tab', activeTab);
+  }, [activeTab]);
+
   const [pastShifts, setPastShifts] = useState<any[]>([]);
   const [loadingShifts, setLoadingShifts] = useState(false);
   const [selectedPastShift, setSelectedPastShift] = useState<any | null>(null);

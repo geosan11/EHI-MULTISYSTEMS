@@ -8,7 +8,13 @@ import { normalizeAirlineName } from '../../lib/helpers';
 import { EmptyState } from './EmptyState';
 
 export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: { user: User; transactions: Transaction[]; onBack?: () => void }) => {
-  const [activeTab, setActiveTab] = useState<'debts' | 'credits'>('debts');
+  const [activeTab, setActiveTab] = useState<'debts' | 'credits'>(() => {
+    return (sessionStorage.getItem('ehi_creditdebit_tab') as any) || 'debts';
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem('ehi_creditdebit_tab', activeTab);
+  }, [activeTab]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
