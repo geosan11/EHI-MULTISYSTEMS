@@ -116,7 +116,22 @@ export const TransactionLedger = ({
   const [timeStart, setTimeStart] = useState("");
   const [timeEnd, setTimeEnd] = useState("");
   const [posCodeInput, setPosCodeInput] = useState<{ id: string; code: string }>({ id: '', code: '' });
-  
+
+  // Corporate roster for the "unlinked office work" highlight. Lightweight
+  // id+name fetch; matched by normalized name against each cargo row.
+  const [corpNameSet, setCorpNameSet] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    supabase.from('corporate_clients').select('company_name').then(({ data }) => {
+      if (data) setCorpNameSet(new Set(data.map((c: any) => c.company_name.trim().toUpperCase().replace(/\s+/g, ' '))));
+    });
+  }, []);
+
+  const isUnlinkedOffice = (e: any): boolean =>
+    e.type === 'cargo'
+    && !e.raw?.corporate_client_id
+    && corpNameSet.has((e.name || '').trim().toUpperCase().replace(/\s+/g, ' '));
+
+
   // Auto-calculate amount for cargo edits
   useEffect(() => {
     if (editingTx && editingTx.type === 'cargo') {
@@ -1681,6 +1696,14 @@ export const TransactionLedger = ({
                         {e.raw?.linked_as_office_work && (
                           <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(139,92,246,0.15)] text-[#a78bfa] border border-[rgba(139,92,246,0.3)]">
                             OFFICE WORK
+                          </span>
+                        )}
+                        {isUnlinkedOffice(e) && (
+                          <span
+                            title="Consignee matches a corporate client but this entry isn't linked — reconcile it in Office Work Reconciliation."
+                            className="text-[8px] font-bold font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)] border border-[var(--color-accent-amber)]"
+                          >
+                            OFFICE?
                           </span>
                         )}
                         {e.raw?.wallet_id && (

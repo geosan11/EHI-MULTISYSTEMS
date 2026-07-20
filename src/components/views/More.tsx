@@ -17,6 +17,7 @@ import { HubCargoRates } from './HubCargoRates';
 import { AirlineCommissions } from './AirlineCommissions';
 import { ExcessBaggageAirlines } from './ExcessBaggageAirlines';
 import { CorporateBilling } from './CorporateBilling';
+import { OfficeWorkReconciliation } from './OfficeWorkReconciliation';
 import { ContentTypes } from './ContentTypes';
 import { ExpenseCategories } from './ExpenseCategories';
 import { Banks } from './Banks';
@@ -90,6 +91,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
   const [dispatchView, setDispatchView] = useState(false);
   const [airlineCommissionsView, setAirlineCommissionsView] = useState(false);
   const [corporateBillingView, setCorporateBillingView] = useState(false);
+  const [officeReconcileView, setOfficeReconcileView] = useState(false);
   const [pricingView, setPricingView] = useState(false);
   const [hubCargoRatesView, setHubCargoRatesView] = useState(false);
   const [supportView, setSupportView] = useState(false);
@@ -183,6 +185,10 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
 
   if (corporateBillingView) {
     return <CorporateBilling user={user} onBack={() => setCorporateBillingView(false)} />;
+  }
+
+  if (officeReconcileView) {
+    return <OfficeWorkReconciliation user={user} onBack={() => setOfficeReconcileView(false)} />;
   }
 
   if (pricingView) {
@@ -402,6 +408,13 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
           subtitle="Generate a shipment statement for a corporate account"
           onClick={() => { if (canAccessTab(user, 'More:CorporateBilling', excessBaggageAirlines)) setCorporateBillingView(true); }}
           disabled={!canAccessTab(user, 'More:CorporateBilling', excessBaggageAirlines)}
+        />
+        <MenuItem
+          icon={ReceiptIcon}
+          title="Office Work Reconciliation"
+          subtitle="Link & reprice mis-entered corporate debts"
+          onClick={() => { if (canAccessTab(user, 'More:OfficeWorkReconcile', excessBaggageAirlines)) setOfficeReconcileView(true); }}
+          disabled={!canAccessTab(user, 'More:OfficeWorkReconcile', excessBaggageAirlines)}
         />
         <MenuItem
           icon={CurrencyDollarIcon}

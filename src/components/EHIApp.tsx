@@ -912,6 +912,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         consignee_phone: tx.consigneePhone || null,
         client_type: tx.clientType || null,
         corporate_client_id: (tx as any).corporate_client_id || null,
+        applied_rate_per_kg: tx.applied_rate_per_kg ?? null,
         entered_by: user.id && user.id.includes('-') && user.id.length > 30 ? user.id : undefined,
         created_at: new Date().toISOString()
       };

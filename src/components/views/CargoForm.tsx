@@ -680,15 +680,23 @@ export const CargoForm = ({
   // staff member can link this entry to that account. This addresses the
   // "forgot to go through the Office Work tab" pattern that was causing
   // retail entries to be silently recorded at the wrong (retail) rate.
-  const detectedOfficeClient = useMemo(() => {
-    const q = (consignee === 'Other' ? customConsignee : consignee).trim().toLowerCase();
-    if (q.length < 3) return null;
-    // Exact match or leading-substring match
-    const exact = corpClients.find(c => c.company_name.toLowerCase() === q);
-    if (exact) return exact;
-    const starts = corpClients.find(c => c.company_name.toLowerCase().startsWith(q) || q.startsWith(c.company_name.toLowerCase().slice(0, 4)));
-    return starts || null;
+  // Normalized (trim/upper/collapse-spaces) match against the corporate
+  // roster, returning WHICH kind of match it was. Exact matches are safe to
+  // auto-apply; fuzzy (prefix) matches are only ever suggested, because
+  // auto-billing a coincidental walk-in as a corporate account is worse than
+  // asking. Mirrors the DB's normalize_company_name().
+  const officeMatch = useMemo(() => {
+    const raw = (consignee === 'Other' ? customConsignee : consignee).trim();
+    if (raw.length < 3) return { client: null as any, type: null as 'exact' | 'fuzzy' | null };
+    const norm = (s: string) => s.trim().toUpperCase().replace(/\s+/g, ' ');
+    const q = norm(raw);
+    const exact = corpClients.find(c => norm(c.company_name) === q);
+    if (exact) return { client: exact, type: 'exact' as const };
+    const fuzzy = corpClients.find(c => norm(c.company_name).startsWith(q) || q.startsWith(norm(c.company_name).slice(0, 4)));
+    return fuzzy ? { client: fuzzy, type: 'fuzzy' as const } : { client: null as any, type: null };
   }, [consignee, customConsignee, corpClients]);
+
+  const detectedOfficeClient = officeMatch.client;
 
   const [linkedAsOfficeWork, setLinkedAsOfficeWork] = useState(false);
 
@@ -701,11 +709,12 @@ export const CargoForm = ({
     return customerWallets.find(w => w.customer_name.trim().toLowerCase() === q && w.balance > 0) || null;
   }, [consignee, customConsignee, customerWallets, selectedWalletOverride]);
 
-  // When the consignee changes, reset the link flag so the banner appears
-  // fresh for each new consignee.
+  // On each consignee change: auto-link when the match is EXACT (the rush-proof
+  // path), otherwise clear so a fuzzy match only shows the suggestion banner.
+  // A manual unlink afterward stays until the consignee changes again.
   useEffect(() => {
-    setLinkedAsOfficeWork(false);
-  }, [consignee, customConsignee]);
+    setLinkedAsOfficeWork(officeMatch.type === 'exact');
+  }, [consignee, customConsignee, officeMatch.type]);
 
   // When the entry is linked as office work, try to find the corporate route
   // rate for the selected route and pre-fill the amount.
@@ -716,6 +725,22 @@ export const CargoForm = ({
     );
     return rate || null;
   }, [linkedAsOfficeWork, detectedOfficeClient, corpRates, route]);
+
+  // Auto-fill the amount from the contract rate whenever this entry is linked
+  // as office work and we have a rate + weight. Keyed on a client|route|kg
+  // signature so it fills once per change and does NOT fight a manual edit the
+  // agent makes afterward (that edit stays until kg/route/client changes).
+  const officePricedSigRef = useRef<string>('');
+  useEffect(() => {
+    if (!linkedAsOfficeWork || !officeWorkRate) return;
+    const w = Math.round(parseFloat(kg)) || 0;
+    if (w <= 0) return;
+    const sig = `${officeWorkRate.corporate_client_id}|${route}|${w}`;
+    if (officePricedSigRef.current === sig) return;
+    officePricedSigRef.current = sig;
+    const computed = Math.max(w * officeWorkRate.rate_per_kg, officeWorkRate.minimum_amount ?? 0);
+    setAmount(String(computed));
+  }, [linkedAsOfficeWork, officeWorkRate, kg, route]);
 
   // Load real corporate contract rates from Supabase — this table was
   // NEVER fetched here at all: corpRates only ever came from localStorage
@@ -1206,6 +1231,7 @@ export const CargoForm = ({
       // badge and the EOD/accountant can correctly attribute it.
       linked_as_office_work: linkedAsOfficeWork || undefined,
       corporate_client_id: linkedAsOfficeWork && detectedOfficeClient ? detectedOfficeClient.id : undefined,
+      applied_rate_per_kg: linkedAsOfficeWork && officeWorkRate ? officeWorkRate.rate_per_kg : undefined,
       // Retail walk-in sale -- distinct from the B2B corporate path below,
       // which sets 'Corporate' instead.
       clientType: linkedAsOfficeWork ? "Corporate" : "Individual",

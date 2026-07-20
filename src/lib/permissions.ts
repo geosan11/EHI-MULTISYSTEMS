@@ -58,6 +58,7 @@ export const STATIC_VIEWS: ViewDef[] = [
   { id: 'More:AirlineCommissions', label: 'Airline Commissions', roles: ['super_admin', 'admin', 'accountant'], category: 'Finance' },
   { id: 'More:AirlinePerformance', label: 'Airline Sales & Weight Breakdown', roles: ['super_admin', 'admin', 'accountant', 'auditor'], category: 'Finance' },
   { id: 'More:CorporateBilling', label: 'Corporate Client Billing', roles: ['super_admin', 'admin', 'accountant'], category: 'Finance' },
+  { id: 'More:OfficeWorkReconcile', label: 'Office Work Reconciliation', roles: ['super_admin', 'admin', 'accountant'], category: 'Finance' },
   { id: 'More:Forecasting', label: 'Demand Forecasting AI', roles: ['super_admin', 'admin'], category: 'Intelligence' },
   { id: 'More:FraudAlerts', label: 'Fraud & Anomalies Feed', roles: ['super_admin', 'admin', 'auditor', 'accountant'], category: 'Intelligence' },
   { id: 'More:AuditLog', label: 'Revision Audit Log', roles: ['super_admin', 'auditor'], category: 'Intelligence' },

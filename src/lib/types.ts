@@ -197,6 +197,7 @@ export interface Transaction {
   commissionRate?: number;
   consignee?: string;
   corporate_client_id?: string;
+  applied_rate_per_kg?: number;
   pieces?: number;
   kg?: number;
   pickupPin?: string;
