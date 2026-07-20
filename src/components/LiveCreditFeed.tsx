@@ -49,18 +49,18 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
   }
 
   return (
-    <div className="w-80 bg-[var(--color-surface-1)] border-l border-[var(--color-border)] flex flex-col h-full shrink-0 shadow-2xl transition-all">
+    <div className="w-64 bg-[var(--color-surface-1)] border-l border-[var(--color-border)] flex flex-col h-full shrink-0 shadow-2xl transition-all">
       {/* Feed Header */}
-      <div className="p-3 bg-[var(--color-surface-2)] border-b border-[var(--color-border)] flex items-center justify-between">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="w-2.5 h-2.5 rounded-full bg-[var(--color-accent-amber)] animate-ping shrink-0" />
+      <div className="p-2 bg-[var(--color-surface-2)] border-b border-[var(--color-border)] flex items-center justify-between">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="w-2 h-2 rounded-full bg-[var(--color-accent-amber)] animate-ping shrink-0" />
           <div>
-            <div className="text-[12px] font-mono font-bold text-[var(--color-accent-amber)] flex items-center gap-1.5">
+            <div className="text-[10px] font-mono font-bold text-[var(--color-accent-amber)] flex items-center gap-1">
               LIVE CREDIT & RETRIEVAL FEED
-              <Sparkles size={12} className="text-[var(--color-accent-amber)]" />
+              <Sparkles size={10} className="text-[var(--color-accent-amber)]" />
             </div>
-            <div className="text-[10px] font-mono text-[var(--color-muted)]">
-              Station Liability: <span className="text-[var(--color-foreground)] font-bold">₦{fmt(totalLiability)}</span>
+            <div className="text-[9px] font-mono text-[var(--color-muted)]">
+              Liability: <span className="text-[var(--color-foreground)] font-bold">₦{fmt(totalLiability)}</span>
             </div>
           </div>
         </div>
@@ -91,57 +91,57 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('wallets')}
-          className={`flex-1 py-1.5 text-[11px] font-mono font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+          className={`flex-1 py-1 text-[10px] font-mono font-bold rounded transition-colors cursor-pointer flex items-center justify-center gap-1 ${
             activeTab === 'wallets'
               ? 'bg-[var(--color-surface-2)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.2)]'
               : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
           }`}
         >
-          <Wallet size={13} /> Wallets ({activeWalletsCount})
+          <Wallet size={11} /> Wallets ({activeWalletsCount})
         </button>
         <button
           type="button"
           onClick={() => setActiveTab('activity')}
-          className={`flex-1 py-1.5 text-[11px] font-mono font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+          className={`flex-1 py-1 text-[10px] font-mono font-bold rounded transition-colors cursor-pointer flex items-center justify-center gap-1 ${
             activeTab === 'activity'
               ? 'bg-[var(--color-surface-2)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.2)]'
               : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
           }`}
         >
-          <History size={13} /> Live Stream ({walletActivities.length})
+          <History size={11} /> Live Stream ({walletActivities.length})
         </button>
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+      <div className="flex-1 overflow-y-auto p-2 space-y-2">
         {activeTab === 'wallets' ? (
           wallets.length > 0 ? (
             wallets.map((w) => (
               <div
                 key={w.id}
-                className="p-2.5 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] rounded-xl space-y-2 transition-all group"
+                className="p-2 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] rounded-lg space-y-1.5 transition-all group"
               >
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start justify-between gap-1">
                   <div className="min-w-0">
                     <button
                       type="button"
                       onClick={() => onFilterByCustomer && onFilterByCustomer(w.customer_name)}
-                      className="text-[12px] font-bold font-sans text-[var(--color-foreground)] hover:text-[var(--color-accent-amber)] truncate text-left block cursor-pointer"
+                      className="text-[11px] font-bold font-sans text-[var(--color-foreground)] hover:text-[var(--color-accent-amber)] truncate text-left block cursor-pointer leading-tight"
                     >
                       {w.customer_name}
                     </button>
                     {w.customer_phone && (
-                      <div className="text-[10px] font-mono text-[var(--color-muted)]">
+                      <div className="text-[9px] font-mono text-[var(--color-muted)] mt-0.5">
                         {w.customer_phone}
                       </div>
                     )}
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="text-[12px] font-mono font-bold text-[var(--color-accent-amber)]">
+                    <div className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)] leading-tight">
                       ₦{fmt(w.balance)}
                     </div>
-                    <div className="text-[9px] font-mono text-[var(--color-success)] uppercase">
-                      Available Credit
+                    <div className="text-[8px] font-mono text-[var(--color-success)] uppercase">
+                      Credit
                     </div>
                   </div>
                 </div>
