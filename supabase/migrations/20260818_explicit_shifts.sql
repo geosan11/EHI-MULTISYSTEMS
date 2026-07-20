@@ -1,3 +1,9 @@
+-- Renamed from 20260816 -- this file's SELECT policy below calls
+-- public.sibling_hub_ids(), which is only defined in
+-- 20260817_state_visibility.sql. Migrations apply in filename order, so
+-- this file must sort after 20260817 or CREATE POLICY fails with
+-- "function public.sibling_hub_ids() does not exist" on a clean/re-run apply.
+
 CREATE TABLE IF NOT EXISTS public.hub_shifts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   hub_id uuid NOT NULL REFERENCES public.hubs(id),
@@ -9,6 +15,12 @@ CREATE TABLE IF NOT EXISTS public.hub_shifts (
   closed_by text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Only one open shift per hub at a time. handleStartShift (EHIApp.tsx) has
+-- a client-side check too, but that's racy on its own (two devices can both
+-- pass the check before either write lands) -- this is the real guard.
+CREATE UNIQUE INDEX IF NOT EXISTS hub_shifts_one_open_per_hub
+  ON public.hub_shifts (hub_id) WHERE status = 'open';
 
 -- RLS
 ALTER TABLE public.hub_shifts ENABLE ROW LEVEL SECURITY;
