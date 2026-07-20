@@ -283,13 +283,14 @@ export function downloadDailyCSV(
     // 'mixed' -- generic export for the all-streams Master Ledger view,
     // where entries can be cargo/baggage/marketing/package all at once and
     // none of the stream-specific column sets above apply uniformly.
-    headers = ['Ref', 'Time', 'Type', 'Name', 'Detail', 'Amount', 'Mode', 'Bank', 'Status'];
+    headers = ['Ref', 'Time', 'Type', 'Name', 'Detail', 'KG', 'Amount', 'Mode', 'Bank', 'Status'];
     rows = transactions.map(t => [
       t.id,
       t.time || '',
       t.type || '',
       t.name || '',
       t.detail || '',
+      String(t.kg ?? t.totalKg ?? ''),
       String(t.amount || 0),
       t.mode || '',
       t.bank || '',

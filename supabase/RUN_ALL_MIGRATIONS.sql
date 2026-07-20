@@ -1577,8 +1577,19 @@ GRANT EXECUTE ON FUNCTION public.peek_next_awb_number(TEXT) TO authenticated;
 -- The app now captures the corporate client's stable ID at intake time
 -- and carries it through onto the finalized transaction. This column is
 -- where that ID actually persists in Supabase.
+--
+-- NOTE: this originally declared the column as `text`, but
+-- cargo_entries.corporate_client_id already existed as `uuid` (with a
+-- FOREIGN KEY REFERENCES corporate_clients(id)) from the original
+-- CREATE TABLE in 20260706_full_schema.sql -- ADD COLUMN IF NOT EXISTS is
+-- a no-op when the column already exists, so this never actually changed
+-- the type; the live column has been `uuid` the whole time. Corrected the
+-- type below to match reality (the app has only ever written real
+-- corporate_clients.id UUID values or NULL here anyway, via
+-- CargoForm.tsx's matchedClient?.id/detectedOfficeClient.id, so this was
+-- a stale/misleading comment, not a functional bug).
 ALTER TABLE public.cargo_entries
-  ADD COLUMN IF NOT EXISTS corporate_client_id text;
+  ADD COLUMN IF NOT EXISTS corporate_client_id uuid REFERENCES public.corporate_clients(id) ON DELETE SET NULL;
 
 CREATE INDEX IF NOT EXISTS idx_cargo_entries_corporate_client_id
   ON public.cargo_entries (corporate_client_id)
@@ -3983,3 +3994,112 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.clear_package_debt(text, numeric, text, text, text) TO authenticated;
+
+-- ============================================================
+-- FILE: supabase/migrations/20260820_special_goods_hub_scoping.sql
+-- ============================================================
+-- Special goods rates (Tyres, Medical, etc.) were company-wide per
+-- airline+weight-tier only, with no hub dimension -- the business needs
+-- them to vary per hub too, the same way standard cargo pricing already
+-- does via hub_route_rates/hub_airline_route_rates (20260727_hub_airline_route_rates.sql).
+--
+-- hub_id is nullable rather than required, mirroring that same cascade
+-- convention used everywhere else in this app: NULL = company-wide
+-- default/fallback, a real hub_id = that hub's override, checked first.
+-- This is non-breaking -- every existing row keeps hub_id NULL and simply
+-- becomes the fallback tier for hubs that haven't set their own override.
+ALTER TABLE public.special_goods_rates ADD COLUMN IF NOT EXISTS hub_id uuid REFERENCES public.hubs(id);
+
+-- The original inline UNIQUE (content_type_id, airline, min_kg) no longer
+-- reflects the real key now that hub_id exists -- without hub_id in it, a
+-- hub-specific override row for a tier would collide with the company-wide
+-- default row for that same tier. Drop + recreate with hub_id included.
+-- (NULL is never considered equal to NULL under a UNIQUE constraint, so
+-- multiple hub-specific overrides for different hubs -- and the one
+-- NULL-hub company-wide row -- can all coexist for the same tier, which is
+-- exactly the intended shape.)
+ALTER TABLE public.special_goods_rates DROP CONSTRAINT IF EXISTS special_goods_rates_content_type_id_airline_min_kg_key;
+ALTER TABLE public.special_goods_rates ADD CONSTRAINT special_goods_rates_content_type_id_airline_hub_min_kg_key
+  UNIQUE (content_type_id, airline, hub_id, min_kg);
+
+CREATE INDEX IF NOT EXISTS special_goods_rates_hub_idx ON public.special_goods_rates(hub_id);
+
+-- Write policies: super_admin/admin stay company-wide-unrestricted (can set
+-- the NULL-hub default or any hub's override). accountant is scoped to only
+-- their own hub_id -- deliberately NOT using is_hub_unrestricted() (which
+-- treats accountant as unrestricted everywhere else), matching
+-- hub_airline_route_rates' own carve-out for this exact same reason
+-- (20260727_hub_airline_route_rates.sql). Because hub_id = current_user_hub_id()
+-- is never true when hub_id IS NULL, this also naturally blocks accountant
+-- from writing the company-wide default row -- only super_admin/admin can.
+DROP POLICY IF EXISTS "Admins insert special_goods_rates" ON public.special_goods_rates;
+CREATE POLICY "Admins insert special_goods_rates" ON public.special_goods_rates FOR INSERT TO authenticated
+  WITH CHECK (
+    public.current_user_role() IN ('super_admin','admin')
+    OR (public.current_user_role() = 'accountant' AND hub_id = public.current_user_hub_id())
+  );
+DROP POLICY IF EXISTS "Admins update special_goods_rates" ON public.special_goods_rates;
+CREATE POLICY "Admins update special_goods_rates" ON public.special_goods_rates FOR UPDATE TO authenticated
+  USING (
+    public.current_user_role() IN ('super_admin','admin')
+    OR (public.current_user_role() = 'accountant' AND hub_id = public.current_user_hub_id())
+  );
+DROP POLICY IF EXISTS "Admins delete special_goods_rates" ON public.special_goods_rates;
+CREATE POLICY "Admins delete special_goods_rates" ON public.special_goods_rates FOR DELETE TO authenticated
+  USING (
+    public.current_user_role() IN ('super_admin','admin')
+    OR (public.current_user_role() = 'accountant' AND hub_id = public.current_user_hub_id())
+  );
+-- SELECT stays "USING (true)" (unchanged from 20260716_special_goods_rates.sql)
+-- -- every agent pricing an entry needs to read both tiers, matching
+-- hub_route_rates' own broad-read policy.
+
+-- ============================================================
+-- FILE: supabase/migrations/20260821_customer_wallets_archive_delete.sql
+-- ============================================================
+-- Customer wallet delete button, guarded against destroying financial
+-- history. wallet_transactions.wallet_id is ON DELETE CASCADE
+-- (20260717_cargo_workflow_overhaul.sql) -- a hard DELETE on customer_wallets
+-- silently wipes that customer's entire top-up/deduction audit trail, which
+-- this app already treats as a liability record (see that migration's own
+-- comment: "a liability: EHI holds this money for the customer").
+--
+-- archived_at is a separate soft-delete flag from `status` (active/exhausted/
+-- frozen) -- status is driven by balance and isn't meant to represent
+-- "hidden from the list," so this doesn't overload it. NULL = visible
+-- (the default for every existing wallet); a timestamp = archived/hidden.
+-- The app only ever hard-deletes a wallet that has zero balance AND zero
+-- transaction history (i.e. truly never used) -- anything with real
+-- activity gets archived instead, keeping its full history intact and
+-- queryable, just out of the default list.
+ALTER TABLE public.customer_wallets ADD COLUMN IF NOT EXISTS archived_at timestamptz;
+
+-- customer_wallets had SELECT/INSERT/UPDATE policies added in
+-- 20260810_wallet_atomicity_and_isolation.sql but no DELETE policy at all --
+-- RLS enabled with no matching policy means every .delete() call today
+-- silently succeeds with 0 rows affected. Matches the existing hub-scoped
+-- pattern used for INSERT/UPDATE on this same table.
+DROP POLICY IF EXISTS "Hub-scoped delete customer_wallets" ON public.customer_wallets;
+CREATE POLICY "Hub-scoped delete customer_wallets" ON public.customer_wallets FOR DELETE TO authenticated
+  USING (hub_id = public.current_user_hub_id() OR hub_id IS NULL OR public.is_hub_unrestricted());
+
+-- ============================================================
+-- FILE: supabase/migrations/20260822_edit_attribution.sql
+-- ============================================================
+-- Edits to an existing entry left zero trace of who made them: TransactionLedger.tsx's
+-- handleSaveEdit sets `finalTx.editedBy` client-side, but buildTxUpdatePayload
+-- (src/components/EHIApp.tsx) never read it, so it was dropped before ever
+-- reaching Supabase -- and no audit_log entry was written for a plain field
+-- edit either (only CREATE and PAYMENT_CONFIRM wrote to audit_log). This
+-- matters specifically because a hub's "Current Shift" ledger view pools
+-- every staff member's activity together (by design -- one shift per hub,
+-- shared by whoever is on duty), so without this, there was no way to tell
+-- which agent on a shared shift actually edited a given entry.
+--
+-- last_edited_by/last_edited_at give a fast, denormalized "who touched this
+-- last" for the ledger row list; the accompanying UPDATE audit_log entry
+-- (written from handleUpdateTx) gives the full before/after trail.
+ALTER TABLE public.cargo_entries     ADD COLUMN IF NOT EXISTS last_edited_by text, ADD COLUMN IF NOT EXISTS last_edited_at timestamptz;
+ALTER TABLE public.manifests         ADD COLUMN IF NOT EXISTS last_edited_by text, ADD COLUMN IF NOT EXISTS last_edited_at timestamptz;
+ALTER TABLE public.marketing_entries ADD COLUMN IF NOT EXISTS last_edited_by text, ADD COLUMN IF NOT EXISTS last_edited_at timestamptz;
+ALTER TABLE public.package_entries   ADD COLUMN IF NOT EXISTS last_edited_by text, ADD COLUMN IF NOT EXISTS last_edited_at timestamptz;

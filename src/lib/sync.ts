@@ -403,8 +403,19 @@ export async function processSyncQueue(): Promise<{ synced: number; errors: stri
       } else {
         const errMsg = error.message || error.details || JSON.stringify(error);
         errors.push(`${item.table_name}: ${errMsg}`);
-        console.error(`Background sync failed for ${item.table_name} (record ${item.record_id}):`, error);
-        appLogger.log('ERROR', 'SYNC_QUEUE', `Background sync failed for ${item.table_name}: ${errMsg}`);
+        // The raw `error` object logs as a collapsed "Object" in most
+        // consoles, which is why a stuck record's actual cause has
+        // historically required re-deriving from code rather than reading
+        // the console -- expand the real PostgREST fields explicitly, and
+        // log the payload that was actually sent (same as the
+        // writeWithOfflineSupport path above) so a bad column/constraint is
+        // visible immediately on the next retry instead of needing a fresh
+        // investigation.
+        console.error(
+          `Background sync failed for ${item.table_name} (record ${item.record_id}): ${errMsg}`,
+          { code: error.code, message: error.message, details: error.details, hint: error.hint, payload: supabasePayload }
+        );
+        appLogger.log('ERROR', 'SYNC_QUEUE', `Background sync failed for ${item.table_name}: ${errMsg} - Payload: ${JSON.stringify(supabasePayload)}`);
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);

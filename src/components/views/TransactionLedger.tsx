@@ -374,6 +374,7 @@ export const TransactionLedger = ({
     // Supabase will later reconstruct (see EHIApp.tsx's fetchInitial).
     const finalTx: Transaction = { ...editingTx, pieces, kg, amount };
     finalTx.editedBy = user.name;
+    finalTx.editedAt = new Date().toISOString();
     if (finalTx.type === 'cargo') {
       finalTx.detail = `${finalTx.airline || ''} · ${finalTx.awb_tag_number || ''} · ${pieces}pcs · ${kg}kg · ${finalTx.route || ''} · ${finalTx.contentType || ''}`;
     } else if (finalTx.type === 'baggage') {
@@ -1631,6 +1632,31 @@ export const TransactionLedger = ({
                           Remarks: {e.raw.remarks}
                         </div>
                       )}
+                      {/* Which staff member touched this entry -- shift view pools every
+                          agent at the hub together, so this is the only place (besides
+                          the detail modal) that says who actually did what. Priority:
+                          most-recent edit, then payment/debt confirmation, then original
+                          entry. */}
+                      {(() => {
+                        const raw = e.raw as any;
+                        if (!raw) return null;
+                        const lastPayment = Array.isArray(raw.paymentHistory) && raw.paymentHistory.length > 0
+                          ? raw.paymentHistory[raw.paymentHistory.length - 1]
+                          : null;
+                        const agentLabel = raw.editedBy
+                          ? `Edited by ${raw.editedBy}`
+                          : (raw.confirmedBy || lastPayment?.by)
+                          ? `Confirmed by ${raw.confirmedBy || lastPayment?.by}`
+                          : raw.enteredByName
+                          ? `By ${raw.enteredByName}`
+                          : null;
+                        if (!agentLabel) return null;
+                        return (
+                          <div className="text-[8px] text-[var(--color-muted)] font-mono mt-1 leading-snug">
+                            {agentLabel}
+                          </div>
+                        );
+                      })()}
                     </td>
                     {/* Status */}
                     <td className="py-2.5 px-2 text-center">

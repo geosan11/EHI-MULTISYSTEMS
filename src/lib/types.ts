@@ -186,6 +186,7 @@ export interface Transaction {
   hub?: string;
   enteredByName?: string;
   editedBy?: string;
+  editedAt?: string;
   debtClearedBy?: string;
   // Cargo specifics
   awb_tag_number?: string;

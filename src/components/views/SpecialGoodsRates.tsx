@@ -5,8 +5,19 @@ import { KgTierEditor, KgTier } from '../KgTierEditor';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../lib/ToastContext';
 import { useAirlines } from '../../lib/airlines';
+import { User } from '../../lib/types';
+
+// Sentinel for the company-wide default row (hub_id IS NULL) -- same
+// convention as HubCargoRates.tsx's HUB_DEFAULT_AIRLINE for a "wildcard"
+// select option that doesn't correspond to a real row value.
+const ALL_HUBS = '__ALL_HUBS__';
 
 interface SpecialContentType {
+  id: string;
+  name: string;
+}
+
+interface Hub {
   id: string;
   name: string;
 }
@@ -15,21 +26,35 @@ interface RateRow {
   id: string;
   content_type_id: string;
   airline: string;
+  hub_id: string | null;
   min_kg: number;
   max_kg: number | null;
   rate_per_kg: number;
 }
 
-export const SpecialGoodsRates = ({ onBack, presetContentTypeId }: { onBack: () => void; presetContentTypeId?: string }) => {
+export const SpecialGoodsRates = ({ onBack, presetContentTypeId, user }: { onBack: () => void; presetContentTypeId?: string; user: User }) => {
+  const isUnrestricted = user.role === 'super_admin' || user.role === 'admin';
   const [contentTypes, setContentTypes] = useState<SpecialContentType[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedContentTypeId, setSelectedContentTypeId] = useState<string>(presetContentTypeId || '');
   const [selectedAirline, setSelectedAirline] = useState<string>('');
+  // super_admin/admin can browse/edit any hub's override (or the ALL_HUBS
+  // company-wide default); accountant is locked to their own hub -- RLS
+  // would reject a write to any other hub_id anyway (20260820_special_goods_hub_scoping.sql).
+  const [selectedHubId, setSelectedHubId] = useState<string>(isUnrestricted ? ALL_HUBS : (user.hub_id || ALL_HUBS));
+  const [hubs, setHubs] = useState<Hub[]>([]);
   const [rows, setRows] = useState<RateRow[]>([]);
   const [rowsLoading, setRowsLoading] = useState(false);
 
   const { showToast } = useToast();
   const airlines = useAirlines({ includeOther: false });
+
+  useEffect(() => {
+    if (!isUnrestricted) return;
+    supabase.from('hubs').select('id, name').eq('active', true).order('name').then(({ data }) => {
+      if (data) setHubs(data);
+    });
+  }, [isUnrestricted]);
 
   useEffect(() => {
     const fetchTypes = async () => {
@@ -58,12 +83,13 @@ export const SpecialGoodsRates = ({ onBack, presetContentTypeId }: { onBack: () 
   const fetchRows = async () => {
     if (!selectedContentTypeId || !selectedAirline) { setRows([]); return; }
     setRowsLoading(true);
-    const { data, error } = await supabase
+    let query = supabase
       .from('special_goods_rates')
-      .select('id, content_type_id, airline, min_kg, max_kg, rate_per_kg')
+      .select('id, content_type_id, airline, hub_id, min_kg, max_kg, rate_per_kg')
       .eq('content_type_id', selectedContentTypeId)
-      .eq('airline', selectedAirline)
-      .order('min_kg');
+      .eq('airline', selectedAirline);
+    query = selectedHubId === ALL_HUBS ? query.is('hub_id', null) : query.eq('hub_id', selectedHubId);
+    const { data, error } = await query.order('min_kg');
     if (error) {
       showToast({ message: `Failed to load rate brackets: ${error.message}`, type: 'error' });
     } else {
@@ -72,12 +98,13 @@ export const SpecialGoodsRates = ({ onBack, presetContentTypeId }: { onBack: () 
     setRowsLoading(false);
   };
 
-  useEffect(() => { fetchRows(); }, [selectedContentTypeId, selectedAirline]);
+  useEffect(() => { fetchRows(); }, [selectedContentTypeId, selectedAirline, selectedHubId]);
 
   const handleAdd = async ({ min_kg, max_kg, price }: { min_kg: number; max_kg: number | null; price: number }) => {
     const { error } = await supabase.from('special_goods_rates').insert({
       content_type_id: selectedContentTypeId,
       airline: selectedAirline,
+      hub_id: selectedHubId === ALL_HUBS ? null : selectedHubId,
       min_kg,
       max_kg,
       rate_per_kg: price,
@@ -132,7 +159,8 @@ export const SpecialGoodsRates = ({ onBack, presetContentTypeId }: { onBack: () 
           <p className="text-[11px] text-[var(--color-accent-cobalt)] font-sans leading-relaxed">
             Set per-airline weight brackets for content types flagged "special goods" in Content Types. When
             staff pick this content type + airline at intake, the matching bracket's rate overrides the
-            normal route rate. Flag more content types from the Content Types screen.
+            normal route rate. Set "All Hubs (Default)" for a company-wide rate, or pick a specific hub to
+            override it just for that hub. Flag more content types from the Content Types screen.
           </p>
         </div>
 
@@ -171,6 +199,22 @@ export const SpecialGoodsRates = ({ onBack, presetContentTypeId }: { onBack: () 
                 >
                   {airlines.map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
+              </div>
+              <div>
+                <label htmlFor="sg-hub" className="text-[9px] font-mono text-[var(--color-muted)] block mb-1">HUB</label>
+                {isUnrestricted ? (
+                  <select
+                    id="sg-hub"
+                    value={selectedHubId}
+                    onChange={(e) => setSelectedHubId(e.target.value)}
+                    className="w-full ehi-input"
+                  >
+                    <option value={ALL_HUBS}>All Hubs (Default)</option>
+                    {hubs.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+                  </select>
+                ) : (
+                  <div className="w-full ehi-input flex items-center text-[var(--color-muted)]">{user.hub || 'Your Hub'}</div>
+                )}
               </div>
             </div>
 

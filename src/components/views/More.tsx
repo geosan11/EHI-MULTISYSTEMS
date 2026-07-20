@@ -202,7 +202,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
   }
 
   if (specialGoodsRatesView) {
-    return <SpecialGoodsRates onBack={() => { setSpecialGoodsRatesView(false); setSpecialGoodsPreset(undefined); }} presetContentTypeId={specialGoodsPreset} />;
+    return <SpecialGoodsRates user={user} onBack={() => { setSpecialGoodsRatesView(false); setSpecialGoodsPreset(undefined); }} presetContentTypeId={specialGoodsPreset} />;
   }
 
   if (minimumChargesView) {

@@ -218,13 +218,13 @@ export const DebtorsTab = ({
                   <td className="py-3 text-[13px] font-mono text-gray-700 text-right">-</td>
                   <td className="py-3 text-[13px] font-mono font-medium text-gray-900 text-right">{fmt(statementPrint.amount).replace('₦','')}</td>
                 </tr>
-                {((statementPrint as any).paymentHistory || []).reduce((rows: React.JSX.Element[], p: { amount: number; mode: string; at: string }, idx: number, arr: any[]) => {
+                {((statementPrint as any).paymentHistory || []).reduce((rows: React.JSX.Element[], p: { amount: number; mode: string; at: string; by?: string }, idx: number, arr: any[]) => {
                   const paidSoFar = arr.slice(0, idx + 1).reduce((s, x) => s + x.amount, 0);
                   const runningBalance = statementPrint.amount - paidSoFar;
                   rows.push(
                     <tr key={idx} className="border-b border-gray-200">
                       <td className="py-3 text-[13px] text-gray-700">{new Date(p.at).toLocaleDateString('en-GB')}</td>
-                      <td className="py-3 text-[13px] text-gray-900">Payment received ({p.mode})</td>
+                      <td className="py-3 text-[13px] text-gray-900">Payment received ({p.mode}){p.by ? ` — ${p.by}` : ''}</td>
                       <td className="py-3 text-[13px] font-mono text-gray-700 text-right">-</td>
                       <td className="py-3 text-[13px] font-mono text-gray-900 text-right">{fmt(p.amount).replace('₦','')}</td>
                       <td className="py-3 text-[13px] font-mono font-medium text-gray-900 text-right">{fmt(runningBalance).replace('₦','')}</td>

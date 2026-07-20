@@ -4,6 +4,7 @@ import { fmt, tnow } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
 import { applyWalletTransaction } from '../../lib/wallet';
 import { useToast } from '../../lib/ToastContext';
+import { useConfirm } from '../../lib/ConfirmContext';
 import { BackButton } from '../BackButton';
 import { openPdfOrDownload } from '../../lib/helpers';
 import {
@@ -14,6 +15,7 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   Printer,
+  Trash2,
   X,
   Loader2,
   AlertCircle,
@@ -38,6 +40,7 @@ export interface CustomerWallet {
   created_by: string;
   created_at: string;
   updated_at: string;
+  archived_at?: string | null;
 }
 
 export interface WalletTransaction {
@@ -68,6 +71,7 @@ export const CustomerWallets = ({
   initialRef?: string;
 }) => {
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const [wallets, setWallets] = useState<CustomerWallet[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(initialCustomerName || '');
@@ -99,6 +103,7 @@ export const CustomerWallets = ({
       let query = supabase
         .from('customer_wallets')
         .select('*')
+        .is('archived_at', null)
         .order('updated_at', { ascending: false });
 
       if (user.role !== 'admin' && user.role !== 'super_admin' && user.hub_id) {
@@ -152,6 +157,53 @@ export const CustomerWallets = ({
     } finally {
       setHistoryLoading(false);
     }
+  };
+
+  // A wallet with zero balance AND zero lifetime activity has, by
+  // definition, zero wallet_transactions rows (total_topped_up/total_used
+  // only ever increase, via apply_wallet_transaction) -- safe to hard
+  // delete with nothing to lose. Anything with real history gets archived
+  // instead (hidden from the default list, balance/history untouched) so a
+  // customer's payment trail is never silently destroyed.
+  const handleRemoveWallet = async (wallet: CustomerWallet) => {
+    const noHistory = wallet.balance === 0 && wallet.total_topped_up === 0 && wallet.total_used === 0;
+
+    if (noHistory) {
+      const ok = await confirm({
+        title: 'Delete wallet?',
+        message: `Permanently delete ${wallet.customer_name}'s wallet? It has no balance or transaction history, so this cannot be undone.`,
+        confirmLabel: 'Delete',
+        tone: 'danger',
+      });
+      if (!ok) return;
+      const { error } = await supabase.from('customer_wallets').delete().eq('id', wallet.id);
+      if (error) {
+        showToast({ message: `Failed to delete wallet: ${error.message}`, type: 'error' });
+        return;
+      }
+      setWallets((prev) => prev.filter((w) => w.id !== wallet.id));
+      showToast({ message: `${wallet.customer_name}'s wallet deleted`, type: 'success' });
+      return;
+    }
+
+    const balanceWarning = wallet.balance > 0 ? ` It still has a remaining balance of ₦${fmt(wallet.balance)}.` : '';
+    const ok = await confirm({
+      title: 'Archive wallet?',
+      message: `${wallet.customer_name}'s wallet has transaction history, so it can't be permanently deleted.${balanceWarning} Archiving will hide it from this list but keep its full balance and history intact.`,
+      confirmLabel: 'Archive',
+      tone: 'danger',
+    });
+    if (!ok) return;
+    const { error } = await supabase
+      .from('customer_wallets')
+      .update({ archived_at: new Date().toISOString() })
+      .eq('id', wallet.id);
+    if (error) {
+      showToast({ message: `Failed to archive wallet: ${error.message}`, type: 'error' });
+      return;
+    }
+    setWallets((prev) => prev.filter((w) => w.id !== wallet.id));
+    showToast({ message: `${wallet.customer_name}'s wallet archived`, type: 'success' });
   };
 
   const handleSaveTopUp = async (e: React.FormEvent) => {
@@ -503,6 +555,13 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
                     title="Print Receipt"
                   >
                     <Printer size={12} />
+                  </button>
+                  <button
+                    onClick={() => handleRemoveWallet(wallet)}
+                    className="p-1 rounded text-[var(--color-muted)] hover:text-[var(--color-danger)] hover:bg-[var(--color-surface-2)] cursor-pointer"
+                    title="Remove Wallet"
+                  >
+                    <Trash2 size={12} />
                   </button>
                 </div>
               </div>
