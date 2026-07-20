@@ -210,11 +210,19 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         const fetchShifts = async (): Promise<HubShift[]> => {
           if (!user.hub_id) return [];
           const dayAgo = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+          // A shift open longer than 24h (staff forgot to close it, an
+          // overnight/weekend hub) must still come back here regardless of
+          // its age -- a plain `started_at >= dayAgo` filter would drop it
+          // entirely on a fresh page load, leaving activeShift stuck at
+          // null even though the DB still has the row open (its unique
+          // partial index in 20260818_explicit_shifts.sql guarantees at
+          // most one), making End Shift unreachable and Start Shift hit
+          // the "already open" conflict with no visible way to resolve it.
           const { data } = await supabase
             .from('hub_shifts')
             .select('*')
             .eq('hub_id', user.hub_id)
-            .gte('started_at', dayAgo)
+            .or(`started_at.gte.${dayAgo},status.eq.open`)
             .order('started_at', { ascending: false });
           return (data || []) as HubShift[];
         };
@@ -1151,14 +1159,23 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       }).catch(() => {});
     }
     // TransactionLedger.tsx's handleSaveEdit is the only caller that sets
-    // editedBy -- the retrieval flow spreads the prior record and never
-    // sets it (see the comment above updatePayload), so this only fires for
-    // a genuine staff-initiated field edit, not for retrievals or payment
-    // confirmations (which already get their own audit entries above).
-    // last_edited_by/at are excluded from the diff shown here since they
+    // editedBy -- but toggleConfirm/savePosCode/handleClearDebt/
+    // executeRetrieval all build their update object by spreading the
+    // existing local Transaction (`{...tx}`/`{...e.raw}`), which carries
+    // editedBy/editedAt forward from whatever the LAST edit was, even
+    // though none of those four actions are themselves an edit. Gating on
+    // tx.editedBy truthiness alone would fire a spurious "entry edited"
+    // audit entry (misattributed to whoever triggered THIS call) and
+    // permanently stick the ledger's "Edited by" badge past its actual
+    // relevance every time any of those four run on a previously-edited
+    // entry. Comparing tx.editedAt against the previously-known value
+    // instead only fires when THIS call is the one that actually set a
+    // new edit timestamp (handleSaveEdit always stamps a fresh one).
+    // last_edited_by/at are excluded from the diff shown below since they
     // always differ from the previous snapshot by definition and would
     // otherwise drown out the actual field(s) that changed.
-    if (!error && tx.editedBy) {
+    const isGenuineEdit = !!tx.editedBy && !!tx.editedAt && tx.editedAt !== prevTx?.editedAt;
+    if (!error && isGenuineEdit) {
       const omitAttribution = (obj?: Record<string, any>) =>
         obj ? Object.fromEntries(Object.entries(obj).filter(([k]) => k !== 'last_edited_by' && k !== 'last_edited_at')) : undefined;
       writeAuditLog({

@@ -5,6 +5,7 @@ import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary } from "../../
 import { applyWalletTransaction, processCargoRetrieval } from "../../lib/wallet";
 import { clearDebt, DebtEntryType } from "../../lib/debt";
 import { useHubRoutes } from "../../lib/hubRoutes";
+import { useAirlines } from "../../lib/airlines";
 import { MIN_PACKAGE_AMOUNT } from "../../lib/constants";
 import { useContentTypes } from "../../lib/contentTypes";
 import { useBanks } from "../../lib/banks";
@@ -82,6 +83,12 @@ export const TransactionLedger = ({
 }) => {
   const contentTypes = useContentTypes();
   const routes = useHubRoutes();
+  // includeOther: false -- same as the Route select right below this field,
+  // which also has no "Other" entry. A free-text escape hatch isn't offered
+  // here (unlike CargoForm.tsx's intake picker); editAirlineOptions below
+  // still guarantees the entry's current value is always selectable even if
+  // it's since fallen out of the canonical list.
+  const editAirlines = useAirlines({ includeOther: false });
   const banks = useBanks();
   const [showPrintHistory, setShowPrintHistory] = useState(false);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
@@ -171,9 +178,14 @@ export const TransactionLedger = ({
   // explicit-shift system in this pass, so the two definitions intentionally
   // still coexist outside this one screen.
   const shiftHour: number = (user as any).shift_start_hour ?? 18;
-  const shiftBoundary = useMemo(() => {
+  const shiftBoundary = useMemo((): { start: Date; end: Date | null } => {
     if (activeShift?.started_at) {
-      return { start: new Date(activeShift.started_at), end: new Date() };
+      // end: null while the shift is still open -- `end: new Date()` here
+      // would freeze at whatever instant this memo last recomputed (only
+      // re-runs when activeShift's own reference changes, i.e. shift
+      // start/end events), silently excluding every transaction created
+      // after that instant from "Current Shift" until the shift closes.
+      return { start: new Date(activeShift.started_at), end: null };
     }
     return getShiftBoundary(shiftHour);
   }, [shiftHour, activeShift]);
@@ -305,7 +317,7 @@ export const TransactionLedger = ({
         : (e as any)._sortTime
         ? new Date((e as any)._sortTime)
         : null;
-      if (entryTime && (entryTime < start || entryTime >= end)) return false;
+      if (entryTime && (entryTime < start || (end && entryTime >= end))) return false;
     }
 
     if (searchQuery) {
@@ -927,7 +939,16 @@ export const TransactionLedger = ({
 
     const updated: Transaction = {
       ...tx,
-      amountPaid: tx.amount,
+      // Use clear_cargo_debt's own returned total, not tx.amount -- for an
+      // entry with a prior partial retrieval, the correct fully-paid value
+      // is amount - retrieved_amount, not the full original amount (the RPC
+      // already computes this correctly server-side). onUpdateTx below still
+      // fires a redundant client-side write on top of the RPC's own -- using
+      // the RPC's real value here makes that write idempotent instead of
+      // overwriting a correct DB row with an inflated amount_paid, which
+      // previously produced a negative "remaining balance" on every later
+      // computation for any entry that had been partially retrieved.
+      amountPaid: result.newAmountPaid ?? tx.amount,
       paymentHistory: [...(tx.paymentHistory || []), historyEntry],
       mode: 'Debt Paid',
       paymentConfirmed: true,
@@ -1643,13 +1664,25 @@ export const TransactionLedger = ({
                         const lastPayment = Array.isArray(raw.paymentHistory) && raw.paymentHistory.length > 0
                           ? raw.paymentHistory[raw.paymentHistory.length - 1]
                           : null;
-                        const agentLabel = raw.editedBy
-                          ? `Edited by ${raw.editedBy}`
-                          : (raw.confirmedBy || lastPayment?.by)
-                          ? `Confirmed by ${raw.confirmedBy || lastPayment?.by}`
-                          : raw.enteredByName
-                          ? `By ${raw.enteredByName}`
-                          : null;
+                        // Compare actual timestamps rather than a fixed priority order --
+                        // editedBy/editedAt carry forward on every subsequent action that
+                        // spreads this entry (confirm, retrieve, clear debt), so a fixed
+                        // "edit always wins" order would keep showing a stale editor's name
+                        // forever after the first edit, even once someone else genuinely
+                        // confirmed or paid down the entry more recently.
+                        const candidates: { label: string; at: number }[] = [];
+                        if (raw.editedBy && raw.editedAt) {
+                          candidates.push({ label: `Edited by ${raw.editedBy}`, at: new Date(raw.editedAt).getTime() });
+                        }
+                        if (raw.confirmedBy && raw.confirmedAt) {
+                          candidates.push({ label: `Confirmed by ${raw.confirmedBy}`, at: new Date(raw.confirmedAt).getTime() });
+                        }
+                        if (lastPayment?.by && lastPayment?.at) {
+                          candidates.push({ label: `Confirmed by ${lastPayment.by}`, at: new Date(lastPayment.at).getTime() });
+                        }
+                        candidates.sort((a, b) => b.at - a.at);
+                        const agentLabel = candidates[0]?.label
+                          || (raw.enteredByName ? `By ${raw.enteredByName}` : null);
                         if (!agentLabel) return null;
                         return (
                           <div className="text-[8px] text-[var(--color-muted)] font-mono mt-1 leading-snug">
@@ -2097,15 +2130,24 @@ export const TransactionLedger = ({
                     <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
                       Airline
                     </label>
-                    <input
+                    <select
                       id="edit-tx-airline"
                       name="edit-tx-airline"
-                      type="text"
                       disabled={!canEdit}
                       value={editingTx.airline || ''}
                       onChange={(e) => setEditingTx({ ...editingTx, airline: e.target.value })}
-                      className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
-                    />
+                      className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
+                    >
+                      <option value="">Select Airline</option>
+                      {/* Guard against the entry's current airline having fallen out of the
+                          canonical list (e.g. renamed/removed since this entry was created) --
+                          without this, a stale value with no matching <option> would silently
+                          fall back to whatever option the browser picks first on save. */}
+                      {editingTx.airline && !editAirlines.includes(editingTx.airline) && (
+                        <option value={editingTx.airline}>{editingTx.airline}</option>
+                      )}
+                      {editAirlines.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
