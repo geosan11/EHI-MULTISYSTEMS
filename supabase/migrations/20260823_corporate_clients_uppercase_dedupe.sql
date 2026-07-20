@@ -43,8 +43,18 @@ BEGIN
           + coalesce((SELECT l.accumulated_monthly_debt FROM public.corporate_clients l WHERE l.id = loser), 0)
       WHERE k.id = keeper;
 
-      -- Repoint transactional FKs.
-      UPDATE public.cargo_entries          SET corporate_client_id = keeper WHERE corporate_client_id = loser;
+      -- Repoint transactional FKs. cargo_entries.corporate_client_id is
+      -- declared `uuid` in its original CREATE TABLE
+      -- (20260706_full_schema.sql), but on at least one live database it's
+      -- actually `text` -- that table predates the formal uuid+FK
+      -- convention every other corporate_client_id column here follows, and
+      -- CREATE TABLE IF NOT EXISTS is a no-op against a pre-existing table
+      -- with a different column type. Explicit ::text casts make this work
+      -- against the real live type instead of assuming the migration file's
+      -- (here, wrong) declared one. pending_corporate_intakes is a much
+      -- newer table with a real enforced uuid FK to corporate_clients(id)
+      -- (20260717_pending_corporate_intakes.sql), so no cast is needed there.
+      UPDATE public.cargo_entries          SET corporate_client_id = keeper::text WHERE corporate_client_id = loser::text;
       UPDATE public.pending_corporate_intakes SET corporate_client_id = keeper WHERE corporate_client_id = loser;
 
       -- Repoint route rates, but only where the keeper doesn't already
@@ -89,7 +99,7 @@ CREATE TRIGGER trg_normalize_company_name
 --    canonical form; the trigger would normalize them anyway.
 INSERT INTO public.corporate_clients (company_name) VALUES
   ('SLOT'), ('A51'), ('CANDYPLUS'), ('GLOBACOM'), ('ZANON'),
-  ('3C HUB'), ('FEDEX'), ('ARAMEX'), ('NIG ARMY'), ('SPECTRUM'),
+  ('3C HUB'), ('FEDEX'), ('ARAMEX'), ('NIG ARMY'), ('SPECTRANET'),
   ('ROYAL-ARCH'), ('SMART MARK'), ('SAHCO'), ('SCHOOL KITS')
 ON CONFLICT (company_name) DO NOTHING;
 
@@ -151,8 +161,8 @@ FROM (VALUES
   ('NIG ARMY',    'YOL',  850,  12000),
   ('NIG ARMY',    'KAD',  850,  12000),
   ('NIG ARMY',    'KAN',  850,  12000),
-  ('SPECTRUM',    'ABV',  750,  0),
-  ('SPECTRUM',    'PHC',  750,  0),
+  ('SPECTRANET',    'ABV',  750,  0),
+  ('SPECTRANET',    'PHC',  750,  0),
   ('ROYAL-ARCH',  'ABV',  700,  10000),
   ('SMART MARK',  'ABV',  850,  18000),
   ('SMART MARK',  'PHC',  850,  18000),

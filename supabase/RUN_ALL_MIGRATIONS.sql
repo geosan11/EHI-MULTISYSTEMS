@@ -1578,18 +1578,25 @@ GRANT EXECUTE ON FUNCTION public.peek_next_awb_number(TEXT) TO authenticated;
 -- and carries it through onto the finalized transaction. This column is
 -- where that ID actually persists in Supabase.
 --
--- NOTE: this originally declared the column as `text`, but
--- cargo_entries.corporate_client_id already existed as `uuid` (with a
--- FOREIGN KEY REFERENCES corporate_clients(id)) from the original
--- CREATE TABLE in 20260706_full_schema.sql -- ADD COLUMN IF NOT EXISTS is
--- a no-op when the column already exists, so this never actually changed
--- the type; the live column has been `uuid` the whole time. Corrected the
--- type below to match reality (the app has only ever written real
--- corporate_clients.id UUID values or NULL here anyway, via
--- CargoForm.tsx's matchedClient?.id/detectedOfficeClient.id, so this was
--- a stale/misleading comment, not a functional bug).
+-- NOTE: a previous version of this comment claimed the live column was
+-- actually `uuid` (reasoning that the original CREATE TABLE in
+-- 20260706_full_schema.sql already declared it that way, making this
+-- ADD COLUMN IF NOT EXISTS a harmless no-op). A live migration run proved
+-- that wrong: on the real database this column is `text`, confirmed by
+-- `operator does not exist: text = uuid` when 20260823's dedupe migration
+-- tried to compare it against a uuid variable. The actual sequence was:
+-- cargo_entries pre-existed (created ad hoc, before 20260706_full_schema.sql
+-- was ever written) without this column at all, so 20260706's
+-- CREATE TABLE IF NOT EXISTS was a full no-op for the whole table -- this
+-- ADD COLUMN IF NOT EXISTS (as originally written, `text`) is what actually
+-- created the column for the first time. Restored to `text` to match
+-- reality; every write is still a real corporate_clients.id UUID value or
+-- NULL (CargoForm.tsx's matchedClient?.id/detectedOfficeClient.id), so
+-- callers that need to join/compare against corporate_clients.id must cast
+-- explicitly (see 20260823's dedupe migration and clear_cargo_debt in
+-- 20260824_clear_cargo_debt_corporate_decrement.sql).
 ALTER TABLE public.cargo_entries
-  ADD COLUMN IF NOT EXISTS corporate_client_id uuid REFERENCES public.corporate_clients(id) ON DELETE SET NULL;
+  ADD COLUMN IF NOT EXISTS corporate_client_id text;
 
 CREATE INDEX IF NOT EXISTS idx_cargo_entries_corporate_client_id
   ON public.cargo_entries (corporate_client_id)
@@ -4019,6 +4026,11 @@ ALTER TABLE public.special_goods_rates ADD COLUMN IF NOT EXISTS hub_id uuid REFE
 -- NULL-hub company-wide row -- can all coexist for the same tier, which is
 -- exactly the intended shape.)
 ALTER TABLE public.special_goods_rates DROP CONSTRAINT IF EXISTS special_goods_rates_content_type_id_airline_min_kg_key;
+-- Postgres has no `ADD CONSTRAINT IF NOT EXISTS` -- drop-then-add (same
+-- pattern as the old constraint above) is what makes this safe to re-run,
+-- e.g. if this migration was already applied once and RUN_ALL_MIGRATIONS.sql
+-- gets pasted in again.
+ALTER TABLE public.special_goods_rates DROP CONSTRAINT IF EXISTS special_goods_rates_content_type_id_airline_hub_min_kg_key;
 ALTER TABLE public.special_goods_rates ADD CONSTRAINT special_goods_rates_content_type_id_airline_hub_min_kg_key
   UNIQUE (content_type_id, airline, hub_id, min_kg);
 
@@ -4152,8 +4164,18 @@ BEGIN
           + coalesce((SELECT l.accumulated_monthly_debt FROM public.corporate_clients l WHERE l.id = loser), 0)
       WHERE k.id = keeper;
 
-      -- Repoint transactional FKs.
-      UPDATE public.cargo_entries          SET corporate_client_id = keeper WHERE corporate_client_id = loser;
+      -- Repoint transactional FKs. cargo_entries.corporate_client_id is
+      -- declared `uuid` in its original CREATE TABLE
+      -- (20260706_full_schema.sql), but on at least one live database it's
+      -- actually `text` -- that table predates the formal uuid+FK
+      -- convention every other corporate_client_id column here follows, and
+      -- CREATE TABLE IF NOT EXISTS is a no-op against a pre-existing table
+      -- with a different column type. Explicit ::text casts make this work
+      -- against the real live type instead of assuming the migration file's
+      -- (here, wrong) declared one. pending_corporate_intakes is a much
+      -- newer table with a real enforced uuid FK to corporate_clients(id)
+      -- (20260717_pending_corporate_intakes.sql), so no cast is needed there.
+      UPDATE public.cargo_entries          SET corporate_client_id = keeper::text WHERE corporate_client_id = loser::text;
       UPDATE public.pending_corporate_intakes SET corporate_client_id = keeper WHERE corporate_client_id = loser;
 
       -- Repoint route rates, but only where the keeper doesn't already
@@ -4198,7 +4220,7 @@ CREATE TRIGGER trg_normalize_company_name
 --    canonical form; the trigger would normalize them anyway.
 INSERT INTO public.corporate_clients (company_name) VALUES
   ('SLOT'), ('A51'), ('CANDYPLUS'), ('GLOBACOM'), ('ZANON'),
-  ('3C HUB'), ('FEDEX'), ('ARAMEX'), ('NIG ARMY'), ('SPECTRUM'),
+  ('3C HUB'), ('FEDEX'), ('ARAMEX'), ('NIG ARMY'), ('SPECTRANET'),
   ('ROYAL-ARCH'), ('SMART MARK'), ('SAHCO'), ('SCHOOL KITS')
 ON CONFLICT (company_name) DO NOTHING;
 
@@ -4260,8 +4282,8 @@ FROM (VALUES
   ('NIG ARMY',    'YOL',  850,  12000),
   ('NIG ARMY',    'KAD',  850,  12000),
   ('NIG ARMY',    'KAN',  850,  12000),
-  ('SPECTRUM',    'ABV',  750,  0),
-  ('SPECTRUM',    'PHC',  750,  0),
+  ('SPECTRANET',    'ABV',  750,  0),
+  ('SPECTRANET',    'PHC',  750,  0),
   ('ROYAL-ARCH',  'ABV',  700,  10000),
   ('SMART MARK',  'ABV',  850,  18000),
   ('SMART MARK',  'PHC',  850,  18000),
@@ -4371,10 +4393,13 @@ BEGIN
 
   -- NEW: keep the corporate running balance in sync. Mirrors the old
   -- handleUpdateTx decrement that the clearDebt() RPC path had dropped.
+  -- cargo_entries.corporate_client_id is `text` (see the corrected note in
+  -- 20260715_cargo_entries_corporate_client_id.sql), while
+  -- corporate_clients.id is `uuid` -- explicit cast needed to compare them.
   IF v_entry.corporate_client_id IS NOT NULL THEN
     UPDATE public.corporate_clients
     SET accumulated_monthly_debt = GREATEST(accumulated_monthly_debt - p_payment_amount, 0)
-    WHERE id = v_entry.corporate_client_id;
+    WHERE id = v_entry.corporate_client_id::uuid;
   END IF;
 
   RETURN QUERY SELECT v_new_amount_paid, GREATEST(v_remaining, 0), (v_remaining <= 0);

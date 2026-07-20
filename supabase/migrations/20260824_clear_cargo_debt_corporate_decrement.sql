@@ -73,10 +73,13 @@ BEGIN
 
   -- NEW: keep the corporate running balance in sync. Mirrors the old
   -- handleUpdateTx decrement that the clearDebt() RPC path had dropped.
+  -- cargo_entries.corporate_client_id is `text` (see the corrected note in
+  -- 20260715_cargo_entries_corporate_client_id.sql), while
+  -- corporate_clients.id is `uuid` -- explicit cast needed to compare them.
   IF v_entry.corporate_client_id IS NOT NULL THEN
     UPDATE public.corporate_clients
     SET accumulated_monthly_debt = GREATEST(accumulated_monthly_debt - p_payment_amount, 0)
-    WHERE id = v_entry.corporate_client_id;
+    WHERE id = v_entry.corporate_client_id::uuid;
   END IF;
 
   RETURN QUERY SELECT v_new_amount_paid, GREATEST(v_remaining, 0), (v_remaining <= 0);

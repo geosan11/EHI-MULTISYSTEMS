@@ -19,6 +19,11 @@ ALTER TABLE public.special_goods_rates ADD COLUMN IF NOT EXISTS hub_id uuid REFE
 -- NULL-hub company-wide row -- can all coexist for the same tier, which is
 -- exactly the intended shape.)
 ALTER TABLE public.special_goods_rates DROP CONSTRAINT IF EXISTS special_goods_rates_content_type_id_airline_min_kg_key;
+-- Postgres has no `ADD CONSTRAINT IF NOT EXISTS` -- drop-then-add (same
+-- pattern as the old constraint above) is what makes this safe to re-run,
+-- e.g. if this migration was already applied once and RUN_ALL_MIGRATIONS.sql
+-- gets pasted in again.
+ALTER TABLE public.special_goods_rates DROP CONSTRAINT IF EXISTS special_goods_rates_content_type_id_airline_hub_min_kg_key;
 ALTER TABLE public.special_goods_rates ADD CONSTRAINT special_goods_rates_content_type_id_airline_hub_min_kg_key
   UNIQUE (content_type_id, airline, hub_id, min_kg);
 
