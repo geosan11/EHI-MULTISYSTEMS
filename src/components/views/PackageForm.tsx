@@ -2,7 +2,9 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useEnterToNextField } from "../../lib/useEnterToNextField";
 import { User, Transaction, Expense } from "../../lib/types";
 import { fmt, uid, tnow, generatePaymentNarration, getHubCode, upperOnChange, isStandalonePWA } from "../../lib/helpers";
-import { applyWalletTransaction } from "../../lib/wallet";
+import { chargeWalletForSale } from "../../lib/walletPayment";
+import { matchWallet } from "../../lib/customerIdentity";
+import { WalletRemainderSelector } from "../WalletRemainderSelector";
 import { useHubRoutes, useValidatedRouteSelection } from "../../lib/hubRoutes";
 import { useContentTypes } from "../../lib/contentTypes";
 import { useExpenseCategories } from "../../lib/expenseCategories";
@@ -169,12 +171,12 @@ export const PackageForm = ({
   const [closingDay, setClosingDay] = useState(false);
 
   const [selectedWalletOverride, setSelectedWalletOverride] = useState<CustomerWallet | null>(null);
+  const [walletRemainderMode, setWalletRemainderMode] = useState<'Cash' | 'Transfer' | 'POS'>('Cash');
+  const [walletRemainderBank, setWalletRemainderBank] = useState('');
   const activeWallet = useMemo(() => {
     if (selectedWalletOverride) return selectedWalletOverride;
-    const q = name.trim().toLowerCase();
-    if (q.length < 2) return null;
-    return customerWallets.find(w => w.customer_name.trim().toLowerCase() === q && w.balance > 0) || null;
-  }, [name, customerWallets, selectedWalletOverride]);
+    return matchWallet(customerWallets, name, phone);
+  }, [name, phone, customerWallets, selectedWalletOverride]);
 
   const handleAddEntry = async () => {
     if (parsedAmount < MIN_PACKAGE_AMOUNT) {
@@ -207,34 +209,46 @@ export const PackageForm = ({
       debtPaid: mode === "Debt" ? false : undefined,
     };
 
-    // Handle Customer Wallet Deduction if paying via Wallet
+    // Wallet payment — AUTO-SPLIT. Wallet covers what it can; any remainder is
+    // collected by the chosen Cash/Transfer/POS method and recorded as the
+    // receipt_mode, so the till isn't silently short. EOD nets
+    // wallet_deduction_amount out of the cash/transfer/POS totals.
     if (mode === "Wallet" && activeWallet) {
-      const deductAmt = Math.min(parsedAmount, activeWallet.balance);
-      const result = await applyWalletTransaction({
-        walletId: activeWallet.id,
-        type: 'deduction',
-        amount: deductAmt,
+      const charge = await chargeWalletForSale({
+        wallet: activeWallet,
+        amount: parsedAmount,
         cargoRef: trackingRef,
         description: `Package Consignment ${trackingRef}`,
         loggedBy: user.name,
       });
-
-      if (!result.ok) {
-        showToast({ message: `Wallet deduction failed: ${result.error}. Entry was not logged.`, type: 'error' });
+      if (!charge.ok) {
+        showToast({ message: `Wallet deduction failed: ${charge.error}. Entry was not logged.`, type: 'error' });
         setSubmitting(false);
         return;
       }
-
+      // Guard: a short wallet needs a remainder method (Cash needs nothing;
+      // Transfer/POS need a bank/terminal reference).
+      if (charge.remainder > 0 && (walletRemainderMode === 'Transfer' || walletRemainderMode === 'POS') && !walletRemainderBank.trim()) {
+        showToast({ message: `Enter the bank/terminal for the ₦${fmt(charge.remainder)} remainder.`, type: 'warning' });
+        setSubmitting(false);
+        return;
+      }
       tx.wallet_id = activeWallet.id;
-      tx.wallet_deduction_amount = deductAmt;
+      tx.wallet_deduction_amount = charge.walletDeduction;
       (tx as any).wallet_balance_before = activeWallet.balance;
-      (tx as any).wallet_balance_after = result.newBalance;
+      (tx as any).wallet_balance_after = charge.newBalance;
+      if (charge.remainder > 0) {
+        tx.mode = walletRemainderMode;
+        tx.bank = (walletRemainderMode === 'Transfer' || walletRemainderMode === 'POS') ? walletRemainderBank.trim() : undefined;
+      }
 
       if (setCustomerWallets) {
-        setCustomerWallets(prev => prev.map(w => w.id === activeWallet.id ? { ...w, balance: result.newBalance! } : w));
+        setCustomerWallets(prev => prev.map(w => w.id === activeWallet.id ? { ...w, balance: charge.newBalance! } : w));
       }
       showToast({
-        message: `💰 ₦${fmt(deductAmt)} deducted from ${activeWallet.customer_name}'s Credit Wallet. Remaining Balance: ₦${fmt(result.newBalance!)}`,
+        message: charge.remainder > 0
+          ? `₦${fmt(charge.walletDeduction)} from ${activeWallet.customer_name}'s wallet · ₦${fmt(charge.remainder)} by ${walletRemainderMode}. Balance: ₦${fmt(charge.newBalance!)}`
+          : `💰 ₦${fmt(charge.walletDeduction)} deducted from ${activeWallet.customer_name}'s Credit Wallet. Remaining Balance: ₦${fmt(charge.newBalance!)}`,
         type: 'success'
       });
     }
@@ -669,11 +683,16 @@ export const PackageForm = ({
                       onSelectWallet={(w) => setSelectedWalletOverride(w)}
                       currentCustomerName={name}
                     />
-                    {activeWallet && parsedAmount > activeWallet.balance && (
-                      <div className="text-[11px] font-mono text-[var(--color-error)] bg-[rgba(239,68,68,0.08)] p-2.5 rounded-[var(--radius-sm)] border border-[rgba(239,68,68,0.2)] flex items-center justify-between">
-                        <span>Shortfall to collect via secondary mode:</span>
-                        <span className="font-bold text-[13px]">₦{fmt(parsedAmount - activeWallet.balance)}</span>
-                      </div>
+                    {activeWallet && activeWallet.balance < parsedAmount && (
+                      <WalletRemainderSelector
+                        walletName={activeWallet.customer_name}
+                        coverage={activeWallet.balance}
+                        remainder={parsedAmount - activeWallet.balance}
+                        mode={walletRemainderMode}
+                        bank={walletRemainderBank}
+                        onModeChange={setWalletRemainderMode}
+                        onBankChange={setWalletRemainderBank}
+                      />
                     )}
                   </div>
                 )}

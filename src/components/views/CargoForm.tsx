@@ -2,7 +2,9 @@ import { CARGO_ROUTES } from "../../lib/constants";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Transaction, User, Expense, CustomerWallet } from "../../lib/types";
 import { fmt, roundMoney, tnow, generatePickupPin, normalizeAirlineName, getHubCode, upperOnChange, isStandalonePWA } from "../../lib/helpers";
-import { applyWalletTransaction } from "../../lib/wallet";
+import { chargeWalletForSale } from "../../lib/walletPayment";
+import { matchWallet } from "../../lib/customerIdentity";
+import { WalletRemainderSelector } from "../WalletRemainderSelector";
 import { useHubRoutes, useValidatedRouteSelection } from "../../lib/hubRoutes";
 import { useAirlines, addAirlineIfMissing } from "../../lib/airlines";
 import { useContentTypes } from "../../lib/contentTypes";
@@ -701,13 +703,15 @@ export const CargoForm = ({
   const [linkedAsOfficeWork, setLinkedAsOfficeWork] = useState(false);
 
   const [selectedWalletOverride, setSelectedWalletOverride] = useState<any>(null);
-  // Active Customer Wallet matching the typed consignee name or manual selection
+  const [walletRemainderMode, setWalletRemainderMode] = useState<'Cash' | 'Transfer' | 'POS'>('Cash');
+  const [walletRemainderBank, setWalletRemainderBank] = useState('');
+  // Active Customer Wallet matching the typed consignee name or manual selection --
+  // phone first (reliable identity), falling back to exact name match.
   const activeWallet = useMemo(() => {
     if (selectedWalletOverride) return selectedWalletOverride;
-    const q = (consignee === 'Other' ? customConsignee : consignee).trim().toLowerCase();
-    if (q.length < 2) return null;
-    return customerWallets.find(w => w.customer_name.trim().toLowerCase() === q && w.balance > 0) || null;
-  }, [consignee, customConsignee, customerWallets, selectedWalletOverride]);
+    const nm = (consignee === 'Other' ? customConsignee : consignee);
+    return matchWallet(customerWallets, nm, consigneePhone);
+  }, [consignee, customConsignee, consigneePhone, customerWallets, selectedWalletOverride]);
 
   // On each consignee change: auto-link when the match is EXACT (the rush-proof
   // path), otherwise clear so a fuzzy match only shows the suggestion banner.
@@ -1238,33 +1242,46 @@ export const CargoForm = ({
       enteredByName: user.name,
     } as Transaction;
 
-    // Handle Customer Wallet Deduction if paying via Wallet
+    // Wallet payment — AUTO-SPLIT. Wallet covers what it can; any remainder is
+    // collected by the chosen Cash/Transfer/POS method and recorded as the
+    // receipt_mode, so the till isn't silently short. EOD nets
+    // wallet_deduction_amount out of the cash/transfer/POS totals.
     if (mode === "Wallet" && activeWallet) {
-      const deductAmt = Math.min(parsedAmount, activeWallet.balance);
-      const result = await applyWalletTransaction({
-        walletId: activeWallet.id,
-        type: 'deduction',
-        amount: deductAmt,
+      const charge = await chargeWalletForSale({
+        wallet: activeWallet,
+        amount: parsedAmount,
         cargoRef: resolvedAwb,
         description: `Cargo Consignment ${resolvedAwb}`,
         loggedBy: user.name,
       });
-
-      if (!result.ok) {
-        showToast({ message: `Wallet deduction failed: ${result.error}. Entry was not logged.`, type: "error" });
+      if (!charge.ok) {
+        showToast({ message: `Wallet deduction failed: ${charge.error}. Entry was not logged.`, type: "error" });
         setSubmitting(false);
         return;
       }
-
+      // Guard: a short wallet needs a remainder method (Cash needs nothing;
+      // Transfer/POS need a bank/terminal reference).
+      if (charge.remainder > 0 && (walletRemainderMode === 'Transfer' || walletRemainderMode === 'POS') && !walletRemainderBank.trim()) {
+        showToast({ message: `Enter the bank/terminal for the ₦${fmt(charge.remainder)} remainder.`, type: 'warning' });
+        setSubmitting(false);
+        return;
+      }
       tx.wallet_id = activeWallet.id;
-      tx.wallet_deduction_amount = deductAmt;
+      tx.wallet_deduction_amount = charge.walletDeduction;
       (tx as any).wallet_balance_before = activeWallet.balance;
-      (tx as any).wallet_balance_after = result.newBalance;
-
-      setCustomerWallets(prev => prev.map(w => w.id === activeWallet.id ? { ...w, balance: result.newBalance! } : w));
+      (tx as any).wallet_balance_after = charge.newBalance;
+      if (charge.remainder > 0) {
+        // Book the sale under the remainder method; wallet part stays tracked
+        // in wallet_deduction_amount.
+        tx.mode = walletRemainderMode;
+        tx.bank = (walletRemainderMode === 'Transfer' || walletRemainderMode === 'POS') ? walletRemainderBank.trim() : undefined;
+      }
+      setCustomerWallets(prev => prev.map(w => w.id === activeWallet.id ? { ...w, balance: charge.newBalance! } : w));
       showToast({
-        message: `👜 ₦${fmt(deductAmt)} deducted from ${activeWallet.customer_name}'s wallet. Remaining: ₦${fmt(result.newBalance!)}`,
-        type: "success"
+        message: charge.remainder > 0
+          ? `₦${fmt(charge.walletDeduction)} from ${activeWallet.customer_name}'s wallet · ₦${fmt(charge.remainder)} by ${walletRemainderMode}. Balance: ₦${fmt(charge.newBalance!)}`
+          : `👜 ₦${fmt(charge.walletDeduction)} from ${activeWallet.customer_name}'s wallet. Remaining: ₦${fmt(charge.newBalance!)}`,
+        type: "success",
       });
     }
 
@@ -2109,11 +2126,16 @@ export const CargoForm = ({
                       onSelectWallet={(w) => setSelectedWalletOverride(w)}
                       currentCustomerName={consignee === 'Other' ? customConsignee : consignee}
                     />
-                    {activeWallet && parsedAmount > activeWallet.balance && (
-                      <div className="text-[11px] font-mono text-[var(--color-error)] bg-[rgba(239,68,68,0.08)] p-2.5 rounded-[var(--radius-sm)] border border-[rgba(239,68,68,0.2)] flex items-center justify-between">
-                        <span>Shortfall to collect via secondary mode:</span>
-                        <span className="font-bold text-[13px]">₦{fmt(parsedAmount - activeWallet.balance)}</span>
-                      </div>
+                    {activeWallet && activeWallet.balance < parsedAmount && (
+                      <WalletRemainderSelector
+                        walletName={activeWallet.customer_name}
+                        coverage={activeWallet.balance}
+                        remainder={parsedAmount - activeWallet.balance}
+                        mode={walletRemainderMode}
+                        bank={walletRemainderBank}
+                        onModeChange={setWalletRemainderMode}
+                        onBankChange={setWalletRemainderBank}
+                      />
                     )}
                   </div>
                 )}

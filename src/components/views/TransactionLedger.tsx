@@ -1008,6 +1008,7 @@ export const TransactionLedger = ({
       customerName,
       hubId: user.hub_id,
       loggedBy: user.name,
+      customerPhone: (retrievalModalEntry?.raw as any)?.consignee_phone,
     });
 
     if (!result.ok) {

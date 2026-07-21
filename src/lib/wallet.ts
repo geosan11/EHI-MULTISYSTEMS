@@ -68,6 +68,7 @@ export async function processCargoRetrieval(params: {
   hubId?: string;
   loggedBy: string;
   walletId?: string;
+  customerPhone?: string;
 }): Promise<RetrievalResult> {
   const { data, error } = await supabase.rpc('process_cargo_retrieval', {
     p_entry_ref: params.entryRef,
@@ -79,6 +80,7 @@ export async function processCargoRetrieval(params: {
     p_hub_id: params.hubId ?? null,
     p_logged_by: params.loggedBy,
     p_wallet_id: params.walletId ?? null,
+    p_customer_phone: params.customerPhone ?? null,
   });
 
   if (error) {
