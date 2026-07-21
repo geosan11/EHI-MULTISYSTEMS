@@ -10,7 +10,7 @@ import { User } from '../../lib/types';
 
 interface FraudAlert {
   id: string;
-  type: 'duplicate_awb' | 'unusual_amount' | 'debt_spike' | 'rapid_entries' | 'suspicious_pattern' | 'corporate_overcharge' | 'underpriced_leakage';
+  type: 'duplicate_awb' | 'unusual_amount' | 'debt_spike' | 'rapid_entries' | 'suspicious_pattern' | 'corporate_overcharge' | 'underpriced_leakage' | 'system_error';
   severity: 'low' | 'medium' | 'high' | 'critical';
   title: string;
   description: string;
@@ -51,21 +51,52 @@ export const FraudAlerts = ({
 
       try {
         // Rule 1: Duplicate AWB detection (last 24 hours)
-        const { data: cargoData } = await supabase
+        const { data: cargoData, error: cargoError } = await supabase
           .from('cargo_entries')
-          .select('id, hub_id, awb_tag_number, consignee_name, amount, route, total_kg, logged_by, created_at, receipt_mode')
+          .select('id, hub_id, awb_tag_number, consignee_name, amount, route, total_kg, entered_by, created_at, receipt_mode')
           .gte('created_at', last24h);
+        if (cargoError) {
+          liveAlerts.push({
+            id: 'FR-SYS-CARGOFETCH', type: 'system_error', severity: 'critical',
+            title: 'Fraud rule failed to run',
+            description: `The "Duplicate AWB / Unusual Amount / Corporate Pricing" checks could not query cargo_entries: ${cargoError.message}. Alerts below may be incomplete.`,
+            relatedId: '', time: 'Live', reviewed: false,
+          });
+        }
+
+        // One-time agent-name lookup, used to attribute alerts to whoever
+        // actually logged the entry -- cargo_entries.logged_by is a legacy
+        // text column left null on new rows; entered_by is the real agent
+        // UUID the app writes, resolved here to a display name.
+        const { data: profiles, error: profilesError } = await supabase
+          .from('user_profiles')
+          .select('id, name');
+        if (profilesError) {
+          liveAlerts.push({
+            id: 'FR-SYS-PROFILES', type: 'system_error', severity: 'critical',
+            title: 'Fraud rule failed to run',
+            description: `Agent-name lookup failed: ${profilesError.message}. Alert descriptions below may show raw agent IDs instead of names.`,
+            relatedId: '', time: 'Live', reviewed: false,
+          });
+        }
+        const profileLookup: Record<string, string> = {};
+        (profiles || []).forEach((p: any) => { profileLookup[p.id] = p.name; });
+        const agentName = (id?: string) => id ? (profileLookup[id] || id) : 'Unknown agent';
 
         if (cargoData && cargoData.length > 0) {
           const awbCounts: Record<string, number> = {};
+          const awbLastAgent: Record<string, string> = {};
           cargoData.forEach((e: any) => {
-            if (e.awb_tag_number) awbCounts[e.awb_tag_number] = (awbCounts[e.awb_tag_number] || 0) + 1;
+            if (e.awb_tag_number) {
+              awbCounts[e.awb_tag_number] = (awbCounts[e.awb_tag_number] || 0) + 1;
+              awbLastAgent[e.awb_tag_number] = e.entered_by;
+            }
           });
           Object.entries(awbCounts).filter(([_, c]) => c > 1).forEach(([awb, count]) => {
             liveAlerts.push({
               id: `FR-DUP-${awb}`, type: 'duplicate_awb', severity: 'critical',
               title: 'Duplicate Airway Bill Detected',
-              description: `AWB ${awb} was submitted ${count} times in the last 24 hours across stations.`,
+              description: `AWB ${awb} was submitted ${count} times in the last 24 hours across stations. Last logged by ${agentName(awbLastAgent[awb])}.`,
               relatedId: awb, time: 'Live', reviewed: false
             });
           });
@@ -78,17 +109,25 @@ export const FraudAlerts = ({
               liveAlerts.push({
                 id: `FR-AMT-${e.awb_tag_number || e.id}`, type: 'unusual_amount', severity: 'medium',
                 title: 'Unusual Cargo Amount',
-                description: `${e.consignee_name}: ${fmt(Number(e.amount))} is ${Math.round(Number(e.amount) / avg * 100)}% of average — significantly above the ₦${Math.round(avg).toLocaleString()} baseline.`,
+                description: `${e.consignee_name}: ${fmt(Number(e.amount))} is ${Math.round(Number(e.amount) / avg * 100)}% of average — significantly above the ₦${Math.round(avg).toLocaleString()} baseline. Logged by ${agentName(e.entered_by)}.`,
                 relatedId: e.awb_tag_number || '', time: 'Live', reviewed: false
               });
             });
           }
 
           // Rule 3: Rapid entries — any agent logging ≥8 entries in 15 minutes
-          const { data: recentData } = await supabase
+          const { data: recentData, error: recentError } = await supabase
             .from('cargo_entries')
             .select('entered_by, created_at')
             .gte('created_at', last15m);
+          if (recentError) {
+            liveAlerts.push({
+              id: 'FR-SYS-RAPID', type: 'system_error', severity: 'critical',
+              title: 'Fraud rule failed to run',
+              description: `The "Rapid Entry Velocity" check could not query the database: ${recentError.message}. Alerts below may be incomplete.`,
+              relatedId: '', time: 'Live', reviewed: false,
+            });
+          }
 
           if (recentData && recentData.length >= 8) {
             const byAgent: Record<string, number> = {};
@@ -100,16 +139,32 @@ export const FraudAlerts = ({
               liveAlerts.push({
                 id: `FR-RAPID-${agent.slice(0, 8)}`, type: 'rapid_entries', severity: 'high',
                 title: 'Rapid Entry Velocity Detected',
-                description: `Agent ID ${agent.slice(0, 8)}… logged ${count} cargo entries within 15 minutes. This may indicate bulk manipulation.`,
+                description: `${agentName(agent)} logged ${count} cargo entries within 15 minutes. This may indicate bulk manipulation.`,
                 relatedId: agent, time: 'Live', reviewed: false
               });
             });
           }
-          
+
           // Fetch corporate clients & rates for Rules 5 and 6
-          const { data: corpClients } = await supabase.from('corporate_clients').select('id, company_name');
-          const { data: corpRates } = await supabase.from('corporate_route_rates').select('corporate_client_id, route_name, rate_per_kg, minimum_amount');
-          
+          const { data: corpClients, error: corpClientsError } = await supabase.from('corporate_clients').select('id, company_name');
+          if (corpClientsError) {
+            liveAlerts.push({
+              id: 'FR-SYS-CORPCLIENTS', type: 'system_error', severity: 'critical',
+              title: 'Fraud rule failed to run',
+              description: `The "Corporate Overcharge / Underpriced Leakage" checks could not query corporate_clients: ${corpClientsError.message}. Alerts below may be incomplete.`,
+              relatedId: '', time: 'Live', reviewed: false,
+            });
+          }
+          const { data: corpRates, error: corpRatesError } = await supabase.from('corporate_route_rates').select('corporate_client_id, route_name, rate_per_kg, minimum_amount');
+          if (corpRatesError) {
+            liveAlerts.push({
+              id: 'FR-SYS-CORPRATES', type: 'system_error', severity: 'critical',
+              title: 'Fraud rule failed to run',
+              description: `The "Corporate Overcharge" check could not query corporate_route_rates: ${corpRatesError.message}. Alerts below may be incomplete.`,
+              relatedId: '', time: 'Live', reviewed: false,
+            });
+          }
+
           let standardRates: Record<string, number> = {};
           try {
             standardRates = JSON.parse(localStorage.getItem("ehi_standard_cargo_rates") || "{}");
@@ -170,12 +225,20 @@ export const FraudAlerts = ({
         // Can't date-bound this the way other rules are (old debt is still
         // real debt), so capped at 1000 most-recent rows instead of a truly
         // unbounded fetch that grows every month with no ceiling.
-        const { data: debtData } = await supabase
+        const { data: debtData, error: debtError } = await supabase
           .from('cargo_entries')
           .select('consignee_name, amount')
           .eq('receipt_mode', 'Debt')
           .order('created_at', { ascending: false })
           .limit(1000);
+        if (debtError) {
+          liveAlerts.push({
+            id: 'FR-SYS-DEBTSPIKE', type: 'system_error', severity: 'critical',
+            title: 'Fraud rule failed to run',
+            description: `The "Outstanding Debt Threshold" check could not query the database: ${debtError.message}. Alerts below may be incomplete.`,
+            relatedId: '', time: 'Live', reviewed: false,
+          });
+        }
 
         if (debtData && debtData.length > 0) {
           const debtByConsignee: Record<string, number> = {};
