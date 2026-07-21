@@ -404,6 +404,21 @@ export function getShiftBoundary(shiftHour: number = 18): { start: Date; end: Da
   return { start, end };
 }
 
+/**
+ * The business date in Africa/Lagos (UTC+1) as YYYY-MM-DD.
+ * NEVER use new Date().toISOString().slice(0,10) for business dates:
+ * between 00:00 and 00:59 Lagos time, UTC is still on the previous
+ * day, which mis-dates EOD locks and overwrites the prior day's
+ * locked record via the (hub_id, date) upsert. en-CA locale is used
+ * because it formats as YYYY-MM-DD natively.
+ */
+export function lagosBusinessDate(d: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Lagos',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(d);
+}
+
 // Formats a shift boundary as a human-readable label for display
 // in the EOD header and ledger shift selector.
 // e.g. "Thu 17 Jul 7:00 PM → Fri 18 Jul 7:00 PM"

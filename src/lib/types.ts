@@ -294,6 +294,7 @@ export interface Expense {
   description: string;
   time: string;
   created_at?: string;
+  hub_id?: string;
   status?: 'pending' | 'approved' | 'rejected';
   mode?: string;
   bank?: string;

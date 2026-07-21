@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { User, Transaction, Expense } from '../../lib/types';
-import { fmt, tnow, getShiftBoundary, formatShiftLabel } from '../../lib/helpers';
+import { fmt, tnow, getShiftBoundary, formatShiftLabel, lagosBusinessDate } from '../../lib/helpers';
 import { Check, AlertTriangle, Printer, Lock, ChevronRight } from 'lucide-react';
 import { BackButton } from '../BackButton';
 import { LoadingState } from './LoadingState';
@@ -19,7 +19,7 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
   const { showToast } = useToast();
   const [alreadyLocked, setAlreadyLocked] = useState<{ closed_by: string; created_at: string } | null>(null);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = lagosBusinessDate();
   const refreshLockBanner = () => {
     supabase
       .from('eod_locks')
@@ -50,18 +50,26 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
   const todaysTx = useMemo(() => {
     const { start, end } = shiftBoundary;
     return transactions.filter(t => {
+      // The transactions prop is STATE-WIDE (RLS returns every hub in the
+      // agent's state since the frontend hub filter was removed) -- EOD
+      // must reconcile ONE hub's drawer, so re-scope to this user's hub
+      // here. Entries with no hub_id (legacy/offline rows) are kept rather
+      // than silently dropped from the day's expected totals.
+      if (user.hub_id && t.hub_id && t.hub_id !== user.hub_id) return false;
       const d = t.created_at ? new Date(t.created_at) : new Date();
       return d >= start && d < end;
     });
-  }, [transactions, shiftBoundary]);
+  }, [transactions, shiftBoundary, user.hub_id]);
 
   const todaysExp = useMemo(() => {
     const { start, end } = shiftBoundary;
     return expenses.filter(e => {
+      // Same hub-scope guard as todaysTx above.
+      if (user.hub_id && e.hub_id && e.hub_id !== user.hub_id) return false;
       const d = e.created_at ? new Date(e.created_at) : new Date();
       return d >= start && d < end;
     });
-  }, [expenses, shiftBoundary]);
+  }, [expenses, shiftBoundary, user.hub_id]);
 
   // ── System Totals ──────────────────────────────────────────────────────────
   const expectedTotals = useMemo(() => {
@@ -118,9 +126,13 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
   // whole-number part instead -- "50000.5" would become "500005". Number()
   // is applied only where the value is actually used for math, never fed
   // back into what's displayed.
+  // Blind reconciliation: counted figures must be typed from the actual
+  // bank statement / POS terminal Z-report, never pre-filled with the
+  // system's expected value -- a pre-filled field guarantees a fake zero
+  // variance for anyone who taps Lock without editing it.
   const [countedCash, setCountedCash] = useState<string>('');
-  const [countedTransfer, setCountedTransfer] = useState<string>(String(expectedTotals.transferTotal));
-  const [countedPOS, setCountedPOS] = useState<string>(String(expectedTotals.posTotal));
+  const [countedTransfer, setCountedTransfer] = useState<string>('');
+  const [countedPOS, setCountedPOS] = useState<string>('');
 
   // Variances
   const cashVariance = (Number(countedCash) || 0) - expectedTotals.netExpectedCash;
@@ -155,7 +167,11 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
   };
 
   const generateEODData = () => ({
-    date: `${new Date().toLocaleDateString('en-GB')} ${tnow()}`,
+    // Stored/displayed date must reflect the Lagos business day, not
+    // whatever the browser's local timezone happens to compute (see
+    // lagosBusinessDate's comment) -- kept in the same DD/MM/YYYY display
+    // format used everywhere else in the app, just Lagos-correct.
+    date: `${new Date().toLocaleDateString('en-GB', { timeZone: 'Africa/Lagos' })} ${tnow()}`,
     hubName: user.hub,
     lockedBy: user.name,
     lockedAt: new Date().toLocaleTimeString('en-GB'),
@@ -213,8 +229,16 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
   const [showLockConfirm, setShowLockConfirm] = useState(false);
 
   const handleLockEOD = async () => {
+    // Defensive re-check: the step-2 NEXT button already blocks reaching
+    // this point with blank counts, but the wizard's steps are otherwise
+    // freely re-navigable, so this is the actual last line of defense
+    // against a fake zero-variance lock.
+    if (countedCash === '' || countedTransfer === '' || countedPOS === '') {
+      showToast({ message: 'Enter counted Transfer and POS figures from the bank statement / POS Z-report before locking.', type: 'warning' });
+      return;
+    }
     setIsGenerating(true);
-    const date = new Date().toISOString().split('T')[0];
+    const date = lagosBusinessDate();
 
     // Claim the lock FIRST as a real atomic INSERT against eod_locks'
     // UNIQUE(hub_id, date) constraint -- this is the actual concurrency
@@ -506,9 +530,9 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
       {!showDenoms && (
         <div className="flex gap-3">
           <button onClick={() => setStep(1)} className="ehi-btn-secondary ehi-btn">BACK</button>
-          <button 
-            onClick={() => setStep(3)} 
-            disabled={countedCash === ''}
+          <button
+            onClick={() => setStep(3)}
+            disabled={countedCash === '' || countedTransfer === '' || countedPOS === ''}
             className="flex-[2] h-12 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded font-bold font-mono disabled:opacity-50"
           >
             NEXT: RECONCILE

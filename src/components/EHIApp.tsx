@@ -521,6 +521,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             description: e.description,
             time: e.created_at,
             created_at: e.created_at,
+            hub_id: e.hub_id,
             status: e.status || 'pending',
             mode: e.mode || undefined,
             bank: e.bank || undefined,
@@ -1309,6 +1310,11 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
   }, [showToast, user.hub, user.hub_id, user.id, user.name]);
 
   const handleAddExpense = useCallback(async (expense: Expense) => {
+    // Callers (CargoForm/PackageForm/etc.) build the Expense object without
+    // a hub_id -- attach this device's hub here so EODReconciliation's
+    // hub-scoped filter sees this expense immediately, not just after the
+    // next full fetchInitial re-maps it from Supabase.
+    expense = { ...expense, hub_id: expense.hub_id || user.hub_id };
     setExpenses(prev => [expense, ...prev]);
     pendingExpenseRef.current.push(expense);
     const today = new Date().toISOString().split('T')[0];
