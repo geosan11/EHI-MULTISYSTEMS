@@ -76,10 +76,13 @@ const styles = StyleSheet.create({
   },
   leftCol: {
     flex: 1,
-    paddingRight: 8,
+    paddingRight: 6,
   },
   rightCol: {
-    width: 96,
+    // Widened from 96 -- the content description needs more horizontal
+    // room per line so it doesn't need as many wrapped lines to show in
+    // full (see contentValueUnderQr below).
+    width: 115,
     alignItems: "center",
     justifyContent: "flex-start",
   },
@@ -194,7 +197,11 @@ const styles = StyleSheet.create({
     marginBottom: 1.5,
   },
   contentValueUnderQr: {
-    fontSize: 11,
+    // Dropped from 11 -- smaller text + the wider rightCol above means the
+    // full (non-truncated) contents description wraps to 2-3 short lines
+    // instead of needing to be cut off, which was reading as suspicious/
+    // incomplete to FAAN inspection.
+    fontSize: 8.5,
     fontFamily: "Helvetica-Bold",
     fontWeight: "bold",
     color: "#000000",
@@ -291,7 +298,14 @@ const CargoTagPage = ({
 
         <View style={styles.contentUnderQr}>
           <Text style={styles.contentLabelUnderQr}>Content</Text>
-          <Text style={styles.contentValueUnderQr}>{truncateForTag(data.contentType || "—", 12)}</Text>
+          {/* Raised from 12 -- FAAN inspection needs to read the actual
+              contents description, not a "…"-truncated fragment. 60 covers
+              the real content-type list (see constants.ts CONTENT_TYPES)
+              and most free-text "Other" entries in full; only a genuinely
+              extreme custom description would still get cut, as a safety
+              net against overflowing this fixed-size page (wrap={false} on
+              CargoTagPage above). */}
+          <Text style={styles.contentValueUnderQr}>{truncateForTag(data.contentType || "—", 60)}</Text>
         </View>
       </View>
     </View>
