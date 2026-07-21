@@ -1396,7 +1396,25 @@ export const TransactionLedger = ({
                   {(['current', 'all'] as const).map((scope) => (
                     <button
                       key={scope}
-                      onClick={() => setShiftFilter(scope)}
+                      onClick={() => {
+                        setShiftFilter(scope);
+                        // "All Time" only ever lifted the shift-hour boundary on
+                        // whatever's already in `entries` -- it did nothing about
+                        // the calendar date range those entries were FETCHED with
+                        // (dateRange/onDateRangeChange, default: last 7 days from
+                        // EHIApp's globalDateRange). Clicking it looked broken --
+                        // anything older than the current date-picker window
+                        // stayed invisible no matter what. Widen the actual fetch
+                        // window here so "All Time" fetches genuinely old data too;
+                        // "Current Shift" doesn't need to touch it, since it only
+                        // narrows within what's already loaded.
+                        if (scope === 'all' && dateRange && onDateRangeChange) {
+                          onDateRangeChange({
+                            start: new Date(Date.now() - 5 * 365 * 86400000).toISOString().split('T')[0],
+                            end: new Date().toISOString().split('T')[0],
+                          });
+                        }
+                      }}
                       className={`h-8 px-2.5 rounded-lg text-[10px] font-mono font-bold transition-all border ${
                         shiftFilter === scope
                           ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] border-[var(--color-accent-amber)]'
