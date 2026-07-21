@@ -36,7 +36,17 @@ export default defineConfig(() => {
           // Dexie's sync queue already owns data offline-support; overlapping
           // caching strategies for the same requests would fight each other.
           globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
-          navigateFallbackDenylist: [/^\/api\//]
+          navigateFallbackDenylist: [/^\/api\//],
+          // Workbox's default cap is 2 MiB -- the main app-shell chunk has
+          // grown past that (2.1 MB as of this change) as views/features were
+          // added, and generateSW() *fails the whole build* (not just a
+          // warning) for any precached asset over the limit. Raised with
+          // headroom for continued growth rather than excluding the app
+          // shell from precaching, since offline-first is a core part of
+          // this app's design (see the Dexie sync queue this comment already
+          // references) -- the app shell is exactly what needs to be
+          // available offline, not something to drop from the cache.
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         }
       }),
     ],
