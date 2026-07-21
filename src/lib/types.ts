@@ -524,9 +524,18 @@ export interface WalletTransaction {
   created_at: string;
 }
 
+// One shift lifecycle per hub PER DEPARTMENT -- Cargo, Package, Marketing,
+// Baggage, and GAT each Start/End Day independently, all still shared by
+// every user working that department at that hub (hub_shifts has no
+// per-user scoping). 'all' is the pre-existing hub-wide shift used by the
+// unfiltered Master Ledger (More -> Ledger), kept as its own independent
+// lifecycle rather than merged with the five department ones.
+export type ShiftDepartment = 'cargo' | 'package' | 'marketing' | 'baggage' | 'gat' | 'all';
+
 export interface HubShift {
   id: string;
   hub_id: string;
+  department: ShiftDepartment;
   started_at: string;
   ended_at?: string;
   status: 'open' | 'closed';

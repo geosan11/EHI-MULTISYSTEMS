@@ -67,6 +67,7 @@ export const TransactionLedger = ({
   shifts,
   onStartShift,
   onEndShift,
+  shiftLabel,
 }: {
   user: User;
   transactions: Transaction[];
@@ -82,6 +83,13 @@ export const TransactionLedger = ({
   onDateRangeChange?: (range: { start: string; end: string }) => void;
   activeShift?: any;
   shifts?: any[];
+  // Human label for the Start/End Day controls below ("Cargo", "GAT", ...)
+  // -- shift management is now per-department (each stream has its own
+  // independent hub_shifts lifecycle), so the generic "Shift"/"Day" wording
+  // alone would be ambiguous when several departments can be open at once.
+  // Omitted entirely on the unfiltered Master Ledger, where the wording
+  // stays exactly as it was before departments existed.
+  shiftLabel?: string;
   onStartShift?: () => void;
   onEndShift?: () => void;
 }) => {
@@ -1317,16 +1325,18 @@ export const TransactionLedger = ({
               <span className={`w-2 h-2 rounded-full ${activeShift ? 'bg-[var(--color-success)] animate-pulse' : 'bg-[var(--color-muted)]'}`} />
               <span className="text-[11px] font-mono text-[var(--color-muted)] truncate">
                 {activeShift
-                  ? `Shift open · started ${new Date(activeShift.started_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`
-                  : 'No open shift'}
+                  ? `${shiftLabel ? shiftLabel + ' shift' : 'Shift'} open · started ${new Date(activeShift.started_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`
+                  : shiftLabel ? `No open ${shiftLabel} shift` : 'No open shift'}
               </span>
             </div>
             {!activeShift ? (
               <button
                 onClick={async () => {
                   const ok = await confirm({
-                    title: 'Start the Day?',
-                    message: "This will officially open the station's shift, tracking all new sales under this shift until you close it.",
+                    title: shiftLabel ? `Start ${shiftLabel} Day?` : 'Start the Day?',
+                    message: shiftLabel
+                      ? `This will open the ${shiftLabel} desk's shift, tracking all new ${shiftLabel} sales under this shift until you close it.`
+                      : "This will officially open the station's shift, tracking all new sales under this shift until you close it.",
                     confirmLabel: 'Yes, Start Day',
                     tone: 'default',
                   });
@@ -1340,8 +1350,10 @@ export const TransactionLedger = ({
               <button
                 onClick={async () => {
                   const ok = await confirm({
-                    title: 'End the Day?',
-                    message: 'This will close the current shift and generate the final sales analysis.',
+                    title: shiftLabel ? `End ${shiftLabel} Day?` : 'End the Day?',
+                    message: shiftLabel
+                      ? `This will close the ${shiftLabel} desk's current shift and generate its final sales analysis.`
+                      : 'This will close the current shift and generate the final sales analysis.',
                     confirmLabel: 'Yes, End Day',
                     tone: 'danger',
                   });

@@ -1121,7 +1121,14 @@ export const Analytics = ({
               <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-6">
                 <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--color-border)]">
                   <div>
-                    <h2 className="text-[16px] font-bold text-white mb-1">Shift Sales Details</h2>
+                    <h2 className="text-[16px] font-bold text-white mb-1 flex items-center gap-2">
+                      Shift Sales Details
+                      {selectedPastShift.department && selectedPastShift.department !== 'all' && (
+                        <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[rgba(59,130,246,0.3)]">
+                          {selectedPastShift.department}
+                        </span>
+                      )}
+                    </h2>
                     <div className="text-[12px] font-mono text-[var(--color-muted)]">
                       {new Date(selectedPastShift.started_at).toLocaleString()} — {new Date(selectedPastShift.ended_at).toLocaleString()}
                     </div>
@@ -1212,9 +1219,20 @@ export const Analytics = ({
                   className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-4 flex flex-col justify-between cursor-pointer hover:border-[var(--color-accent-amber)] transition-all"
                 >
                   <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2 mb-3">
-                    <span className="text-[12px] font-bold font-sans text-[var(--color-foreground)]">
-                      {new Date(s.started_at).toLocaleDateString()}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[12px] font-bold font-sans text-[var(--color-foreground)]">
+                        {new Date(s.started_at).toLocaleDateString()}
+                      </span>
+                      {/* Each department (Cargo/Package/Marketing/Baggage/GAT)
+                          now Starts/Ends its own shift independently, so this
+                          list can hold several open-at-once departments for
+                          the same hub/day -- the badge is what tells them apart. */}
+                      {s.department && s.department !== 'all' && (
+                        <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[rgba(59,130,246,0.3)]">
+                          {s.department}
+                        </span>
+                      )}
+                    </div>
                     <span className="text-[10px] font-mono bg-[var(--color-surface-2)] px-2 py-0.5 rounded text-[var(--color-muted)]">
                       {new Date(s.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(s.ended_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>

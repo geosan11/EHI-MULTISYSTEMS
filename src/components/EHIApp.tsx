@@ -1,6 +1,6 @@
 import { useState, useEffect, lazy, Suspense, useRef, useCallback, memo, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { User, TabView, Transaction, Expense, ExcessBaggageAirline, CustomerWallet, HubShift } from '../lib/types';
+import { User, TabView, Transaction, Expense, ExcessBaggageAirline, CustomerWallet, HubShift, ShiftDepartment } from '../lib/types';
 import { processSyncQueue, writeWithOfflineSupport, cleanupOldQueue, getUnsyncedLocalTransactions } from '../lib/sync';
 import { db } from '../lib/db';
 import Dexie from 'dexie';
@@ -213,13 +213,23 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
   // Global Customer Wallets state and real-time synchronization
   const [customerWallets, setCustomerWallets] = useState<CustomerWallet[]>([]);
-  const [activeShift, setActiveShift] = useState<HubShift | null>(null);
   // Every shift touched in the last 24h (open or closed), not just the
   // single open one -- lets the ledger render both "Day started" and
-  // "Day ended" markers, and survives a reload (unlike keeping only the
-  // in-memory activeShift, which is set back to null the moment a shift
+  // "Day ended" markers, and survives a reload (unlike keeping only an
+  // in-memory "active shift", which would be lost the moment a shift
   // closes and would otherwise erase all trace it ever happened).
   const [todayShifts, setTodayShifts] = useState<HubShift[]>([]);
+  // Derived, not separate state -- each department (Cargo, Package,
+  // Marketing, Baggage, GAT, plus 'all' for the unfiltered Master Ledger)
+  // can have its own open shift simultaneously, so "the active shift" is a
+  // map, not a single value. Recomputes automatically whenever todayShifts
+  // changes (fetch, Start/End Day, or the realtime hub_shifts channel
+  // below), so there's nothing extra to keep in sync by hand.
+  const activeShiftsByDept = useMemo(() => {
+    const map: Partial<Record<ShiftDepartment, HubShift>> = {};
+    for (const s of todayShifts) if (s.status === 'open') map[s.department] = s;
+    return map;
+  }, [todayShifts]);
 
   useEffect(() => {
     let active = true;
@@ -326,7 +336,6 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
         if (fetchEpochRef.current !== myEpoch) return;
         setTodayShifts(shifts);
-        setActiveShift(shifts.find(s => s.status === 'open') || null);
 
         const profileLookup: Record<string, string> = {};
         if (profilesRes.data) {
@@ -547,15 +556,27 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       }
   }, [globalDateRange, user.role, user.hub_id]);
 
-  const handleStartShift = useCallback(async () => {
+  // Maps a shift department to the Transaction.type(s) its sales_summary
+  // should be computed from at End Day. 'all' (the Master Ledger's
+  // hub-wide shift) keeps summing every type, unchanged from before this
+  // department split. 'gat' isn't a Transaction.type at all -- it's cargo
+  // and package rows tagged terminal='GAT' (see TerminalSwitch.tsx).
+  const shiftDeptMatchesTx = useCallback((department: ShiftDepartment, t: Transaction): boolean => {
+    if (department === 'all') return true;
+    if (department === 'gat') return (t.type === 'cargo' || t.type === 'package') && (t as any).terminal === 'GAT';
+    return t.type === department;
+  }, []);
+
+  const handleStartShift = useCallback(async (department: ShiftDepartment) => {
     if (!user.hub_id) return;
     // Client-side guard against the common case (double-click, a stale
-    // activeShift the user forgot to close). The real guard is the partial
-    // unique index on hub_shifts(hub_id) WHERE status = 'open'
-    // (20260818_explicit_shifts.sql) -- this just gives a friendly message
-    // instead of a raw constraint-violation error for the race case.
-    if (activeShift) {
-      showToast({ message: 'A shift is already open for your hub.', type: 'warning' });
+    // shift the user forgot to close). The real guard is the partial
+    // unique index on hub_shifts(hub_id, department) WHERE status = 'open'
+    // (20260818_explicit_shifts.sql, 20260833_department_scoped_shifts.sql)
+    // -- this just gives a friendly message instead of a raw
+    // constraint-violation error for the race case.
+    if (activeShiftsByDept[department]) {
+      showToast({ message: `A ${department === 'all' ? '' : department + ' '}shift is already open for your hub.`, type: 'warning' });
       return;
     }
     try {
@@ -563,6 +584,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         .from('hub_shifts')
         .insert({
           hub_id: user.hub_id,
+          department,
           opened_by: user.name,
         })
         .select()
@@ -570,7 +592,6 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
       if (error) throw error;
       const newShift = data as HubShift;
-      setActiveShift(newShift);
       setTodayShifts(prev => [newShift, ...prev]);
       showToast({ message: 'Shift started successfully!', type: 'success' });
     } catch (e: any) {
@@ -580,19 +601,22 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         : `Failed to start shift: ${e.message}`;
       showToast({ message, type: 'error' });
     }
-  }, [activeShift, user.hub_id, user.name, showToast]);
+  }, [activeShiftsByDept, user.hub_id, user.name, showToast]);
 
-  const handleEndShift = useCallback(async () => {
-    if (!activeShift) return;
+  const handleEndShift = useCallback(async (department: ShiftDepartment) => {
+    const shift = activeShiftsByDept[department];
+    if (!shift) return;
     try {
-      // Calculate sales summary since shift start, scoped to THIS hub only.
-      // transactionsRef.current can legitimately contain sibling-hub rows
-      // now (see addHubFilter above, removed in favor of state-wide RLS
-      // visibility) -- without the hub_id check, closing a shift at one
-      // hub could roll another hub's sales into this hub's locked snapshot.
+      // Calculate sales summary since shift start, scoped to THIS hub AND
+      // this department only. transactionsRef.current can legitimately
+      // contain sibling-hub rows now (see addHubFilter above, removed in
+      // favor of state-wide RLS visibility) -- without the hub_id check,
+      // closing a shift at one hub could roll another hub's sales into
+      // this hub's locked snapshot.
       const shiftTx = transactionsRef.current.filter(t =>
-        t.hub_id === activeShift.hub_id &&
-        new Date(t.created_at || t.time) >= new Date(activeShift.started_at)
+        t.hub_id === shift.hub_id &&
+        new Date(t.created_at || t.time) >= new Date(shift.started_at) &&
+        shiftDeptMatchesTx(department, t)
       );
 
       const salesSummary = {
@@ -619,19 +643,18 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           closed_by: user.name,
           sales_summary: salesSummary
         })
-        .eq('id', activeShift.id)
+        .eq('id', shift.id)
         .select()
         .single();
 
       if (error) throw error;
       const closedShift = data as HubShift;
-      setActiveShift(null);
       setTodayShifts(prev => prev.map(s => s.id === closedShift.id ? closedShift : s));
       showToast({ message: 'Shift ended and sales summary generated!', type: 'success' });
     } catch (e: any) {
       showToast({ message: `Failed to end shift: ${e.message}`, type: 'error' });
     }
-  }, [activeShift, user.name, showToast]);
+  }, [activeShiftsByDept, user.name, shiftDeptMatchesTx, showToast]);
 
   const handleForceSync = useCallback(async () => {
     setIsOffline(false);
@@ -889,7 +912,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     // does .eq('hub_id', user.hub_id) unconditionally, unlike the
     // admin-sees-everything cargo/baggage/marketing channels above) --
     // matched here so a shift started/ended on another device/tab for this
-    // hub updates activeShift/todayShifts immediately instead of waiting
+    // hub updates todayShifts (and, via activeShiftsByDept, every
+    // department's derived active shift) immediately instead of waiting
     // for the next full fetchInitial (tab switch, date change, or the 60s
     // sync interval).
     const shiftsChannel = user.hub_id ? supabase
@@ -899,7 +923,6 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         payload => {
           const r = payload.new as HubShift;
           setTodayShifts(prev => prev.some(s => s.id === r.id) ? prev : [r, ...prev]);
-          if (r.status === 'open') setActiveShift(r);
         }
       )
       .on('postgres_changes',
@@ -907,7 +930,6 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         payload => {
           const r = payload.new as HubShift;
           setTodayShifts(prev => prev.map(s => s.id === r.id ? r : s));
-          setActiveShift(prev => (prev && prev.id === r.id) ? (r.status === 'open' ? r : null) : prev);
         }
       )
       .subscribe() : null;
@@ -1380,6 +1402,19 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     }
   }, [user.name, showToast]);
 
+  // Which department's shift this per-tab History overlay Start/End Day
+  // control (and current-shift boundary) should track -- GAT's scope
+  // spans two Transaction types but is its own single department.
+  const streamLedgerDepartment: ShiftDepartment | null = useMemo(() => {
+    if (!streamLedger) return null;
+    if (streamLedger.terminal === 'GAT') return 'gat';
+    return streamLedger.streams.length === 1 ? streamLedger.streams[0] : 'all';
+  }, [streamLedger]);
+
+  const STREAM_LEDGER_DEPT_LABEL: Record<Exclude<ShiftDepartment, 'all'>, string> = {
+    cargo: 'Cargo', package: 'Package', marketing: 'Marketing', baggage: 'Baggage', gat: 'GAT',
+  };
+
   const filteredLedgerTransactions = useMemo(() => {
     if (!streamLedger) return [];
     return transactions.filter(t => {
@@ -1560,10 +1595,10 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                    onDateRangeChange={setGlobalDateRange}
                    onEOD={handleEOD}
                    excessBaggageAirlines={excessBaggageAirlines}
-                   activeShift={activeShift}
-                   todayShifts={todayShifts}
-                   onStartShift={handleStartShift}
-                   onEndShift={handleEndShift}
+                   activeShift={activeShiftsByDept['all'] || null}
+                   todayShifts={todayShifts.filter(s => s.department === 'all')}
+                   onStartShift={() => handleStartShift('all')}
+                   onEndShift={() => handleEndShift('all')}
                 />
               )}
             </ErrorBoundary>
@@ -1588,8 +1623,11 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             viewOnly={user.role !== 'super_admin' && !user.can_print_ledger}
             dateRange={globalDateRange}
             onDateRangeChange={setGlobalDateRange}
-            activeShift={activeShift}
-            shifts={todayShifts}
+            activeShift={streamLedgerDepartment ? (activeShiftsByDept[streamLedgerDepartment] || null) : null}
+            shifts={streamLedgerDepartment ? todayShifts.filter(s => s.department === streamLedgerDepartment) : []}
+            onStartShift={streamLedgerDepartment ? () => handleStartShift(streamLedgerDepartment) : undefined}
+            onEndShift={streamLedgerDepartment ? () => handleEndShift(streamLedgerDepartment) : undefined}
+            shiftLabel={streamLedgerDepartment && streamLedgerDepartment !== 'all' ? STREAM_LEDGER_DEPT_LABEL[streamLedgerDepartment] : undefined}
           />
         </div>
       )}
