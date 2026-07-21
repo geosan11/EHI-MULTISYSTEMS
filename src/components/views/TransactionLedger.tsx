@@ -1274,7 +1274,7 @@ export const TransactionLedger = ({
               <span className={`w-2 h-2 rounded-full ${activeShift ? 'bg-[var(--color-success)] animate-pulse' : 'bg-[var(--color-muted)]'}`} />
               <span className="text-[11px] font-mono text-[var(--color-muted)] truncate">
                 {activeShift
-                  ? `Shift open · started ${new Date(activeShift.started_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+                  ? `Shift open · started ${new Date(activeShift.started_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`
                   : 'No open shift'}
               </span>
             </div>
