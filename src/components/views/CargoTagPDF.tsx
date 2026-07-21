@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   dateText: {
-    fontSize: 7.5,
+    fontSize: 10,
     fontFamily: "Helvetica-Bold",
     fontWeight: "bold",
     color: "#000000",
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   pieceBadgeText: {
-    fontSize: 8,
+    fontSize: 11,
     fontFamily: "Helvetica-Bold",
     color: "#000000",
   },
