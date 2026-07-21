@@ -22,6 +22,7 @@ import { More as MoreRaw } from './views/More';
 import { TransactionLedger as TransactionLedgerRaw } from './views/TransactionLedger';
 import { MarketingWorkspace as MarketingWorkspaceRaw } from './views/MarketingWorkspace';
 import { PackageForm as PackageFormRaw } from './views/PackageForm';
+import { GatWorkspace as GatWorkspaceRaw } from './views/GatWorkspace';
 import { Scanner as ScannerRaw } from './views/Scanner';
 import { IncomingToHub as IncomingToHubRaw } from './views/IncomingToHub';
 import { OutboundArrivals as OutboundArrivalsRaw } from './views/OutboundArrivals';
@@ -47,6 +48,7 @@ const More = memo(MoreRaw);
 const TransactionLedger = memo(TransactionLedgerRaw);
 const MarketingWorkspace = memo(MarketingWorkspaceRaw);
 const PackageForm = memo(PackageFormRaw);
+const GatWorkspace = memo(GatWorkspaceRaw);
 const Scanner = memo(ScannerRaw);
 const IncomingToHub = memo(IncomingToHubRaw);
 const OutboundArrivals = memo(OutboundArrivalsRaw);
@@ -82,6 +84,7 @@ const TAB_PATHS: Partial<Record<TabView, string>> = {
   'AirlineLedger':      '/airline-ledger',
   'WeightManifest':     '/weight-manifest',
   'AirlinePerformance': '/airline-performance',
+  'GAT':                '/gat',
   // Baggage:{name} and More:{name} are handled by prefix -- see tabToPath/pathToTab below.
 };
 
@@ -706,6 +709,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       currentTab === 'Cargo' ||
       currentTab === 'Marketing' ||
       currentTab === 'Packages' ||
+      currentTab === 'GAT' ||
       currentTab.startsWith('Baggage:') ||
       ['Tower', 'Scan', 'More'].includes(currentTab);
 
@@ -725,7 +729,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
     if (isAdmin) {
       const isAggregateView = ['Tower', 'Scan', 'More'].includes(currentTab);
-      needsCargo = isAggregateView || currentTab === 'Cargo';
+      needsCargo = isAggregateView || currentTab === 'Cargo' || currentTab === 'GAT';
       needsBaggage = isAggregateView || currentTab.startsWith('Baggage:');
       needsMarketing = isAggregateView || currentTab === 'Marketing';
     }
@@ -1489,6 +1493,17 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               )}
               {currentTab === 'Packages' && (
                 <PackageForm
+                  user={user}
+                  transactions={transactions}
+                  expenses={expenses}
+                  onAddTx={handleAddTx}
+                  onAddExpense={handleAddExpense}
+                  customerWallets={customerWallets}
+                  setCustomerWallets={setCustomerWallets}
+                />
+              )}
+              {currentTab === 'GAT' && (
+                <GatWorkspace
                   user={user}
                   transactions={transactions}
                   expenses={expenses}

@@ -313,7 +313,7 @@ export interface Expense {
 // them TabView ids lets the same view_overrides permission system used for
 // top-level tabs also cover them, instead of those screens being gated by
 // hardcoded role checks nobody but a code change could ever customize.
-export type TabView = 'Tower' | 'Cargo' | `Baggage:${string}` | `More:${string}` | 'Marketing' | 'Packages' | 'Scan' | 'Incoming' | 'IncomingToHub' | 'OutboundArrivals' | 'More' | 'MyTrips' | 'IT Debug' | 'Credit & Debit' | 'AirlineLogos' | 'DataImport' | 'AirlineLedger' | 'WeightManifest' | 'AirlinePerformance';
+export type TabView = 'Tower' | 'Cargo' | `Baggage:${string}` | `More:${string}` | 'Marketing' | 'Packages' | 'Scan' | 'Incoming' | 'IncomingToHub' | 'OutboundArrivals' | 'More' | 'MyTrips' | 'IT Debug' | 'Credit & Debit' | 'AirlineLogos' | 'DataImport' | 'AirlineLedger' | 'WeightManifest' | 'AirlinePerformance' | 'GAT';
 
 export interface AppState {
   user: User | null;

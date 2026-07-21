@@ -1,13 +1,16 @@
 import { User, TabView } from '../lib/types';
-import { HouseIcon, PackageIcon, TrendUpIcon, AirplaneIcon, QrCodeIcon, DotsThreeIcon, TruckIcon } from '@phosphor-icons/react';
+import { getHubCode } from '../lib/helpers';
+import { HouseIcon, PackageIcon, TrendUpIcon, AirplaneIcon, QrCodeIcon, DotsThreeIcon, TruckIcon, BuildingIcon } from '@phosphor-icons/react';
 
 const VIEW_ICON: Record<string, any> = {
   Tower: HouseIcon, Cargo: PackageIcon, Marketing: TrendUpIcon, Packages: PackageIcon,
   Scan: QrCodeIcon, Incoming: PackageIcon, OutboundArrivals: PackageIcon, MyTrips: TruckIcon, More: DotsThreeIcon,
+  GAT: BuildingIcon,
 };
 const VIEW_TITLE: Record<string, string> = {
   Tower: 'Dashboard', Cargo: 'Cargo', Marketing: 'Marketing', Packages: 'Packages',
   Scan: 'Scanner', Incoming: 'Incoming', OutboundArrivals: 'Outbound Arrivals', MyTrips: 'My Trips', More: 'More',
+  GAT: 'GAT',
 };
 
 export const BottomNav = ({ user, currentTab, onChangeTab }: {
@@ -19,15 +22,22 @@ export const BottomNav = ({ user, currentTab, onChangeTab }: {
   // present, show everything in it (no 5-item curation: the admin picked
   // this set deliberately for this specific person) instead of the normal
   // per-role curated set below.
+  const userHubCode = getHubCode(user.hub_code || user.hub);
+
   if (user.view_overrides != null) {
-    const overrideTabs = user.view_overrides.map((id) => {
-      const isBaggage = id.startsWith('Baggage:');
-      return {
-        id: id as TabView,
-        title: isBaggage ? id.slice('Baggage:'.length) : (VIEW_TITLE[id] || id),
-        icon: isBaggage ? AirplaneIcon : (VIEW_ICON[id] || DotsThreeIcon),
-      };
-    });
+    const overrideTabs = user.view_overrides
+      // GAT (General Aviation Terminal / MM1) is a Lagos-only physical
+      // counter -- even an explicit per-user override shouldn't surface it
+      // to someone stationed at a different hub.
+      .filter((id) => id !== 'GAT' || userHubCode === 'LOS')
+      .map((id) => {
+        const isBaggage = id.startsWith('Baggage:');
+        return {
+          id: id as TabView,
+          title: isBaggage ? id.slice('Baggage:'.length) : (VIEW_TITLE[id] || id),
+          icon: isBaggage ? AirplaneIcon : (VIEW_ICON[id] || DotsThreeIcon),
+        };
+      });
     return <BottomNavTabs tabs={overrideTabs} currentTab={currentTab} onChangeTab={onChangeTab} />;
   }
 
@@ -35,6 +45,7 @@ export const BottomNav = ({ user, currentTab, onChangeTab }: {
   const getTabsForRole = (role: string) => {
     const home   = { id: 'Tower' as TabView, title: 'Dashboard', icon: HouseIcon };
     const cargo  = { id: 'Cargo' as TabView, title: 'Cargo', icon: PackageIcon };
+    const gat    = { id: 'GAT' as TabView, title: 'GAT', icon: BuildingIcon };
     const mkt    = { id: 'Marketing' as TabView, title: 'Marketing', icon: TrendUpIcon };
     const baggage = { id: `Baggage:${user.assigned_airline || ''}` as TabView, title: user.assigned_airline || 'Baggage', icon: AirplaneIcon };
     const scan   = { id: 'Scan' as TabView, title: 'Scanner', icon: QrCodeIcon };
@@ -44,11 +55,11 @@ export const BottomNav = ({ user, currentTab, onChangeTab }: {
     switch (role) {
       case 'super_admin':
         // All revenue streams visible — Baggage airlines accessible via More
-        return [home, cargo, mkt, scan, more];
+        return [home, cargo, gat, mkt, scan, more];
       case 'admin':
-        return [home, cargo, mkt, scan, more];
+        return [home, cargo, gat, mkt, scan, more];
       case 'cargo_agent':
-        return [home, cargo, scan, more];
+        return [home, cargo, gat, scan, more];
       case 'baggage_agent':
         // No assigned airline yet (e.g. a bulk-imported account awaiting
         // setup) -- omit the tab rather than link to a dead `Baggage:`
@@ -63,14 +74,18 @@ export const BottomNav = ({ user, currentTab, onChangeTab }: {
       case 'auditor':
         return [home, scan, more];
       case 'office_work':
-        return [cargo, mkt, scan, more];
+        return [cargo, gat, mkt, scan, more];
       default:
         return [home, scan, more];
     }
   };
 
   const tabs = getTabsForRole(user.role);
-  return <BottomNavTabs tabs={tabs} currentTab={currentTab} onChangeTab={onChangeTab} />;
+  // GAT is a second physical Lagos counter, not a separate hub -- only
+  // relevant to users actually stationed at the Lagos hub, regardless of
+  // role.
+  const finalTabs = userHubCode === 'LOS' ? tabs : tabs.filter((t) => t.id !== 'GAT');
+  return <BottomNavTabs tabs={finalTabs} currentTab={currentTab} onChangeTab={onChangeTab} />;
 };
 
 type NavTab = { id: TabView; title: string; icon: any };

@@ -31,6 +31,11 @@ const MORE_TAB_ROLES: UserRole[] = ['super_admin', 'admin', 'accountant', 'audit
 export const STATIC_VIEWS: ViewDef[] = [
   { id: 'Tower', label: 'Dashboard', roles: ['super_admin', 'admin', 'cargo_agent', 'baggage_agent', 'marketing_agent', 'accountant', 'auditor'] },
   { id: 'Cargo', label: 'Cargo Entry', roles: ['super_admin', 'admin', 'cargo_agent', 'office_work'] },
+  // GAT (General Aviation Terminal / MM1) is a second physical Lagos
+  // counter, not a new hub -- same roles as Cargo (anyone who can log a
+  // Lagos sale can work at GAT), further gated to LOS-hub users only inside
+  // BottomNav.tsx (this list has no hub concept to filter on).
+  { id: 'GAT', label: 'GAT Terminal', roles: ['super_admin', 'admin', 'cargo_agent', 'office_work'] },
   { id: 'Marketing', label: 'Marketing', roles: ['super_admin', 'admin', 'marketing_agent', 'office_work'] },
   { id: 'Packages', label: 'Package Desk', roles: ['super_admin', 'admin', 'cargo_agent', 'marketing_agent', 'office_work'] },
   { id: 'Scan', label: 'QR Scanner', roles: ['super_admin', 'admin', 'cargo_agent', 'baggage_agent', 'marketing_agent', 'accountant', 'auditor', 'driver', 'office_work'] },

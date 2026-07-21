@@ -133,6 +133,7 @@ export const CargoForm = ({
   onShowHistory,
   customerWallets: passedWallets,
   setCustomerWallets: passedSetWallets,
+  forcedTerminal,
 }: {
   onAddTx: (tx: Transaction) => void;
   user: User;
@@ -140,6 +141,10 @@ export const CargoForm = ({
   onShowHistory?: () => void;
   customerWallets?: CustomerWallet[];
   setCustomerWallets?: React.Dispatch<React.SetStateAction<CustomerWallet[]>>;
+  // Set by GatWorkspace.tsx to pin this form's terminal to 'GAT' for as
+  // long as it's mounted there -- being in the GAT tab IS the switch, so
+  // no override control is shown (see the TerminalSwitch render below).
+  forcedTerminal?: 'MMA2' | 'GAT';
 }) => {
   const isAdmin = ['super_admin', 'admin', 'accountant'].includes(propUser.role);
   const [adminSelectedHub, setAdminSelectedHub] = useState(propUser.hub_id || 'LOS/Lagos');
@@ -148,7 +153,7 @@ export const CargoForm = ({
   // not a new hub -- only show the switch to LOS-hub agents, same hub-code
   // derivation the AWB tag pool already uses below.
   const userHubCode = getHubCode(user.hub_code || user.hub);
-  const [terminal, setTerminal] = usePersistedTerminal();
+  const [terminal, setTerminal] = usePersistedTerminal(forcedTerminal);
 
   // Navigation tabs between Regular & Corporate Billing
   const [activePortal, setActivePortal] = useState<"retail" | "corporate">(
@@ -1746,7 +1751,7 @@ export const CargoForm = ({
       )}
 
       <div className="flex items-center justify-end gap-2 mb-3">
-        {userHubCode === 'LOS' && <TerminalSwitch value={terminal} onChange={setTerminal} />}
+        {userHubCode === 'LOS' && !forcedTerminal && <TerminalSwitch value={terminal} onChange={setTerminal} />}
         <button
           onClick={() => setShowCloseModal(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-surface-2)] border border-[var(--color-border-strong)] rounded-lg text-[11px] font-mono font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-surface-3)] hover:border-[var(--color-accent-amber)] hover:text-[var(--color-accent-amber)] transition-colors shadow-[var(--shadow-xs)]"
