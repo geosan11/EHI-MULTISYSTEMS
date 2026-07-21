@@ -59,6 +59,7 @@ export const TransactionLedger = ({
   onBack,
   onUpdateTx,
   defaultTypeFilter,
+  defaultTerminalFilter,
   viewOnly = false,
   dateRange,
   onDateRangeChange,
@@ -72,7 +73,10 @@ export const TransactionLedger = ({
   expenses?: Expense[];
   onBack: () => void;
   onUpdateTx: (tx: Transaction) => void;
-  defaultTypeFilter?: 'cargo' | 'baggage' | 'marketing' | null;
+  defaultTypeFilter?: 'cargo' | 'baggage' | 'marketing' | 'package' | null;
+  // Seeds the terminal filter chip -- used by the GAT tab's History button,
+  // where defaultTypeFilter can't express "cargo AND package" alone.
+  defaultTerminalFilter?: 'MMA2' | 'GAT';
   viewOnly?: boolean;
   dateRange?: { start: string; end: string };
   onDateRangeChange?: (range: { start: string; end: string }) => void;
@@ -115,7 +119,7 @@ export const TransactionLedger = ({
   // GAT (General Aviation Terminal / MM1) is a second physical Lagos
   // counter tagged on cargo/package entries, not a separate hub -- see
   // TerminalSwitch.tsx.
-  const [terminalFilter, setTerminalFilter] = useState<'All' | 'MMA2' | 'GAT'>('All');
+  const [terminalFilter, setTerminalFilter] = useState<'All' | 'MMA2' | 'GAT'>(defaultTerminalFilter || 'All');
   const [timeFilter, setTimeFilter] = useState<"All" | "Morning" | "Afternoon" | "Evening" | "Custom">("All");
   const [timeStart, setTimeStart] = useState("");
   const [timeEnd, setTimeEnd] = useState("");
@@ -206,8 +210,20 @@ export const TransactionLedger = ({
       // after that instant from "Current Shift" until the shift closes.
       return { start: new Date(activeShift.started_at), end: null };
     }
+    // No shift open right now -- fall back to the most recently closed one
+    // (by ended_at, or started_at for a still-forming record) rather than
+    // the generic shift_start_hour cutoff, so "Current Shift" still means
+    // an actual explicit shift wherever this hub has shift history.
+    if (shifts && shifts.length > 0) {
+      const mostRecent = [...shifts].sort((a: any, b: any) =>
+        (b.ended_at || b.started_at).localeCompare(a.ended_at || a.started_at)
+      )[0];
+      if (mostRecent?.started_at) {
+        return { start: new Date(mostRecent.started_at), end: mostRecent.ended_at ? new Date(mostRecent.ended_at) : null };
+      }
+    }
     return getShiftBoundary(shiftHour);
-  }, [shiftHour, activeShift]);
+  }, [shiftHour, activeShift, shifts]);
 
   const entries = useMemo(() => {
     const list: Entry[] = [
@@ -1209,6 +1225,8 @@ export const TransactionLedger = ({
                 {defaultTypeFilter === 'cargo' ? 'Cargo Ledger'
                  : defaultTypeFilter === 'baggage' ? 'Excess Baggage Ledger'
                  : defaultTypeFilter === 'marketing' ? 'Marketing Ledger'
+                 : defaultTypeFilter === 'package' ? 'Package Ledger'
+                 : defaultTerminalFilter === 'GAT' ? 'GAT Ledger'
                  : 'Master Ledger'}
               </div>
               <div className="text-[10px] font-mono text-[var(--color-muted)] leading-tight mt-0.5">
@@ -1489,6 +1507,7 @@ export const TransactionLedger = ({
                     <option value="Cargo">Cargo</option>
                     <option value="Baggage">Baggage</option>
                     <option value="Marketing">Marketing</option>
+                    <option value="Package">Package</option>
                     <option value="Expense">Expense</option>
                     <option value="Office Work">Office Work</option>
                   </select>

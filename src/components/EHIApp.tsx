@@ -165,7 +165,13 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       localStorage.setItem(CURRENT_TAB_KEY(user.id), currentTab);
     } catch { /* ignore -- non-fatal, just won't restore next time */ }
   }, [currentTab, user.id]);
-  const [streamLedger, setStreamLedger] = useState<'cargo' | 'baggage' | 'marketing' | null>(null);
+  // GAT needs a two-dimensional filter (both cargo AND package streams,
+  // scoped to the GAT terminal tag) -- every other per-tab History button
+  // needs just one stream and no terminal scope.
+  type StreamLedgerScope =
+    | { streams: ('cargo' | 'baggage' | 'marketing' | 'package')[]; terminal?: 'MMA2' | 'GAT' }
+    | null;
+  const [streamLedger, setStreamLedger] = useState<StreamLedgerScope>(null);
   const [globalDateRange, setGlobalDateRange] = useState({
     start: new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0]
@@ -1340,9 +1346,15 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     });
   }, [pendingSyncCount, showToast]);
 
-  const handleShowCargoHistory = useCallback(() => setStreamLedger('cargo'), []);
-  const handleShowMarketingHistory = useCallback(() => setStreamLedger('marketing'), []);
-  const handleShowBaggageHistory = useCallback(() => setStreamLedger('baggage'), []);
+  const handleShowCargoHistory = useCallback(() => setStreamLedger({ streams: ['cargo'] }), []);
+  const handleShowMarketingHistory = useCallback(() => setStreamLedger({ streams: ['marketing'] }), []);
+  const handleShowBaggageHistory = useCallback(() => setStreamLedger({ streams: ['baggage'] }), []);
+  const handleShowPackageHistory = useCallback(() => setStreamLedger({ streams: ['package'] }), []);
+  // Only cargo/package entries ever carry a terminal tag -- filtering by
+  // terminal='GAT' alone (typeFilter left at 'All' downstream) already
+  // excludes marketing/baggage, which default to 'MMA2' when untagged. The
+  // explicit streams list here is a belt-and-braces match on top of that.
+  const handleShowGatHistory = useCallback(() => setStreamLedger({ streams: ['cargo', 'package'], terminal: 'GAT' }), []);
   const handleCloseLedger = useCallback(() => setStreamLedger(null), []);
   const handleEOD = useCallback(async (summary: { 
     hub: string; hub_id: string; date: string; 
@@ -1370,7 +1382,14 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
   const filteredLedgerTransactions = useMemo(() => {
     if (!streamLedger) return [];
-    return transactions.filter(t => t.type === streamLedger);
+    return transactions.filter(t => {
+      if (!streamLedger.streams.includes(t.type as any)) return false;
+      if (streamLedger.terminal) {
+        const rowTerminal = (t as any).raw?.terminal ?? (t as any).terminal ?? 'MMA2';
+        if (rowTerminal !== streamLedger.terminal) return false;
+      }
+      return true;
+    });
   }, [transactions, streamLedger]);
 
   return (
@@ -1498,6 +1517,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                   expenses={expenses}
                   onAddTx={handleAddTx}
                   onAddExpense={handleAddExpense}
+                  onShowHistory={handleShowPackageHistory}
                   customerWallets={customerWallets}
                   setCustomerWallets={setCustomerWallets}
                 />
@@ -1509,6 +1529,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                   expenses={expenses}
                   onAddTx={handleAddTx}
                   onAddExpense={handleAddExpense}
+                  onShowHistory={handleShowGatHistory}
                   customerWallets={customerWallets}
                   setCustomerWallets={setCustomerWallets}
                 />
@@ -1562,10 +1583,13 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             transactions={filteredLedgerTransactions}
             onBack={handleCloseLedger}
             onUpdateTx={handleUpdateTx}
-            defaultTypeFilter={streamLedger}
+            defaultTypeFilter={streamLedger.streams.length === 1 ? streamLedger.streams[0] : null}
+            defaultTerminalFilter={streamLedger.terminal}
             viewOnly={user.role !== 'super_admin' && !user.can_print_ledger}
             dateRange={globalDateRange}
             onDateRangeChange={setGlobalDateRange}
+            activeShift={activeShift}
+            shifts={todayShifts}
           />
         </div>
       )}
