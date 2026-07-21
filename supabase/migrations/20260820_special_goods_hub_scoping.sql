@@ -23,9 +23,30 @@ ALTER TABLE public.special_goods_rates DROP CONSTRAINT IF EXISTS special_goods_r
 -- pattern as the old constraint above) is what makes this safe to re-run,
 -- e.g. if this migration was already applied once and RUN_ALL_MIGRATIONS.sql
 -- gets pasted in again.
-ALTER TABLE public.special_goods_rates DROP CONSTRAINT IF EXISTS special_goods_rates_content_type_id_airline_hub_min_kg_key;
-ALTER TABLE public.special_goods_rates ADD CONSTRAINT special_goods_rates_content_type_id_airline_hub_min_kg_key
-  UNIQUE (content_type_id, airline, hub_id, min_kg);
+--
+-- Guarded behind "route_name doesn't exist yet": 20260828_special_goods_route_and_perishable.sql
+-- (later in this same bundle) adds a route_name column and widens this key
+-- to (content_type_id, airline, hub_id, route_name, min_kg) -- superseding
+-- this 4-column constraint entirely. On a database where 20260828 has
+-- already run once, real data legitimately has multiple rows sharing the
+-- same (content_type_id, airline, hub_id, min_kg) that differ only by
+-- route_name (e.g. the perishable seed's per-route rates) -- unconditionally
+-- re-adding this narrower constraint on every subsequent full-bundle re-run
+-- fails with a duplicate-key error against that legitimate data. Once
+-- route_name exists, this step is a no-op and 20260828's own unique index
+-- is the sole source of truth; only a fresh database (pre-20260828) needs
+-- this intermediate 4-column constraint at all.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'special_goods_rates' AND column_name = 'route_name'
+  ) THEN
+    ALTER TABLE public.special_goods_rates DROP CONSTRAINT IF EXISTS special_goods_rates_content_type_id_airline_hub_min_kg_key;
+    ALTER TABLE public.special_goods_rates ADD CONSTRAINT special_goods_rates_content_type_id_airline_hub_min_kg_key
+      UNIQUE (content_type_id, airline, hub_id, min_kg);
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS special_goods_rates_hub_idx ON public.special_goods_rates(hub_id);
 
