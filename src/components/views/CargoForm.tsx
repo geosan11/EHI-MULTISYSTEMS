@@ -3015,7 +3015,7 @@ export const CargoForm = ({
                   <Calendar size={12} /> Closing Period
                 </div>
                 <div className="flex items-center gap-2">
-                  <input type="datetime-local" value={periodStart} onChange={e => setPeriodStart(e.target.value)} disabled={!!lastCloseEnd} className="ehi-input text-[12px] disabled:opacity-60 disabled:cursor-not-allowed" />
+                  <input type="datetime-local" value={periodStart} onChange={e => setPeriodStart(e.target.value)} className="ehi-input text-[12px]" />
                   <span className="text-[var(--color-muted)] text-[11px]">to</span>
                   <input type="datetime-local" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} className="ehi-input text-[12px]" />
                 </div>
