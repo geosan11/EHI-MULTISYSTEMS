@@ -51,6 +51,10 @@ export const STATIC_VIEWS: ViewDef[] = [
   // making all of it individually overridable for people who do have one.
   { id: 'More:EODClose', label: 'EOD Daily Close', roles: MORE_TAB_ROLES, category: 'Daily Operations' },
   { id: 'More:TransactionLedger', label: 'Transaction Ledger', roles: MORE_TAB_ROLES, category: 'Daily Operations' },
+  // GAT has no printers -- same role list as the ledger itself (MORE_TAB_ROLES)
+  // since any Lagos-hub agent who can see the ledger needs to be able to
+  // batch-print for GAT at MMA2.
+  { id: 'More:GatPrintQueue', label: 'GAT Print Queue', roles: MORE_TAB_ROLES, category: 'Daily Operations' },
   { id: 'More:BankReconciliation', label: 'Bank Reconciliation', roles: ['super_admin', 'accountant'], category: 'Finance' },
   { id: 'More:AccountingConsole', label: 'Central Accounting ERP', roles: ['super_admin', 'admin', 'accountant'], category: 'Finance' },
   { id: 'More:Reports', label: 'Advanced Reports', roles: ['super_admin', 'admin', 'accountant'], category: 'Finance' },

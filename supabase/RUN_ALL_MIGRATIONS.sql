@@ -5012,3 +5012,56 @@ ALTER TABLE public.wallet_transactions ADD COLUMN IF NOT EXISTS hub_id uuid REFE
 ALTER TABLE public.wallet_transactions ADD COLUMN IF NOT EXISTS cargo_ref text;
 ALTER TABLE public.wallet_transactions ADD COLUMN IF NOT EXISTS cargo_entry_id uuid;
 ALTER TABLE public.wallet_transactions ADD COLUMN IF NOT EXISTS description text;
+
+-- ============================================================
+-- FILE: supabase/migrations/20260831_gat_terminal_tagging.sql
+-- ============================================================
+-- ============================================================
+-- GAT TERMINAL: tag Lagos entries by terminal + batch-print stamps
+-- ============================================================
+-- GAT (General Aviation Terminal / MM1, Ikeja) is NOT a new hub -- it's a
+-- second physical counter for the existing LOS hub, sharing the same AWB
+-- series, rates, and EOD. `terminal` is just a tag on which physical desk
+-- logged the entry, defaulting to 'MMA2' (the existing station) so every
+-- pre-existing row is correctly classified with zero backfill needed.
+--
+-- tag_printed_at/receipt_printed_at exist so GAT Print Queue (MMA2 batch-
+-- prints for GAT, which has no printers) can tell which entries still need
+-- printing without a separate tracking table.
+ALTER TABLE public.cargo_entries
+  ADD COLUMN IF NOT EXISTS terminal text NOT NULL DEFAULT 'MMA2'
+    CHECK (terminal IN ('MMA2','GAT')),
+  ADD COLUMN IF NOT EXISTS tag_printed_at     timestamptz,
+  ADD COLUMN IF NOT EXISTS receipt_printed_at timestamptz;
+
+ALTER TABLE public.package_entries
+  ADD COLUMN IF NOT EXISTS terminal text NOT NULL DEFAULT 'MMA2'
+    CHECK (terminal IN ('MMA2','GAT')),
+  ADD COLUMN IF NOT EXISTS tag_printed_at     timestamptz,
+  ADD COLUMN IF NOT EXISTS receipt_printed_at timestamptz;
+
+CREATE INDEX IF NOT EXISTS cargo_entries_terminal_idx
+  ON public.cargo_entries (terminal) WHERE terminal = 'GAT';
+CREATE INDEX IF NOT EXISTS package_entries_terminal_idx
+  ON public.package_entries (terminal) WHERE terminal = 'GAT';
+
+-- NOTE: this CHECK is safe (unlike the drifted status one, see
+-- 20260830_drop_cargo_status_check_drift.sql) because it is IN the
+-- migration history, and the app only ever writes the two allowed values
+-- from a segmented control -- not free text.
+
+-- ============================================================
+-- FILE: supabase/migrations/20260832_backfill_view_overrides_gat_print_queue.sql
+-- ============================================================
+-- More:GatPrintQueue is a new More-menu screen (src/lib/permissions.ts
+-- STATIC_VIEWS) -- same backfill need as 20260805_backfill_view_overrides_content_types.sql.
+-- Role list matches MORE_TAB_ROLES exactly (ledger access), since GAT has no
+-- printers and any Lagos-hub agent who can see the ledger needs to be able
+-- to batch-print for it at MMA2.
+
+UPDATE public.user_profiles
+SET view_overrides = (
+  SELECT ARRAY(SELECT DISTINCT unnest(view_overrides || ARRAY['More:GatPrintQueue']))
+)
+WHERE view_overrides IS NOT NULL
+  AND role IN ('super_admin', 'admin', 'accountant', 'auditor', 'cargo_agent', 'baggage_agent', 'marketing_agent', 'driver', 'office_work');

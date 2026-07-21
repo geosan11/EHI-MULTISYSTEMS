@@ -184,6 +184,10 @@ export interface Transaction {
   bank?: string;
   hub_id?: string;
   hub?: string;
+  // Which physical Lagos counter logged this (Cargo/Package only) -- GAT is
+  // a second desk on the same LOS hub, not a separate hub. Undefined/absent
+  // for every other hub and for baggage/marketing entries.
+  terminal?: 'MMA2' | 'GAT';
   enteredByName?: string;
   editedBy?: string;
   editedAt?: string;

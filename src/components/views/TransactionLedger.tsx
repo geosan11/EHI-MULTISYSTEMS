@@ -112,6 +112,10 @@ export const TransactionLedger = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState(defaultTypeFilter || "All");
   const [modeFilter, setModeFilter] = useState("All");
+  // GAT (General Aviation Terminal / MM1) is a second physical Lagos
+  // counter tagged on cargo/package entries, not a separate hub -- see
+  // TerminalSwitch.tsx.
+  const [terminalFilter, setTerminalFilter] = useState<'All' | 'MMA2' | 'GAT'>('All');
   const [timeFilter, setTimeFilter] = useState<"All" | "Morning" | "Afternoon" | "Evening" | "Custom">("All");
   const [timeStart, setTimeStart] = useState("");
   const [timeEnd, setTimeEnd] = useState("");
@@ -260,6 +264,11 @@ export const TransactionLedger = ({
       if (vjDestFilter !== "All" && tx.destination !== vjDestFilter) return false;
     }
 
+    if (terminalFilter !== 'All') {
+      const t = (e.raw as any)?.terminal || 'MMA2';
+      if (t !== terminalFilter) return false;
+    }
+
     if (modeFilter !== "All") {
       if (modeFilter === "Revenue") {
         if (e.source === "expense" || e.mode === "Debt") return false;
@@ -355,7 +364,12 @@ export const TransactionLedger = ({
     }
 
     return true;
-  }), [entries, typeFilter, modeFilter, timeFilter, timeStart, timeEnd, searchQuery, shiftFilter, shiftBoundary, vjFlightFilter, vjDestFilter]);
+  }), [entries, typeFilter, modeFilter, terminalFilter, timeFilter, timeStart, timeEnd, searchQuery, shiftFilter, shiftBoundary, vjFlightFilter, vjDestFilter]);
+
+  // Terminal filter chip only shows for Lagos-hub users or once a GAT row
+  // has actually shown up -- other states never see an irrelevant filter.
+  const userHubCode = getHubCode(user.hub_code || user.hub);
+  const hasGat = useMemo(() => entries.some((e) => (e.raw as any)?.terminal === 'GAT'), [entries]);
 
   const handleEditClick = (e: Entry, evt: React.MouseEvent) => {
     evt.stopPropagation();
@@ -1498,6 +1512,28 @@ export const TransactionLedger = ({
                   </select>
                 </div>
 
+                {/* Terminal filter -- GAT is a second physical Lagos counter
+                    (see TerminalSwitch.tsx), not a separate hub. Only shown
+                    for Lagos-hub users or once a GAT row has actually shown
+                    up, so other states never see an irrelevant filter. */}
+                {(userHubCode === 'LOS' || hasGat) && (
+                  <div className="flex items-center gap-1 h-8 px-1 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg">
+                    {(['All', 'MMA2', 'GAT'] as const).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setTerminalFilter(t)}
+                        className={`h-6 px-2 rounded text-[10px] font-mono font-bold transition-all ${
+                          terminalFilter === t
+                            ? 'bg-[var(--color-accent-cobalt)] text-white'
+                            : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 {/* Time filter */}
                 <div className="flex items-center h-8 px-2 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg font-mono text-[10px]">
                   <Clock size={9} className="text-[var(--color-muted)] mr-1.5 shrink-0" />
@@ -1740,6 +1776,9 @@ export const TransactionLedger = ({
                           <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(245,158,11,0.12)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.25)]">
                             WALLET
                           </span>
+                        )}
+                        {(e.raw as any)?.terminal === 'GAT' && (
+                          <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[var(--color-accent-cobalt)]">GAT</span>
                         )}
                       </div>
                       <div className={`font-sans font-bold text-[12px] leading-snug ${e.source === "expense" ? "text-[var(--color-error)]" : "text-[var(--color-foreground)]"}`}>

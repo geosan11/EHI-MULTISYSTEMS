@@ -229,10 +229,10 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
         const [shifts, cargoRes, baggageRes, mktRes, packageRes, expRes, profilesRes] = await Promise.all([
           fetchShifts(),
-          addHubFilter(supabase.from('cargo_entries').select('entry_ref,consignee_name,airline,awb_tag_number,total_pcs,total_kg,route,content_type,amount,receipt_mode,pickup_pin,status,created_at,commission_rate,bank,hub_id,remark,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,consignee_phone,client_type,corporate_client_id,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
+          addHubFilter(supabase.from('cargo_entries').select('entry_ref,consignee_name,airline,awb_tag_number,total_pcs,total_kg,route,content_type,amount,receipt_mode,pickup_pin,status,created_at,commission_rate,bank,hub_id,terminal,remark,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,consignee_phone,client_type,corporate_client_id,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
           addHubFilter(supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs,amount_paid,payment_history,airline,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
           addHubFilter(supabase.from('marketing_entries').select('entry_ref,awb_tag_number,customer_name,route,qty_big_bag,qty_med_bag,qty_small_bag,bb_kg,mb_kg,sb_kg,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,last_edited_by,last_edited_at,debt_amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,wallet_id,wallet_deduction_amount').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
-          addHubFilter(supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,total_pcs,total_kg,contents,status,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,amount_paid,payment_history,created_at,hub_id,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
+          addHubFilter(supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,total_pcs,total_kg,contents,status,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,amount_paid,payment_history,created_at,hub_id,terminal,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
           addHubFilter(supabase.from('expenses').select('*').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
           supabase.from('user_profiles').select('id,name')
         ]);
@@ -275,6 +275,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               bank: r.bank,
               route: r.route,
               hub_id: r.hub_id,
+              terminal: r.terminal,
               contentType: r.content_type,
               remarks: r.remark || undefined,
               enteredByName: enteredByName || undefined,
@@ -392,6 +393,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               created_at: r.created_at,
               bank: r.bank,
               hub_id: r.hub_id,
+              terminal: r.terminal,
               destination: r.destination,
               contentType: r.content_type,
               pieces: r.total_pcs || undefined,
@@ -905,6 +907,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         receipt_mode: tx.mode === 'Debt Paid' ? 'Debt' : tx.mode,
         bank: tx.bank,
         hub_id: hubId,
+        terminal: (tx as any).terminal ?? 'MMA2',
         airline: (tx as any).airline || parts[0] || 'Unknown',
         commission_rate: (tx as any).commissionRate ?? null,
         remark: (tx as any).remarks || null,
@@ -964,6 +967,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         payment_history: tx.paymentHistory,
         hub_id: hubId,
         hub: user.hub,
+        terminal: (tx as any).terminal ?? 'MMA2',
         entered_by: user.id && user.id.includes('-') && user.id.length > 30 ? user.id : undefined,
         created_at: tx.created_at || new Date().toISOString()
       };

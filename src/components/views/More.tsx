@@ -26,6 +26,7 @@ import { MinimumCharges } from './MinimumCharges';
 import { FlatTierRates } from './FlatTierRates';
 import { RatesList } from './RatesList';
 import { CustomerWallets } from './CustomerWallets';
+import { GatPrintQueue } from './GatPrintQueue';
 
 import { useState } from 'react';
 import { User, TabView, Transaction, Expense, ExcessBaggageAirline, HubShift } from '../../lib/types';
@@ -62,6 +63,7 @@ import {
   ListBulletsIcon,
   SparkleIcon,
   ScalesIcon,
+  PrinterIcon,
 } from '@phosphor-icons/react';
 import { ChevronRight } from 'lucide-react';
 
@@ -89,6 +91,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
   const [fraudAlertsView, setFraudAlertsView] = useState(false);
   const [auditLogView, setAuditLogView] = useState(false);
   const [ledgerView, setLedgerView] = useState(false);
+  const [gatPrintQueueView, setGatPrintQueueView] = useState(false);
   const [podLogView, setPodLogView] = useState(false);
   const [dispatchView, setDispatchView] = useState(false);
   const [airlineCommissionsView, setAirlineCommissionsView] = useState(false);
@@ -167,6 +170,10 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         onEndShift={onEndShift}
       />
     );
+  }
+
+  if (gatPrintQueueView) {
+    return <GatPrintQueue user={user} onBack={() => setGatPrintQueueView(false)} />;
   }
 
   if (auditLogView) {
@@ -330,6 +337,14 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
             title="Transaction Ledger"
             subtitle={`${transactions.length} entries — view, search and export`}
             onClick={() => setLedgerView(true)}
+          />
+        )}
+        {canAccessTab(user, 'More:GatPrintQueue', excessBaggageAirlines) && (
+          <MenuItem
+            icon={PrinterIcon}
+            title="GAT Print Queue"
+            subtitle="Batch-print tags & receipts for GAT sales"
+            onClick={() => setGatPrintQueueView(true)}
           />
         )}
         {excessBaggageAirlines.filter(a => canAccessTab(user, `Baggage:${a.name}`, excessBaggageAirlines)).map(a => (

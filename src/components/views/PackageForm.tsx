@@ -20,6 +20,7 @@ import { EmptyState } from "./EmptyState";
 import { CustomerWalletPicker } from "../CustomerWalletPicker";
 import { CustomerWallet } from "../../lib/types";
 import { ReviewEntryModal } from "./ReviewEntryModal";
+import { TerminalSwitch, usePersistedTerminal } from "../TerminalSwitch";
 
 export const PackageForm = ({
   user: propUser,
@@ -43,6 +44,10 @@ export const PackageForm = ({
   const isAdmin = ['super_admin', 'admin', 'accountant'].includes(propUser.role);
   const [adminSelectedHub, setAdminSelectedHub] = useState(propUser.hub_id || 'LOS/Lagos');
   const user = isAdmin ? { ...propUser, hub_id: adminSelectedHub, hub: adminSelectedHub } : propUser;
+  // GAT (General Aviation Terminal / MM1) is a second physical Lagos counter,
+  // not a new hub -- only show the switch to LOS-hub agents.
+  const userHubCode = getHubCode(user.hub_code || user.hub);
+  const [terminal, setTerminal] = usePersistedTerminal();
 
   // Destinations are the live hub list from Supabase (not a hardcoded
   // constant) so a new hub added in Settings shows up here immediately --
@@ -207,6 +212,7 @@ export const PackageForm = ({
       hub_id: user.hub_id,
       enteredByName: user.name,
       debtPaid: mode === "Debt" ? false : undefined,
+      terminal,
     };
 
     // Wallet payment — AUTO-SPLIT. Wallet covers what it can; any remainder is
@@ -397,6 +403,7 @@ export const PackageForm = ({
       <div className="flex justify-between items-center text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-widest border-b border-[var(--color-border)] pb-2 mb-6">
         <div>{new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</div>
         <div className="flex items-center gap-3">
+          {userHubCode === 'LOS' && <TerminalSwitch value={terminal} onChange={setTerminal} />}
           {onShowHistory && (
             <button onClick={onShowHistory} className="flex items-center gap-1.5 px-3 py-1.5 border border-[var(--color-border)] rounded-lg text-[11px] font-mono text-[var(--color-muted)] hover:text-[var(--color-accent-cobalt)] hover:border-[var(--color-accent-cobalt)] transition-colors normal-case tracking-normal">
               <ClipboardList size={14} /> <span>History</span>

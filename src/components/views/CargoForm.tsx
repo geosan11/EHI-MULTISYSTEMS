@@ -16,6 +16,7 @@ import { useEnterToNextField } from "../../lib/useEnterToNextField";
 import { isTagAlreadyDelivered } from "../../lib/scanLogic";
 import { getNextTag } from "../../lib/tagPool";
 import { CustomerWalletPicker } from "../CustomerWalletPicker";
+import { TerminalSwitch, usePersistedTerminal } from "../TerminalSwitch";
 import {
   CheckCircle,
   Loader2,
@@ -143,6 +144,11 @@ export const CargoForm = ({
   const isAdmin = ['super_admin', 'admin', 'accountant'].includes(propUser.role);
   const [adminSelectedHub, setAdminSelectedHub] = useState(propUser.hub_id || 'LOS/Lagos');
   const user = isAdmin ? { ...propUser, hub_id: adminSelectedHub, hub: adminSelectedHub } : propUser;
+  // GAT (General Aviation Terminal / MM1) is a second physical Lagos counter,
+  // not a new hub -- only show the switch to LOS-hub agents, same hub-code
+  // derivation the AWB tag pool already uses below.
+  const userHubCode = getHubCode(user.hub_code || user.hub);
+  const [terminal, setTerminal] = usePersistedTerminal();
 
   // Navigation tabs between Regular & Corporate Billing
   const [activePortal, setActivePortal] = useState<"retail" | "corporate">(
@@ -1057,6 +1063,7 @@ export const CargoForm = ({
       route: selectedIntake.route,
       contentType: selectedIntake.contentType || selectedIntake.content_type || 'General Goods',
       enteredByName: user.name,
+      terminal,
     };
 
     // 1. Add to central transactions grid
@@ -1251,6 +1258,7 @@ export const CargoForm = ({
       // which sets 'Corporate' instead.
       clientType: linkedAsOfficeWork ? "Corporate" : "Individual",
       enteredByName: user.name,
+      terminal,
     } as Transaction;
 
     // Wallet payment — AUTO-SPLIT. Wallet covers what it can; any remainder is
@@ -1737,7 +1745,8 @@ export const CargoForm = ({
         </div>
       )}
 
-      <div className="flex items-center justify-end mb-3">
+      <div className="flex items-center justify-end gap-2 mb-3">
+        {userHubCode === 'LOS' && <TerminalSwitch value={terminal} onChange={setTerminal} />}
         <button
           onClick={() => setShowCloseModal(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-surface-2)] border border-[var(--color-border-strong)] rounded-lg text-[11px] font-mono font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-surface-3)] hover:border-[var(--color-accent-amber)] hover:text-[var(--color-accent-amber)] transition-colors shadow-[var(--shadow-xs)]"
