@@ -4,7 +4,11 @@ import type { ProofOfDelivery, TripPing } from './types';
 interface LocalShipment {
   id: string;
   data: Record<string, unknown>;
-  synced: 0 | 1;
+  // 0 = pending sync, 1 = synced, 2 = quarantined (permanent sync error --
+  // see PERMANENT_PG_CODES in lib/sync.ts). sync_error holds the code/message
+  // for a quarantined record, cleared on requeue.
+  synced: 0 | 1 | 2;
+  sync_error?: string | null;
   created_at: string;
 }
 

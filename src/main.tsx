@@ -1,3 +1,11 @@
+import { Buffer } from 'buffer';
+// @react-pdf/renderer reaches for Node's Buffer global, which doesn't exist
+// in the browser -- must run before any import that might transitively pull
+// in @react-pdf/renderer (hence being first, ahead of even React itself).
+if (typeof globalThis.Buffer === 'undefined') {
+  (globalThis as any).Buffer = Buffer;
+}
+
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import * as Sentry from '@sentry/react';

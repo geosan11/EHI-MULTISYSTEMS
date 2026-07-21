@@ -4,6 +4,17 @@ import Dexie from 'dexie';
 import { appLogger } from './logger';
 import type { ProofOfDelivery } from './types';
 
+// Postgres error codes that a retry can never fix — the payload or schema is
+// wrong, not the network. Quarantine these instead of retrying forever.
+const PERMANENT_PG_CODES = new Set([
+  '23514', // check_violation
+  '23502', // not_null_violation
+  '23503', // foreign_key_violation
+  '42703', // undefined_column
+  '42P01', // undefined_table
+  '22P02', // invalid_text_representation (bad enum/uuid/number)
+]);
+
 // ProofOfDelivery is stored locally with camelCase fields (see lib/types.ts)
 // but the Supabase table uses snake_case columns — convert between the two
 // rather than renaming one side and rippling changes through every POD screen.
@@ -401,6 +412,30 @@ export async function processSyncQueue(): Promise<{ synced: number; errors: stri
         }
         synced++;
       } else {
+        // Permanent failures (bad column, constraint, type) can't self-heal on
+        // retry the way a payload backfill can — quarantine so one bad record
+        // can't spam the console or block the queue forever. It stays in local
+        // Dexie (synced=2) for later recovery; the retry trigger is removed.
+        if (error.code && PERMANENT_PG_CODES.has(error.code)) {
+          await db.sync_queue.delete(item.id!).catch(() => {});
+          if (['cargo_entries', 'manifests', 'marketing_entries', 'package_entries'].includes(item.table_name)) {
+            const recId = item.record_id || (item.payload as any).id || (item.payload as any).entry_ref || (item.payload as any).transaction_id;
+            if (recId) {
+              try {
+                await (db[item.table_name as keyof typeof db] as Dexie.Table)
+                  .where('id').equals(recId)
+                  .modify({ synced: 2, sync_error: `${error.code}: ${error.message}` });
+              } catch { /* ignore */ }
+            }
+          }
+          console.warn(
+            `Sync quarantined ${item.table_name} ${item.record_id} — permanent error ${error.code} (${error.message}). Won't retry until the underlying issue is fixed.`,
+            { code: error.code, details: error.details, hint: error.hint }
+          );
+          appLogger.log('WARN', 'SYNC_QUEUE', `Quarantined ${item.table_name} ${item.record_id}: ${error.code} ${error.message}`);
+          continue; // skip the transient-retry logging below
+        }
+
         const errMsg = error.message || error.details || JSON.stringify(error);
         errors.push(`${item.table_name}: ${errMsg}`);
         // The raw `error` object logs as a collapsed "Object" in most
@@ -425,5 +460,36 @@ export async function processSyncQueue(): Promise<{ synced: number; errors: stri
     }
   }
   return { synced, errors };
+}
+
+// Re-arm quarantined records (synced=2) so the next sync retries them. Call
+// after fixing the root cause (a dropped constraint, added column, etc.).
+//
+// Quarantining deletes the sync_queue row (that's what stops the retry
+// loop) and only flips the local table's synced flag to 2 for visibility --
+// processSyncQueue() reads exclusively from sync_queue, never from these
+// local tables' synced field, so reviving a record has to re-create its
+// sync_queue entry too, not just flip synced back to 0.
+export async function requeueQuarantined(): Promise<number> {
+  let count = 0;
+  for (const table of ['cargo_entries', 'manifests', 'marketing_entries', 'package_entries'] as const) {
+    const rows = await (db[table] as Dexie.Table).where('synced').equals(2).toArray().catch(() => []);
+    for (const row of rows as { id: string; data: Record<string, unknown> }[]) {
+      const existing = await db.sync_queue.where('record_id').equals(row.id).first();
+      if (!existing) {
+        await db.sync_queue.add({
+          table_name: table,
+          record_id: row.id,
+          action: 'INSERT',
+          payload: row.data,
+          synced: 0,
+          created_at: new Date().toISOString(),
+        });
+      }
+      await (db[table] as Dexie.Table).where('id').equals(row.id).modify({ synced: 0, sync_error: null });
+      count++;
+    }
+  }
+  return count;
 }
 

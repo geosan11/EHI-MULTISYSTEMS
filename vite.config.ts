@@ -55,6 +55,11 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    // @react-pdf/renderer references Node's `global` -- resolve it to the
+    // browser's globalThis (paired with the Buffer polyfill in main.tsx).
+    define: {
+      global: 'globalThis',
+    },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
