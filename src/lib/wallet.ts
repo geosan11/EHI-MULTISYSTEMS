@@ -115,6 +115,39 @@ export async function processRetrieval(type: RetrievalEntryType, params: {
   };
 }
 
+const UNRETRIEVE_RPC_BY_TYPE: Record<RetrievalEntryType, { name: string; idParam: string }> = {
+  cargo: { name: 'unretrieve_cargo_entry', idParam: 'p_entry_ref' },
+  baggage: { name: 'unretrieve_baggage_entry', idParam: 'p_transaction_id' },
+  marketing: { name: 'unretrieve_marketing_entry', idParam: 'p_entry_ref' },
+  package: { name: 'unretrieve_package_entry', idParam: 'p_entry_ref' },
+};
+
+export interface UnretrieveResult {
+  ok: boolean;
+  reversedAmount?: number;
+  error?: string;
+}
+
+// Reverses a mistaken retrieval's bookkeeping on the entry itself
+// (retrieved_pieces/kg/amount/retrieved/status back to never-retrieved).
+// Deliberately does NOT touch any wallet balance -- see the migration's
+// own comment on why that's a separate, deliberate action instead.
+export async function unretrieveEntry(type: RetrievalEntryType, params: {
+  entryRef: string;
+  loggedBy: string;
+}): Promise<UnretrieveResult> {
+  const rpc = UNRETRIEVE_RPC_BY_TYPE[type];
+  if (!rpc) {
+    return { ok: false, error: `Unretrieve isn't supported for transaction type "${type}"` };
+  }
+  const { data, error } = await supabase.rpc(rpc.name, {
+    [rpc.idParam]: params.entryRef,
+    p_logged_by: params.loggedBy,
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, reversedAmount: Number(data) };
+}
+
 export interface CashPayoutResult {
   ok: boolean;
   transactionId?: string;

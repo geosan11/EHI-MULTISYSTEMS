@@ -867,5 +867,213 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.reject_wallet_cash_payout(uuid, text, text) TO authenticated;
 
+-- ─── 10. UNRETRIEVE: REVERSE A MISTAKEN RETRIEVAL ──────────────────────
+-- Undoes retrieved_pieces/retrieved_kg/retrieved_amount/retrieved/status
+-- back to never-retrieved. Deliberately does NOT touch any wallet balance
+-- -- a retrieval's wallet credit and the entry's own retrieval bookkeeping
+-- are corrected as two separate, deliberate actions (via CustomerWallets.tsx's
+-- existing "Pay Cash Out" / TransactionLedger.tsx's edit-mode-to-Wallet
+-- deduction), not bundled into one opaque undo. Bundling them would mean:
+-- if a wallet was already corrected manually (exactly what happened for the
+-- entry that prompted this feature), automatically deducting it AGAIN here
+-- would either double-correct or hard-fail the whole reversal outright on
+-- insufficient balance -- worse than just leaving wallet correction to a
+-- clear, separate, already-available action.
+CREATE OR REPLACE FUNCTION public.unretrieve_cargo_entry(
+  p_entry_ref text,
+  p_logged_by text
+)
+RETURNS numeric
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_entry RECORD;
+BEGIN
+  SELECT id, hub_id, retrieved_amount, retrieved_pieces, retrieved_kg
+  INTO v_entry
+  FROM public.cargo_entries
+  WHERE entry_ref = p_entry_ref
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Cargo entry % not found', p_entry_ref;
+  END IF;
+
+  IF v_entry.hub_id IS NOT NULL
+     AND v_entry.hub_id <> ALL(public.sibling_hub_ids())
+     AND NOT public.is_hub_unrestricted() THEN
+    RAISE EXCEPTION 'Not authorized to reverse a retrieval for this entry''s hub';
+  END IF;
+
+  IF COALESCE(v_entry.retrieved_amount, 0) <= 0 THEN
+    RAISE EXCEPTION 'Entry % has no retrieval to reverse', p_entry_ref;
+  END IF;
+
+  UPDATE public.cargo_entries SET
+    retrieved_pieces = 0,
+    retrieved_kg     = 0,
+    retrieved_amount = 0,
+    retrieved        = false,
+    status           = 'Intake',
+    retrieval_note   = COALESCE(retrieval_note || E'\n', '') ||
+                        format('Retrieval reversed by %s (was %s pcs / %s kg / %s) -- any wallet credit from it is NOT auto-reversed, correct separately if needed',
+                          p_logged_by, v_entry.retrieved_pieces, v_entry.retrieved_kg, v_entry.retrieved_amount)
+  WHERE entry_ref = p_entry_ref;
+
+  RETURN v_entry.retrieved_amount;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.unretrieve_cargo_entry(text, text) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.unretrieve_package_entry(
+  p_entry_ref text,
+  p_logged_by text
+)
+RETURNS numeric
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_entry RECORD;
+BEGIN
+  SELECT id, hub_id, retrieved_amount, retrieved_pieces, retrieved_kg
+  INTO v_entry
+  FROM public.package_entries
+  WHERE entry_ref = p_entry_ref
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Package entry % not found', p_entry_ref;
+  END IF;
+
+  IF v_entry.hub_id IS NOT NULL
+     AND v_entry.hub_id <> ALL(public.sibling_hub_ids())
+     AND NOT public.is_hub_unrestricted() THEN
+    RAISE EXCEPTION 'Not authorized to reverse a retrieval for this entry''s hub';
+  END IF;
+
+  IF COALESCE(v_entry.retrieved_amount, 0) <= 0 THEN
+    RAISE EXCEPTION 'Entry % has no retrieval to reverse', p_entry_ref;
+  END IF;
+
+  UPDATE public.package_entries SET
+    retrieved_pieces = 0,
+    retrieved_kg     = 0,
+    retrieved_amount = 0,
+    retrieved        = false,
+    status           = 'Intake',
+    retrieval_note   = COALESCE(retrieval_note || E'\n', '') ||
+                        format('Retrieval reversed by %s (was %s pcs / %s kg / %s) -- any wallet credit from it is NOT auto-reversed, correct separately if needed',
+                          p_logged_by, v_entry.retrieved_pieces, v_entry.retrieved_kg, v_entry.retrieved_amount)
+  WHERE entry_ref = p_entry_ref;
+
+  RETURN v_entry.retrieved_amount;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.unretrieve_package_entry(text, text) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.unretrieve_baggage_entry(
+  p_transaction_id text,
+  p_logged_by text
+)
+RETURNS numeric
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_entry RECORD;
+BEGIN
+  SELECT id, hub_id, retrieved_amount, retrieved_pieces, retrieved_kg
+  INTO v_entry
+  FROM public.manifests
+  WHERE transaction_id = p_transaction_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Baggage manifest % not found', p_transaction_id;
+  END IF;
+
+  IF v_entry.hub_id IS NOT NULL
+     AND v_entry.hub_id <> ALL(public.sibling_hub_ids())
+     AND NOT public.is_hub_unrestricted() THEN
+    RAISE EXCEPTION 'Not authorized to reverse a retrieval for this entry''s hub';
+  END IF;
+
+  IF COALESCE(v_entry.retrieved_amount, 0) <= 0 THEN
+    RAISE EXCEPTION 'Entry % has no retrieval to reverse', p_transaction_id;
+  END IF;
+
+  UPDATE public.manifests SET
+    retrieved_pieces = 0,
+    retrieved_kg     = 0,
+    retrieved_amount = 0,
+    retrieved        = false,
+    status           = 'Intake',
+    retrieval_note   = COALESCE(retrieval_note || E'\n', '') ||
+                        format('Retrieval reversed by %s (was %s pcs / %s kg / %s) -- any wallet credit from it is NOT auto-reversed, correct separately if needed',
+                          p_logged_by, v_entry.retrieved_pieces, v_entry.retrieved_kg, v_entry.retrieved_amount)
+  WHERE transaction_id = p_transaction_id;
+
+  RETURN v_entry.retrieved_amount;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.unretrieve_baggage_entry(text, text) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.unretrieve_marketing_entry(
+  p_entry_ref text,
+  p_logged_by text
+)
+RETURNS numeric
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_entry RECORD;
+BEGIN
+  SELECT id, hub_id, retrieved_amount, retrieved_pieces, retrieved_kg
+  INTO v_entry
+  FROM public.marketing_entries
+  WHERE entry_ref = p_entry_ref
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Marketing entry % not found', p_entry_ref;
+  END IF;
+
+  IF v_entry.hub_id IS NOT NULL
+     AND v_entry.hub_id <> ALL(public.sibling_hub_ids())
+     AND NOT public.is_hub_unrestricted() THEN
+    RAISE EXCEPTION 'Not authorized to reverse a retrieval for this entry''s hub';
+  END IF;
+
+  IF COALESCE(v_entry.retrieved_amount, 0) <= 0 THEN
+    RAISE EXCEPTION 'Entry % has no retrieval to reverse', p_entry_ref;
+  END IF;
+
+  UPDATE public.marketing_entries SET
+    retrieved_pieces = 0,
+    retrieved_kg     = 0,
+    retrieved_amount = 0,
+    retrieved        = false,
+    status           = 'Intake',
+    retrieval_note   = COALESCE(retrieval_note || E'\n', '') ||
+                        format('Retrieval reversed by %s (was %s / %s) -- any wallet credit from it is NOT auto-reversed, correct separately if needed',
+                          p_logged_by, v_entry.retrieved_pieces, v_entry.retrieved_amount)
+  WHERE entry_ref = p_entry_ref;
+
+  RETURN v_entry.retrieved_amount;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.unretrieve_marketing_entry(text, text) TO authenticated;
+
 INSERT INTO public.schema_migrations (filename) VALUES ('20260902_multi_department_retrieval_and_wallet_cashout.sql')
 ON CONFLICT (filename) DO NOTHING;

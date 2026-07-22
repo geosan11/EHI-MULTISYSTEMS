@@ -73,6 +73,8 @@ export const EXPENSE_CATEGORIES = [
 ] as const;
 
 export const PAYMENT_MODES = ['Cash', 'POS', 'Transfer', 'Debt'] as const;
-export const BANKS = ['UBA', 'GTBank', 'Access', 'Zenith', 'First Bank', 'Polaris', 'Keystone', 'Fidelity', 'Sterling', 'Other'] as const;
+// GTBank first -- the most-used bank at intake; staff kept picking the
+// wrong one when it was buried alphabetically.
+export const BANKS = ['GTBank', 'UBA', 'Access', 'Zenith', 'First Bank', 'Polaris', 'Keystone', 'Fidelity', 'Sterling', 'Other'] as const;
 
 export const MIN_PACKAGE_AMOUNT = 4000;

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Transaction, User, Expense } from "../../lib/types";
 import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDateTime } from "../../lib/helpers";
-import { applyWalletTransaction, processRetrieval, RetrievalEntryType } from "../../lib/wallet";
+import { applyWalletTransaction, processRetrieval, unretrieveEntry, RetrievalEntryType } from "../../lib/wallet";
 import { clearDebt, DebtEntryType } from "../../lib/debt";
 import { useHubRoutes } from "../../lib/hubRoutes";
 import { useAirlines } from "../../lib/airlines";
@@ -27,6 +27,7 @@ import {
   Printer,
   HandCoins,
   Clock,
+  Undo2,
 } from "lucide-react";
 import { QRCode } from "../QRCode";
 import TagPrintHistory from "./TagPrintHistory";
@@ -1125,6 +1126,39 @@ export const TransactionLedger = ({
 
   const handleMarkRetrievedAndDeposit = (entry: Entry) => {
     setRetrievalModalEntry(entry);
+  };
+
+  const handleUnretrieve = async () => {
+    if (!viewingDetail || viewingDetail.source !== 'transaction') return;
+    const tx = viewingDetail.raw as Transaction;
+    const reversedAmount = (viewingDetail.raw as any)?.retrieved_amount || 0;
+    const ok = await confirm({
+      title: 'Undo this retrieval?',
+      message: `This resets the retrieval record on ${tx.name}'s entry (${fmt(reversedAmount)} previously marked retrieved). It does NOT touch any wallet balance -- if that retrieval credited a wallet, correct that separately (Customer Credit Wallets, or edit this entry's mode).`,
+      confirmLabel: 'Undo Retrieval',
+      tone: 'danger',
+    });
+    if (!ok) return;
+
+    const result = await unretrieveEntry(tx.type as RetrievalEntryType, {
+      entryRef: tx.id,
+      loggedBy: user.name || 'Unknown',
+    });
+    if (!result.ok) {
+      showToast({ message: result.error || 'Failed to undo retrieval.', type: 'error' });
+      return;
+    }
+
+    const updated: Transaction = {
+      ...tx,
+      retrieved: false,
+      retrievalNote: `Retrieval reversed by ${user.name || 'Unknown'}`,
+      status: 'Intake',
+      raw: { ...(tx.raw || {}), retrieved: false, retrieved_amount: 0, retrieved_pieces: 0, retrieved_kg: 0, status: 'Intake' },
+    };
+    onUpdateTx(updated);
+    showToast({ message: 'Retrieval undone', type: 'success' });
+    setViewingDetail({ ...viewingDetail, raw: updated });
   };
 
   const executeRetrieval = async (data: { isPartial: boolean, retrievedValue: number, retrievedPieces: number, retrievedKg: number }) => {
@@ -2229,6 +2263,15 @@ export const TransactionLedger = ({
                         title="Deposit retrieved refund directly into customer credit wallet"
                       >
                         <HandCoins size={14} /> 💰 Refund to Wallet
+                      </button>
+                    )}
+                    {((viewingDetail.raw as any)?.retrieved_amount || 0) > 0 && (
+                      <button
+                        onClick={handleUnretrieve}
+                        className="flex-1 py-2.5 flex items-center justify-center gap-1.5 bg-[rgba(239,68,68,0.08)] hover:bg-[var(--color-error)] hover:text-white text-[var(--color-error)] rounded-lg transition-colors border border-[rgba(239,68,68,0.25)] text-[11px] font-mono font-bold"
+                        title="Undo this entry's retrieval record (does not touch any wallet balance)"
+                      >
+                        <Undo2 size={14} /> Unretrieve
                       </button>
                     )}
                     {viewingDetail.mode === 'Debt' && !viewOnly && (

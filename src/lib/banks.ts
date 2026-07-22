@@ -19,6 +19,15 @@ export interface BankWithFormat {
   csvFormat: string;
 }
 
+// GTBank is the branch's most-used bank -- pinned to the front regardless
+// of the underlying source's order (the live `banks` table sorts
+// alphabetically, which buried it and staff kept picking the wrong bank).
+function pinGTBankFirst(names: string[]): string[] {
+  const idx = names.indexOf('GTBank');
+  if (idx <= 0) return names;
+  return [names[idx], ...names.slice(0, idx), ...names.slice(idx + 1)];
+}
+
 export function getCachedBanks(opts: BankOptions = {}): string[] {
   const { includeOther = true, coldFallback = true } = opts;
   let names: string[] = [];
@@ -29,6 +38,7 @@ export function getCachedBanks(opts: BankOptions = {}): string[] {
     // ignore -- treated the same as an empty cache
   }
   if (names.length === 0 && coldFallback) names = BANKS.filter(b => b !== 'Other') as string[];
+  names = pinGTBankFirst(names);
   return includeOther ? [...names, 'Other'] : names;
 }
 
@@ -36,7 +46,7 @@ export async function fetchBanks(opts: BankOptions = {}): Promise<string[] | nul
   const { includeOther = true } = opts;
   const { data, error } = await supabase.from('banks').select('name, csv_format').eq('active', true).order('name');
   if (!data || error || data.length === 0) return null;
-  const names = data.map((b: any) => b.name as string);
+  const names = pinGTBankFirst(data.map((b: any) => b.name as string));
   const withFormat = data.filter((b: any) => b.csv_format).map((b: any) => ({ name: b.name, csvFormat: b.csv_format }));
   try {
     localStorage.setItem(BANKS_CACHE_KEY, JSON.stringify(names));
