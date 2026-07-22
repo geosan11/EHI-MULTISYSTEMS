@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Transaction, User, Expense } from "../../lib/types";
-import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary } from "../../lib/helpers";
+import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDateTime } from "../../lib/helpers";
 import { applyWalletTransaction, processCargoRetrieval } from "../../lib/wallet";
 import { clearDebt, DebtEntryType } from "../../lib/debt";
 import { useHubRoutes } from "../../lib/hubRoutes";
@@ -484,7 +484,7 @@ export const TransactionLedger = ({
           return await compileCargoReceiptStream({
             entryRef: tx.id,
             serialNumber: 0,
-            date: tx.time,
+            date: txDisplayDateTime(tx.created_at, tx.time),
             hubName: tx.hub || user.hub,
             agentName: tx.enteredByName || user.name,
             airline: tx.airline || "Unknown",
@@ -505,7 +505,7 @@ export const TransactionLedger = ({
           return await compileBaggageReceiptStream({
             airlineName: tx.airline || 'ValueJet',
             entryRef: tx.id,
-            date: tx.time,
+            date: txDisplayDateTime(tx.created_at, tx.time),
             originState: tx.hub || user.hub,
             agentName: tx.enteredByName || user.name,
             passengerName: tx.name,
@@ -524,7 +524,7 @@ export const TransactionLedger = ({
           const { compilePackageReceiptStream } = await import('../../lib/escposPackagePrinting');
           return await compilePackageReceiptStream({
             entryRef: tx.entryRef || tx.id,
-            date: tx.time,
+            date: txDisplayDateTime(tx.created_at, tx.time),
             agentName: tx.enteredByName || user.name,
             customerName: tx.name,
             phone: tx.consigneePhone || tx.phone,
@@ -562,7 +562,7 @@ export const TransactionLedger = ({
           }
           return await compileMarketingReceiptStream({
             entryRef: tx.id,
-            date: tx.time,
+            date: txDisplayDateTime(tx.created_at, tx.time),
             agentName: tx.enteredByName || user.name,
             customerName: tx.name,
             phone: tx.remarks || '',
@@ -620,7 +620,7 @@ export const TransactionLedger = ({
         const { downloadPackageReceipt } = await import('./PackageReceipt');
         await downloadPackageReceipt({
           entryRef: tx.entryRef || tx.id,
-          date: `${tx.created_at ? new Date(tx.created_at).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')} ${tx.time || tnow()}`,
+          date: txDisplayDateTime(tx.created_at, tx.time),
           agentName: tx.enteredByName || user.name,
           customerName: tx.name,
           phone: tx.consigneePhone || tx.phone,
@@ -689,7 +689,7 @@ export const TransactionLedger = ({
           kg: tx.kg || 0,
           contents: (tx as any).contents,
           hubName: user?.hub || 'EHI Station',
-          date: `${tx.created_at ? new Date(tx.created_at).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')} ${tx.time || tnow()}`,
+          date: txDisplayDateTime(tx.created_at, tx.time),
         };
 
         await printPackageTagPDF(data, preOpenedWindow);
@@ -738,7 +738,7 @@ export const TransactionLedger = ({
           route,
           airline: tx.airline,
           hubName: user?.hub || 'EHI Cargo Station',
-          date: `${tx.created_at ? new Date(tx.created_at).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')} ${tx.time || tnow()}`,
+          date: txDisplayDateTime(tx.created_at, tx.time),
           bigBags: big,
           medBags: med,
           smallBags: small,
@@ -773,7 +773,7 @@ export const TransactionLedger = ({
         weight: tx.kg || 0,
         airline: tx.airline,
         hubName: user?.hub || 'EHI Cargo Station',
-        date: `${tx.created_at ? new Date(tx.created_at).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')} ${tx.time || tnow()}`,
+        date: txDisplayDateTime(tx.created_at, tx.time),
         contentType: tx.contentType || (tx.detail ? tx.detail.split(' · ')[5] : undefined),
       };
 
@@ -821,7 +821,7 @@ export const TransactionLedger = ({
           kg: tx.kg || 0,
           contents: (tx as any).contents,
           hubName: user?.hub || 'EHI Station',
-          date: `${tx.created_at ? new Date(tx.created_at).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')} ${tx.time || tnow()}`,
+          date: txDisplayDateTime(tx.created_at, tx.time),
         };
 
         await printPackageTagPDF(data, preOpenedWindow);
@@ -862,7 +862,7 @@ export const TransactionLedger = ({
           route,
           airline: tx.airline,
           hubName: user?.hub || 'EHI Cargo Station',
-          date: `${tx.created_at ? new Date(tx.created_at).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')} ${tx.time || tnow()}`,
+          date: txDisplayDateTime(tx.created_at, tx.time),
           bigBags: big,
           medBags: med,
           smallBags: small,
@@ -897,7 +897,7 @@ export const TransactionLedger = ({
         weight: tx.kg || 0,
         airline: tx.airline,
         hubName: user?.hub || 'EHI Cargo Station',
-        date: `${tx.created_at ? new Date(tx.created_at).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')} ${tx.time || tnow()}`,
+        date: txDisplayDateTime(tx.created_at, tx.time),
         contentType: tx.contentType || (tx.detail ? tx.detail.split(' · ')[5] : undefined),
       };
 
@@ -1673,15 +1673,17 @@ export const TransactionLedger = ({
                     try {
                       const d = new Date(dtStr);
                       if (!isNaN(d.getTime())) {
-                        displayDate = d.toLocaleDateString('en-NG', { day: '2-digit', month: 'short' });
+                        displayDate = d.toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' });
                         displayTime = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
                       } else {
-                        // Fallback if it's just a raw time string like "05:14 PM"
-                        displayDate = 'Today'; // Default fallback
+                        // Genuinely no parseable date on this entry -- show that
+                        // honestly rather than asserting 'Today', which would be
+                        // wrong for a historical entry with a malformed timestamp.
+                        displayDate = 'Unknown date';
                         displayTime = e.time;
                       }
                     } catch {
-                      displayDate = 'Unknown';
+                      displayDate = 'Unknown date';
                       displayTime = e.time;
                     }
 
@@ -2106,7 +2108,7 @@ export const TransactionLedger = ({
 
               {/* Timestamps */}
               <section className="text-[10px] font-mono text-[var(--color-muted)] space-y-1 pb-4">
-                <div>Logged at: {viewingDetail.time} {viewingDetail.raw.enteredByName ? `by ${viewingDetail.raw.enteredByName}` : (viewingDetail.raw.loggedBy ? `by ${viewingDetail.raw.loggedBy}` : '')}</div>
+                <div>Logged at: {txDisplayDateTime(viewingDetail.raw.created_at, viewingDetail.time)} {viewingDetail.raw.enteredByName ? `by ${viewingDetail.raw.enteredByName}` : (viewingDetail.raw.loggedBy ? `by ${viewingDetail.raw.loggedBy}` : '')}</div>
                 {viewingDetail.mode === 'Debt Paid' && (
                   <div>Cleared by: {viewingDetail.raw.confirmedBy || (viewingDetail.raw.paymentHistory && viewingDetail.raw.paymentHistory[viewingDetail.raw.paymentHistory.length - 1]?.by) || 'System'} {viewingDetail.raw.confirmedAt ? `at ${new Date(viewingDetail.raw.confirmedAt).toLocaleString('en-NG')}` : ''}</div>
                 )}

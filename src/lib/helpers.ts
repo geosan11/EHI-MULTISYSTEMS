@@ -188,6 +188,18 @@ export function generatePickupPin(): string {
   return String(Math.floor(10000 + Math.random() * 90000));
 }
 
+// Reconstructs a transaction's full "DD/MM/YYYY HH:MM" display date for
+// receipts/tags reprinted later, preferring its real creation timestamp
+// for the date portion and its already-captured time string for the time
+// portion -- NOT tnow(), which would print the reprint's own time instead
+// of when the entry actually happened.
+export function txDisplayDateTime(createdAt?: string, timeStr?: string): string {
+  const dateStr = createdAt && !isNaN(new Date(createdAt).getTime())
+    ? new Date(createdAt).toLocaleDateString('en-GB')
+    : new Date().toLocaleDateString('en-GB');
+  return `${dateStr} ${timeStr || tnow()}`;
+}
+
 // ── DAILY ENTRIES CSV DOWNLOAD ────────────────────────────────
 // `transactions` is expected to already be scoped to whatever date range /
 // filters the caller applied (e.g. TransactionLedger's `filteredEntries`) --
@@ -204,12 +216,22 @@ export function downloadDailyCSV(
   let headers: string[];
   let rows: string[][];
 
+  // Derived from created_at, not the bare `time` field (HH:MM only, no
+  // day/month/year) -- without a real per-row date, a multi-day export is
+  // unreadable date-wise: every row just says e.g. "14:32" with no way to
+  // tell which calendar day it belongs to.
+  const rowDate = (t: any): string =>
+    t.created_at && !isNaN(new Date(t.created_at).getTime())
+      ? new Date(t.created_at).toLocaleDateString('en-GB')
+      : '';
+
   if (streamType === 'cargo') {
-    headers = ['Ref', 'Time', 'Consignee', 'AWB/Tag', 'Airline', 'Route', 'Pieces', 'KG', 'Content', 'Amount', 'Mode', 'Bank', 'Status'];
+    headers = ['Ref', 'Date', 'Time', 'Consignee', 'AWB/Tag', 'Airline', 'Route', 'Pieces', 'KG', 'Content', 'Amount', 'Mode', 'Bank', 'Status'];
     rows = transactions.map(t => {
       const parts = t.detail?.split(' · ') || [];
       return [
         t.id,
+        rowDate(t),
         t.time || '',
         t.name || '',
         t.awb_tag_number || parts[1] || '',
@@ -225,9 +247,10 @@ export function downloadDailyCSV(
       ];
     });
   } else if (streamType === 'baggage') {
-    headers = ['Ref', 'Time', 'Airline', 'Passenger', 'PNR', 'Flight', 'Destination', 'PCS', 'Total KG', 'Excess KG', 'Amount', 'Mode', 'Bank'];
+    headers = ['Ref', 'Date', 'Time', 'Airline', 'Passenger', 'PNR', 'Flight', 'Destination', 'PCS', 'Total KG', 'Excess KG', 'Amount', 'Mode', 'Bank'];
     rows = transactions.map(t => [
       t.id,
+      rowDate(t),
       t.time || '',
       t.airline || 'ValueJet',
       t.name || '',
@@ -242,7 +265,7 @@ export function downloadDailyCSV(
       t.bank || '',
     ]);
   } else if (streamType === 'marketing') {
-    headers = ['Ref', 'Time', 'Customer', 'Phone', 'Route', 'Big Bags', 'Med Bags', 'Sm Bags', 'Amount', 'Mode', 'Bank'];
+    headers = ['Ref', 'Date', 'Time', 'Customer', 'Phone', 'Route', 'Big Bags', 'Med Bags', 'Sm Bags', 'Amount', 'Mode', 'Bank'];
     rows = transactions.map(t => {
       const bags = t.detail?.split(' · ')[1] || '';
       const bb = bags.match(/(\d+)BB/)?.[1] || '';
@@ -250,6 +273,7 @@ export function downloadDailyCSV(
       const sb = bags.match(/(\d+)SB/)?.[1] || '';
       return [
         t.id,
+        rowDate(t),
         t.time || '',
         t.name || '',
         '',
@@ -261,11 +285,12 @@ export function downloadDailyCSV(
       ];
     });
   } else if (streamType === 'package') {
-    headers = ['Ref', 'Time', 'Name', 'Destination', 'Content Type', 'Pieces', 'KG', 'Contents', 'Amount', 'Mode', 'Bank', 'Status'];
+    headers = ['Ref', 'Date', 'Time', 'Name', 'Destination', 'Content Type', 'Pieces', 'KG', 'Contents', 'Amount', 'Mode', 'Bank', 'Status'];
     rows = transactions.map(t => {
       const parts = t.detail?.split(' · ') || [];
       return [
         t.id,
+        rowDate(t),
         t.time || '',
         t.name || '',
         t.destination || parts[0] || '',
@@ -283,9 +308,10 @@ export function downloadDailyCSV(
     // 'mixed' -- generic export for the all-streams Master Ledger view,
     // where entries can be cargo/baggage/marketing/package all at once and
     // none of the stream-specific column sets above apply uniformly.
-    headers = ['Ref', 'Time', 'Type', 'Name', 'Detail', 'KG', 'Amount', 'Mode', 'Bank', 'Status'];
+    headers = ['Ref', 'Date', 'Time', 'Type', 'Name', 'Detail', 'KG', 'Amount', 'Mode', 'Bank', 'Status'];
     rows = transactions.map(t => [
       t.id,
+      rowDate(t),
       t.time || '',
       t.type || '',
       t.name || '',
