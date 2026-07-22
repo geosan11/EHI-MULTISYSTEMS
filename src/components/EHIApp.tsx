@@ -816,7 +816,10 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             name: r.consignee_name || 'Cargo',
             detail: `${r.airline || ''} · ${r.awb_tag_number || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}${r.size_inches ? ` · ${r.size_inches}in` : ''}`,
             amount: r.amount || 0,
-            mode: r.receipt_mode || 'Cash',
+            // Same 'Debt Paid' recomputation fetchInitial and this
+            // channel's own UPDATE handler use -- an INSERT is rarely
+            // already fully paid off, but kept consistent regardless.
+            mode: r.receipt_mode === 'Debt' && (r.amount_paid || 0) >= (r.amount || 0) ? 'Debt Paid' : (r.receipt_mode || 'Cash'),
             time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
             type: 'cargo',
             status: r.status || 'Intake',
@@ -851,7 +854,18 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             t.id === (r.entry_ref || r.id) ? {
               ...t,
               status: r.status || t.status,
-              mode: r.receipt_mode || t.mode,
+              // 'Debt Paid' is a synthetic display value never stored in
+              // receipt_mode itself (clear_cargo_debt only ever updates
+              // amount_paid/payment_history/payment_confirmed, never the
+              // mode column -- confirmed via 20260824_clear_cargo_debt_
+              // corporate_decrement.sql) -- recomputed here the same way
+              // fetchInitial does, or a debt just cleared via
+              // handleClearDebt's RPC call would show its correct
+              // optimistic 'Debt Paid' state for a moment, then get
+              // silently reverted back to 'Debt' the instant this
+              // handler's own realtime round-trip for that same RPC
+              // write arrives.
+              mode: r.receipt_mode === 'Debt' && (r.amount_paid || 0) >= (r.amount || 0) ? 'Debt Paid' : (r.receipt_mode || t.mode),
               paymentConfirmed: r.payment_confirmed,
               posApprovalCode: r.pos_approval_code,
               bank: r.bank ?? t.bank,
@@ -886,7 +900,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             name: r.passenger_name || 'Baggage Passenger',
             detail: `${r.flight_no || ''} · ${r.destination || ''} · +${r.excess_kg || 0}kg excess`,
             amount: r.amount || 0,
-            mode: r.payment_mode || 'POS',
+            mode: r.payment_mode === 'Debt' && (r.amount_paid || 0) >= (r.amount || 0) ? 'Debt Paid' : (r.payment_mode || 'POS'),
             time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
             type: 'baggage',
             status: 'Delivered',
@@ -914,7 +928,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           setTransactions(prev => prev.map(t =>
             t.id === (r.transaction_id || r.id) ? {
               ...t,
-              mode: r.payment_mode || t.mode,
+              // Same 'Debt Paid' recomputation as the cargo channel above --
+              // see its comment for why this can't just pass payment_mode through.
+              mode: r.payment_mode === 'Debt' && (r.amount_paid || 0) >= (r.amount || 0) ? 'Debt Paid' : (r.payment_mode || t.mode),
               paymentConfirmed: r.payment_confirmed,
               posApprovalCode: r.pos_approval_code,
               editedBy: r.last_edited_by ?? t.editedBy,
@@ -942,7 +958,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             name: r.customer_name || 'Customer',
             detail: `${r.route || ''} · ${r.qty_big_bag || 0}BB ${r.qty_med_bag || 0}MB ${r.qty_small_bag || 0}SB`,
             amount: r.amount_paid || 0,
-            mode: r.payment_mode || 'Cash',
+            mode: r.payment_mode === 'Debt' && (r.debt_amount_paid || 0) >= (r.amount_paid || 0) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
             time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
             type: 'marketing',
             status: 'Intake',
@@ -964,7 +980,12 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           setTransactions(prev => prev.map(t =>
             t.id === (r.entry_ref || r.id) ? {
               ...t,
-              mode: r.payment_mode || t.mode,
+              // Same 'Debt Paid' recomputation as the cargo channel above,
+              // but keyed on debt_amount_paid vs amount_paid -- marketing_
+              // entries' own naming inversion (amount_paid there is the
+              // SALE total, not what's been paid down; see clear_marketing_
+              // debt's comment on this).
+              mode: r.payment_mode === 'Debt' && (r.debt_amount_paid || 0) >= (r.amount_paid || 0) ? 'Debt Paid' : (r.payment_mode || t.mode),
               paymentConfirmed: r.payment_confirmed,
               status: r.status || t.status,
               editedBy: r.last_edited_by ?? t.editedBy,
@@ -991,7 +1012,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             name: r.customer_name || 'Customer',
             detail: `${r.destination || ''} · ${r.content_type || 'Package'} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg${r.contents ? ` · ${r.contents}` : ''}`,
             amount: r.amount || 0,
-            mode: r.payment_mode || 'Cash',
+            mode: r.payment_mode === 'Debt' && (r.debt_paid === true || (r.amount_paid || 0) >= (r.amount || 0)) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
             time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
             type: 'package',
             status: r.status || 'Intake',
@@ -1019,7 +1040,10 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             t.id === (r.entry_ref || r.id) ? {
               ...t,
               status: r.status || t.status,
-              mode: r.payment_mode || t.mode,
+              // Same 'Debt Paid' recomputation as the cargo channel above,
+              // also OR'ing in the legacy debt_paid boolean flag to match
+              // fetchInitial's own package formula exactly.
+              mode: r.payment_mode === 'Debt' && (r.debt_paid === true || (r.amount_paid || 0) >= (r.amount || 0)) ? 'Debt Paid' : (r.payment_mode || t.mode),
               paymentConfirmed: r.payment_confirmed,
               posApprovalCode: r.pos_approval_code,
               bank: r.bank ?? t.bank,
