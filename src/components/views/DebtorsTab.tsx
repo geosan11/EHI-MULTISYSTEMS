@@ -161,7 +161,14 @@ export const DebtorsTab = ({
         related_tx_id: id,
         clientType: (debt as any).clientType || 'Individual',
         enteredByName: user?.name || 'Unknown',
-        hub_id: user?.hub_id,
+        // The original debt's own hub, not the clearing user's -- a
+        // super_admin (or any hub-unrestricted role) clearing a debt on
+        // behalf of a branch has their own hub_id, which is often a
+        // different hub (or none at all). Stamping that instead of the
+        // debt's real hub silently hid the clearance record from that
+        // branch's own agents (RLS scopes them to their own hub_id), even
+        // though the super_admin could always see it fine.
+        hub_id: (debt as any).hub_id || user?.hub_id,
         hub: user?.hub,
       };
       onAddTx(shadowTx);

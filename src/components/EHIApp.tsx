@@ -1035,7 +1035,11 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       return [tx, ...prev];
     });
 
-    let hubId = user.hub_id;
+    // Prefer the hub already stamped on the transaction (e.g. DebtorsTab's
+    // debt-clearance shadow entry deliberately carries the original debt's
+    // hub, not the acting user's) -- only fall back to the current user's
+    // own hub for normal entry creation, where tx.hub_id is never set.
+    let hubId = tx.hub_id || user.hub_id;
     if (!hubId) {
       const { data: hubData } = await supabase.from('hubs').select('id').eq('name', user.hub).single();
       if (hubData) {
@@ -1403,7 +1407,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       date: parsedDate,
       time: expense.time,
       hub: user.hub,
-      hub_id: user.hub_id || null,
+      hub_id: expense.hub_id || null,
       logged_by: user.name,
       logged_by_id: user.id && user.id.includes('-') && user.id.length > 30 ? user.id : null,
       status: expense.status || 'pending',
