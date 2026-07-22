@@ -1559,7 +1559,7 @@ export const CargoForm = ({
           </span>
         </div>
 
-        <div className="bg-[rgba(16,185,129,0.05)] border border-[var(--color-success)] rounded-[var(--radius-md)] text-center p-8 flex flex-col items-center">
+        <div className="bg-[rgba(16,185,129,0.05)] border border-[var(--color-success)] rounded-[var(--radius-md)] text-center p-6 flex flex-col items-center">
           <CheckCircle
             size={40}
             className="text-[var(--color-success)] mb-3"
@@ -1571,18 +1571,18 @@ export const CargoForm = ({
                 : "Credit Sale Logged!"
               : "Cargo entry saved successfully!"}
           </div>
-          <div className="text-[12px] font-mono text-[var(--color-muted)] mb-6">
+          <div className="text-[12px] font-mono text-[var(--color-muted)] mb-4">
             REF: {successTx.id}
           </div>
 
-          <div className="w-full bg-[var(--color-surface-card)] rounded-[var(--radius-md)] p-4 mb-8 border border-[var(--color-border)] text-left space-y-3 shadow-md">
+          <div className="w-full bg-[var(--color-surface-card)] rounded-[var(--radius-md)] p-4 mb-5 border border-[var(--color-border)] text-left space-y-3 shadow-md">
             <div className="flex justify-center mb-4 p-4 bg-white rounded">
               <QRCode id={successTx.id} size={150} />
             </div>
 
             {/* PICKUP PIN SECTION */}
             {(successTx as any).pickupPin && (
-              <div className="my-6 border border-[var(--color-accent-amber)] rounded-[var(--radius-md)] bg-[rgba(245,158,11,0.05)] overflow-hidden">
+              <div className="my-4 border border-[var(--color-accent-amber)] rounded-[var(--radius-md)] bg-[rgba(245,158,11,0.05)] overflow-hidden">
                 <div className="bg-[rgba(245,158,11,0.1)] px-4 py-2 border-b border-[var(--color-accent-amber)] flex justify-between items-center">
                   <span className="text-[12px] font-bold text-[var(--color-accent-amber)] uppercase tracking-wider">
                     Pickup PIN
@@ -1688,22 +1688,19 @@ export const CargoForm = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 mb-3">
+          <div className="grid grid-cols-2 gap-3 mb-3">
             <button
               onClick={handlePrintReceipt}
               className="py-3.5 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] text-[12px] font-sans font-semibold rounded-[var(--radius-sm)] border border-[var(--color-border)] transition-colors cursor-pointer focus:outline-none flex items-center justify-center gap-1.5"
             >
               PDF Receipt
             </button>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 mb-3">
             <button
               onClick={handlePrintTagPDF100mm}
               className="py-3.5 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] text-[12px] font-sans font-semibold rounded-[var(--radius-sm)] border border-[var(--color-border)] transition-colors cursor-pointer focus:outline-none"
               title="Fixed 100mm x 80mm label -- for the XP-402B and similar gap/die-cut label printers"
             >
-              Tag PDF (100×80mm Label)
+              Tag PDF (100×80mm)
             </button>
           </div>
 

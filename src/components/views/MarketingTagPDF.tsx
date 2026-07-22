@@ -71,7 +71,10 @@ function buildBagPages(data: MarketingTagPDFData): BagPage[] {
 
 const styles = StyleSheet.create({
   page: {
-    padding: 10,
+    paddingTop: 10,
+    paddingRight: 10,
+    paddingBottom: 10,
+    paddingLeft: 16,
     fontFamily: "Helvetica",
     backgroundColor: "#FFFFFF",
   },

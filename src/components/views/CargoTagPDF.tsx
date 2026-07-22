@@ -40,7 +40,13 @@ export interface CargoTagPDFData {
 
 const styles = StyleSheet.create({
   page: {
-    padding: 10,
+    paddingTop: 10,
+    paddingRight: 10,
+    paddingBottom: 10,
+    // Wider than the other 3 sides -- flush-left content was printing right
+    // up against the label edge, which some label stock/printers crop or
+    // makes hard to peel/align by hand.
+    paddingLeft: 16,
     fontFamily: "Helvetica",
     backgroundColor: "#FFFFFF",
   },
