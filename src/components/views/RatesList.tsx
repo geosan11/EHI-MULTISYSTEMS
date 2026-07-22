@@ -223,7 +223,13 @@ export const RatesList = ({ onBack, onOpenConfig }: { onBack: () => void; onOpen
               {filteredSpecialGoods.map((g, i) => (
                 <div key={i} className="space-y-1 pb-1.5 mb-1.5 border-b border-[var(--color-border)] last:border-0 last:mb-0 last:pb-0">
                   <div className="text-[10px] font-bold text-[var(--color-foreground)]">{g.content_type_name} · {g.airline}</div>
-                  {g.tiers.map(t => <Row key={t.id} label={kgLabel(t.min_kg, t.max_kg)} value={`₦${fmt(t.rate_per_kg)}/kg`} />)}
+                  {g.tiers.map(t => (
+                    <Row
+                      key={t.id}
+                      label={`${kgLabel(t.min_kg, t.max_kg)} · ${t.hub_name || 'All Hubs'} · ${t.route_name || 'All Routes'}`}
+                      value={`₦${fmt(t.rate_per_kg)}/kg`}
+                    />
+                  ))}
                 </div>
               ))}
             </Section>
