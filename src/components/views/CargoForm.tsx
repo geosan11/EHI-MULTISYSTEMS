@@ -1569,10 +1569,10 @@ export const CargoForm = ({
           </span>
         </div>
 
-        <div className="bg-[rgba(16,185,129,0.05)] border border-[var(--color-success)] rounded-[var(--radius-md)] text-center p-6 flex flex-col items-center">
+        <div className="bg-[rgba(16,185,129,0.05)] border border-[var(--color-success)] rounded-[var(--radius-md)] text-center p-5 flex flex-col items-center">
           <CheckCircle
-            size={40}
-            className="text-[var(--color-success)] mb-3"
+            size={32}
+            className="text-[var(--color-success)] mb-2"
           />
           <div className="text-[15px] font-semibold font-sans text-[var(--color-success)] mb-1">
             {successTx.mode === "Debt"
@@ -1581,18 +1581,18 @@ export const CargoForm = ({
                 : "Credit Sale Logged!"
               : "Cargo entry saved successfully!"}
           </div>
-          <div className="text-[12px] font-mono text-[var(--color-muted)] mb-4">
+          <div className="text-[12px] font-mono text-[var(--color-muted)] mb-3">
             REF: {successTx.id}
           </div>
 
-          <div className="w-full bg-[var(--color-surface-card)] rounded-[var(--radius-md)] p-4 mb-5 border border-[var(--color-border)] text-left space-y-3 shadow-md">
-            <div className="flex justify-center mb-4 p-4 bg-white rounded">
-              <QRCode id={successTx.id} size={150} />
+          <div className="w-full bg-[var(--color-surface-card)] rounded-[var(--radius-md)] p-4 mb-4 border border-[var(--color-border)] text-left space-y-2 shadow-md">
+            <div className="flex justify-center mb-2 p-2 bg-white rounded">
+              <QRCode id={successTx.id} size={90} />
             </div>
 
             {/* PICKUP PIN SECTION */}
             {(successTx as any).pickupPin && (
-              <div className="my-4 border border-[var(--color-accent-amber)] rounded-[var(--radius-md)] bg-[rgba(245,158,11,0.05)] overflow-hidden">
+              <div className="my-3 border border-[var(--color-accent-amber)] rounded-[var(--radius-md)] bg-[rgba(245,158,11,0.05)] overflow-hidden">
                 <div className="bg-[rgba(245,158,11,0.1)] px-4 py-2 border-b border-[var(--color-accent-amber)] flex justify-between items-center">
                   <span className="text-[12px] font-bold text-[var(--color-accent-amber)] uppercase tracking-wider">
                     Pickup PIN
@@ -1610,11 +1610,11 @@ export const CargoForm = ({
                     <Copy size={14} />
                   </button>
                 </div>
-                <div className="p-4 text-center">
-                  <div className="text-[32px] font-mono font-bold text-[var(--color-foreground)] tracking-[0.5em] ml-[0.25em]">
+                <div className="p-3 text-center">
+                  <div className="text-[28px] font-mono font-bold text-[var(--color-foreground)] tracking-[0.5em] ml-[0.25em]">
                     {(successTx as any).pickupPin}
                   </div>
-                  <p className="text-[11px] text-[var(--color-muted)] mt-2 font-sans leading-snug max-w-[250px] mx-auto">
+                  <p className="text-[11px] text-[var(--color-muted)] mt-1.5 font-sans leading-snug max-w-[250px] mx-auto">
                     Share this PIN with the consignee. They must present it at
                     the destination hub to collect the cargo.
                   </p>
@@ -1622,7 +1622,7 @@ export const CargoForm = ({
               </div>
             )}
 
-            <div className="flex justify-between border-b border-[var(--color-border)] pb-2">
+            <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5">
               <span className="text-[13px] font-sans text-[var(--color-muted)]">
                 Consignee
               </span>
@@ -1633,7 +1633,7 @@ export const CargoForm = ({
 
             {/* WALLET DEBITED SUMMARY BOX */}
             {successTx.wallet_deduction_amount && (
-              <div className="p-3 bg-[rgba(245,158,11,0.08)] border border-[var(--color-accent-amber)] rounded-lg text-left space-y-1.5 my-3 animate-in zoom-in-95">
+              <div className="p-2.5 bg-[rgba(245,158,11,0.08)] border border-[var(--color-accent-amber)] rounded-lg text-left space-y-1 my-2 animate-in zoom-in-95">
                 <div className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)] flex items-center justify-between">
                   <span>💰 CREDIT WALLET DEBITED</span>
                   <span className="bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] px-1.5 py-0.5 rounded text-[10px] uppercase font-bold">SUCCESS</span>
@@ -1650,7 +1650,7 @@ export const CargoForm = ({
                 )}
               </div>
             )}
-            <div className="flex justify-between border-b border-[var(--color-border)] pb-2">
+            <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5">
               <span className="text-[13px] font-sans text-[var(--color-muted)]">
                 AWB / Tag No
               </span>
@@ -1658,7 +1658,7 @@ export const CargoForm = ({
                 {successTx.awb_tag_number}
               </span>
             </div>
-            <div className="flex justify-between border-b border-[var(--color-border)] pb-2">
+            <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5">
               <span className="text-[13px] font-sans text-[var(--color-muted)]">
                 Weight / Route
               </span>
@@ -1666,7 +1666,7 @@ export const CargoForm = ({
                 {successTx.kg} KG — {successTx.detail.split(" · ")[4]}
               </span>
             </div>
-            <div className="flex justify-between border-b border-[var(--color-border)] pb-2">
+            <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5">
               <span className="text-[13px] font-sans text-[var(--color-muted)]">
                 Content
               </span>
@@ -1674,7 +1674,7 @@ export const CargoForm = ({
                 {successTx.detail.split(" · ")[5] || "Package"}
               </span>
             </div>
-            <div className="flex justify-between border-b border-[var(--color-border)] pb-2">
+            <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5">
               <span className="text-[13px] font-sans text-[var(--color-muted)]">
                 Amount Charged
               </span>
@@ -1698,23 +1698,23 @@ export const CargoForm = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mb-3">
+          <div className="grid grid-cols-2 gap-2 mb-2">
             <button
               onClick={handlePrintReceipt}
-              className="py-3.5 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] text-[12px] font-sans font-semibold rounded-[var(--radius-sm)] border border-[var(--color-border)] transition-colors cursor-pointer focus:outline-none flex items-center justify-center gap-1.5"
+              className="py-3 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] text-[12px] font-sans font-semibold rounded-[var(--radius-sm)] border border-[var(--color-border)] transition-colors cursor-pointer focus:outline-none flex items-center justify-center gap-1.5"
             >
               PDF Receipt
             </button>
             <button
               onClick={handlePrintTagPDF100mm}
-              className="py-3.5 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] text-[12px] font-sans font-semibold rounded-[var(--radius-sm)] border border-[var(--color-border)] transition-colors cursor-pointer focus:outline-none"
+              className="py-3 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] text-[12px] font-sans font-semibold rounded-[var(--radius-sm)] border border-[var(--color-border)] transition-colors cursor-pointer focus:outline-none"
               title="Fixed 100mm x 80mm label -- for the XP-402B and similar gap/die-cut label printers"
             >
               Tag PDF (100×80mm)
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mb-3">
+          <div className="grid grid-cols-2 gap-2 mb-2">
             <button
               onClick={() => {
                 import('../../lib/escpos').then(async ({ printViaBluetooth }) => {
@@ -1761,7 +1761,7 @@ export const CargoForm = ({
 
           <button
             onClick={handleReset}
-            className="w-full py-3.5 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] text-[14px] font-sans font-semibold rounded-[var(--radius-sm)] border border-[var(--color-border)] transition-colors cursor-pointer focus:outline-none"
+            className="w-full py-3 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] text-[14px] font-sans font-semibold rounded-[var(--radius-sm)] border border-[var(--color-border)] transition-colors cursor-pointer focus:outline-none"
           >
             New Entry
           </button>
