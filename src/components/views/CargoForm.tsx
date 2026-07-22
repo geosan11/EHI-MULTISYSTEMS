@@ -1199,8 +1199,18 @@ export const CargoForm = ({
       // whenever the agent hasn't also weighed the item.
       (isSizeTierContent ? (Math.round(parseFloat(sizeInches)) || 0) > 0 : w > 0) &&
       Number.isInteger(piecesNum) && piecesNum > 0 &&
-      (rate == null && minCharge == null ? parsedAmount > 0 : parsedAmount >= minAmount && parsedAmount > 0),
-    [actualConsignee, route, actualContentType, w, sizeInches, isSizeTierContent, piecesNum, parsedAmount, minAmount, rate, minCharge],
+      // minAmount above is computed purely from resolveRate/
+      // resolveMinimumCharge -- both keyed on airline+route+kg alone, with
+      // no content-type awareness -- so it can easily land higher than a
+      // size/flat-tier item's own correct, deliberately-configured whole-
+      // bracket price (autoAmount already gives tier pricing full priority
+      // over the per-kg+minimum cascade, per its own comment above). Without
+      // this, a legitimately-priced size/flat-tier sale could be blocked by
+      // a minimum-charge bracket that was never meant to apply to it.
+      (priceOverrideInfo?.type === 'size' || priceOverrideInfo?.type === 'flat'
+        ? parsedAmount > 0
+        : (rate == null && minCharge == null ? parsedAmount > 0 : parsedAmount >= minAmount && parsedAmount > 0)),
+    [actualConsignee, route, actualContentType, w, sizeInches, isSizeTierContent, piecesNum, parsedAmount, minAmount, rate, minCharge, priceOverrideInfo],
   );
 
   const handleRetailSubmit = async () => {

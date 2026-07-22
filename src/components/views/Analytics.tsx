@@ -235,7 +235,17 @@ export const Analytics = ({
 
     // Liquid Transactions (The actual real money we can count as Revenue)
     // We also consider 'is_debt_clearance' as liquid since it's money coming in today for past debts!
-    const validLiquidTxs = periodFilteredTxs.filter(t => (t.mode !== 'Debt' && !t.retrieved) || t.is_debt_clearance);
+    // 'Debt Paid' must be excluded here too, not just 'Debt' -- it's the
+    // synthetic mode EHIApp.tsx's fetchInitial computes for an original
+    // entry once fully cleared (receipt_mode stays 'Debt' in the DB;
+    // amount_paid >= amount just displays as 'Debt Paid'). Without this,
+    // a period spanning both the entry's original creation date and its
+    // later clearance date counted the SAME collected money twice: once
+    // via the original entry (mode !== 'Debt' now passes) and again via
+    // its is_debt_clearance shadow entry. EODReconciliation.tsx already
+    // keeps these two strictly separate (newSalesTx excludes
+    // is_debt_clearance entirely) -- this mirrors that.
+    const validLiquidTxs = periodFilteredTxs.filter(t => (t.mode !== 'Debt' && t.mode !== 'Debt Paid' && !t.retrieved) || t.is_debt_clearance);
 
     const totalRevenue = validLiquidTxs.reduce((sum, t) => sum + t.amount, 0); // Pure liquid
     const cargoRevenue = validLiquidTxs.filter(t => t.type === 'cargo').reduce((sum, t) => sum + t.amount, 0);

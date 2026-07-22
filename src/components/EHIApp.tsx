@@ -830,6 +830,16 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             pickupPin: canSeePin ? (r.pickup_pin || undefined) : undefined,
             consigneePhone: r.consignee_phone || undefined,
             clientType: r.client_type || undefined,
+            // Brought to parity with baggage/marketing/package's own INSERT
+            // handlers below, which already carry these -- cargo's was
+            // missing raw entirely, so (t.raw as any)?.retrieved_amount
+            // read as undefined for a cargo entry until the next full
+            // refetch, same bug class already fixed for the other 3 types.
+            retrieved: r.retrieved ?? undefined,
+            retrievalNote: r.retrieval_note ?? undefined,
+            retrievedAt: r.retrieved_at ?? undefined,
+            retrievedBy: r.retrieved_by ?? undefined,
+            raw: r,
           });
         }
       )
@@ -1329,7 +1339,6 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
   const handleUpdateTx = useCallback(async (tx: Transaction) => {
     const prevTx = transactionsRef.current.find(t => t.id === tx.id);
-    const prevAmountPaid = prevTx?.amountPaid || 0;
     setTransactions(prev => prev.map(t => t.id === tx.id ? tx : t));
 
     const table = tx.type === 'cargo' ? 'cargo_entries'
@@ -1400,14 +1409,18 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         console.error('Failed to queue update', qErr);
       }
     }
-    if (!error && tx.type === 'cargo' && tx.corporate_client_id && (tx.amountPaid || 0) > prevAmountPaid) {
-      supabase.rpc('decrement_corporate_debt', {
-        p_client_id: tx.corporate_client_id,
-        p_amount: (tx.amountPaid || 0) - prevAmountPaid,
-      }).then(({ error: rpcError }) => {
-        if (rpcError) console.error('decrement_corporate_debt failed:', rpcError);
-      });
-    }
+    // No client-side decrement_corporate_debt call here -- clear_cargo_debt
+    // (supabase/migrations/20260824_clear_cargo_debt_corporate_decrement.sql)
+    // already decrements corporate_clients.accumulated_monthly_debt
+    // atomically, server-side, for every real debt-clearing path (both
+    // DebtorsTab.tsx and TransactionLedger.tsx's handleClearDebt route
+    // through the clear_cargo_debt RPC). TransactionLedger.tsx's
+    // handleClearDebt also calls onUpdateTx() with the RPC's own returned
+    // amountPaid right after -- a client-side decrement here fired again
+    // on that same call, double-decrementing the corporate balance by
+    // 2x the real payment every time a corporate cargo debt was cleared
+    // from the ledger. amountPaid has no other legitimate write path for
+    // a corporate cargo entry outside of clear_cargo_debt.
     if (!error && tx.paymentConfirmed) {
       writeAuditLog({
         user_id: user.id,
@@ -1790,6 +1803,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             transactions={filteredLedgerTransactions}
             onBack={handleCloseLedger}
             onUpdateTx={handleUpdateTx}
+            onAddTx={handleAddTx}
             defaultTypeFilter={streamLedger.streams.length === 1 ? streamLedger.streams[0] : null}
             defaultTerminalFilter={streamLedger.terminal}
             viewOnly={user.role !== 'super_admin' && !user.can_print_ledger}

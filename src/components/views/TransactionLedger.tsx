@@ -60,6 +60,7 @@ export const TransactionLedger = ({
   expenses = [],
   onBack,
   onUpdateTx,
+  onAddTx,
   defaultTypeFilter,
   defaultTerminalFilter,
   viewOnly = false,
@@ -77,6 +78,11 @@ export const TransactionLedger = ({
   expenses?: Expense[];
   onBack: () => void;
   onUpdateTx: (tx: Transaction) => void;
+  // Optional -- only needed for handleClearDebt's shadow debt-clearance
+  // record (see its own comment). The one existing call site in
+  // EHIApp.tsx passes handleAddTx; a caller that omits it just doesn't
+  // get an EOD-visible shadow entry for debts cleared from this screen.
+  onAddTx?: (tx: Transaction) => void;
   customerWallets?: CustomerWallet[];
   defaultTypeFilter?: 'cargo' | 'baggage' | 'marketing' | 'package' | null;
   // Seeds the terminal filter chip -- used by the GAT tab's History button,
@@ -1075,6 +1081,38 @@ export const TransactionLedger = ({
     };
 
     onUpdateTx(updated);
+
+    // Same shadow-clearance record DebtorsTab.tsx's handleRecordPayment
+    // emits, and for the same reason: without a NEW, dated entry, this
+    // collection has no created_at of its own -- EODReconciliation.tsx's
+    // todaysTx filters strictly by created_at, so a debt logged on one day
+    // and cleared here on a later day was invisible to that later day's
+    // cash reconciliation even though the cash was physically collected
+    // then. Carries the real airline (see DebtorsTab's own shadowTx
+    // comment on why an unset one corrupts airline reports) and the
+    // debt's own hub_id, not the clearing user's.
+    if (onAddTx) {
+      const awbLabel = (tx as any).awb_tag_number ? ` · AWB: ${(tx as any).awb_tag_number}` : '';
+      onAddTx({
+        id: `DC-${Date.now()}-${tx.id.slice(-6)}`,
+        name: tx.name,
+        detail: `DEBT CLEARANCE${awbLabel} · Orig: ${fmt(tx.amount)} · Paid: ${fmt(remaining)} · Bal: ₦0`,
+        amount: remaining,
+        mode: 'Cash',
+        time: tnow(),
+        created_at: new Date().toISOString(),
+        type: tx.type,
+        status: 'Intake',
+        is_debt_clearance: true,
+        related_tx_id: tx.id,
+        clientType: tx.clientType || 'Individual',
+        airline: (tx as any).airline,
+        enteredByName: user.name || 'Unknown',
+        hub_id: tx.hub_id,
+        hub: tx.hub,
+      } as Transaction);
+    }
+
     showToast({ message: 'Debt cleared successfully', type: 'success' });
     if (viewingDetail && viewingDetail.id === tx.id) {
       setViewingDetail({

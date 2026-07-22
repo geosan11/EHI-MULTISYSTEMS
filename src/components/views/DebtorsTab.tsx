@@ -145,6 +145,15 @@ export const DebtorsTab = ({
         detail: `DEBT CLEARANCE${awbLabel} · Orig: ${fmt(debt.amount)} · Paid: ${fmt(cappedPaid)} · Bal: ${fmt(remaining)} · Age: ${debt.ageInDays}d`,
         amount: cappedPaid,
         mode: paymentMode,
+        // Never set before -- EHIApp.tsx's handleAddTx falls back to
+        // parsing this shadow entry's own `detail` string for cargo
+        // (yielding the literal "DEBT CLEARANCE" as the airline) or to a
+        // hardcoded 'ValueJet' for baggage when tx.airline is undefined,
+        // polluting AirlinePerformance/Analytics airline groupings with
+        // fake or misattributed revenue for every cleared debt. This is
+        // real money collected for the original airline/route, so it
+        // should count there, not toward a bogus bucket.
+        airline: (debt as any).airline,
         bank: paymentMode === 'Transfer' ? paymentBank : undefined,
         time: tnow(),
         created_at: new Date().toISOString(),
