@@ -1131,7 +1131,11 @@ export const TransactionLedger = ({
   const handleUnretrieve = async () => {
     if (!viewingDetail || viewingDetail.source !== 'transaction') return;
     const tx = viewingDetail.raw as Transaction;
-    const reversedAmount = (viewingDetail.raw as any)?.retrieved_amount || 0;
+    // tx (=viewingDetail.raw) is the Transaction; the true DB row with
+    // retrieved_amount is one level deeper, at tx.raw -- same mistake
+    // already fixed once elsewhere in this file (see handleClearDebt's
+    // own comment on this exact Entry -> Transaction -> raw DB row chain).
+    const reversedAmount = (tx.raw as any)?.retrieved_amount || 0;
     const ok = await confirm({
       title: 'Undo this retrieval?',
       message: `This resets the retrieval record on ${tx.name}'s entry (${fmt(reversedAmount)} previously marked retrieved). It does NOT touch any wallet balance -- if that retrieval credited a wallet, correct that separately (Customer Credit Wallets, or edit this entry's mode).`,
@@ -2265,7 +2269,10 @@ export const TransactionLedger = ({
                         <HandCoins size={14} /> 💰 Refund to Wallet
                       </button>
                     )}
-                    {((viewingDetail.raw as any)?.retrieved_amount || 0) > 0 && (
+                    {/* viewingDetail is an Entry, so viewingDetail.raw is the
+                        Transaction -- the true DB row with retrieved_amount is
+                        one level deeper, at viewingDetail.raw.raw. */}
+                    {((viewingDetail.raw as any)?.raw?.retrieved_amount || 0) > 0 && (
                       <button
                         onClick={handleUnretrieve}
                         className="flex-1 py-2.5 flex items-center justify-center gap-1.5 bg-[rgba(239,68,68,0.08)] hover:bg-[var(--color-error)] hover:text-white text-[var(--color-error)] rounded-lg transition-colors border border-[rgba(239,68,68,0.25)] text-[11px] font-mono font-bold"
