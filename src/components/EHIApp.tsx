@@ -327,9 +327,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         const [shifts, cargoRes, baggageRes, mktRes, packageRes, expRes, profilesRes] = await Promise.all([
           fetchShifts(),
           addHubFilter(supabase.from('cargo_entries').select('entry_ref,consignee_name,airline,awb_tag_number,total_pcs,total_kg,size_inches,route,content_type,amount,receipt_mode,pickup_pin,status,created_at,commission_rate,bank,hub_id,terminal,remark,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,consignee_phone,client_type,corporate_client_id,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
-          addHubFilter(supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs,amount_paid,payment_history,airline,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
-          addHubFilter(supabase.from('marketing_entries').select('entry_ref,awb_tag_number,customer_name,route,qty_big_bag,qty_med_bag,qty_small_bag,bb_kg,mb_kg,sb_kg,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,last_edited_by,last_edited_at,debt_amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,wallet_id,wallet_deduction_amount').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
-          addHubFilter(supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,total_pcs,total_kg,contents,status,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,amount_paid,payment_history,created_at,hub_id,terminal,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
+          addHubFilter(supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs,amount_paid,payment_history,airline,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
+          addHubFilter(supabase.from('marketing_entries').select('entry_ref,awb_tag_number,customer_name,route,qty_big_bag,qty_med_bag,qty_small_bag,bb_kg,mb_kg,sb_kg,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,last_edited_by,last_edited_at,debt_amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
+          addHubFilter(supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,total_pcs,total_kg,contents,status,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,amount_paid,payment_history,created_at,hub_id,terminal,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
           addHubFilter(supabase.from('expenses').select('*').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
           supabase.from('user_profiles').select('id,name')
         ]);
@@ -438,6 +438,16 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               bankAlertText: r.bank_alert_text || undefined,
               wallet_id: r.wallet_id || undefined,
               wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
+              retrieved: r.retrieved ?? undefined,
+              retrievalNote: r.retrieval_note ?? undefined,
+              retrievedAt: r.retrieved_at ?? undefined,
+              retrievedBy: r.retrieved_by ?? undefined,
+              // Not previously set for baggage -- DebtorsTab's balance calc
+              // and TransactionLedger's handleClearDebt both read
+              // (t.raw as any)?.retrieved_amount, which silently resolved to
+              // undefined (treated as 0) without this, so a partial baggage
+              // retrieval would never reduce the computed remaining balance.
+              raw: r,
             });
           });
         }
@@ -471,6 +481,11 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               bankReference: r.bank_reference || undefined,
               bankSender: r.bank_sender || undefined,
               bankAlertText: r.bank_alert_text || undefined,
+              retrieved: r.retrieved ?? undefined,
+              retrievalNote: r.retrieval_note ?? undefined,
+              retrievedAt: r.retrieved_at ?? undefined,
+              retrievedBy: r.retrieved_by ?? undefined,
+              raw: r,
             });
           });
         }
@@ -510,6 +525,11 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               confirmedAt: r.confirmed_at || undefined,
               wallet_id: r.wallet_id || undefined,
               wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
+              retrieved: r.retrieved ?? undefined,
+              retrievalNote: r.retrieval_note ?? undefined,
+              retrievedAt: r.retrieved_at ?? undefined,
+              retrievedBy: r.retrieved_by ?? undefined,
+              raw: r,
             });
           });
         }
@@ -828,7 +848,17 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               confirmedBy: r.confirmed_by ?? t.confirmedBy,
               confirmedAt: r.confirmed_at ?? t.confirmedAt,
               editedBy: r.last_edited_by ?? t.editedBy,
-              editedAt: r.last_edited_at ?? t.editedAt
+              editedAt: r.last_edited_at ?? t.editedAt,
+              // Without this, a retrieval processed on another device never
+              // shows up here until a full refetch -- DebtorsTab's balance
+              // and handleClearDebt's remaining-debt calc both read
+              // (t.raw as any)?.retrieved_amount, which stayed frozen at
+              // whatever it was on initial load.
+              retrieved: r.retrieved ?? t.retrieved,
+              retrievalNote: r.retrieval_note ?? t.retrievalNote,
+              retrievedAt: r.retrieved_at ?? t.retrievedAt,
+              retrievedBy: r.retrieved_by ?? t.retrievedBy,
+              raw: { ...(t.raw || {}), ...r },
             } : t
           ));
         }
@@ -859,6 +889,11 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             flight: r.flight_no,
             kg: r.excess_kg,
             pieces: r.total_pcs,
+            retrieved: r.retrieved ?? undefined,
+            retrievalNote: r.retrieval_note ?? undefined,
+            retrievedAt: r.retrieved_at ?? undefined,
+            retrievedBy: r.retrieved_by ?? undefined,
+            raw: r,
           });
         }
       )
@@ -873,7 +908,12 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               paymentConfirmed: r.payment_confirmed,
               posApprovalCode: r.pos_approval_code,
               editedBy: r.last_edited_by ?? t.editedBy,
-              editedAt: r.last_edited_at ?? t.editedAt
+              editedAt: r.last_edited_at ?? t.editedAt,
+              retrieved: r.retrieved ?? t.retrieved,
+              retrievalNote: r.retrieval_note ?? t.retrievalNote,
+              retrievedAt: r.retrieved_at ?? t.retrievedAt,
+              retrievedBy: r.retrieved_by ?? t.retrievedBy,
+              raw: { ...(t.raw || {}), ...r },
             } : t
           ));
         }
@@ -899,6 +939,11 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             created_at: r.created_at,
             hub_id: r.hub_id,
             route: r.route,
+            retrieved: r.retrieved ?? undefined,
+            retrievalNote: r.retrieval_note ?? undefined,
+            retrievedAt: r.retrieved_at ?? undefined,
+            retrievedBy: r.retrieved_by ?? undefined,
+            raw: r,
           });
         }
       )
@@ -914,6 +959,11 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               status: r.status || t.status,
               editedBy: r.last_edited_by ?? t.editedBy,
               editedAt: r.last_edited_at ?? t.editedAt,
+              retrieved: r.retrieved ?? t.retrieved,
+              retrievalNote: r.retrieval_note ?? t.retrievalNote,
+              retrievedAt: r.retrieved_at ?? t.retrievedAt,
+              retrievedBy: r.retrieved_by ?? t.retrievedBy,
+              raw: { ...(t.raw || {}), ...r },
             } : t
           ));
         }
@@ -943,6 +993,11 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             pieces: r.total_pcs,
             kg: r.total_kg,
             contents: r.contents || undefined,
+            retrieved: r.retrieved ?? undefined,
+            retrievalNote: r.retrieval_note ?? undefined,
+            retrievedAt: r.retrieved_at ?? undefined,
+            retrievedBy: r.retrieved_by ?? undefined,
+            raw: r,
           });
         }
       )
@@ -964,7 +1019,12 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               debtPaidAt: r.debt_paid_at ?? t.debtPaidAt,
               amountPaid: r.amount_paid ?? t.amountPaid,
               editedBy: r.last_edited_by ?? t.editedBy,
-              editedAt: r.last_edited_at ?? t.editedAt
+              editedAt: r.last_edited_at ?? t.editedAt,
+              retrieved: r.retrieved ?? t.retrieved,
+              retrievalNote: r.retrieval_note ?? t.retrievalNote,
+              retrievedAt: r.retrieved_at ?? t.retrievedAt,
+              retrievedBy: r.retrieved_by ?? t.retrievedBy,
+              raw: { ...(t.raw || {}), ...r },
             } : t
           ));
         }

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Transaction, User, Expense } from "../../lib/types";
 import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDateTime } from "../../lib/helpers";
-import { applyWalletTransaction, processCargoRetrieval } from "../../lib/wallet";
+import { applyWalletTransaction, processRetrieval, RetrievalEntryType } from "../../lib/wallet";
 import { clearDebt, DebtEntryType } from "../../lib/debt";
 import { useHubRoutes } from "../../lib/hubRoutes";
 import { useAirlines } from "../../lib/airlines";
@@ -1044,11 +1044,12 @@ export const TransactionLedger = ({
     const entry = retrievalModalEntry;
     const customerName = entry.name;
 
-    // process_cargo_retrieval locks the cargo entry, rejects a refund that
+    // process_<type>_retrieval locks the entry, rejects a refund that
     // would push cumulative retrieved_amount past the entry's original
     // amount, updates retrieval tracking, and credits the wallet -- all in
-    // one atomic call. See supabase/migrations/20260810_wallet_atomicity_and_isolation.sql.
-    const result = await processCargoRetrieval({
+    // one atomic call. See
+    // supabase/migrations/20260902_multi_department_retrieval_and_wallet_cashout.sql.
+    const result = await processRetrieval(entry.type as RetrievalEntryType, {
       entryRef: entry.id,
       isPartial: data.isPartial,
       retrievedValue: data.retrievedValue,
@@ -2129,11 +2130,11 @@ export const TransactionLedger = ({
                     >
                       <QrCode size={14} /> Scan
                     </button>
-                    {viewingDetail.type === 'cargo' && !viewOnly && !viewingDetail.raw?.retrieved && (
+                    {(['cargo', 'baggage', 'marketing', 'package'] as const).includes(viewingDetail.type as RetrievalEntryType) && !viewOnly && !viewingDetail.raw?.retrieved && (
                       <button
                         onClick={() => handleMarkRetrievedAndDeposit(viewingDetail)}
                         className="flex-1 py-2.5 flex items-center justify-center gap-1.5 bg-[rgba(245,158,11,0.12)] hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-obsidian)] text-[var(--color-accent-amber)] rounded-lg transition-colors border border-[rgba(245,158,11,0.3)] text-[11px] font-mono font-bold"
-                        title="Deposit retrieved cargo refund directly into customer credit wallet"
+                        title="Deposit retrieved refund directly into customer credit wallet"
                       >
                         <HandCoins size={14} /> 💰 Refund to Wallet
                       </button>

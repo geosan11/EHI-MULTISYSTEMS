@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { User } from '../../lib/types';
 import { fmt, tnow } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
-import { applyWalletTransaction } from '../../lib/wallet';
+import { applyWalletTransaction, requestWalletCashPayout, approveWalletCashPayout, rejectWalletCashPayout, RetrievalEntryType } from '../../lib/wallet';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
 import { BackButton } from '../BackButton';
@@ -22,6 +22,9 @@ import {
   TrendingUp,
   ShieldCheck,
   User as UserIcon,
+  HandCoins,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 
 export interface CustomerWallet {
@@ -47,7 +50,7 @@ export interface WalletTransaction {
   id: string;
   wallet_id: string;
   hub_id?: string;
-  type: 'top_up' | 'deduction' | 'refund' | 'adjustment';
+  type: 'top_up' | 'deduction' | 'refund' | 'adjustment' | 'cash_payout';
   amount: number;
   balance_before: number;
   balance_after: number;
@@ -55,6 +58,15 @@ export interface WalletTransaction {
   description?: string;
   logged_by: string;
   created_at: string;
+  // department is only reliably populated from 20260902_multi_department_
+  // retrieval_and_wallet_cashout.sql onward -- older rows were backfilled
+  // to 'cargo' (every wallet transaction before this migration came from
+  // cargo retrieval, the only department wired up until now).
+  department?: RetrievalEntryType;
+  status?: 'completed' | 'pending' | 'rejected';
+  approved_by?: string;
+  approved_at?: string;
+  rejection_reason?: string;
 }
 
 export const CustomerWallets = ({
@@ -96,6 +108,24 @@ export const CustomerWallets = ({
 
   const [tableMissing, setTableMissing] = useState(false);
 
+  // Same role gate TransactionLedger.tsx already uses for financial
+  // approvals (payment confirmation) -- reused here for cash-payout
+  // approval rather than inventing a new permission.
+  const canApprovePayouts = ['accountant', 'admin', 'super_admin'].includes(user.role);
+
+  // Cash-payout request form
+  const [payoutWalletId, setPayoutWalletId] = useState<string | null>(null);
+  const [payoutAmount, setPayoutAmount] = useState('');
+  const [payoutDepartment, setPayoutDepartment] = useState<RetrievalEntryType>('cargo');
+  const [payoutNote, setPayoutNote] = useState('');
+  const [savingPayout, setSavingPayout] = useState(false);
+
+  // Pending cash payouts awaiting a second person's approval
+  const [pendingPayouts, setPendingPayouts] = useState<WalletTransaction[]>([]);
+  const [rejectingPayoutId, setRejectingPayoutId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [payoutActionLoading, setPayoutActionLoading] = useState<string | null>(null);
+
   const fetchWallets = useCallback(async () => {
     setLoading(true);
     setTableMissing(false);
@@ -126,6 +156,30 @@ export const CustomerWallets = ({
       setLoading(false);
     }
   }, [user.hub_id, user.role, showToast]);
+
+  const fetchPendingPayouts = useCallback(async () => {
+    if (!canApprovePayouts) return;
+    try {
+      const { data, error } = await supabase
+        .from('wallet_transactions')
+        .select('*')
+        .eq('type', 'cash_payout')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      setPendingPayouts((data as WalletTransaction[]) || []);
+    } catch (err: any) {
+      // Silent -- table/columns may not exist yet if the migration hasn't
+      // been run, and this section is a secondary feature of the screen,
+      // not its core purpose (matches tableMissing's own graceful handling
+      // for customer_wallets above).
+      console.error('Error fetching pending cash payouts:', err);
+    }
+  }, [canApprovePayouts]);
+
+  useEffect(() => {
+    fetchPendingPayouts();
+  }, [fetchPendingPayouts]);
 
   useEffect(() => {
     fetchWallets();
@@ -290,6 +344,88 @@ export const CustomerWallets = ({
     }
   };
 
+  const handleRequestPayout = async (wallet: CustomerWallet) => {
+    const amt = parseFloat(payoutAmount);
+    if (isNaN(amt) || amt <= 0) {
+      showToast({ message: 'Enter a valid payout amount', type: 'error' });
+      return;
+    }
+    if (amt > wallet.balance) {
+      showToast({ message: `Cannot pay out more than the current balance (₦${fmt(wallet.balance)})`, type: 'error' });
+      return;
+    }
+    setSavingPayout(true);
+    try {
+      // Does NOT deduct the balance yet -- request_wallet_cash_payout()
+      // only records a 'pending' row. The balance only actually moves once
+      // a different person (accountant/admin/super_admin, not this agent)
+      // approves it below.
+      const result = await requestWalletCashPayout({
+        walletId: wallet.id,
+        amount: amt,
+        department: payoutDepartment,
+        requestedBy: user.name,
+        note: payoutNote.trim() || undefined,
+      });
+      if (!result.ok) throw new Error(result.error);
+      showToast({ message: `Cash payout of ₦${fmt(amt)} requested — awaiting approval`, type: 'success' });
+      setPayoutWalletId(null);
+      setPayoutAmount('');
+      setPayoutNote('');
+      fetchPendingPayouts();
+    } catch (err: any) {
+      showToast({ message: 'Failed to request payout: ' + err.message, type: 'error' });
+    } finally {
+      setSavingPayout(false);
+    }
+  };
+
+  const handleApprovePayout = async (payout: WalletTransaction) => {
+    if (payout.logged_by === user.name) {
+      showToast({ message: "You can't approve a cash payout you requested yourself", type: 'error' });
+      return;
+    }
+    const ok = await confirm({
+      title: 'Approve cash payout?',
+      message: `Approve a ₦${fmt(payout.amount)} cash payout requested by ${payout.logged_by}? The wallet balance will be deducted immediately.`,
+      confirmLabel: 'Approve',
+      tone: 'default',
+    });
+    if (!ok) return;
+    setPayoutActionLoading(payout.id);
+    try {
+      const result = await approveWalletCashPayout({ transactionId: payout.id, approvedBy: user.name });
+      if (!result.ok) throw new Error(result.error);
+      showToast({ message: `₦${fmt(payout.amount)} cash payout approved`, type: 'success' });
+      fetchPendingPayouts();
+      fetchWallets();
+    } catch (err: any) {
+      showToast({ message: 'Failed to approve payout: ' + err.message, type: 'error' });
+    } finally {
+      setPayoutActionLoading(null);
+    }
+  };
+
+  const handleRejectPayout = async (payout: WalletTransaction) => {
+    setPayoutActionLoading(payout.id);
+    try {
+      const result = await rejectWalletCashPayout({
+        transactionId: payout.id,
+        rejectedBy: user.name,
+        reason: rejectReason.trim() || undefined,
+      });
+      if (!result.ok) throw new Error(result.error);
+      showToast({ message: 'Cash payout rejected', type: 'success' });
+      setRejectingPayoutId(null);
+      setRejectReason('');
+      fetchPendingPayouts();
+    } catch (err: any) {
+      showToast({ message: 'Failed to reject payout: ' + err.message, type: 'error' });
+    } finally {
+      setPayoutActionLoading(null);
+    }
+  };
+
   const printWalletReceipt = (wallet: CustomerWallet, tx?: WalletTransaction) => {
     const html = `
       <html>
@@ -389,6 +525,85 @@ export const CustomerWallets = ({
           </div>
         </div>
       </div>
+
+      {/* Pending Cash Payouts -- maker-checker: requested by one agent,
+          approved/rejected by a different accountant/admin/super_admin */}
+      {canApprovePayouts && pendingPayouts.length > 0 && (
+        <div className="p-3.5 bg-[rgba(245,158,11,0.06)] border border-[var(--color-accent-amber)] rounded-xl space-y-2.5">
+          <div className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)] uppercase tracking-wider flex items-center gap-1.5">
+            <HandCoins size={13} /> Pending Cash Payouts ({pendingPayouts.length})
+          </div>
+          {pendingPayouts.map((payout) => {
+            const wallet = wallets.find((w) => w.id === payout.wallet_id);
+            const isSelf = payout.logged_by === user.name;
+            const busy = payoutActionLoading === payout.id;
+            return (
+              <div key={payout.id} className="p-3 bg-[var(--color-surface-card)] rounded-lg border border-[var(--color-border)] space-y-2">
+                <div className="flex items-center justify-between gap-2 text-[11px]">
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="font-bold text-[var(--color-foreground)] truncate">
+                      {wallet?.customer_name || 'Unknown customer'} · ₦{fmt(payout.amount)}
+                    </div>
+                    <div className="text-[9px] font-mono text-[var(--color-muted)]">
+                      Requested by {payout.logged_by} · {payout.department || 'cargo'}
+                      {payout.description ? ` · ${payout.description}` : ''}
+                    </div>
+                  </div>
+                </div>
+                {rejectingPayoutId === payout.id ? (
+                  <div className="space-y-1.5">
+                    <input
+                      type="text"
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                      placeholder="Reason for rejecting (optional)"
+                      className="w-full h-9 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg text-[11px] font-mono text-[var(--color-foreground)] focus:outline-none"
+                    />
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => handleRejectPayout(payout)}
+                        disabled={busy}
+                        className="flex-1 h-8 rounded-lg text-[10px] font-mono font-bold bg-[var(--color-error)] text-white disabled:opacity-50"
+                      >
+                        Confirm Reject
+                      </button>
+                      <button
+                        onClick={() => { setRejectingPayoutId(null); setRejectReason(''); }}
+                        className="flex-1 h-8 rounded-lg text-[10px] font-mono font-bold bg-[var(--color-surface-2)] text-[var(--color-foreground)]"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => handleApprovePayout(payout)}
+                      disabled={isSelf || busy}
+                      title={isSelf ? "You can't approve your own request" : 'Approve'}
+                      className="flex-1 h-8 rounded-lg text-[10px] font-mono font-bold bg-[var(--color-success)] text-[#0B0F19] disabled:opacity-40 flex items-center justify-center gap-1"
+                    >
+                      <CheckCircle2 size={12} /> Approve
+                    </button>
+                    <button
+                      onClick={() => setRejectingPayoutId(payout.id)}
+                      disabled={busy}
+                      className="flex-1 h-8 rounded-lg text-[10px] font-mono font-bold bg-[var(--color-surface-2)] text-[var(--color-error)] border border-[rgba(239,68,68,0.3)] disabled:opacity-40 flex items-center justify-center gap-1"
+                    >
+                      <XCircle size={12} /> Reject
+                    </button>
+                  </div>
+                )}
+                {isSelf && (
+                  <div className="text-[9px] font-mono text-[var(--color-muted)] italic">
+                    You requested this payout -- a different person must approve it.
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Search Bar */}
       <div className="relative">
@@ -549,6 +764,15 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
                   >
                     <Plus size={10} strokeWidth={3} /> Top-Up
                   </button>
+                  {wallet.balance > 0 && (
+                    <button
+                      onClick={() => { setPayoutWalletId(wallet.id); setPayoutAmount(''); setPayoutNote(''); }}
+                      className="px-2 py-1 rounded text-[9px] font-mono font-bold bg-[rgba(239,68,68,0.1)] text-[var(--color-error)] hover:bg-[var(--color-error)] hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
+                      title="Pay this customer cash out of their wallet balance"
+                    >
+                      <HandCoins size={10} /> Pay Cash
+                    </button>
+                  )}
                   <button
                     onClick={() => printWalletReceipt(wallet)}
                     className="p-1 rounded text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-2)] cursor-pointer"
@@ -744,6 +968,10 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
                           <span className="text-[var(--color-error)] flex items-center gap-1">
                             <ArrowUpRight size={12} /> DEDUCTION
                           </span>
+                        ) : tx.type === 'cash_payout' ? (
+                          <span className={`flex items-center gap-1 ${tx.status === 'rejected' ? 'text-[var(--color-muted)] line-through' : tx.status === 'pending' ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-error)]'}`}>
+                            <HandCoins size={12} /> CASH PAYOUT{tx.status === 'pending' ? ' (PENDING)' : tx.status === 'rejected' ? ' (REJECTED)' : ''}
+                          </span>
                         ) : (
                           <span className="text-[var(--color-accent-cobalt)]">{tx.type.toUpperCase()}</span>
                         )}
@@ -754,15 +982,22 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
                       <div className="text-[10px] font-mono text-[var(--color-muted)]">
                         {tx.description || tx.cargo_ref || 'No details'}
                       </div>
-                      <div className="text-[9px] font-mono text-[var(--color-light-muted)]">
-                        By: {tx.logged_by}
+                      <div className="text-[9px] font-mono text-[var(--color-light-muted)] flex items-center gap-1.5">
+                        <span>By: {tx.logged_by}</span>
+                        {tx.department && (
+                          <span className="px-1 py-0.5 rounded bg-[var(--color-surface-2)] border border-[var(--color-border)] uppercase">
+                            {tx.department}
+                          </span>
+                        )}
                       </div>
                     </div>
 
                     <div className="text-right shrink-0 space-y-0.5">
                       <div
                         className={`font-mono font-bold text-[12px] ${
-                          tx.type === 'top_up' ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'
+                          tx.type === 'top_up' ? 'text-[var(--color-success)]'
+                            : tx.type === 'cash_payout' && tx.status !== 'completed' ? 'text-[var(--color-muted)]'
+                            : 'text-[var(--color-error)]'
                         }`}
                       >
                         {tx.type === 'top_up' ? '+' : '-'}₦{fmt(tx.amount)}
@@ -778,6 +1013,79 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
           </div>
         </div>
       )}
+
+      {/* Modal: Request Cash Payout */}
+      {payoutWalletId && (() => {
+        const wallet = wallets.find((w) => w.id === payoutWalletId);
+        if (!wallet) return null;
+        return (
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl space-y-4 p-5">
+              <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-3">
+                <div>
+                  <span className="text-[13px] font-mono font-bold text-[var(--color-foreground)] uppercase block">
+                    Pay Cash Out
+                  </span>
+                  <span className="text-[10px] font-mono text-[var(--color-muted)]">
+                    {wallet.customer_name} · Balance ₦{fmt(wallet.balance)}
+                  </span>
+                </div>
+                <button onClick={() => setPayoutWalletId(null)} className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] cursor-pointer">
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="text-[10px] font-mono text-[var(--color-muted)] leading-relaxed bg-[rgba(245,158,11,0.06)] border border-[rgba(245,158,11,0.2)] rounded-lg p-2.5">
+                This does not deduct the balance immediately -- a different accountant/admin must approve it first.
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[9px] font-mono text-[var(--color-muted)] block mb-1">AMOUNT ₦ (max {fmt(wallet.balance)})</label>
+                  <input
+                    type="number"
+                    value={payoutAmount}
+                    onChange={(e) => setPayoutAmount(e.target.value)}
+                    placeholder={String(wallet.balance)}
+                    className="w-full h-10 px-3 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg text-[13px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-mono text-[var(--color-muted)] block mb-1">DEPARTMENT (record-keeping)</label>
+                  <select
+                    value={payoutDepartment}
+                    onChange={(e) => setPayoutDepartment(e.target.value as RetrievalEntryType)}
+                    className="w-full h-10 px-2 text-[12px] font-mono rounded-lg bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-foreground)]"
+                  >
+                    <option value="cargo">Cargo</option>
+                    <option value="baggage">Baggage</option>
+                    <option value="marketing">Marketing</option>
+                    <option value="package">Package</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[9px] font-mono text-[var(--color-muted)] block mb-1">NOTE (optional)</label>
+                  <input
+                    type="text"
+                    value={payoutNote}
+                    onChange={(e) => setPayoutNote(e.target.value)}
+                    placeholder="Why this is being paid out as cash"
+                    className="w-full h-10 px-3 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg text-[13px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={() => handleRequestPayout(wallet)}
+                disabled={savingPayout}
+                className="w-full h-11 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg text-[12px] font-mono font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <HandCoins size={14} /> {savingPayout ? 'Requesting...' : 'Request Cash Payout'}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

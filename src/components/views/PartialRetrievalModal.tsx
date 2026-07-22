@@ -13,21 +13,40 @@ interface PartialRetrievalModalProps {
   }) => void;
 }
 
+const TYPE_LABEL: Record<string, string> = {
+  cargo: 'Cargo',
+  baggage: 'Baggage',
+  marketing: 'Marketing',
+  package: 'Package',
+};
+
 export const PartialRetrievalModal: React.FC<PartialRetrievalModalProps> = ({ entry, onClose, onConfirm }) => {
   const [retrievalType, setRetrievalType] = useState<'full' | 'partial'>('full');
   const totalPieces = entry.pieces || 1;
   const totalKg = entry.kg || 1;
   const totalAmount = entry.amount || 0;
+  const typeLabel = TYPE_LABEL[entry.type] || 'Entry';
+  // Marketing entries are bag-based (BB/MB/SB), not piece/kg-based --
+  // entry.pieces/entry.kg are never set for them (see EHIApp.tsx's
+  // fetchInitial marketing mapping), so a piece-count stepper would be
+  // meaningless. Partial retrieval for marketing is value-only.
+  const supportsPieceBreakdown = entry.type !== 'marketing';
 
   // Partial is driven by ONE input: pieces. Value + kg proportion off it,
   // with the value editable for the case where specific boxes are worth more.
   const [pieces, setPieces] = useState<number>(Math.max(1, totalPieces - 1));
-  const proportionalValue = Math.min(totalAmount, Math.round((pieces / totalPieces) * totalAmount));
+  const proportionalValue = supportsPieceBreakdown
+    ? Math.min(totalAmount, Math.round((pieces / totalPieces) * totalAmount))
+    : 0;
   const [valueOverride, setValueOverride] = useState<string>('');
   const retrievedValue = retrievalType === 'full'
     ? totalAmount
-    : (valueOverride !== '' ? Math.min(totalAmount, Math.round(parseFloat(valueOverride) || 0)) : proportionalValue);
-  const retrievedKg = retrievalType === 'full' ? totalKg : Math.round((pieces / totalPieces) * totalKg * 10) / 10;
+    : (valueOverride !== ''
+      ? Math.min(totalAmount, Math.round(parseFloat(valueOverride) || 0))
+      : (supportsPieceBreakdown ? proportionalValue : 0));
+  const retrievedKg = !supportsPieceBreakdown
+    ? 0
+    : retrievalType === 'full' ? totalKg : Math.round((pieces / totalPieces) * totalKg * 10) / 10;
 
   const amountPaid = (entry as any).amountPaid || (entry.mode !== 'Debt' ? entry.amount : 0);
   const alreadyRetrieved = (entry as any).raw?.retrieved_amount || 0;
@@ -35,15 +54,17 @@ export const PartialRetrievalModal: React.FC<PartialRetrievalModalProps> = ({ en
   const debtReduction = Math.min(retrievedValue, unpaidDebt);
   const walletRefund = retrievedValue - debtReduction;
 
-  const invalid = retrievalType === 'partial' && (pieces < 1 || pieces > totalPieces || retrievedValue <= 0);
+  const invalid = retrievalType === 'partial' && (
+    retrievedValue <= 0 || (supportsPieceBreakdown && (pieces < 1 || pieces > totalPieces))
+  );
 
   const handleConfirm = () => {
     if (invalid) return;
     onConfirm({
       isPartial: retrievalType === 'partial',
       retrievedValue,
-      retrievedPieces: retrievalType === 'partial' ? pieces : totalPieces,
-      retrievedKg: retrievalType === 'partial' ? retrievedKg : totalKg,
+      retrievedPieces: !supportsPieceBreakdown ? 0 : (retrievalType === 'partial' ? pieces : totalPieces),
+      retrievedKg: !supportsPieceBreakdown ? 0 : (retrievalType === 'partial' ? retrievedKg : totalKg),
     });
   };
 
@@ -51,7 +72,7 @@ export const PartialRetrievalModal: React.FC<PartialRetrievalModalProps> = ({ en
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
       <div className="bg-[var(--color-obsidian)] border border-[var(--color-border)] rounded-xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-[var(--color-border)] bg-[var(--color-surface-card)]">
-          <h3 className="text-[14px] font-bold text-[var(--color-foreground)]">Process Cargo Retrieval</h3>
+          <h3 className="text-[14px] font-bold text-[var(--color-foreground)]">Process {typeLabel} Retrieval</h3>
           <button onClick={onClose} className="p-1 hover:bg-[var(--color-surface-2)] rounded text-[var(--color-muted)]"><X size={18} /></button>
         </div>
 
@@ -62,8 +83,12 @@ export const PartialRetrievalModal: React.FC<PartialRetrievalModalProps> = ({ en
               <span className="text-[var(--color-accent-amber)] font-bold">{entry.name}</span>
             </div>
             <div className="flex items-center gap-4 text-[13px] font-bold text-[var(--color-foreground)]">
-              <span className="flex items-center gap-1.5"><Package size={14} className="text-[var(--color-muted)]" /> {totalPieces} PCS</span>
-              <span className="flex items-center gap-1.5"><Scale size={14} className="text-[var(--color-muted)]" /> {totalKg} KG</span>
+              {supportsPieceBreakdown && (
+                <>
+                  <span className="flex items-center gap-1.5"><Package size={14} className="text-[var(--color-muted)]" /> {totalPieces} PCS</span>
+                  <span className="flex items-center gap-1.5"><Scale size={14} className="text-[var(--color-muted)]" /> {totalKg} KG</span>
+                </>
+              )}
               <span className="flex items-center gap-1.5 ml-auto text-[var(--color-success)]">₦{fmt(totalAmount)}</span>
             </div>
           </div>
@@ -75,16 +100,22 @@ export const PartialRetrievalModal: React.FC<PartialRetrievalModalProps> = ({ en
 
           {retrievalType === 'partial' && (
             <div className="space-y-3">
-              <div>
-                <label className="text-[11px] font-mono text-[var(--color-muted)] block mb-1.5">How many of the {totalPieces} pieces?</label>
-                <div className="flex items-center gap-3">
-                  <button type="button" onClick={() => setPieces(p => Math.max(1, p - 1))} className="w-10 h-10 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-foreground)] text-lg font-bold">−</button>
-                  <div className="flex-1 text-center text-[20px] font-mono font-bold text-[var(--color-foreground)]">{pieces} <span className="text-[12px] text-[var(--color-muted)]">/ {totalPieces}</span></div>
-                  <button type="button" onClick={() => setPieces(p => Math.min(totalPieces, p + 1))} className="w-10 h-10 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-foreground)] text-lg font-bold">+</button>
+              {supportsPieceBreakdown && (
+                <div>
+                  <label className="text-[11px] font-mono text-[var(--color-muted)] block mb-1.5">How many of the {totalPieces} pieces?</label>
+                  <div className="flex items-center gap-3">
+                    <button type="button" onClick={() => setPieces(p => Math.max(1, p - 1))} className="w-10 h-10 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-foreground)] text-lg font-bold">−</button>
+                    <div className="flex-1 text-center text-[20px] font-mono font-bold text-[var(--color-foreground)]">{pieces} <span className="text-[12px] text-[var(--color-muted)]">/ {totalPieces}</span></div>
+                    <button type="button" onClick={() => setPieces(p => Math.min(totalPieces, p + 1))} className="w-10 h-10 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-foreground)] text-lg font-bold">+</button>
+                  </div>
                 </div>
-              </div>
+              )}
               <div>
-                <label className="text-[11px] font-mono text-[var(--color-muted)] block mb-1.5">Value (auto ₦{fmt(proportionalValue)} — edit if needed)</label>
+                <label className="text-[11px] font-mono text-[var(--color-muted)] block mb-1.5">
+                  {supportsPieceBreakdown
+                    ? `Value (auto ₦${fmt(proportionalValue)} — edit if needed)`
+                    : `Value to retrieve (of ₦${fmt(totalAmount)})`}
+                </label>
                 <input type="number" value={valueOverride} onChange={e => setValueOverride(e.target.value)} placeholder={`₦${fmt(proportionalValue)}`}
                   className="w-full h-10 px-3 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg text-[13px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-cobalt)]" />
               </div>
