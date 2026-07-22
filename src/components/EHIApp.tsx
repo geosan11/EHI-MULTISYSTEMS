@@ -1499,14 +1499,33 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
     setExpenses(prev => prev.map(e => e.id === expenseId ? { ...e, ...patch } : e));
 
-    const { error } = await supabase.from('expenses').update(
-      decision === 'approved'
-        ? { status: 'approved', approved_by: user.name, approved_at: nowIso }
-        : { status: 'rejected', rejected_by: user.name, rejected_at: nowIso }
-    ).eq('id', expenseId);
+    const updatePayload = decision === 'approved'
+      ? { status: 'approved', approved_by: user.name, approved_at: nowIso }
+      : { status: 'rejected', rejected_by: user.name, rejected_at: nowIso };
+
+    const { error } = await supabase.from('expenses').update(updatePayload).eq('id', expenseId);
 
     if (error) {
-      showToast({ message: `Failed to save decision: ${error.message}`, type: 'error' });
+      // Same offline-queue fallback as handleUpdateTx above -- without this,
+      // an approve/reject done with no connection only ever showed an error
+      // toast: the optimistic setExpenses() above already flipped the UI to
+      // approved/rejected, so the decision looked saved but silently never
+      // reached Supabase and nothing retried it.
+      try {
+        await db.sync_queue.add({
+          table_name: 'expenses',
+          record_id: expenseId,
+          action: 'UPDATE',
+          payload: { ...updatePayload, id: expenseId },
+          synced: 0,
+          created_at: new Date().toISOString(),
+        });
+        setPendingSyncCount(prev => prev + 1);
+        showToast({ message: 'Saved offline — decision queued to sync', type: 'warning' });
+      } catch (qErr) {
+        console.error('Failed to queue expense decision', qErr);
+        showToast({ message: `Failed to save decision: ${error.message}`, type: 'error' });
+      }
     }
   }, [user.name, showToast]);
 

@@ -18,6 +18,33 @@ export interface UserProfile {
   view_overrides?: string[] | null;
 }
 
+// Last known-good profile, used only as a fallback in getSessionInner() when
+// supabase.auth.getSession() confirms a still-valid local session but the
+// user_profiles lookup can't reach the network -- see the comment there.
+// Never trusted on its own: it's only ever read after that session check
+// passes, and only when the cached id matches the current session's user.
+const CACHED_PROFILE_KEY = 'ehi_cached_profile';
+
+function cacheProfile(profile: UserProfile): void {
+  try {
+    localStorage.setItem(CACHED_PROFILE_KEY, JSON.stringify(profile));
+  } catch {
+    // Best-effort only -- a full/unavailable localStorage just means the
+    // next offline reload falls through to the login screen as before.
+  }
+}
+
+function readCachedProfile(userId: string): UserProfile | null {
+  try {
+    const raw = localStorage.getItem(CACHED_PROFILE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as UserProfile;
+    return parsed && parsed.id === userId ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function signIn(email: string, password: string): Promise<UserProfile> {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
@@ -78,6 +105,8 @@ export async function signIn(email: string, password: string): Promise<UserProfi
       assigned_airline: profile.assigned_airline ?? undefined,
       view_overrides: profile.view_overrides ?? null,
   };
+
+  cacheProfile(result);
 
   // Write audit log (fire-and-forget)
   writeAuditLog({
@@ -288,6 +317,20 @@ async function getSessionInner(): Promise<UserProfile | null> {
   const prof: any = profile;
 
   if (error || !profile) {
+    // error.code is only ever populated when PostgREST/Postgres actually
+    // answered (RLS denial, PGRST116 no-row, etc) -- postgrest-js leaves it
+    // '' for a client-side failure (offline, DNS, timeout; see
+    // PostgrestBuilder.then()'s catch branch). Treating "couldn't reach the
+    // server" the same as "the server said this profile/session is invalid"
+    // was logging users out the instant their connection blipped, even
+    // though the supabase.auth.getSession() call above already confirmed
+    // the session itself is still valid locally. Fall back to the last
+    // known-good profile instead of forcing the login screen; the next
+    // successful check (online) re-verifies for real and refreshes it.
+    if (error && !error.code) {
+      const cached = readCachedProfile(data.session.user.id);
+      if (cached) return cached;
+    }
     return null;
   }
 
@@ -301,7 +344,7 @@ async function getSessionInner(): Promise<UserProfile | null> {
     return null;
   }
 
-  return {
+  const result = {
     id: profile.id,
     email: data.session.user.email || profile.email || '',
     name: profile.name,
@@ -315,6 +358,9 @@ async function getSessionInner(): Promise<UserProfile | null> {
     assigned_airline: profile.assigned_airline ?? undefined,
     view_overrides: profile.view_overrides ?? null,
   } as any;
+
+  cacheProfile(result);
+  return result;
 }
 
 export async function getSession(): Promise<UserProfile | null> {
