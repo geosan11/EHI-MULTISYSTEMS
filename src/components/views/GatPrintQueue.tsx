@@ -41,7 +41,12 @@ const HUB_LABEL = 'EHI GAT Terminal (Lagos MM1)';
 export const GatPrintQueue = ({ user, onBack }: { user: User; onBack: () => void }) => {
   const { showToast } = useToast();
   const todayStr = new Date().toISOString().split('T')[0];
-  const [dateFrom, setDateFrom] = useState(todayStr);
+  // A "needs printing" queue is inherently not time-bound -- yesterday's
+  // unprinted backlog silently vanished once the calendar rolled over,
+  // since this defaulted to today only. Default dateFrom 30 days back so
+  // backlog doesn't disappear; dateTo still defaults to today.
+  const thirtyDaysAgoStr = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+  const [dateFrom, setDateFrom] = useState(thirtyDaysAgoStr);
   const [dateTo, setDateTo] = useState(todayStr);
   const [docType, setDocType] = useState<DocType>('tags');
   const [stream, setStream] = useState<Stream>('all');
@@ -218,7 +223,22 @@ export const GatPrintQueue = ({ user, onBack }: { user: User; onBack: () => void
         // date it records) stays untouched.
         if (!reprintMode) {
           const table = row.stream === 'cargo' ? 'cargo_entries' : 'package_entries';
-          const { error } = await supabase.from(table).update({ [stampCol]: new Date().toISOString() }).eq('entry_ref', row.entry_ref);
+          // Was a plain client .update() -- the SELECT that populates this
+          // queue uses the sibling-hub-widened RLS policy, but the UPDATE
+          // policy on cargo_entries/package_entries was never widened to
+          // match (same bug class already fixed for debt-clearing). A
+          // staff member whose own hub differs from the GAT-tagged rows'
+          // hub got a false "N printed" toast while this write silently
+          // affected 0 rows -- the exact entries reappeared as still
+          // needing printing on the next load. mark_gat_printed is a
+          // narrow, sibling-hub-authorized RPC (supabase/migrations/
+          // 20260903_security_and_bugfix_pass.sql) for exactly this write.
+          const { error } = await supabase.rpc('mark_gat_printed', {
+            p_table: table,
+            p_entry_ref: row.entry_ref,
+            p_column: stampCol,
+            p_logged_by: user.name,
+          });
           if (error) throw error;
         }
         done++;

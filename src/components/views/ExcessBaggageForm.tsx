@@ -67,6 +67,20 @@ export const ExcessBaggageForm = ({
   const [submitting, setSubmitting] = useState(false);
   const [showBaggageReview, setShowBaggageReview] = useState(false);
 
+  // Pre-fetched once (like CargoForm/PackageForm/MarketingWorkspace's own
+  // tag/id pre-fetch), not popped live inside handleSubmit -- popping live
+  // on every call meant a double-fire (e.g. a chattery mouse double-clicking
+  // ReviewEntryModal's Confirm button before React re-rendered the disabled
+  // state) consumed TWO real tag numbers and could produce two distinct
+  // manifests rows instead of one.
+  const [pendingTag, setPendingTag] = useState('');
+  const fetchPendingTag = async () => {
+    const hubCode = getHubCode(user.hub_code || user.hub);
+    const tag = await getNextTag(`${hubCode}-${airline.tag_code}`, `EHI-${hubCode}-${airline.tag_code}`);
+    setPendingTag(tag || '');
+  };
+  useEffect(() => { fetchPendingTag(); }, [airline.tag_code, user.hub_code, user.hub]);
+
   useEffect(() => {
     if (successTx) {
       document.querySelectorAll('.overflow-y-auto, main').forEach(el => {
@@ -107,8 +121,7 @@ export const ExcessBaggageForm = ({
 
     setSubmitting(true);
 
-    const hubCode = getHubCode(user.hub_code || user.hub);
-    const resolvedTag = await getNextTag(`${hubCode}-${airline.tag_code}`, `EHI-${hubCode}-${airline.tag_code}`);
+    const resolvedTag = pendingTag;
     if (!resolvedTag) {
       showToast({ message: 'No tag number available offline. Connect to the internet briefly to reserve more, then try again.', type: 'error' });
       setSubmitting(false);
@@ -217,6 +230,7 @@ export const ExcessBaggageForm = ({
     setAmountOverride('');
     setPhone('');
     setSuccessTx(null);
+    fetchPendingTag();
   };
 
   const handleDownloadReceipt = async () => {

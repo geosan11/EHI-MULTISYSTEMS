@@ -771,7 +771,11 @@ export const PackageForm = ({
                       { label: 'Customer', value: name },
                       { label: 'Content', value: actualContents },
                       { label: 'Amount', value: parseFloat(amount) || 0 },
-                      { label: 'Payment Mode', value: mode === 'Debt' ? `Debt (${debtorName})` : mode }
+                      { label: 'Payment Mode', value: mode === 'Debt' ? `Debt (${debtorName})` : mode },
+                      // Surfaced right before confirming so a staff member
+                      // can't silently submit under the wrong terminal --
+                      // same reasoning as CargoForm's own review modal.
+                      ...(userHubCode === 'LOS' && !forcedTerminal ? [{ label: 'Terminal', value: terminal }] : []),
                     ]}
                     onConfirm={() => {
                       setShowPackageReview(false);
