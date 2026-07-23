@@ -178,6 +178,23 @@ GRANT EXECUTE ON FUNCTION public.apply_wallet_transaction(uuid, text, numeric, t
 -- Identical logic to 20260815_fix_retrieval_debt_logic.sql's definition,
 -- just passing p_department := 'cargo' into apply_wallet_transaction. Same
 -- 4-column return shape -- safe CREATE OR REPLACE.
+--
+-- FIXED 2026-07-22: this CREATE OR REPLACE originally re-declared the OLD
+-- 9-param signature (no p_customer_phone), while 20260826_wallet_phone_
+-- identity.sql had already installed a 10-param version (with
+-- p_customer_phone) via its own DROP FUNCTION + CREATE. Postgres treats a
+-- different parameter list as a distinct overload, not a replace -- so
+-- without the DROPs below, this file was creating a SECOND, coexisting
+-- process_cargo_retrieval alongside the 10-param one, leaving every real
+-- call (which omits p_customer_phone -- see src/lib/wallet.ts) ambiguous
+-- between two candidate functions and likely to fail with Postgres error
+-- 42725 "function is not unique". Both possible prior signatures are
+-- dropped unconditionally so this is safe to re-run regardless of which
+-- one (if either) is currently live, and p_customer_phone + phone-priority
+-- wallet matching (20260826's actual fix) is restored here.
+DROP FUNCTION IF EXISTS public.process_cargo_retrieval(text, boolean, numeric, numeric, numeric, text, uuid, text, uuid);
+DROP FUNCTION IF EXISTS public.process_cargo_retrieval(text, boolean, numeric, numeric, numeric, text, uuid, text, uuid, text);
+
 CREATE OR REPLACE FUNCTION public.process_cargo_retrieval(
   p_entry_ref text,
   p_is_partial boolean,
@@ -187,7 +204,8 @@ CREATE OR REPLACE FUNCTION public.process_cargo_retrieval(
   p_customer_name text,
   p_hub_id uuid,
   p_logged_by text,
-  p_wallet_id uuid DEFAULT NULL
+  p_wallet_id uuid DEFAULT NULL,
+  p_customer_phone text DEFAULT NULL
 )
 RETURNS TABLE (wallet_id uuid, new_balance numeric, wallet_refund numeric, debt_reduction numeric)
 LANGUAGE plpgsql
@@ -268,6 +286,15 @@ BEGIN
   WHERE entry_ref = p_entry_ref;
 
   IF v_wallet_refund > 0 THEN
+    -- Prefer an explicit wallet, then match by phone, then by name, else
+    -- create -- restored from 20260826_wallet_phone_identity.sql, which
+    -- this function's stray re-declare (see the fix comment above) had
+    -- silently regressed back to name-only matching.
+    IF v_wallet_id IS NULL AND public.normalize_phone(p_customer_phone) <> '' THEN
+      SELECT id INTO v_wallet_id FROM public.customer_wallets
+      WHERE public.normalize_phone(customer_phone) = public.normalize_phone(p_customer_phone)
+      LIMIT 1;
+    END IF;
     IF v_wallet_id IS NULL THEN
       SELECT id INTO v_wallet_id FROM public.customer_wallets
       WHERE lower(customer_name) = lower(p_customer_name)
@@ -276,11 +303,11 @@ BEGIN
 
     IF v_wallet_id IS NULL THEN
       INSERT INTO public.customer_wallets (
-        hub_id, customer_name, opening_balance, balance,
+        hub_id, customer_name, customer_phone, opening_balance, balance,
         total_topped_up, total_used, source_type, source_ref, source_note,
         status, created_by
       ) VALUES (
-        p_hub_id, p_customer_name, 0, 0,
+        p_hub_id, p_customer_name, NULLIF(p_customer_phone, ''), 0, 0,
         0, 0, 'airline_retrieval', p_entry_ref,
         format('Credit from %sretrieved cargo %s', CASE WHEN p_is_partial THEN 'partial ' ELSE '' END, p_entry_ref),
         'active', p_logged_by
@@ -300,13 +327,20 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.process_cargo_retrieval(text, boolean, numeric, numeric, numeric, text, uuid, text, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.process_cargo_retrieval(text, boolean, numeric, numeric, numeric, text, uuid, text, uuid, text) TO authenticated;
 
 -- ─── 6. process_package_retrieval() ────────────────────────────────────
 -- Mirrors process_cargo_retrieval() exactly against package_entries:
 -- id column entry_ref, amount-paid column amount_paid, mode column
 -- payment_mode (see debt.ts's RPC_BY_TYPE map for the same per-type split
 -- already established for debt clearing).
+--
+-- FIXED 2026-07-22: added p_customer_phone + phone-priority wallet
+-- matching to match process_cargo_retrieval's now-restored fix above --
+-- this sibling never had phone matching at all (20260826 only patched
+-- cargo). DROP first since this adds a parameter (same reasoning as above).
+DROP FUNCTION IF EXISTS public.process_package_retrieval(text, boolean, numeric, numeric, numeric, text, uuid, text, uuid);
+
 CREATE OR REPLACE FUNCTION public.process_package_retrieval(
   p_entry_ref text,
   p_is_partial boolean,
@@ -316,7 +350,8 @@ CREATE OR REPLACE FUNCTION public.process_package_retrieval(
   p_customer_name text,
   p_hub_id uuid,
   p_logged_by text,
-  p_wallet_id uuid DEFAULT NULL
+  p_wallet_id uuid DEFAULT NULL,
+  p_customer_phone text DEFAULT NULL
 )
 RETURNS TABLE (wallet_id uuid, new_balance numeric, wallet_refund numeric, debt_reduction numeric)
 LANGUAGE plpgsql
@@ -397,6 +432,11 @@ BEGIN
   WHERE entry_ref = p_entry_ref;
 
   IF v_wallet_refund > 0 THEN
+    IF v_wallet_id IS NULL AND public.normalize_phone(p_customer_phone) <> '' THEN
+      SELECT id INTO v_wallet_id FROM public.customer_wallets
+      WHERE public.normalize_phone(customer_phone) = public.normalize_phone(p_customer_phone)
+      LIMIT 1;
+    END IF;
     IF v_wallet_id IS NULL THEN
       SELECT id INTO v_wallet_id FROM public.customer_wallets
       WHERE lower(customer_name) = lower(p_customer_name)
@@ -405,11 +445,11 @@ BEGIN
 
     IF v_wallet_id IS NULL THEN
       INSERT INTO public.customer_wallets (
-        hub_id, customer_name, opening_balance, balance,
+        hub_id, customer_name, customer_phone, opening_balance, balance,
         total_topped_up, total_used, source_type, source_ref, source_note,
         status, created_by
       ) VALUES (
-        p_hub_id, p_customer_name, 0, 0,
+        p_hub_id, p_customer_name, NULLIF(p_customer_phone, ''), 0, 0,
         0, 0, 'airline_retrieval', p_entry_ref,
         format('Credit from %sretrieved package %s', CASE WHEN p_is_partial THEN 'partial ' ELSE '' END, p_entry_ref),
         'active', p_logged_by
@@ -429,11 +469,16 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.process_package_retrieval(text, boolean, numeric, numeric, numeric, text, uuid, text, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.process_package_retrieval(text, boolean, numeric, numeric, numeric, text, uuid, text, uuid, text) TO authenticated;
 
 -- ─── 7. process_baggage_retrieval() ────────────────────────────────────
 -- Mirrors process_cargo_retrieval() against manifests: id column
 -- transaction_id, amount-paid column amount_paid, mode column payment_mode.
+--
+-- FIXED 2026-07-22: added p_customer_phone + phone-priority wallet
+-- matching, same as the package sibling above.
+DROP FUNCTION IF EXISTS public.process_baggage_retrieval(text, boolean, numeric, numeric, numeric, text, uuid, text, uuid);
+
 CREATE OR REPLACE FUNCTION public.process_baggage_retrieval(
   p_transaction_id text,
   p_is_partial boolean,
@@ -443,7 +488,8 @@ CREATE OR REPLACE FUNCTION public.process_baggage_retrieval(
   p_customer_name text,
   p_hub_id uuid,
   p_logged_by text,
-  p_wallet_id uuid DEFAULT NULL
+  p_wallet_id uuid DEFAULT NULL,
+  p_customer_phone text DEFAULT NULL
 )
 RETURNS TABLE (wallet_id uuid, new_balance numeric, wallet_refund numeric, debt_reduction numeric)
 LANGUAGE plpgsql
@@ -524,6 +570,11 @@ BEGIN
   WHERE transaction_id = p_transaction_id;
 
   IF v_wallet_refund > 0 THEN
+    IF v_wallet_id IS NULL AND public.normalize_phone(p_customer_phone) <> '' THEN
+      SELECT id INTO v_wallet_id FROM public.customer_wallets
+      WHERE public.normalize_phone(customer_phone) = public.normalize_phone(p_customer_phone)
+      LIMIT 1;
+    END IF;
     IF v_wallet_id IS NULL THEN
       SELECT id INTO v_wallet_id FROM public.customer_wallets
       WHERE lower(customer_name) = lower(p_customer_name)
@@ -532,11 +583,11 @@ BEGIN
 
     IF v_wallet_id IS NULL THEN
       INSERT INTO public.customer_wallets (
-        hub_id, customer_name, opening_balance, balance,
+        hub_id, customer_name, customer_phone, opening_balance, balance,
         total_topped_up, total_used, source_type, source_ref, source_note,
         status, created_by
       ) VALUES (
-        p_hub_id, p_customer_name, 0, 0,
+        p_hub_id, p_customer_name, NULLIF(p_customer_phone, ''), 0, 0,
         0, 0, 'airline_retrieval', p_transaction_id,
         format('Credit from %sretrieved baggage %s', CASE WHEN p_is_partial THEN 'partial ' ELSE '' END, p_transaction_id),
         'active', p_logged_by
@@ -556,7 +607,7 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.process_baggage_retrieval(text, boolean, numeric, numeric, numeric, text, uuid, text, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.process_baggage_retrieval(text, boolean, numeric, numeric, numeric, text, uuid, text, uuid, text) TO authenticated;
 
 -- ─── 8. process_marketing_retrieval() ──────────────────────────────────
 -- Mirrors process_cargo_retrieval() against marketing_entries: id column
@@ -567,6 +618,10 @@ GRANT EXECUTE ON FUNCTION public.process_baggage_retrieval(text, boolean, numeri
 -- p_retrieved_kg are accepted for signature parity with the other three
 -- retrieval RPCs but marketing has no meaningful per-piece/per-kg concept
 -- (bag-based); the client always passes 0 for both here.
+-- FIXED 2026-07-22: added p_customer_phone + phone-priority wallet
+-- matching, same as the other two siblings above.
+DROP FUNCTION IF EXISTS public.process_marketing_retrieval(text, boolean, numeric, numeric, numeric, text, uuid, text, uuid);
+
 CREATE OR REPLACE FUNCTION public.process_marketing_retrieval(
   p_entry_ref text,
   p_is_partial boolean,
@@ -576,7 +631,8 @@ CREATE OR REPLACE FUNCTION public.process_marketing_retrieval(
   p_customer_name text,
   p_hub_id uuid,
   p_logged_by text,
-  p_wallet_id uuid DEFAULT NULL
+  p_wallet_id uuid DEFAULT NULL,
+  p_customer_phone text DEFAULT NULL
 )
 RETURNS TABLE (wallet_id uuid, new_balance numeric, wallet_refund numeric, debt_reduction numeric)
 LANGUAGE plpgsql
@@ -657,6 +713,11 @@ BEGIN
   WHERE entry_ref = p_entry_ref;
 
   IF v_wallet_refund > 0 THEN
+    IF v_wallet_id IS NULL AND public.normalize_phone(p_customer_phone) <> '' THEN
+      SELECT id INTO v_wallet_id FROM public.customer_wallets
+      WHERE public.normalize_phone(customer_phone) = public.normalize_phone(p_customer_phone)
+      LIMIT 1;
+    END IF;
     IF v_wallet_id IS NULL THEN
       SELECT id INTO v_wallet_id FROM public.customer_wallets
       WHERE lower(customer_name) = lower(p_customer_name)
@@ -665,11 +726,11 @@ BEGIN
 
     IF v_wallet_id IS NULL THEN
       INSERT INTO public.customer_wallets (
-        hub_id, customer_name, opening_balance, balance,
+        hub_id, customer_name, customer_phone, opening_balance, balance,
         total_topped_up, total_used, source_type, source_ref, source_note,
         status, created_by
       ) VALUES (
-        p_hub_id, p_customer_name, 0, 0,
+        p_hub_id, p_customer_name, NULLIF(p_customer_phone, ''), 0, 0,
         0, 0, 'airline_retrieval', p_entry_ref,
         format('Credit from %sretrieved marketing entry %s', CASE WHEN p_is_partial THEN 'partial ' ELSE '' END, p_entry_ref),
         'active', p_logged_by
@@ -689,9 +750,20 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.process_marketing_retrieval(text, boolean, numeric, numeric, numeric, text, uuid, text, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.process_marketing_retrieval(text, boolean, numeric, numeric, numeric, text, uuid, text, uuid, text) TO authenticated;
 
 -- ─── 9. WALLET CASH-PAYOUT MAKER-CHECKER RPCs ──────────────────────────
+-- FIXED 2026-07-22: the self-approval guard below originally compared
+-- p_requested_by/p_approved_by, both plain client-supplied text display
+-- names -- trivially defeated by calling request_wallet_cash_payout as
+-- 'Staff A' and approve_wallet_cash_payout as 'Staff B' from the exact
+-- same authenticated session. requested_by_user_id/approved_by_user_id
+-- capture the real auth.uid() instead, which cannot be spoofed by the
+-- caller -- the actual identity check now happens against that.
+ALTER TABLE public.wallet_transactions
+  ADD COLUMN IF NOT EXISTS requested_by_user_id uuid,
+  ADD COLUMN IF NOT EXISTS approved_by_user_id   uuid;
+
 
 -- Requests a cash payout from a customer's existing wallet balance --
 -- e.g. staff hand the customer physical cash instead of holding the
@@ -747,10 +819,10 @@ BEGIN
 
   INSERT INTO public.wallet_transactions (
     wallet_id, hub_id, type, amount, balance_before, balance_after,
-    description, logged_by, department, status
+    description, logged_by, department, status, requested_by_user_id
   ) VALUES (
     p_wallet_id, v_wallet_hub, 'cash_payout', p_amount, v_balance, v_balance,
-    p_note, p_requested_by, p_department, 'pending'
+    p_note, p_requested_by, p_department, 'pending', auth.uid()
   ) RETURNING id INTO v_txn_id;
 
   RETURN v_txn_id;
@@ -790,7 +862,15 @@ BEGIN
     RAISE EXCEPTION 'Transaction % is not a pending cash payout', p_transaction_id;
   END IF;
 
-  IF v_row.logged_by = p_approved_by THEN
+  -- Real-identity check (auth.uid()), not the spoofable text-name compare
+  -- this used to be. v_row.requested_by_user_id IS NULL only for rows
+  -- inserted before this column existed -- fall back to the name compare
+  -- for those so old pending payouts aren't left permanently unapprovable.
+  IF v_row.requested_by_user_id IS NOT NULL THEN
+    IF v_row.requested_by_user_id = auth.uid() THEN
+      RAISE EXCEPTION 'The agent who requested a cash payout cannot also approve it';
+    END IF;
+  ELSIF v_row.logged_by = p_approved_by THEN
     RAISE EXCEPTION 'The agent who requested a cash payout cannot also approve it';
   END IF;
 
@@ -818,11 +898,12 @@ BEGIN
   RETURNING balance INTO v_new_balance;
 
   UPDATE public.wallet_transactions
-  SET status         = 'completed',
-      balance_before = v_balance,
-      balance_after  = v_new_balance,
-      approved_by    = p_approved_by,
-      approved_at    = now()
+  SET status              = 'completed',
+      balance_before      = v_balance,
+      balance_after       = v_new_balance,
+      approved_by         = p_approved_by,
+      approved_by_user_id = auth.uid(),
+      approved_at         = now()
   WHERE id = p_transaction_id;
 
   RETURN v_new_balance;
@@ -1107,14 +1188,23 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_hub_id uuid;
+  v_hub_id     uuid;
+  v_entered_by text;
 BEGIN
-  SELECT hub_id INTO v_hub_id FROM public.cargo_entries WHERE entry_ref = p_entry_ref FOR UPDATE;
+  SELECT hub_id, entered_by INTO v_hub_id, v_entered_by FROM public.cargo_entries WHERE entry_ref = p_entry_ref FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Cargo entry % not found', p_entry_ref;
   END IF;
   IF v_hub_id IS NOT NULL AND v_hub_id <> ALL(public.sibling_hub_ids()) AND NOT public.is_hub_unrestricted() THEN
     RAISE EXCEPTION 'Not authorized to confirm payment for this entry''s hub';
+  END IF;
+  -- Server-side twin of TransactionLedger.tsx's toggleConfirm client
+  -- check -- that check alone is bypassable via a raw RPC call (and
+  -- PaymentValidation.tsx never ran it at all). A staff member cannot
+  -- confirm a payment on an entry they themselves logged, unless they
+  -- hold an unrestricted role (matching the client rule's own carve-out).
+  IF p_confirmed AND v_entered_by IS NOT NULL AND v_entered_by = p_logged_by AND NOT public.is_hub_unrestricted() THEN
+    RAISE EXCEPTION 'You cannot confirm a payment you personally logged';
   END IF;
 
   UPDATE public.cargo_entries SET
@@ -1140,14 +1230,18 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_hub_id uuid;
+  v_hub_id     uuid;
+  v_entered_by text;
 BEGIN
-  SELECT hub_id INTO v_hub_id FROM public.package_entries WHERE entry_ref = p_entry_ref FOR UPDATE;
+  SELECT hub_id, entered_by INTO v_hub_id, v_entered_by FROM public.package_entries WHERE entry_ref = p_entry_ref FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Package entry % not found', p_entry_ref;
   END IF;
   IF v_hub_id IS NOT NULL AND v_hub_id <> ALL(public.sibling_hub_ids()) AND NOT public.is_hub_unrestricted() THEN
     RAISE EXCEPTION 'Not authorized to confirm payment for this entry''s hub';
+  END IF;
+  IF p_confirmed AND v_entered_by IS NOT NULL AND v_entered_by = p_logged_by AND NOT public.is_hub_unrestricted() THEN
+    RAISE EXCEPTION 'You cannot confirm a payment you personally logged';
   END IF;
 
   UPDATE public.package_entries SET
@@ -1173,14 +1267,18 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_hub_id uuid;
+  v_hub_id     uuid;
+  v_entered_by text;
 BEGIN
-  SELECT hub_id INTO v_hub_id FROM public.manifests WHERE transaction_id = p_transaction_id FOR UPDATE;
+  SELECT hub_id, entered_by INTO v_hub_id, v_entered_by FROM public.manifests WHERE transaction_id = p_transaction_id FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Baggage manifest % not found', p_transaction_id;
   END IF;
   IF v_hub_id IS NOT NULL AND v_hub_id <> ALL(public.sibling_hub_ids()) AND NOT public.is_hub_unrestricted() THEN
     RAISE EXCEPTION 'Not authorized to confirm payment for this entry''s hub';
+  END IF;
+  IF p_confirmed AND v_entered_by IS NOT NULL AND v_entered_by = p_logged_by AND NOT public.is_hub_unrestricted() THEN
+    RAISE EXCEPTION 'You cannot confirm a payment you personally logged';
   END IF;
 
   UPDATE public.manifests SET
@@ -1206,14 +1304,18 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_hub_id uuid;
+  v_hub_id     uuid;
+  v_entered_by text;
 BEGIN
-  SELECT hub_id INTO v_hub_id FROM public.marketing_entries WHERE entry_ref = p_entry_ref FOR UPDATE;
+  SELECT hub_id, entered_by INTO v_hub_id, v_entered_by FROM public.marketing_entries WHERE entry_ref = p_entry_ref FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Marketing entry % not found', p_entry_ref;
   END IF;
   IF v_hub_id IS NOT NULL AND v_hub_id <> ALL(public.sibling_hub_ids()) AND NOT public.is_hub_unrestricted() THEN
     RAISE EXCEPTION 'Not authorized to confirm payment for this entry''s hub';
+  END IF;
+  IF p_confirmed AND v_entered_by IS NOT NULL AND v_entered_by = p_logged_by AND NOT public.is_hub_unrestricted() THEN
+    RAISE EXCEPTION 'You cannot confirm a payment you personally logged';
   END IF;
 
   UPDATE public.marketing_entries SET
