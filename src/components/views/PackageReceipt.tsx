@@ -5,9 +5,12 @@ import {
   View,
   StyleSheet,
   pdf,
+  Image,
 } from "@react-pdf/renderer";
+import QRCode from "qrcode";
 import { EHILogoPDF } from "../EHILogoPDF";
 import { estimateWrappedLines } from "../../lib/helpers";
+import { notifySilentError } from "../../lib/ToastContext";
 
 export interface PackageReceiptData {
   entryRef: string;
@@ -24,6 +27,7 @@ export interface PackageReceiptData {
   paymentMode: string;
   paymentNarration?: string;
   bankName?: string;
+  qrCodeDataUrl?: string;
 }
 
 function formatNaira(n: number | string): string {
@@ -61,6 +65,19 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
     textTransform: "uppercase",
   },
+  copyLabelText: {
+    fontSize: 8,
+    fontWeight: "bold",
+    fontFamily: "Helvetica-Bold",
+    textAlign: "center",
+    textTransform: "uppercase",
+    marginBottom: 4,
+  },
+  // Moderate size -- big enough to scan reliably, small enough not to
+  // dominate a small-format (226pt) receipt the way CargoReceipt.tsx's
+  // 64x64 would here.
+  qrContainer: { alignItems: "center", marginVertical: 4 },
+  qrImage: { width: 56, height: 56 },
   divider: {
     marginVertical: 3,
     borderBottomWidth: 1,
@@ -146,6 +163,7 @@ const VALUE_COL_WIDTH = 136;
 
 const PackageReceiptPDF = ({ data }: { data: PackageReceiptData }) => {
   let h = 360;
+  if (data.qrCodeDataUrl) h += 60;
   if (data.phone) h += 14;
   if (data.bankName) h += 14;
   if (data.paymentMode === "Transfer" && data.paymentNarration) h += 14;
@@ -159,9 +177,10 @@ const PackageReceiptPDF = ({ data }: { data: PackageReceiptData }) => {
     if (lines > 1) h += (lines - 1) * 14;
   }
 
-  return (
-    <Document>
-      <Page size={[226, h]} style={styles.page}>
+  // Two copies (CUSTOMER, MERCHANT) as separate pages in the same PDF --
+  // mirrors CargoReceipt.tsx, which already does this; package never had it.
+  const renderPage = (copyLabel: 'CUSTOMER COPY' | 'MERCHANT COPY') => (
+      <Page key={copyLabel} size={[226, h]} style={styles.page}>
         <View style={[styles.headerRow, styles.headerBorder]}>
           <EHILogoPDF width={70} />
         </View>
@@ -169,6 +188,13 @@ const PackageReceiptPDF = ({ data }: { data: PackageReceiptData }) => {
         <View style={styles.titleBar}>
           <Text style={styles.titleText}>PACKAGE / PARCEL RECEIPT</Text>
         </View>
+        <Text style={styles.copyLabelText}>*** {copyLabel} ***</Text>
+
+        {data.qrCodeDataUrl ? (
+          <View style={styles.qrContainer}>
+            <Image src={data.qrCodeDataUrl} style={styles.qrImage} />
+          </View>
+        ) : null}
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionHeaderText}>TRANSACTION INFO</Text>
@@ -250,11 +276,29 @@ const PackageReceiptPDF = ({ data }: { data: PackageReceiptData }) => {
         <Text style={styles.footerText}>app.ehimultisystems.com</Text>
         <Text style={styles.footerText}>{data.entryRef} • {data.date}</Text>
       </Page>
+  );
+
+  return (
+    <Document>
+      {renderPage('CUSTOMER COPY')}
+      {renderPage('MERCHANT COPY')}
     </Document>
   );
 };
 
 export const downloadPackageReceipt = async (data: PackageReceiptData) => {
+  if (!data.qrCodeDataUrl) {
+    try {
+      data.qrCodeDataUrl = await QRCode.toDataURL(data.entryRef, {
+        margin: 1,
+        width: 200,
+        errorCorrectionLevel: 'L',
+      });
+    } catch (e) {
+      console.warn("Failed to generate QR code", e);
+      notifySilentError('This receipt printed without a scannable tracking QR code.');
+    }
+  }
   const blob = await pdf(<PackageReceiptPDF data={data} />).toBlob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
