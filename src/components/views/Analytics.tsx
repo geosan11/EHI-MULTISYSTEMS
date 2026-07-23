@@ -222,7 +222,7 @@ export const Analytics = ({
       const text = `${t.id} ${t.name} ${t.detail} ${t.mode} ${t.airline || ''} ${t.route || ''} ${t.awb_tag_number || ''}`.toLowerCase();
       return text.includes(q);
     });
-  }, [hubFilteredTxs, period, customStart, customEnd, searchQuery]);
+  }, [hubFilteredTxs, period, customStart, customEnd, searchQuery, user]);
 
   // Core Cargo & Revenue Metrics
   const metrics = useMemo(() => {
