@@ -1601,7 +1601,7 @@ export const CargoForm = ({
           />
           <div className="text-[15px] font-semibold font-sans text-[var(--color-success)] mb-1">
             {successTx.mode === "Debt"
-              ? successTx.clientType === "Office Work"
+              ? successTx.clientType === "Corporate"
                 ? "Office Work Invoice Saved!"
                 : "Credit Sale Logged!"
               : "Cargo entry saved successfully!"}
@@ -1715,7 +1715,7 @@ export const CargoForm = ({
                 className={`text-[13px] font-sans font-bold px-2 py-0.5 rounded ${successTx.mode === "Debt" ? "bg-[rgba(239,68,68,0.1)] text-[var(--color-error)]" : "bg-[rgba(16,185,129,0.1)] text-[var(--color-success)]"}`}
               >
                 {successTx.mode === "Debt"
-                  ? successTx.clientType === "Office Work"
+                  ? successTx.clientType === "Corporate"
                     ? "B2B MONTHLY DEBT"
                     : "INDIVIDUAL DEBT"
                   : successTx.mode}

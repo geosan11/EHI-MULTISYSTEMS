@@ -233,8 +233,13 @@ export const Analytics = ({
 
     // Identify non-liquid/non-revenue transactions
     const debtTxs = periodFilteredTxs.filter(t => t.mode === 'Debt');
-    const officeWorkTxs = debtTxs.filter(t => t.clientType === 'Office Work');
-    const individualDebtTxs = debtTxs.filter(t => t.clientType !== 'Office Work');
+    // clientType is typed to allow 'Office Work' but nothing ever assigns
+    // it -- CargoForm.tsx's B2B/monthly-billed paths both set 'Corporate'
+    // instead (see its own comment on this). This comparison always
+    // resolved to false, so officeWorkTxs was permanently empty and every
+    // real B2B office-work debt fell into individualDebtTxs instead.
+    const officeWorkTxs = debtTxs.filter(t => t.clientType === 'Corporate');
+    const individualDebtTxs = debtTxs.filter(t => t.clientType !== 'Corporate');
     const retrievedTxs = periodFilteredTxs.filter(t => t.retrieved === true);
 
     // Liquid Transactions (The actual real money we can count as Revenue)
@@ -280,7 +285,17 @@ export const Analytics = ({
     const transferRevenue = validLiquidTxs.filter(t => t.mode === 'Transfer').reduce((sum, t) => sum + t.amount, 0);
     const posRevenue = validLiquidTxs.filter(t => t.mode === 'POS').reduce((sum, t) => sum + t.amount, 0);
     const walletDeductions = validLiquidTxs.reduce((sum, t) => sum + (t.wallet_deduction_amount || (t.mode === 'Wallet' ? t.amount : 0)), 0);
-    const debtOutstanding = debtTxs.reduce((sum, t) => sum + t.amount, 0);
+    // Raw t.amount alone overstates outstanding debt -- it ignores both
+    // partial cash payments (amountPaid) and any portion already settled
+    // via a cargo retrieval (raw.retrieved_amount, credited against the
+    // debt by process_*_retrieval -- see executeRetrieval's own comment in
+    // TransactionLedger.tsx). Same balance formula DebtorsTab.tsx and
+    // handleClearDebt already use; floored at 0 per-entry so an overpaid
+    // or fully-retrieved debt can't drag the total negative.
+    const debtOutstanding = debtTxs.reduce((sum, t) => {
+      const remaining = t.amount - (t.amountPaid || 0) - ((t.raw as any)?.retrieved_amount || 0);
+      return sum + Math.max(0, remaining);
+    }, 0);
     const officeWorkValue = officeWorkTxs.reduce((sum, t) => sum + t.amount, 0);
     const retrievedValue = retrievedTxs.reduce((sum, t) => sum + t.amount, 0);
 

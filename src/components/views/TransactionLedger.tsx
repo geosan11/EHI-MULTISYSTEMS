@@ -305,7 +305,17 @@ export const TransactionLedger = ({
   const filteredEntries = useMemo(() => entries.filter((e) => {
     if (typeFilter !== "All") {
       if (typeFilter === "Office Work") {
-        if (e.raw?.clientType !== 'Office Work') return false;
+        // clientType is typed to allow a literal 'Office Work' value, but
+        // nothing anywhere in the app ever assigns it -- every entry point
+        // that links a shipment to a corporate/office-work client
+        // (CargoForm.tsx's retail-link path and its GAT gate-weight path)
+        // sets clientType to 'Corporate' instead. This filter compared
+        // against the value that's never actually set, so it always
+        // returned zero results. linked_as_office_work (the same flag the
+        // ledger's own OFFICE WORK badge checks) catches the retail-link
+        // path; clientType === 'Corporate' catches both paths, including
+        // GAT gate-weight entries that never set the boolean flag.
+        if (e.raw?.clientType !== 'Corporate' && !e.raw?.linked_as_office_work) return false;
       } else if (e.type !== typeFilter.toLowerCase()) {
         return false;
       }
@@ -1411,7 +1421,13 @@ export const TransactionLedger = ({
     }
   };
 
-  const totalAmount = filteredEntries.reduce((acc, e) => acc + (e.source === 'expense' ? -e.amount : e.amount), 0);
+  // 'Debt Paid' entries must be excluded here -- the same double-count
+  // Analytics.tsx's validLiquidTxs comment already documents: once a debt
+  // is cleared, its original entry flips to mode 'Debt Paid' (still
+  // showing its full original amount) AND a separate DC- shadow entry is
+  // created for the actual cash collected (see handleClearDebt/DebtorsTab's
+  // handleRecordPayment). Summing both counts the same money twice.
+  const totalAmount = filteredEntries.filter(e => e.mode !== 'Debt Paid').reduce((acc, e) => acc + (e.source === 'expense' ? -e.amount : e.amount), 0);
   const cashAmount = filteredEntries.filter(e => e.mode === 'Cash').reduce((acc, e) => acc + (e.source === 'expense' ? -e.amount : e.amount), 0);
 
   // Insert shift start/end markers into the visible array. `shifts` (all of
@@ -1976,6 +1992,14 @@ export const TransactionLedger = ({
                     onClick={() => setViewingDetail(e)}
                     className={`border-b border-[var(--color-border)] hover:bg-[var(--color-border)] transition-colors cursor-pointer group ${
                       e.raw?.retrieved ? 'opacity-50' : ''
+                    } ${
+                      // A debt-clearance shadow row is a payment record, not
+                      // a new shipment -- a distinct tint (on top of the
+                      // COLLECTION badge) keeps it from being mistaken for a
+                      // duplicate entry at a glance, which is exactly what
+                      // it looked like sitting next to its now-"Debt Paid"
+                      // original.
+                      e.raw?.is_debt_clearance ? 'bg-[rgba(59,130,246,0.05)]' : ''
                     }`}
                   >
                     {(isAccountantOrAdmin || !viewOnly) && (
