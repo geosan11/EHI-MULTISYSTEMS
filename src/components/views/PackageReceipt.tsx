@@ -163,6 +163,10 @@ const VALUE_COL_WIDTH = 136;
 
 const PackageReceiptPDF = ({ data }: { data: PackageReceiptData }) => {
   let h = 360;
+  // The "*** CUSTOMER/MERCHANT COPY ***" line renders unconditionally on
+  // every copy -- same unaccounted-for-line risk CargoReceipt.tsx's own
+  // comment warns about if this isn't budgeted for.
+  h += 14;
   if (data.qrCodeDataUrl) h += 60;
   if (data.phone) h += 14;
   if (data.bankName) h += 14;

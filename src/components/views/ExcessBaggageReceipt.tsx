@@ -150,6 +150,11 @@ const BaggageReceiptPDF = ({ data }: { data: BaggageReceiptData }) => {
   // before any optional section, so every real receipt (which always has
   // a QR code) was already silently spilling a mostly-blank second page.
   let h = 450;
+  // The "*** CUSTOMER/MERCHANT COPY ***" line renders unconditionally on
+  // every copy but was added after the base above was measured -- without
+  // this it's the exact unaccounted-for line the comment above warns
+  // about, silently pushing content onto a second, mostly-blank page.
+  h += 14;
   if (data.qrCodeDataUrl) h += 60;
   if (data.bankName) h += 20;
   if (data.paymentMode === "Transfer" && data.paymentNarration) h += 25;

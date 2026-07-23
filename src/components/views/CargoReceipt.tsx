@@ -195,6 +195,11 @@ const CargoReceiptOnlyPDF = ({ data }: { data: CargoReceiptData }) => {
   // wrapped text, so every receipt with a QR code (i.e. every real one)
   // was already silently spilling a mostly-blank second page.
   let h = 445;
+  // The "*** CUSTOMER/MERCHANT COPY ***" line renders unconditionally on
+  // every copy but was added after the base above was measured -- without
+  // this it's the exact unaccounted-for line the comment above warns
+  // about, silently pushing content onto a second, mostly-blank page.
+  h += 14;
   if (data.qrCodeDataUrl) h += 70;
   if (data.pickupPin) h += 70;
   if (data.bankName) h += 20;

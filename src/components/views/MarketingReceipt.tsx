@@ -206,6 +206,10 @@ const MarketingReceiptPDF = ({ data }: { data: MarketingReceiptData }) => {
   // +45 to accommodate the larger header logos (now sized to fill each
   // half of the page width instead of a small centered logo).
   let h = 335;
+  // The "*** CUSTOMER/MERCHANT COPY ***" line renders unconditionally on
+  // every copy but was added after the base above was measured -- same
+  // unaccounted-for-line risk CargoReceipt.tsx's own comment warns about.
+  h += 14;
   if (data.awbTagNumber) h += 14;
   if (data.phone) h += 14;
   if (data.airline) h += 14;
