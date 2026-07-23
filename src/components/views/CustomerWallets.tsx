@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { User } from '../../lib/types';
 import { fmt, tnow } from '../../lib/helpers';
-import { supabase } from '../../lib/supabase';
+import { supabase, writeAuditLog } from '../../lib/supabase';
 import { applyWalletTransaction, requestWalletCashPayout, approveWalletCashPayout, rejectWalletCashPayout, RetrievalEntryType } from '../../lib/wallet';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
@@ -87,6 +87,9 @@ export const CustomerWallets = ({
   const [wallets, setWallets] = useState<CustomerWallet[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(initialCustomerName || '');
+  // Archived wallets were previously invisible everywhere -- fetchWallets
+  // always filtered them out with no toggle to see them again.
+  const [walletView, setWalletView] = useState<'active' | 'archived'>('active');
 
   // Modal states
   const [showTopUpModal, setShowTopUpModal] = useState(Boolean(initialAmount));
@@ -112,6 +115,11 @@ export const CustomerWallets = ({
   // approvals (payment confirmation) -- reused here for cash-payout
   // approval rather than inventing a new permission.
   const canApprovePayouts = ['accountant', 'admin', 'super_admin'].includes(user.role);
+  // Force delete permanently destroys a wallet's transaction history and
+  // unlinks it from any past entries -- restricted to a smaller, explicitly
+  // named set of roles rather than reusing canApprovePayouts.
+  const canForceDelete = ['super_admin', 'accountant', 'admin', 'office_work'].includes(user.role);
+  const [forceDeletingId, setForceDeletingId] = useState<string | null>(null);
 
   // Cash-payout request form
   const [payoutWalletId, setPayoutWalletId] = useState<string | null>(null);
@@ -133,8 +141,11 @@ export const CustomerWallets = ({
       let query = supabase
         .from('customer_wallets')
         .select('*')
-        .is('archived_at', null)
         .order('updated_at', { ascending: false });
+
+      query = walletView === 'archived'
+        ? query.not('archived_at', 'is', null)
+        : query.is('archived_at', null);
 
       if (user.role !== 'admin' && user.role !== 'super_admin' && user.hub_id) {
         query = query.eq('hub_id', user.hub_id);
@@ -155,7 +166,7 @@ export const CustomerWallets = ({
     } finally {
       setLoading(false);
     }
-  }, [user.hub_id, user.role, showToast]);
+  }, [user.hub_id, user.role, walletView, showToast]);
 
   const fetchPendingPayouts = useCallback(async () => {
     if (!canApprovePayouts) return;
@@ -258,6 +269,58 @@ export const CustomerWallets = ({
     }
     setWallets((prev) => prev.filter((w) => w.id !== wallet.id));
     showToast({ message: `${wallet.customer_name}'s wallet archived`, type: 'success' });
+  };
+
+  // Genuinely destructive: bypasses handleRemoveWallet's history check
+  // entirely, permanently deleting a wallet with real balance/activity.
+  // force_delete_wallet (20260905_force_delete_wallet.sql) unlinks the
+  // wallet from any cargo/manifests/marketing/package entries that paid
+  // via it before deleting, so the delete itself never fails on a foreign
+  // key -- but wallet_transactions (its full top-up/deduction history)
+  // cascades away with it, which is the whole point of "force". Restricted
+  // to canForceDelete roles both here and (authoritatively) server-side in
+  // the RPC itself.
+  const handleForceDelete = async (wallet: CustomerWallet) => {
+    const ok = await confirm({
+      title: 'Force delete this wallet?',
+      message: `This PERMANENTLY deletes ${wallet.customer_name}'s wallet, including its entire top-up/deduction history. Any cargo, baggage, marketing, or package entry that was ever paid from this wallet will keep its own record but lose its link to it. This cannot be undone.`,
+      confirmLabel: 'Force Delete',
+      tone: 'danger',
+    });
+    if (!ok) return;
+
+    setForceDeletingId(wallet.id);
+    try {
+      const { error } = await supabase.rpc('force_delete_wallet', { p_wallet_id: wallet.id });
+      if (error) {
+        showToast({ message: `Failed to force-delete wallet: ${error.message}`, type: 'error' });
+        return;
+      }
+      setWallets((prev) => prev.filter((w) => w.id !== wallet.id));
+      showToast({ message: `${wallet.customer_name}'s wallet permanently deleted`, type: 'success' });
+      writeAuditLog({
+        user_id: user.id,
+        user_name: user.name,
+        action: 'DELETE',
+        table_name: 'customer_wallets',
+        record_id: wallet.id,
+        description: `Force-deleted wallet for ${wallet.customer_name} (balance ₦${fmt(wallet.balance)}, lifetime topped up ₦${fmt(wallet.total_topped_up)}, used ₦${fmt(wallet.total_used)})`,
+        hub: user.hub,
+        hub_id: user.hub_id,
+        old_values: {
+          customer_name: wallet.customer_name,
+          customer_phone: wallet.customer_phone,
+          balance: wallet.balance,
+          total_topped_up: wallet.total_topped_up,
+          total_used: wallet.total_used,
+          archived_at: wallet.archived_at,
+        },
+      }).catch(() => {});
+    } catch (err: any) {
+      showToast({ message: `Failed to force-delete wallet: ${err.message}`, type: 'error' });
+    } finally {
+      setForceDeletingId(null);
+    }
   };
 
   const handleSaveTopUp = async (e: React.FormEvent) => {
@@ -617,6 +680,23 @@ export const CustomerWallets = ({
         />
       </div>
 
+      {/* Active / Archived toggle -- archived wallets were previously
+          invisible everywhere, with no way to see them again. */}
+      <div className="flex p-1 bg-[var(--color-surface-2)] rounded-lg w-fit">
+        <button
+          onClick={() => setWalletView('active')}
+          className={`px-3 py-1.5 text-[11px] font-mono font-bold rounded-md transition-colors ${walletView === 'active' ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)]' : 'text-[var(--color-muted)]'}`}
+        >
+          Active
+        </button>
+        <button
+          onClick={() => setWalletView('archived')}
+          className={`px-3 py-1.5 text-[11px] font-mono font-bold rounded-md transition-colors ${walletView === 'archived' ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)]' : 'text-[var(--color-muted)]'}`}
+        >
+          Archived
+        </button>
+      </div>
+
       {/* Database Table Missing Setup Banner */}
       {tableMissing && (
         <div className="p-4 bg-[rgba(245,158,11,0.08)] border border-[var(--color-accent-amber)] rounded-xl space-y-3">
@@ -787,6 +867,17 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
                   >
                     <Trash2 size={12} />
                   </button>
+                  {canForceDelete && (
+                    <button
+                      onClick={() => handleForceDelete(wallet)}
+                      disabled={forceDeletingId === wallet.id}
+                      className="px-2 py-1 rounded text-[9px] font-mono font-bold bg-[rgba(239,68,68,0.1)] text-[var(--color-error)] hover:bg-[var(--color-error)] hover:text-white transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                      title="Permanently delete this wallet, including its full history -- bypasses the normal archive-only safeguard"
+                    >
+                      {forceDeletingId === wallet.id ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
+                      Force Delete
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
