@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { User } from '../../lib/types';
 import { BackButton } from '../BackButton';
+import { db } from '../../lib/db';
+import { supabase } from '../../lib/supabase';
 
 interface BugLog {
   id: string;
@@ -318,7 +320,11 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
     saveBugs(updated);
   };
 
-  // Run self diagnostics
+  // Run self diagnostics — every check below is a REAL probe against the
+  // actual system it names. None of these should ever unconditionally
+  // resolve 'pass'; a genuine failure here must be visible, since this
+  // panel exists specifically to catch problems other screens don't
+  // surface.
   const runSelfDiagnostics = () => {
     setDiagRunning(true);
     setDiagResults({
@@ -329,28 +335,52 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
       permissionsCheck: 'pending',
     });
 
-    const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
-
     (async () => {
-      // 1. DB check
-      await sleep(1000);
-      setDiagResults(prev => ({ ...prev, dbCheck: 'pass' }));
-      
-      // 2. Sync queue integrity
-      await sleep(1200);
-      setDiagResults(prev => ({ ...prev, syncCheck: 'pass' }));
+      // 1. DB check — local Dexie IndexedDB is actually readable.
+      try {
+        await db.sync_queue.count();
+        setDiagResults(prev => ({ ...prev, dbCheck: 'pass' }));
+      } catch (err) {
+        console.error('Diagnostics: Dexie check failed', err);
+        setDiagResults(prev => ({ ...prev, dbCheck: 'fail' }));
+      }
 
-      // 3. API test
-      await sleep(800);
-      setDiagResults(prev => ({ ...prev, apiCheck: 'pass' }));
+      // 2. Sync queue integrity — the queue table is queryable by its
+      // indexed 'synced' field (the same query processSyncQueue relies on).
+      try {
+        await db.sync_queue.where('synced').equals(0).count();
+        setDiagResults(prev => ({ ...prev, syncCheck: 'pass' }));
+      } catch (err) {
+        console.error('Diagnostics: sync queue check failed', err);
+        setDiagResults(prev => ({ ...prev, syncCheck: 'fail' }));
+      }
 
-      // 4. Permissions check
-      await sleep(1000);
-      setDiagResults(prev => ({ ...prev, permissionsCheck: 'pass' }));
+      // 3. API test + 5. Latency — one real round-trip to the server,
+      // timed with performance.now(). /api/config is the lightest
+      // authenticated-adjacent endpoint already used elsewhere at startup.
+      try {
+        const t0 = performance.now();
+        const res = await fetch('/api/config', { cache: 'no-store' });
+        const elapsedMs = Math.round(performance.now() - t0);
+        if (!res.ok) throw new Error(`API responded ${res.status}`);
+        setDiagResults(prev => ({ ...prev, apiCheck: 'pass', speedCheck: elapsedMs }));
+      } catch (err) {
+        console.error('Diagnostics: API check failed', err);
+        setDiagResults(prev => ({ ...prev, apiCheck: 'fail', speedCheck: null }));
+      }
 
-      // 5. Latency calculator
-      await sleep(1100);
-      setDiagResults(prev => ({ ...prev, speedCheck: Math.floor(25 + Math.random() * 45) }));
+      // 4. Permissions check — a real, minimal authenticated Supabase read.
+      // Failure here means RLS or the current session itself is broken,
+      // which is exactly the failure mode this check exists to catch.
+      try {
+        const { error } = await supabase.from('user_profiles').select('id').limit(1);
+        if (error) throw error;
+        setDiagResults(prev => ({ ...prev, permissionsCheck: 'pass' }));
+      } catch (err) {
+        console.error('Diagnostics: permissions check failed', err);
+        setDiagResults(prev => ({ ...prev, permissionsCheck: 'fail' }));
+      }
+
       setDiagRunning(false);
     })();
   };
@@ -842,6 +872,7 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
                   <div>
                     {diagResults.dbCheck === 'pending' && <span className="text-[10px] font-mono text-amber-400 animate-pulse">Checking...</span>}
                     {diagResults.dbCheck === 'pass' && <span className="text-[10px] font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">✅ PASS</span>}
+                    {diagResults.dbCheck === 'fail' && <span className="text-[10px] font-mono text-[var(--color-error)] font-bold bg-[rgba(239,68,68,0.1)] px-2 py-0.5 rounded border border-[rgba(239,68,68,0.2)]">❌ FAIL</span>}
                     {diagResults.dbCheck === null && <span className="text-[10px] font-mono text-[var(--color-muted)]">Unchecked</span>}
                   </div>
                 </div>
@@ -858,6 +889,7 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
                   <div>
                     {diagResults.syncCheck === 'pending' && <span className="text-[10px] font-mono text-amber-400 animate-pulse">Checking...</span>}
                     {diagResults.syncCheck === 'pass' && <span className="text-[10px] font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">✅ PASS</span>}
+                    {diagResults.syncCheck === 'fail' && <span className="text-[10px] font-mono text-[var(--color-error)] font-bold bg-[rgba(239,68,68,0.1)] px-2 py-0.5 rounded border border-[rgba(239,68,68,0.2)]">❌ FAIL</span>}
                     {diagResults.syncCheck === null && <span className="text-[10px] font-mono text-[var(--color-muted)]">Unchecked</span>}
                   </div>
                 </div>
@@ -874,6 +906,7 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
                   <div>
                     {diagResults.apiCheck === 'pending' && <span className="text-[10px] font-mono text-amber-400 animate-pulse">Checking...</span>}
                     {diagResults.apiCheck === 'pass' && <span className="text-[10px] font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">✅ PASS</span>}
+                    {diagResults.apiCheck === 'fail' && <span className="text-[10px] font-mono text-[var(--color-error)] font-bold bg-[rgba(239,68,68,0.1)] px-2 py-0.5 rounded border border-[rgba(239,68,68,0.2)]">❌ FAIL</span>}
                     {diagResults.apiCheck === null && <span className="text-[10px] font-mono text-[var(--color-muted)]">Unchecked</span>}
                   </div>
                 </div>
@@ -890,6 +923,7 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
                   <div>
                     {diagResults.permissionsCheck === 'pending' && <span className="text-[10px] font-mono text-amber-400 animate-pulse">Checking...</span>}
                     {diagResults.permissionsCheck === 'pass' && <span className="text-[10px] font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">✅ PASS</span>}
+                    {diagResults.permissionsCheck === 'fail' && <span className="text-[10px] font-mono text-[var(--color-error)] font-bold bg-[rgba(239,68,68,0.1)] px-2 py-0.5 rounded border border-[rgba(239,68,68,0.2)]">❌ FAIL</span>}
                     {diagResults.permissionsCheck === null && <span className="text-[10px] font-mono text-[var(--color-muted)]">Unchecked</span>}
                   </div>
                 </div>
