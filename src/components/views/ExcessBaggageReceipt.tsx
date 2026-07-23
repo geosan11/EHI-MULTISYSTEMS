@@ -62,6 +62,14 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontFamily: "Helvetica-Bold",
   },
+  copyLabelText: {
+    fontSize: 8,
+    fontWeight: "bold",
+    fontFamily: "Helvetica-Bold",
+    textAlign: "center",
+    textTransform: "uppercase",
+    marginBottom: 4,
+  },
   divider: {
     marginVertical: 2,
     borderBottomWidth: 1,
@@ -157,15 +165,17 @@ const BaggageReceiptPDF = ({ data }: { data: BaggageReceiptData }) => {
     if (lines > 1) h += (lines - 1) * 12;
   }
 
-  return (
-  <Document>
-    <Page size={[226, h]} style={styles.page}>
+  // Two copies (CUSTOMER, MERCHANT) as separate pages in the same PDF --
+  // mirrors CargoReceipt.tsx, which already does this; baggage never had it.
+  const renderPage = (copyLabel: 'CUSTOMER COPY' | 'MERCHANT COPY') => (
+    <Page key={copyLabel} size={[226, h]} style={styles.page}>
       <View style={styles.headerRow}>
         <EHILogoPDF width={70} />
         <AirlineLogoPDF airline={data.airlineName} logoUrl={data.airlineLogoUrl} width={70} />
       </View>
       <Text style={styles.title}>EXCESS BAGGAGE RECEIPT</Text>
       <Text style={{ fontSize: 10, textAlign: 'center', marginBottom: 6 }}>Origin: {data.hubName}</Text>
+      <Text style={styles.copyLabelText}>*** {copyLabel} ***</Text>
 
       {data.qrCodeDataUrl ? (
         <View style={styles.qrContainer}>
@@ -271,7 +281,13 @@ const BaggageReceiptPDF = ({ data }: { data: BaggageReceiptData }) => {
         <Text style={styles.footerText}>{data.entryRef} • {data.date}</Text>
       </View>
     </Page>
-  </Document>
+  );
+
+  return (
+    <Document>
+      {renderPage('CUSTOMER COPY')}
+      {renderPage('MERCHANT COPY')}
+    </Document>
   );
 };
 

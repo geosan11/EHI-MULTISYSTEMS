@@ -87,6 +87,14 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
     textTransform: "uppercase",
   },
+  copyLabelText: {
+    fontSize: 8,
+    fontWeight: "bold",
+    fontFamily: "Helvetica-Bold",
+    textAlign: "center",
+    textTransform: "uppercase",
+    marginBottom: 4,
+  },
   divider: {
     marginVertical: 3,
     borderBottomWidth: 1,
@@ -216,9 +224,10 @@ const MarketingReceiptPDF = ({ data }: { data: MarketingReceiptData }) => {
     if (lines > 1) h += (lines - 1) * 12;
   }
 
-  return (
-  <Document>
-    <Page size={[226, h]} style={styles.page}>
+  // Two copies (CUSTOMER, MERCHANT) as separate pages in the same PDF --
+  // mirrors CargoReceipt.tsx, which already does this; marketing never had it.
+  const renderPage = (copyLabel: 'CUSTOMER COPY' | 'MERCHANT COPY') => (
+    <Page key={copyLabel} size={[226, h]} style={styles.page}>
       <View style={[styles.headerRow, styles.headerBorder]}>
         <EHILogoPDF width={70} />
         {data.airline && <AirlineLogoPDF airline={data.airline} logoUrl={data.airlineLogoUrl} width={70} />}
@@ -227,6 +236,7 @@ const MarketingReceiptPDF = ({ data }: { data: MarketingReceiptData }) => {
       <View style={styles.titleBar}>
         <Text style={styles.titleText}>FIELD MARKETING RECEIPT</Text>
       </View>
+      <Text style={styles.copyLabelText}>*** {copyLabel} ***</Text>
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionHeaderText}>TRANSACTION INFO</Text>
@@ -324,7 +334,13 @@ const MarketingReceiptPDF = ({ data }: { data: MarketingReceiptData }) => {
       <Text style={styles.footerText}>app.ehimultisystems.com</Text>
       <Text style={styles.footerText}>{data.entryRef} • {data.date}</Text>
     </Page>
-  </Document>
+  );
+
+  return (
+    <Document>
+      {renderPage('CUSTOMER COPY')}
+      {renderPage('MERCHANT COPY')}
+    </Document>
   );
 };
 
