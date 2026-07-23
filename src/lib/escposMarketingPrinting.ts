@@ -1,7 +1,7 @@
 import {
   encoder, INIT, CENTER, LEFT, TEXT_NORMAL, TEXT_DOUBLE_HEIGHT,
   BOLD_ON, BOLD_OFF, FEED_AND_CUT,
-  concatChunks, qrAsRaster, textHeaderWithAirline, fieldRow, divider,
+  concatChunks, qrAsRaster, textHeaderWithAirline, fieldRow, divider, setPrintArea,
 } from './escposShared';
 
 export interface MarketingReceiptPrintData {
@@ -33,7 +33,7 @@ export async function compileMarketingReceiptStream(data: MarketingReceiptPrintD
     // Text-only header, no EHI logo, no airline logo, at either width --
     // keeps this receipt as short/fast to print as possible. Passing '' as
     // the airline skips the logo/fallback section entirely.
-    const chunks: Uint8Array[] = [new Uint8Array(INIT), ...(await textHeaderWithAirline('', 0))];
+    const chunks: Uint8Array[] = [new Uint8Array(INIT), new Uint8Array(setPrintArea(width)), ...(await textHeaderWithAirline('', 0))];
 
     chunks.push(new Uint8Array(TEXT_DOUBLE_HEIGHT), new Uint8Array(BOLD_ON));
     chunks.push(encoder.encode("MARKETING SALES RECEIPT\n\n"));

@@ -1,7 +1,7 @@
 import {
   encoder, INIT, CENTER, LEFT, TEXT_NORMAL, TEXT_DOUBLE_HEIGHT,
   BOLD_ON, BOLD_OFF, FEED_AND_CUT,
-  concatChunks, qrAsRaster, brandingHeaderWithAirline, textHeaderWithAirline, fieldRow, divider,
+  concatChunks, qrAsRaster, brandingHeaderWithAirline, textHeaderWithAirline, fieldRow, divider, setPrintArea,
 } from './escposShared';
 
 export interface CargoReceiptPrintData {
@@ -35,6 +35,7 @@ export async function compileCargoReceiptStream(data: CargoReceiptPrintData, wid
   for (const copyType of copies) {
     const chunks: Uint8Array[] = [
       new Uint8Array(INIT),
+      new Uint8Array(setPrintArea(width)),
       ...(width === '58mm'
         ? await textHeaderWithAirline(data.airline || '', 100)
         : await brandingHeaderWithAirline(data.airline || '', width)),

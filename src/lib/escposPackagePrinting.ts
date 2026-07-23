@@ -1,7 +1,7 @@
 import {
   encoder, INIT, CENTER, LEFT, TEXT_NORMAL, TEXT_DOUBLE_HEIGHT,
   BOLD_ON, BOLD_OFF, FEED_AND_CUT,
-  concatChunks, qrAsRaster, brandingHeaderWithAirline, textHeaderWithAirline, fieldRow, divider,
+  concatChunks, qrAsRaster, brandingHeaderWithAirline, textHeaderWithAirline, fieldRow, divider, setPrintArea,
 } from './escposShared';
 
 export interface PackageReceiptPrintData {
@@ -36,6 +36,7 @@ export async function compilePackageReceiptStream(data: PackageReceiptPrintData,
     // the plain EHI-only header since there's no airline.
     const chunks: Uint8Array[] = [
       new Uint8Array(INIT),
+      new Uint8Array(setPrintArea(width)),
       ...(width === '58mm' ? await textHeaderWithAirline('', 100) : await brandingHeaderWithAirline('', width)),
     ];
 

@@ -2,7 +2,7 @@ import {
   encoder, INIT, CENTER, LEFT, TEXT_NORMAL, TEXT_DOUBLE_HEIGHT,
   BOLD_ON, BOLD_OFF, FEED_AND_CUT,
   concatChunks, qrAsRaster, brandingHeader, textHeaderWithAirline, fieldRow, divider,
-  getAirlineLogoRaster, imageToEscPosRaster,
+  getAirlineLogoRaster, imageToEscPosRaster, setPrintArea,
 } from './escposShared';
 
 export interface BaggageReceiptPrintData {
@@ -35,7 +35,7 @@ export async function compileBaggageReceiptStream(data: BaggageReceiptPrintData,
   let allChunks: Uint8Array[] = [];
 
   for (const copyType of copies) {
-    const chunks: Uint8Array[] = [new Uint8Array(INIT)];
+    const chunks: Uint8Array[] = [new Uint8Array(INIT), new Uint8Array(setPrintArea(width))];
     if (width === '58mm') {
       // Plain-text EHI header (no logo raster), then the airline's own logo --
       // keeps this width fast to print.

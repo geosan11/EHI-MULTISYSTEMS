@@ -20,6 +20,28 @@ export const FEED_AND_CUT = [0x1B, 0x64, 0x03, 0x1D, 0x56, 0x41, 0x00];
 // -- feed enough for the label to clear the tear bar, no cut command.
 export const FEED_ONLY = [0x1B, 0x64, 0x05];
 
+// Explicit printable-area declaration for continuous-roll receipts/tags --
+// GS L (left margin) + GS W (print area width), both in absolute dots.
+// Needed because ESC @ (INIT) resets the print area back to whatever the
+// printer's own DIP-switch/firmware default is, not to what our 32/48-char
+// layout assumes. On a printer provisioned for 80mm (576 dots) that default
+// is wider than a 58mm receipt's 384-dot content -- without this, printer
+// firmware can stretch or pad the narrower text to fill its own configured
+// width instead of respecting the layout actually sent, which is what makes
+// a "58mm" receipt look mis-sized/gappy when printed on an 80mm-provisioned
+// printer. Sending this right after every INIT makes the printable region
+// explicit and consistent regardless of how the physical printer is set up.
+const PRINT_AREA_DOTS: Record<'58mm' | '80mm', number> = { '58mm': 384, '80mm': 576 };
+
+export function setPrintArea(width: '58mm' | '80mm'): number[] {
+  const dots = PRINT_AREA_DOTS[width];
+  const wL = dots & 0xFF, wH = (dots >> 8) & 0xFF;
+  return [
+    0x1D, 0x4C, 0x00, 0x00, // GS L: left margin = 0 dots
+    0x1D, 0x57, wL, wH,     // GS W: print area width = `dots`
+  ];
+}
+
 export function concatChunks(chunks: Uint8Array[]): Uint8Array {
   const total = chunks.reduce((sum, c) => sum + c.length, 0);
   const out = new Uint8Array(total);

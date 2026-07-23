@@ -1,7 +1,7 @@
 import {
   encoder, INIT, CENTER, LEFT, TEXT_NORMAL, TEXT_DOUBLE_HEIGHT,
   BOLD_ON, BOLD_OFF, FEED_AND_CUT, FEED_ONLY,
-  concatChunks, brandingHeader, brandingHeaderWithAirline, fieldRow, divider, qrAsRaster
+  concatChunks, brandingHeader, brandingHeaderWithAirline, fieldRow, divider, qrAsRaster, setPrintArea
 } from './escposShared';
 import { printViaBluetooth } from './escpos';
 import { getHubCode, cleanRoute } from './helpers';
@@ -29,6 +29,7 @@ export async function compileSingleTag(
   // for every piece in a multi-piece shipment.
   const chunks: Uint8Array[] = [
     new Uint8Array(INIT),
+    new Uint8Array(setPrintArea(width)),
     ...(precomputed?.header ?? await brandingHeaderWithAirline(item.airline || '', width, 'cargo')),
   ];
 
@@ -157,6 +158,7 @@ async function compileSingleMarketingTag(
   const maxChars = width === '58mm' ? 32 : 48;
   const chunks: Uint8Array[] = [
     new Uint8Array(INIT),
+    new Uint8Array(setPrintArea(width)),
     ...(precomputed?.header ?? await brandingHeaderWithAirline(item.airline || '', width, 'cargo')),
   ];
 
