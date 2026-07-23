@@ -214,9 +214,14 @@ export const CargoForm = ({
   // field even for these entries (still tracked for manifest/cargo weight).
   const [sizeInches, setSizeInches] = useState("");
   const [showRetailReview, setShowRetailReview] = useState(false);
-  const [route, setRoute] = useState(routes[0]);
+  // Left empty rather than defaulting to routes[0]/contentTypes[0] --
+  // a pre-filled dropdown looks like a deliberate choice, so staff could
+  // submit an entry against whatever happened to be first in the list
+  // without ever consciously picking it. isRetailFormValid already
+  // requires both non-empty, so this makes that enforcement actually bite.
+  const [route, setRoute] = useState('');
   useValidatedRouteSelection(routes, route, setRoute);
-  const [contentType, setContentType] = useState(contentTypes[0] as string);
+  const [contentType, setContentType] = useState('');
   const [customContentType, setCustomContentType] = useState("");
   const [amount, setAmount] = useState("");
   const [mode, setMode] = useState<string>(
@@ -896,11 +901,12 @@ export const CargoForm = ({
   };
   useEffect(() => { fetchIntakeAwbPreview(); }, [user.hub_code, user.hub]);
   const [intakePcs, setIntakePcs] = useState("1");
-  const [intakeRoute, setIntakeRoute] = useState(routes[0]);
+  // Left empty rather than defaulting to routes[0]/contentTypes[0] -- see
+  // the retail route/contentType state above for why. handleLogFieldIntake
+  // now explicitly validates both before submitting.
+  const [intakeRoute, setIntakeRoute] = useState('');
   useValidatedRouteSelection(routes, intakeRoute, setIntakeRoute);
-  const [intakeContentType, setIntakeContentType] = useState<string>(
-    contentTypes[0],
-  );
+  const [intakeContentType, setIntakeContentType] = useState<string>('');
   const [intakeSenderPhone, setIntakeSenderPhone] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -943,6 +949,18 @@ export const CargoForm = ({
   const handleLogFieldIntake = async () => {
     if (!intakeAwb.trim()) {
       showToast({ message: "Please provide the Air Waybill / Tag Number.", type: "warning" });
+      return;
+    }
+    // intakeRoute/intakeContentType now start empty rather than defaulting
+    // to routes[0]/contentTypes[0] (same reasoning as the retail form) --
+    // unlike that form's isRetailFormValid, this button was never gated on
+    // either field, so an empty selection would otherwise submit silently.
+    if (!intakeRoute) {
+      showToast({ message: "Select a route before logging this intake.", type: "warning" });
+      return;
+    }
+    if (!intakeContentType) {
+      showToast({ message: "Select a content type before logging this intake.", type: "warning" });
       return;
     }
     // parseInt(intakePcs) || 1 at the point of use only catches "0" and
@@ -2043,6 +2061,7 @@ export const CargoForm = ({
                   onChange={(e) => { setRoute(e.target.value); setAmount(""); }}
                   className={formInputClass}
                 >
+                  <option value="" disabled>-- Select Route --</option>
                   {routes.map((r) => (
                     <option key={r} value={r}>
                       {r}
@@ -2103,6 +2122,7 @@ export const CargoForm = ({
                   onChange={(e) => setContentType(e.target.value)}
                   className={formInputClass}
                 >
+                  <option value="" disabled>-- Select Content --</option>
                   {contentTypes.map((c) => (
                     <option key={c} value={c}>
                       {c}
@@ -2635,6 +2655,7 @@ export const CargoForm = ({
                         onChange={(e) => setIntakeRoute(e.target.value)}
                         className={formInputClass}
                       >
+                        <option value="" disabled>-- Select Route --</option>
                         {routes.map((r) => (
                           <option key={r} value={r}>
                             {r}
@@ -2651,6 +2672,7 @@ export const CargoForm = ({
                       onChange={(e) => setIntakeContentType(e.target.value)}
                       className={formInputClass}
                     >
+                      <option value="" disabled>-- Select Content --</option>
                       {contentTypes.map((c) => (
                         <option key={c} value={c}>
                           {c}

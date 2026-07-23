@@ -81,7 +81,11 @@ export function useValidatedRouteSelection(
   setSelected: (v: string) => void,
 ): void {
   useEffect(() => {
-    if (routes.length > 0 && !routes.includes(selected)) setSelected(routes[0]);
+    // An intentionally empty selection (a form seeded with "" so staff must
+    // consciously pick one, instead of a silently-prefilled first option)
+    // is not a stale value to snap back from -- only correct a genuinely
+    // stale non-empty selection left over from a cached/fallback list.
+    if (routes.length > 0 && selected !== '' && !routes.includes(selected)) setSelected(routes[0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routes]);
 }

@@ -88,7 +88,11 @@ export const PackageForm = ({
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [destination, setDestination] = useState<string>(() => destinations[0] || "");
+  // Left empty rather than defaulting to destinations[0] -- a pre-filled
+  // dropdown looks like a deliberate choice, so staff could submit against
+  // whatever destination happened to be first without ever consciously
+  // picking it. isValid above already requires it explicitly.
+  const [destination, setDestination] = useState<string>('');
   useValidatedRouteSelection(destinations, destination, setDestination);
   const [contentType, setContentType] = useState<'Package' | 'Parcel'>('Package');
   // Pieces/weight/contents were never captured for this stream at all --
@@ -97,7 +101,9 @@ export const PackageForm = ({
   // hardcoded one, so this scales the same way the rest of the app does.
   const [pcs, setPcs] = useState("1");
   const [kg, setKg] = useState("");
-  const [contents, setContents] = useState<string>(contentTypes[0]);
+  // Left empty rather than defaulting to contentTypes[0] -- same reasoning
+  // as destination above. isValid now requires actualContents explicitly.
+  const [contents, setContents] = useState<string>('');
   const [customContents, setCustomContents] = useState("");
   const [amount, setAmount] = useState("");
   const [mode, setMode] = useState<string>("Cash");
@@ -133,8 +139,12 @@ export const PackageForm = ({
   const parsedAmount = parseFloat(amount) || 0;
   const pcsNum = parseInt(pcs) || 0;
   const kgNum = parseFloat(kg) || 0;
+  // actualContents wasn't required at all before -- contents defaulting to
+  // contentTypes[0] made it always truthy, so this never actually bit;
+  // now that it starts empty, it needs an explicit check like destination
+  // already has.
   const isValid = (mode === "Debt" ? debtorName.trim().length > 0 : name.trim().length > 0)
-    && parsedAmount >= MIN_PACKAGE_AMOUNT && destination.trim().length > 0 && !!trackingRef && pcsNum > 0;
+    && parsedAmount >= MIN_PACKAGE_AMOUNT && destination.trim().length > 0 && actualContents.trim().length > 0 && !!trackingRef && pcsNum > 0;
 
   // "Today" here means the actual calendar day, not whatever the app-wide
   // date-range picker (globalDateRange, defaults to a trailing 7 days) is
@@ -625,6 +635,7 @@ export const PackageForm = ({
                     onChange={(e) => setDestination(e.target.value)}
                     className={`flex-1 h-11 px-3 text-[13px] rounded bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-foreground)] font-sans min-w-0 ${focusClasses}`}
                   >
+                    <option value="" disabled>-- Select Destination --</option>
                     {destinations.map((d) => <option key={d} value={d}>{d}</option>)}
                   </select>
                   <select
@@ -666,6 +677,7 @@ export const PackageForm = ({
                   onChange={(e) => setContents(e.target.value)}
                   className={`w-full h-11 px-3 text-sm rounded bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-foreground)] font-sans ${focusClasses}`}
                 >
+                  <option value="" disabled>-- Select Contents --</option>
                   {contentTypes.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
                 {contents === "Other" && (

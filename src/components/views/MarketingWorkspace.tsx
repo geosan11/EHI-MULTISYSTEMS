@@ -129,7 +129,11 @@ export const MarketingWorkspace = ({
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [route, setRoute] = useState<string>(Object.keys(pricingMatrix)[0]);
+  // Left empty rather than defaulting to the first pricing-matrix key --
+  // a pre-filled dropdown looks like a deliberate choice, so staff could
+  // submit against whatever route happened to be first without ever
+  // consciously picking it. isValid above now requires it explicitly.
+  const [route, setRoute] = useState<string>('');
   const [mode, setMode] = useState<string>("Transfer");
   const banks = useBanks();
   const [bank, setBank] = useState<string>(banks[0]);
@@ -195,7 +199,11 @@ export const MarketingWorkspace = ({
   // Name" field could be filled while the Debt-only "Debtor Name" field was
   // left empty, producing an untraceable debt record with name: "". Matches
   // the branch PackageForm.tsx already uses correctly for the same fields.
-  const isValid = !!awb && (mode === "Debt" ? debtorName.trim().length > 0 : name.trim().length > 0) && phone.trim().length > 0 && totalAmount > 0 && (amountOverride === "" || parsedOverride >= minAmount);
+  // route required explicitly, not just incidentally via totalAmount > 0 --
+  // an empty route already zeroes routePrices (see above), but a manually
+  // typed amountOverride could still push totalAmount > 0 without a route
+  // ever having been chosen.
+  const isValid = !!awb && !!route && (mode === "Debt" ? debtorName.trim().length > 0 : name.trim().length > 0) && phone.trim().length > 0 && totalAmount > 0 && (amountOverride === "" || parsedOverride >= minAmount);
 
   // "Less Transfer" — daily adjustment for 3rd-party/corporate transfers (Govt/Honda/Zion)
   // that belong to other accounts and should be excluded from the day's cash tally
@@ -800,6 +808,7 @@ export const MarketingWorkspace = ({
                     onChange={(e) => setRoute(e.target.value)}
                     className={`flex-1 h-11 px-3 text-[13px] rounded bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-foreground)] font-sans min-w-0 ${mktgFocusClasses}`}
                   >
+                    <option value="" disabled>-- Select Route --</option>
                     {Object.keys(pricingMatrix).map((r) => (
                       <option key={r} value={r}>
                         {r}
