@@ -37,8 +37,13 @@ export const ReviewEntryModal: React.FC<ReviewEntryModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-      <div className="bg-[var(--color-obsidian)] border border-[var(--color-border)] rounded-xl w-full max-w-md max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+    // Fullscreen on mobile (no surrounding padding, the card fills the
+    // viewport) -- a small centered card on a phone leaves the review
+    // details cramped into a fraction of the screen. From sm: up it's back
+    // to a normal centered modal; shared by every form that uses this
+    // (Cargo/Package/Marketing/ExcessBaggage), so all of them get this at once.
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center sm:p-4">
+      <div className="bg-[var(--color-obsidian)] border-0 sm:border border-[var(--color-border)] rounded-none sm:rounded-xl w-full h-full sm:h-auto sm:max-w-md sm:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b border-[var(--color-border)] bg-[var(--color-surface-card)] shrink-0">
           <h3 className="text-[14px] font-bold font-sans text-[var(--color-foreground)] tracking-wide">
@@ -53,9 +58,10 @@ export const ReviewEntryModal: React.FC<ReviewEntryModalProps> = ({
             entry's handful of detail rows fits without scrolling on
             realistic viewports; staff shouldn't have to scroll past
             fields to reach Confirm, or risk missing one they never
-            scrolled down to see. max-h stays as a safety net only for
-            extreme edge cases (very short landscape viewports). */}
-        <div className="p-3 overflow-y-auto max-h-[55vh]">
+            scrolled down to see. flex-1 fills the fullscreen mobile card;
+            sm:max-h caps it back down once the card returns to its normal
+            centered/auto-height size on larger screens. */}
+        <div className="p-3 overflow-y-auto flex-1 sm:flex-none sm:max-h-[55vh]">
           <div className="space-y-1.5">
             {details.map((detail, idx) => (
               <div key={idx} className="flex justify-between items-center py-1.5 border-b border-[var(--color-border)] last:border-0">
