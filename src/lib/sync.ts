@@ -270,6 +270,13 @@ export async function getUnsyncedLocalTransactions(): Promise<{ transactions: an
           paymentConfirmed: r.payment_confirmed,
           wallet_id: r.wallet_id || undefined,
           wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
+          // Mirrors the same fields added to fetchInitial's cargo mapping in
+          // EHIApp.tsx -- otherwise a debt-clearance shadow entry created
+          // while offline shows its "COLLECTION" badge only until it syncs,
+          // then loses it (this local-mirror path is what renders it before
+          // that point).
+          is_debt_clearance: r.is_debt_clearance || undefined,
+          related_tx_id: r.related_tx_id || undefined,
         });
       }
     });

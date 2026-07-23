@@ -1182,11 +1182,19 @@ export const TransactionLedger = ({
     // comment on why an unset one corrupts airline reports) and the
     // debt's own hub_id, not the clearing user's.
     if (onAddTx) {
-      const awbLabel = (tx as any).awb_tag_number ? ` · AWB: ${(tx as any).awb_tag_number}` : '';
+      // Kept short and un-delimited on purpose -- EHIApp.tsx's handleAddTx
+      // positionally parses a cargo/marketing entry's `detail` (airline ·
+      // awb · pcs · kg · route · content) as a fallback for its structured
+      // columns, and cargo_entries doesn't persist `detail` verbatim at all
+      // (it's rebuilt from those columns on every fetch) -- a multi-segment
+      // summary here either got discarded on refresh or, worse, corrupted
+      // route/awb/content with fragments of this text. The full breakdown
+      // goes in `remarks` instead, which genuinely round-trips.
       onAddTx({
         id: `DC-${Date.now()}-${tx.id.slice(-6)}`,
         name: tx.name,
-        detail: `DEBT CLEARANCE${awbLabel} · Orig: ${fmt(tx.amount)} · Paid: ${fmt(remaining)} · Bal: ₦${fmt(stillOwed)}`,
+        detail: 'DEBT CLEARANCE',
+        remarks: `${(tx as any).awb_tag_number ? `AWB: ${(tx as any).awb_tag_number} · ` : ''}Orig: ${fmt(tx.amount)} · Paid: ${fmt(remaining)} · Bal: ₦${fmt(stillOwed)}`,
         amount: remaining,
         mode: 'Cash',
         time: tnow(),

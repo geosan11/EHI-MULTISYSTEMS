@@ -326,7 +326,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
         const [shifts, cargoRes, baggageRes, mktRes, packageRes, expRes, profilesRes] = await Promise.all([
           fetchShifts(),
-          addHubFilter(supabase.from('cargo_entries').select('entry_ref,consignee_name,airline,awb_tag_number,total_pcs,total_kg,size_inches,route,content_type,amount,receipt_mode,pickup_pin,status,created_at,commission_rate,bank,hub_id,terminal,remark,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,consignee_phone,client_type,corporate_client_id,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
+          addHubFilter(supabase.from('cargo_entries').select('entry_ref,consignee_name,airline,awb_tag_number,total_pcs,total_kg,size_inches,route,content_type,amount,receipt_mode,pickup_pin,status,created_at,commission_rate,bank,hub_id,terminal,remark,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,consignee_phone,client_type,corporate_client_id,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,is_debt_clearance,related_tx_id').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
           addHubFilter(supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs,amount_paid,payment_history,airline,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
           addHubFilter(supabase.from('marketing_entries').select('entry_ref,awb_tag_number,customer_name,route,qty_big_bag,qty_med_bag,qty_small_bag,bb_kg,mb_kg,sb_kg,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,last_edited_by,last_edited_at,debt_amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
           addHubFilter(supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,total_pcs,total_kg,contents,status,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,amount_paid,payment_history,created_at,hub_id,terminal,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
@@ -396,6 +396,12 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               retrievalNote: r.retrieval_note ?? undefined,
               retrievedAt: r.retrieved_at ?? undefined,
               retrievedBy: r.retrieved_by ?? undefined,
+              // Was never selected/mapped back -- a debt-clearance shadow
+              // entry's "COLLECTION" badge and link to the original debt
+              // only survived until the next refetch, after which it was
+              // visually indistinguishable from a brand-new cargo intake.
+              is_debt_clearance: r.is_debt_clearance || undefined,
+              related_tx_id: r.related_tx_id || undefined,
               raw: r,
             });
           });
@@ -1167,7 +1173,11 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     let payload: any = { id: tx.id };
     
     if (tx.type === 'marketing') {
-      const parts = tx.detail.split(' · ');
+      // See the cargo branch's comment below on why a debt-clearance shadow
+      // entry's summary-text `detail` must never be positionally parsed --
+      // here it would otherwise write the literal "DEBT CLEARANCE" string
+      // into the route column.
+      const parts = tx.is_debt_clearance ? [] : tx.detail.split(' · ');
       const route = (tx as any).route || parts[0] || '';
       const bagsStr = parts[1] || '';
       const bb = (tx as any)._bb ?? parseInt(bagsStr.match(/(\d+)\s*BB/)?.[1] || '0');
@@ -1202,7 +1212,15 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         created_at: new Date().toISOString()
       };
     } else if (tx.type === 'cargo') {
-      const parts = tx.detail.split(' · ');
+      // A debt-clearance shadow entry's `detail` is a human-readable "DEBT
+      // CLEARANCE · Orig: ... · Paid: ... · Bal: ..." summary, not the
+      // structured "airline · awb · pcs · kg · route · content" format real
+      // cargo intake writes -- splitting it positionally wrote fragments of
+      // that summary into route/awb_tag_number/content_type (route became
+      // the literal "Bal: ₦50,000" once an Age segment pushed indices over).
+      // Skip the parse entirely here; every field below already falls back
+      // to a clean default when its explicit value is absent.
+      const parts = tx.is_debt_clearance ? [] : tx.detail.split(' · ');
       const awbFromDetail = parts[1] || '';
       const pcsStr = parts[2] || '';
       const kgStr = parts[3] || '';
@@ -1237,13 +1255,23 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         wallet_id: tx.wallet_id ?? null,
         wallet_deduction_amount: tx.wallet_deduction_amount ?? null,
         entered_by: user.id && user.id.includes('-') && user.id.length > 30 ? user.id : undefined,
+        // Set on the client by DebtorsTab.tsx/TransactionLedger.tsx's
+        // debt-clearance shadow entries but never actually written here --
+        // the "COLLECTION" badge and the link back to the cleared debt only
+        // survived until the next refetch, after which the row looked like
+        // an ordinary new cargo intake for the same consignee/airline/route.
+        is_debt_clearance: tx.is_debt_clearance ?? false,
+        related_tx_id: tx.related_tx_id ?? null,
         created_at: new Date().toISOString()
       };
     } else if (tx.type === 'baggage') {
       const excessKg  = Math.round(tx.excessKg || (tx as any).excessKg || 0);
       const totalKg   = Math.round(tx.totalKg  || (tx as any).totalKg  || excessKg);
       const dest      = tx.destination || (tx as any).destination || '';
-      const flightNo  = tx.flight      || (tx as any).flight      || tx.detail?.split(' · ')[0] || '';
+      // Same debt-clearance guard as the cargo/marketing branches -- a
+      // shadow entry's "DEBT CLEARANCE · ..." detail text must not become
+      // the literal flight number.
+      const flightNo  = tx.flight      || (tx as any).flight      || (tx.is_debt_clearance ? '' : tx.detail?.split(' · ')[0]) || '';
       const pnr       = tx.pnr         || (tx as any).pnr         || null;
       const pcs       = tx.pieces      || (tx as any).pieces      || 1;
 

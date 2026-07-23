@@ -220,11 +220,20 @@ export const DebtorsTab = ({
       //    explain it — staff write "unexplained excess" in every variance
       //    reason. The shadow entry carries the full context the accountant needs.
       if (onAddTx) {
-        const awbLabel = (debt as any).awb_tag_number ? ` · AWB: ${(debt as any).awb_tag_number}` : '';
         const shadowTx: Transaction = {
           id: `DC-${Date.now()}-${id.slice(-6)}`,
           name: debt.name,
-          detail: `DEBT CLEARANCE${awbLabel} · Orig: ${fmt(debt.amount)} · Paid: ${fmt(cappedPaid)} · Bal: ${fmt(remaining)} · Age: ${debt.ageInDays}d`,
+          // Kept short and un-delimited on purpose -- EHIApp.tsx's
+          // handleAddTx positionally parses a cargo/marketing entry's
+          // `detail` (airline · awb · pcs · kg · route · content) as a
+          // fallback for its structured columns, and cargo_entries doesn't
+          // persist `detail` verbatim at all (it's rebuilt from those
+          // columns on every fetch) -- a multi-segment summary here either
+          // got discarded on refresh or, worse, corrupted route/awb/content
+          // with fragments of this text. The full breakdown goes in
+          // `remarks` instead, which genuinely round-trips.
+          detail: 'DEBT CLEARANCE',
+          remarks: `${(debt as any).awb_tag_number ? `AWB: ${(debt as any).awb_tag_number} · ` : ''}Orig: ${fmt(debt.amount)} · Paid: ${fmt(cappedPaid)} · Bal: ${fmt(remaining)} · Age: ${debt.ageInDays}d`,
           amount: cappedPaid,
           mode: paymentMode,
           // Never set before -- EHIApp.tsx's handleAddTx falls back to
