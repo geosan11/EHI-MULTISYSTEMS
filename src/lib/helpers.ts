@@ -445,6 +445,41 @@ export function lagosBusinessDate(d: Date = new Date()): string {
   }).format(d);
 }
 
+// ── SPREADSHEET FORMULA-INJECTION SANITIZATION ────────────────
+/**
+ * Neutralizes spreadsheet formula injection. Excel (and most spreadsheet
+ * software) treats a cell value starting with =, +, -, or @ as a formula
+ * to EVALUATE, not display -- a consignee/customer/vendor name entered
+ * as free text at intake (e.g. `=HYPERLINK("http://evil.com","x")`)
+ * becomes a live, clickable/executable formula the moment someone opens
+ * an exported report in Excel. Prefixing with a leading apostrophe forces
+ * the cell to plain text instead. Only strings are touched; numbers,
+ * booleans, and null/undefined pass through unchanged.
+ */
+export function sanitizeSpreadsheetCell(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  if (/^[=+\-@]/.test(value)) return `'${value}`;
+  return value;
+}
+
+/** Applies sanitizeSpreadsheetCell to every value in an array of row
+ * objects (the shape XLSX.utils.json_to_sheet expects). */
+export function sanitizeSpreadsheetRows<T extends Record<string, unknown>>(rows: T[]): T[] {
+  return rows.map(row => {
+    const out: Record<string, unknown> = {};
+    for (const key of Object.keys(row)) {
+      out[key] = sanitizeSpreadsheetCell((row as Record<string, unknown>)[key]);
+    }
+    return out as T;
+  });
+}
+
+/** Applies sanitizeSpreadsheetCell to every cell in a 2D array (the shape
+ * XLSX.utils.aoa_to_sheet expects). */
+export function sanitizeSpreadsheetAoA(rows: unknown[][]): unknown[][] {
+  return rows.map(row => row.map(cell => sanitizeSpreadsheetCell(cell)));
+}
+
 // Formats a shift boundary as a human-readable label for display
 // in the EOD header and ledger shift selector.
 // e.g. "Thu 17 Jul 7:00 PM → Fri 18 Jul 7:00 PM"

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { User, Transaction } from '../../lib/types';
-import { fmt } from '../../lib/helpers';
+import { fmt, sanitizeSpreadsheetAoA } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
 import { Calendar, FileText, Download, Printer, ChevronRight, Filter, Loader2 } from 'lucide-react';
 import { BackButton } from '../BackButton';
@@ -446,8 +446,8 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
     }
 
     if (wsData.length === 0) return;
-    
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    const ws = XLSX.utils.aoa_to_sheet(sanitizeSpreadsheetAoA(wsData));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Report");
     XLSX.writeFile(wb, `EHI_Report_${selectedReport}_${new Date().toISOString().split('T')[0]}.xlsx`);

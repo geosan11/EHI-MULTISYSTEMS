@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { User, Transaction, Expense } from '../../lib/types';
-import { fmt, getShiftBoundary, normalizeAirlineName } from '../../lib/helpers';
+import { fmt, getShiftBoundary, normalizeAirlineName, sanitizeSpreadsheetRows } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
 import { AnimatedNumber } from '../ui/AnimatedNumber';
 import { useToast } from '../../lib/ToastContext';
@@ -505,9 +505,9 @@ export const Analytics = ({
       }));
 
       const wb = XLSX.utils.book_new();
-      const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
-      const wsClients = XLSX.utils.json_to_sheet(clientRows);
-      const wsEntries = XLSX.utils.json_to_sheet(entryRows);
+      const wsSummary = XLSX.utils.json_to_sheet(sanitizeSpreadsheetRows(summaryRows));
+      const wsClients = XLSX.utils.json_to_sheet(sanitizeSpreadsheetRows(clientRows));
+      const wsEntries = XLSX.utils.json_to_sheet(sanitizeSpreadsheetRows(entryRows));
 
       XLSX.utils.book_append_sheet(wb, wsSummary, 'Sales Summary');
       XLSX.utils.book_append_sheet(wb, wsClients, 'Top Clients & Pareto');

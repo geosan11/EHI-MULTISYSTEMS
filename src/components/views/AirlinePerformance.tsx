@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { User, Transaction } from '../../lib/types';
-import { fmt, tnow, getShiftBoundary, normalizeAirlineName } from '../../lib/helpers';
+import { fmt, tnow, getShiftBoundary, normalizeAirlineName, sanitizeSpreadsheetRows } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
 import { BackButton } from '../BackButton';
 import { useAirlines } from '../../lib/airlines';
@@ -270,7 +270,7 @@ export const AirlinePerformance = ({ user, onBack }: AirlinePerformanceProps) =>
       'Volume Share (%)': grandTotalSales > 0 ? ((st.totalSales / grandTotalSales) * 100).toFixed(1) + '%' : '0%',
     }));
 
-    const ws = XLSX.utils.json_to_sheet(rows);
+    const ws = XLSX.utils.json_to_sheet(sanitizeSpreadsheetRows(rows));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Airline Performance');
     XLSX.writeFile(wb, `EHI_Airline_Sales_Weight_${startDateTime.slice(0, 10)}_to_${endDateTime.slice(0, 10)}.xlsx`);

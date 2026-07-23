@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Expense, User } from '../../lib/types';
-import { fmt, uid, tnow } from '../../lib/helpers';
+import { fmt, uid, tnow, sanitizeSpreadsheetRows } from '../../lib/helpers';
 import { Car, Truck, Bus, Box, Package, Briefcase, Download, Plus, AlertCircle, Edit2, CheckCircle, XCircle } from 'lucide-react';
 import { EmptyState } from './EmptyState';
 import { useExpenseCategories, useExpenseBudgets, saveExpenseBudget } from '../../lib/expenseCategories';
@@ -62,7 +62,7 @@ export const ExpensesTab = ({ expenses = [], user, period = 'today', onAddExpens
       Status: e.status || 'approved',
     }));
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Expenses');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sanitizeSpreadsheetRows(rows)), 'Expenses');
     XLSX.writeFile(wb, `EHI_Expenses_${new Date().toISOString().split('T')[0]}.csv`);
   };
 
