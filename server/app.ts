@@ -230,7 +230,22 @@ export function createApp() {
         .upsert({ id: authData.user.id, email: email, name, role, hub_id, hub_type: hub_type || 'Cargo Station', phone: phone || null, assigned_airline: assigned_airline || null, active: true });
 
       if (profileError) {
-        console.error('Profile update failed:', profileError.message);
+        console.error('Profile creation failed, rolling back auth user:', profileError.message);
+        // Without this, a failed profile insert leaves a Supabase Auth user
+        // with NO row in user_profiles -- that person can never log in
+        // ("Account exists but profile not set up"), the admin was told
+        // this succeeded, and there was no way to clean it up short of the
+        // Supabase dashboard. Delete the orphan immediately instead of
+        // leaving it behind.
+        try {
+          await adminClient.auth.admin.deleteUser(authData.user.id);
+        } catch (cleanupErr: any) {
+          console.error(`Failed to roll back orphaned auth user ${authData.user.id}:`, cleanupErr?.message || cleanupErr);
+          return res.status(500).json({
+            error: `Profile creation failed AND automatic cleanup failed. An orphaned auth account (${email}) may exist -- remove it manually in the Supabase dashboard before retrying. Original error: ${profileError.message}`,
+          });
+        }
+        return res.status(400).json({ error: `Failed to set up staff profile: ${profileError.message}. No account was created.` });
       }
 
       return res.json({ id: authData.user.id, email: authData.user.email });
