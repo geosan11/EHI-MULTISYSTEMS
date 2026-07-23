@@ -79,7 +79,7 @@ export const DebtorsTab = ({
           id: r.entry_ref || r.id, name: r.customer_name || 'Customer', detail: `${r.destination || ''}`,
           amount: r.amount || 0, amountPaid: r.amount_paid || 0, paymentHistory: r.payment_history || [], mode: 'Debt',
           time: r.created_at, created_at: r.created_at, type: 'package', status: r.status || 'Intake',
-          hub_id: r.hub_id, hub: r.hub, raw: r,
+          hub_id: r.hub_id, hub: r.hub, consigneePhone: r.customer_phone, raw: r,
         } as Transaction));
         if (active) setFetchedDebts(mapped);
       } catch { /* keep whatever's already in the transactions prop */ }
