@@ -489,12 +489,12 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
         ['Period:', dateRange.from.toLocaleDateString(), 'to', dateRange.to.toLocaleDateString()],
         [],
         ['ALL AGENTS COMBINED'],
-        ['Total Agents', 'Total Entries', 'Total Sales (NGN)', 'Total Collected (NGN)', 'Total Owed (NGN)', 'Cash (NGN)', 'Transfer (NGN)', 'POS/Card (NGN)', 'Wallet (NGN)'],
-        [d.data.collective.agentCount, d.data.collective.entries, d.data.collective.revenue, d.data.collective.collected, d.data.collective.owed, d.data.collective.cash, d.data.collective.transfer, d.data.collective.pos, d.data.collective.wallet],
+        ['Total Agents', 'Total Entries', 'Total Sales (NGN)', 'Total Collected (NGN)', 'Total Owed (NGN)', 'Cash (NGN)', 'Transfer (NGN)', 'Transfer->Cash (NGN)', 'POS/Card (NGN)', 'Wallet (NGN)', 'Other (NGN)'],
+        [d.data.collective.agentCount, d.data.collective.entries, d.data.collective.revenue, d.data.collective.collected, d.data.collective.owed, d.data.collective.cash, d.data.collective.transfer, d.data.collective.transferCash, d.data.collective.pos, d.data.collective.wallet, d.data.collective.other],
         [],
         ['PER-AGENT DETAIL'],
-        ['Agent Name', 'Owed (NGN)', 'Entries', 'Sales Value (NGN)', 'Collected (NGN)', 'Cash (NGN)', 'Transfer (NGN)', 'POS/Card (NGN)', 'Wallet (NGN)', `Top ${d.routeLabel}`, `Top ${d.routeLabel} Count`],
-        ...d.data.agents.map(s => [s.role, s.owed, s.entries, s.revenue, s.collected, s.cash, s.transfer, s.pos, s.wallet, s.topRoute || '', s.topRouteCount])
+        ['Agent Name', 'Owed (NGN)', 'Entries', 'Sales Value (NGN)', 'Collected (NGN)', 'Cash (NGN)', 'Transfer (NGN)', 'Transfer->Cash (NGN)', 'POS/Card (NGN)', 'Wallet (NGN)', 'Other (NGN)', `Top ${d.routeLabel}`, `Top ${d.routeLabel} Count`],
+        ...d.data.agents.map(s => [s.role, s.owed, s.entries, s.revenue, s.collected, s.cash, s.transfer, s.transferCash, s.pos, s.wallet, s.other, s.topRoute || '', s.topRouteCount])
       ];
     } else if (selectedReport === 'hubs') {
       wsData = [

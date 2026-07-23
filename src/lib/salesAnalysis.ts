@@ -11,15 +11,17 @@ export interface DepartmentAgentRow {
   owed: number;
   cash: number;
   transfer: number;
+  transferCash: number;
   pos: number;
   wallet: number;
+  other: number;
   topRoute: string | null;
   topRouteCount: number;
 }
 
 export interface DepartmentSalesAnalysis {
   agents: DepartmentAgentRow[];
-  collective: { agentCount: number; entries: number; revenue: number; collected: number; owed: number; cash: number; transfer: number; pos: number; wallet: number };
+  collective: { agentCount: number; entries: number; revenue: number; collected: number; owed: number; cash: number; transfer: number; transferCash: number; pos: number; wallet: number; other: number };
 }
 
 // Same "real revenue"/owed formulas Reports.tsx's staffReport uses (collected
@@ -37,13 +39,13 @@ export function computeDepartmentSalesAnalysis(txs: Transaction[], deptType: Dep
 
   const map: Record<string, {
     entries: number; revenue: number; collected: number; owed: number;
-    cash: number; transfer: number; pos: number; wallet: number;
+    cash: number; transfer: number; transferCash: number; pos: number; wallet: number; other: number;
     routeCounts: Record<string, number>;
   }> = {};
 
   deptTxs.forEach(t => {
     const agent = (t.enteredByName || 'Unknown Agent').trim();
-    if (!map[agent]) map[agent] = { entries: 0, revenue: 0, collected: 0, owed: 0, cash: 0, transfer: 0, pos: 0, wallet: 0, routeCounts: {} };
+    if (!map[agent]) map[agent] = { entries: 0, revenue: 0, collected: 0, owed: 0, cash: 0, transfer: 0, transferCash: 0, pos: 0, wallet: 0, other: 0, routeCounts: {} };
     map[agent].entries += 1;
     map[agent].revenue += t.amount;
     if (t.mode !== 'Debt' && t.mode !== 'Debt Paid') {
@@ -54,11 +56,19 @@ export function computeDepartmentSalesAnalysis(txs: Transaction[], deptType: Dep
     // unpaid Debt isn't cash/transfer/pos/wallet in hand yet, and a cleared
     // 'Debt Paid' entry's real payment mode lives on its own DC- shadow
     // collection entry instead (which does carry Cash/Transfer/POS and gets
-    // counted here when that shadow entry is iterated).
+    // counted here when that shadow entry is iterated). TransferCash is a
+    // real, live mode (Marketing's "Transfer -> Cash": customer paid by
+    // transfer but the agent is physically holding cash) -- schema-level
+    // CHECK constraints (20260717_cargo_workflow_overhaul.sql) allow it on
+    // all four tables. "other" is a catch-all for any non-debt mode not in
+    // the five named buckets, so this split can never silently fall short
+    // of collected even if a new mode is added to the schema later.
     if (t.mode === 'Cash') map[agent].cash += t.amount;
     else if (t.mode === 'Transfer') map[agent].transfer += t.amount;
+    else if (t.mode === 'TransferCash') map[agent].transferCash += t.amount;
     else if (t.mode === 'POS') map[agent].pos += t.amount;
     else if (t.mode === 'Wallet') map[agent].wallet += t.amount;
+    else if (t.mode !== 'Debt' && t.mode !== 'Debt Paid') map[agent].other += t.amount;
     if (t.mode === 'Debt') {
       const remaining = t.amount - (t.amountPaid || 0) - ((t.raw as any)?.retrieved_amount || 0);
       map[agent].owed += Math.max(0, remaining);
@@ -78,8 +88,10 @@ export function computeDepartmentSalesAnalysis(txs: Transaction[], deptType: Dep
         owed: d.owed,
         cash: d.cash,
         transfer: d.transfer,
+        transferCash: d.transferCash,
         pos: d.pos,
         wallet: d.wallet,
+        other: d.other,
         topRoute: top ? top[0] : null,
         topRouteCount: top ? top[1] : 0,
       };
@@ -94,9 +106,11 @@ export function computeDepartmentSalesAnalysis(txs: Transaction[], deptType: Dep
     owed: acc.owed + a.owed,
     cash: acc.cash + a.cash,
     transfer: acc.transfer + a.transfer,
+    transferCash: acc.transferCash + a.transferCash,
     pos: acc.pos + a.pos,
     wallet: acc.wallet + a.wallet,
-  }), { agentCount: agents.length, entries: 0, revenue: 0, collected: 0, owed: 0, cash: 0, transfer: 0, pos: 0, wallet: 0 });
+    other: acc.other + a.other,
+  }), { agentCount: agents.length, entries: 0, revenue: 0, collected: 0, owed: 0, cash: 0, transfer: 0, transferCash: 0, pos: 0, wallet: 0, other: 0 });
 
   return { agents, collective };
 }
@@ -113,8 +127,13 @@ export function computeReportDateRange(preset: string, customFrom: string, custo
     case 'yesterday':  from = new Date(today.getTime() - 86400000);                 to = today; break;
     case 'week':       from = new Date(today.getTime() - 7 * 86400000);             to = now; break;
     case 'month':      from = new Date(now.getFullYear(), now.getMonth(), 1);       to = now; break;
+    // 'to' is the first moment of THIS month, not day 0 (midnight of the
+    // last day of last month) -- day 0 was cutting off the entirety of the
+    // last day of the previous month, since every entry made that day
+    // happened *after* its own midnight and so landed just past the old
+    // boundary.
     case 'last_month': from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-                       to = new Date(now.getFullYear(), now.getMonth(), 0); break;
+                       to = new Date(now.getFullYear(), now.getMonth(), 1); break;
     case 'quarter':    from = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1); to = now; break;
     case 'ytd':        from = new Date(now.getFullYear(), 0, 1);                    to = now; break;
     case 'custom':     from = customFrom ? new Date(customFrom) : today;

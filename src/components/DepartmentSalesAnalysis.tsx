@@ -61,10 +61,22 @@ export const DepartmentSalesAnalysisView = ({ data, deptLabel, routeLabel }: { d
           <div className="text-[9px] text-[var(--color-muted)] uppercase tracking-wider">POS/Card</div>
           <div className="text-[13px] font-mono font-bold text-[var(--color-foreground)]">₦{fmt(data.collective.pos)}</div>
         </div>
+        {data.collective.transferCash > 0 && (
+          <div>
+            <div className="text-[9px] text-[var(--color-muted)] uppercase tracking-wider">Transfer→Cash</div>
+            <div className="text-[13px] font-mono font-bold text-[var(--color-foreground)]">₦{fmt(data.collective.transferCash)}</div>
+          </div>
+        )}
         {data.collective.wallet > 0 && (
           <div>
             <div className="text-[9px] text-[var(--color-muted)] uppercase tracking-wider">Wallet</div>
             <div className="text-[13px] font-mono font-bold text-[var(--color-foreground)]">₦{fmt(data.collective.wallet)}</div>
+          </div>
+        )}
+        {data.collective.other > 0 && (
+          <div>
+            <div className="text-[9px] text-[var(--color-muted)] uppercase tracking-wider">Other</div>
+            <div className="text-[13px] font-mono font-bold text-[var(--color-foreground)]">₦{fmt(data.collective.other)}</div>
           </div>
         )}
       </div>
@@ -115,10 +127,22 @@ export const DepartmentSalesAnalysisView = ({ data, deptLabel, routeLabel }: { d
                   <span className="text-[11px] font-mono text-[var(--color-foreground)]">₦{fmt(s.pos)}</span>
                 </div>
               )}
+              {s.transferCash > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-[10px] text-[var(--color-muted)]">Transfer→Cash</span>
+                  <span className="text-[11px] font-mono text-[var(--color-foreground)]">₦{fmt(s.transferCash)}</span>
+                </div>
+              )}
               {s.wallet > 0 && (
                 <div className="flex justify-between">
                   <span className="text-[10px] text-[var(--color-muted)]">Wallet</span>
                   <span className="text-[11px] font-mono text-[var(--color-foreground)]">₦{fmt(s.wallet)}</span>
+                </div>
+              )}
+              {s.other > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-[10px] text-[var(--color-muted)]">Other</span>
+                  <span className="text-[11px] font-mono text-[var(--color-foreground)]">₦{fmt(s.other)}</span>
                 </div>
               )}
               {s.topRoute && (
