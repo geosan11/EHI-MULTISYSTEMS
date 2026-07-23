@@ -489,12 +489,12 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
         ['Period:', dateRange.from.toLocaleDateString(), 'to', dateRange.to.toLocaleDateString()],
         [],
         ['ALL AGENTS COMBINED'],
-        ['Total Agents', 'Total Entries', 'Total Sales (NGN)', 'Total Collected (NGN)', 'Total Owed (NGN)'],
-        [d.data.collective.agentCount, d.data.collective.entries, d.data.collective.revenue, d.data.collective.collected, d.data.collective.owed],
+        ['Total Agents', 'Total Entries', 'Total Sales (NGN)', 'Total Collected (NGN)', 'Total Owed (NGN)', 'Cash (NGN)', 'Transfer (NGN)', 'POS/Card (NGN)', 'Wallet (NGN)'],
+        [d.data.collective.agentCount, d.data.collective.entries, d.data.collective.revenue, d.data.collective.collected, d.data.collective.owed, d.data.collective.cash, d.data.collective.transfer, d.data.collective.pos, d.data.collective.wallet],
         [],
         ['PER-AGENT DETAIL'],
-        ['Agent Name', 'Owed (NGN)', 'Entries', 'Sales Value (NGN)', 'Collected (NGN)', `Top ${d.routeLabel}`, `Top ${d.routeLabel} Count`],
-        ...d.data.agents.map(s => [s.role, s.owed, s.entries, s.revenue, s.collected, s.topRoute || '', s.topRouteCount])
+        ['Agent Name', 'Owed (NGN)', 'Entries', 'Sales Value (NGN)', 'Collected (NGN)', 'Cash (NGN)', 'Transfer (NGN)', 'POS/Card (NGN)', 'Wallet (NGN)', `Top ${d.routeLabel}`, `Top ${d.routeLabel} Count`],
+        ...d.data.agents.map(s => [s.role, s.owed, s.entries, s.revenue, s.collected, s.cash, s.transfer, s.pos, s.wallet, s.topRoute || '', s.topRouteCount])
       ];
     } else if (selectedReport === 'hubs') {
       wsData = [
@@ -612,8 +612,8 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
             </div>
             {preset === 'custom' && (
               <div className="flex gap-2">
-                <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="ehi-input" />
-                <input type="date" value={customTo}   onChange={e => setCustomTo(e.target.value)} className="ehi-input" />
+                <input type="datetime-local" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="ehi-input" />
+                <input type="datetime-local" value={customTo}   onChange={e => setCustomTo(e.target.value)} className="ehi-input" />
               </div>
             )}
           </div>

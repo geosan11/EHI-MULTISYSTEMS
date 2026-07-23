@@ -48,6 +48,26 @@ export const DepartmentSalesAnalysisView = ({ data, deptLabel, routeLabel }: { d
           <div className="text-[15px] font-mono font-bold text-[var(--color-foreground)]">{data.collective.agentCount} / {data.collective.entries}</div>
         </div>
       </div>
+      <div className="grid grid-cols-3 gap-3 pt-3 mt-3 border-t border-[var(--color-accent-amber)] border-opacity-30">
+        <div>
+          <div className="text-[9px] text-[var(--color-muted)] uppercase tracking-wider">Cash</div>
+          <div className="text-[13px] font-mono font-bold text-[var(--color-foreground)]">₦{fmt(data.collective.cash)}</div>
+        </div>
+        <div>
+          <div className="text-[9px] text-[var(--color-muted)] uppercase tracking-wider">Transfer</div>
+          <div className="text-[13px] font-mono font-bold text-[var(--color-foreground)]">₦{fmt(data.collective.transfer)}</div>
+        </div>
+        <div>
+          <div className="text-[9px] text-[var(--color-muted)] uppercase tracking-wider">POS/Card</div>
+          <div className="text-[13px] font-mono font-bold text-[var(--color-foreground)]">₦{fmt(data.collective.pos)}</div>
+        </div>
+        {data.collective.wallet > 0 && (
+          <div>
+            <div className="text-[9px] text-[var(--color-muted)] uppercase tracking-wider">Wallet</div>
+            <div className="text-[13px] font-mono font-bold text-[var(--color-foreground)]">₦{fmt(data.collective.wallet)}</div>
+          </div>
+        )}
+      </div>
     </div>
 
     {data.agents.length === 0 ? (
@@ -77,6 +97,30 @@ export const DepartmentSalesAnalysisView = ({ data, deptLabel, routeLabel }: { d
                 <span className="text-[10px] text-[var(--color-muted)]">Collected</span>
                 <span className="text-[11px] font-mono font-bold text-[var(--color-success)]">₦{fmt(s.collected)}</span>
               </div>
+              {s.cash > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-[10px] text-[var(--color-muted)]">Cash</span>
+                  <span className="text-[11px] font-mono text-[var(--color-foreground)]">₦{fmt(s.cash)}</span>
+                </div>
+              )}
+              {s.transfer > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-[10px] text-[var(--color-muted)]">Transfer</span>
+                  <span className="text-[11px] font-mono text-[var(--color-foreground)]">₦{fmt(s.transfer)}</span>
+                </div>
+              )}
+              {s.pos > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-[10px] text-[var(--color-muted)]">POS/Card</span>
+                  <span className="text-[11px] font-mono text-[var(--color-foreground)]">₦{fmt(s.pos)}</span>
+                </div>
+              )}
+              {s.wallet > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-[10px] text-[var(--color-muted)]">Wallet</span>
+                  <span className="text-[11px] font-mono text-[var(--color-foreground)]">₦{fmt(s.wallet)}</span>
+                </div>
+              )}
               {s.topRoute && (
                 <div className="flex justify-between col-span-2">
                   <span className="text-[10px] text-[var(--color-muted)]">Top {routeLabel}</span>
@@ -161,8 +205,8 @@ export const DepartmentSalesAnalysisModal = ({ user, deptType, deptLabel, routeL
           </div>
           {preset === 'custom' && (
             <div className="flex gap-2">
-              <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="ehi-input" />
-              <input type="date" value={customTo}   onChange={e => setCustomTo(e.target.value)} className="ehi-input" />
+              <input type="datetime-local" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="ehi-input" />
+              <input type="datetime-local" value={customTo}   onChange={e => setCustomTo(e.target.value)} className="ehi-input" />
             </div>
           )}
         </div>

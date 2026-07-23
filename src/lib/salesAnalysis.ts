@@ -9,13 +9,17 @@ export interface DepartmentAgentRow {
   revenue: number;
   collected: number;
   owed: number;
+  cash: number;
+  transfer: number;
+  pos: number;
+  wallet: number;
   topRoute: string | null;
   topRouteCount: number;
 }
 
 export interface DepartmentSalesAnalysis {
   agents: DepartmentAgentRow[];
-  collective: { agentCount: number; entries: number; revenue: number; collected: number; owed: number };
+  collective: { agentCount: number; entries: number; revenue: number; collected: number; owed: number; cash: number; transfer: number; pos: number; wallet: number };
 }
 
 // Same "real revenue"/owed formulas Reports.tsx's staffReport uses (collected
@@ -33,17 +37,28 @@ export function computeDepartmentSalesAnalysis(txs: Transaction[], deptType: Dep
 
   const map: Record<string, {
     entries: number; revenue: number; collected: number; owed: number;
+    cash: number; transfer: number; pos: number; wallet: number;
     routeCounts: Record<string, number>;
   }> = {};
 
   deptTxs.forEach(t => {
     const agent = (t.enteredByName || 'Unknown Agent').trim();
-    if (!map[agent]) map[agent] = { entries: 0, revenue: 0, collected: 0, owed: 0, routeCounts: {} };
+    if (!map[agent]) map[agent] = { entries: 0, revenue: 0, collected: 0, owed: 0, cash: 0, transfer: 0, pos: 0, wallet: 0, routeCounts: {} };
     map[agent].entries += 1;
     map[agent].revenue += t.amount;
     if (t.mode !== 'Debt' && t.mode !== 'Debt Paid') {
       map[agent].collected += t.amount;
     }
+    // Per-mode split of the same "collected" figure above -- Debt/Debt Paid
+    // are deliberately excluded here too, same reasoning as collected: an
+    // unpaid Debt isn't cash/transfer/pos/wallet in hand yet, and a cleared
+    // 'Debt Paid' entry's real payment mode lives on its own DC- shadow
+    // collection entry instead (which does carry Cash/Transfer/POS and gets
+    // counted here when that shadow entry is iterated).
+    if (t.mode === 'Cash') map[agent].cash += t.amount;
+    else if (t.mode === 'Transfer') map[agent].transfer += t.amount;
+    else if (t.mode === 'POS') map[agent].pos += t.amount;
+    else if (t.mode === 'Wallet') map[agent].wallet += t.amount;
     if (t.mode === 'Debt') {
       const remaining = t.amount - (t.amountPaid || 0) - ((t.raw as any)?.retrieved_amount || 0);
       map[agent].owed += Math.max(0, remaining);
@@ -61,6 +76,10 @@ export function computeDepartmentSalesAnalysis(txs: Transaction[], deptType: Dep
         revenue: d.revenue,
         collected: d.collected,
         owed: d.owed,
+        cash: d.cash,
+        transfer: d.transfer,
+        pos: d.pos,
+        wallet: d.wallet,
         topRoute: top ? top[0] : null,
         topRouteCount: top ? top[1] : 0,
       };
@@ -73,7 +92,11 @@ export function computeDepartmentSalesAnalysis(txs: Transaction[], deptType: Dep
     revenue: acc.revenue + a.revenue,
     collected: acc.collected + a.collected,
     owed: acc.owed + a.owed,
-  }), { agentCount: agents.length, entries: 0, revenue: 0, collected: 0, owed: 0 });
+    cash: acc.cash + a.cash,
+    transfer: acc.transfer + a.transfer,
+    pos: acc.pos + a.pos,
+    wallet: acc.wallet + a.wallet,
+  }), { agentCount: agents.length, entries: 0, revenue: 0, collected: 0, owed: 0, cash: 0, transfer: 0, pos: 0, wallet: 0 });
 
   return { agents, collective };
 }
