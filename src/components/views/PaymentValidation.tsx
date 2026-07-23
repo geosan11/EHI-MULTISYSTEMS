@@ -4,6 +4,7 @@ import { fmt } from '../../lib/helpers';
 import { AlertCircle, CheckCircle, Mail, Search, Link as LinkIcon, ChevronDown, ChevronRight } from 'lucide-react';
 import { useToast } from '../../lib/ToastContext';
 import { supabase } from '../../lib/supabase';
+import { confirmPayment, PaymentEntryType } from '../../lib/paymentConfirmation';
 
 interface PaymentValidationProps {
   transactions: Transaction[];
@@ -149,25 +150,61 @@ export const PaymentValidation: React.FC<PaymentValidationProps> = ({ transactio
     }
   };
 
-  const confirmMatch = (tx: Transaction, parsedAlert?: ParsedBankAlert) => {
+  const [confirming, setConfirming] = useState(false);
+
+  const confirmMatch = async (tx: Transaction, parsedAlert?: ParsedBankAlert) => {
     // Basic maker-checker: whoever logged the transaction can't also be the
     // one who confirms its payment landed -- otherwise one person can
-    // unilaterally push money in and out with no independent check.
+    // unilaterally push money in and out with no independent check. This
+    // client-side check is now also enforced server-side inside
+    // confirm_payment_* itself (this screen previously went through the
+    // generic onUpdateTx path, which never ran the RPC's own maker-checker
+    // guard at all -- only TransactionLedger.tsx's toggleConfirm did).
     if (user?.name && tx.enteredByName && tx.enteredByName === user.name) {
       showToast({ message: `${user.name} logged this transaction and cannot also confirm its payment. Ask another staff member to confirm it.`, type: 'warning' });
       return;
     }
-    const updatedTx = { ...tx, paymentConfirmed: true, confirmedAt: new Date().toISOString(), confirmedBy: user?.name };
-    if (parsedAlert) {
-      updatedTx.bankReference = parsedAlert.reference;
-      updatedTx.bankSender = parsedAlert.senderName;
-      updatedTx.bankAlertText = `Amount: ${parsedAlert.amount}, Sender: ${parsedAlert.senderName}, Date: ${parsedAlert.dateString}`.substring(0, 200);
+    if (confirming) return;
+    setConfirming(true);
+    try {
+      const bankReference = parsedAlert?.reference;
+      const bankSender = parsedAlert?.senderName;
+      const bankAlertText = parsedAlert
+        ? `Amount: ${parsedAlert.amount}, Sender: ${parsedAlert.senderName}, Date: ${parsedAlert.dateString}`.substring(0, 200)
+        : undefined;
+
+      // Same state-wide-authorized RPC dispatcher TransactionLedger.tsx's
+      // toggleConfirm uses -- the generic onUpdateTx path this used to call
+      // is hub-locked to an exact match and could silently affect 0 rows
+      // for a sibling-hub entry while still showing a false "confirmed"
+      // success toast.
+      const result = await confirmPayment(tx.type as PaymentEntryType, {
+        id: tx.id,
+        confirmed: true,
+        loggedBy: user?.name || 'Unknown',
+        bankReference,
+        bankSender,
+        bankAlertText,
+      });
+      if (!result.ok) {
+        showToast({ message: result.error || 'Failed to confirm payment.', type: 'error' });
+        return;
+      }
+
+      const updatedTx = { ...tx, paymentConfirmed: true, confirmedAt: new Date().toISOString(), confirmedBy: user?.name };
+      if (parsedAlert) {
+        updatedTx.bankReference = bankReference;
+        updatedTx.bankSender = bankSender;
+        updatedTx.bankAlertText = bankAlertText;
+      }
+      onUpdateTx(updatedTx);
+      setMatchResult(null);
+      setParsedResult(null);
+      setEmailText('');
+      showToast({ message: 'Payment confirmed', type: 'success' });
+    } finally {
+      setConfirming(false);
     }
-    onUpdateTx(updatedTx);
-    setMatchResult(null);
-    setParsedResult(null);
-    setEmailText('');
-    showToast({ message: 'Payment confirmed', type: 'success' });
   };
 
   const getBankColor = (bank: string) => {
@@ -262,9 +299,10 @@ export const PaymentValidation: React.FC<PaymentValidationProps> = ({ transactio
               <div className="flex space-x-2">
                 <button
                   onClick={() => confirmMatch(matchResult.transaction, matchResult.alert)}
-                  className="flex-1 bg-green-600 hover:bg-green-500 text-white text-[12px] font-bold py-2 rounded transition-colors flex justify-center items-center"
+                  disabled={confirming}
+                  className="flex-1 bg-green-600 hover:bg-green-500 text-white text-[12px] font-bold py-2 rounded transition-colors flex justify-center items-center disabled:opacity-50"
                 >
-                  <CheckCircle size={14} className="mr-2" /> CONFIRM THIS MATCH
+                  <CheckCircle size={14} className="mr-2" /> {confirming ? 'CONFIRMING...' : 'CONFIRM THIS MATCH'}
                 </button>
                 <button
                   onClick={() => setMatchResult(null)}

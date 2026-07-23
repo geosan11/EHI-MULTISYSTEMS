@@ -25,8 +25,13 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
 
   const loadLedger = useCallback(async () => {
       setLoading(true);
-      const isAdmin = user.role === 'admin' || user.role === 'super_admin';
-      const addHubFilter = (q: any) => (!isAdmin && user.hub_id) ? q.eq('hub_id', user.hub_id) : q;
+      // 'accountant' is treated as hub-unrestricted everywhere else in this
+      // app (is_hub_unrestricted() at the RLS layer, and this screen's own
+      // STATIC_VIEWS access list) -- omitting it here silently clamped an
+      // accountant to only their single home hub while admin/super_admin
+      // saw every sibling hub's debts/credits.
+      const isUnrestricted = ['admin', 'super_admin', 'accountant'].includes(user.role);
+      const addHubFilter = (q: any) => (!isUnrestricted && user.hub_id) ? q.eq('hub_id', user.hub_id) : q;
 
       try {
         // Fetch configs
@@ -58,25 +63,39 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
         const mappedDebts: Transaction[] = [];
         if (cargoDebts.data) {
           cargoDebts.data.forEach(r => mappedDebts.push({
-            id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo', detail: `${r.airline || ''} · ${r.awb_tag_number || ''}`, amount: r.amount || 0, amountPaid: r.amount_paid || 0, mode: 'Debt', time: r.created_at, type: 'cargo', awb_tag_number: r.awb_tag_number, status: r.status || 'Intake'
+            id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo', detail: `${r.airline || ''} · ${r.awb_tag_number || ''}`, amount: r.amount || 0, amountPaid: r.amount_paid || 0, mode: 'Debt', time: r.created_at, type: 'cargo', awb_tag_number: r.awb_tag_number, status: r.status || 'Intake', raw: r
           }));
         }
         if (vjDebts.data) {
           vjDebts.data.forEach(r => mappedDebts.push({
-            id: r.transaction_id || r.id, name: r.passenger_name || 'Passenger', detail: `${r.flight_no || ''}`, amount: r.amount || 0, amountPaid: r.amount_paid || 0, mode: 'Debt', time: r.created_at, type: 'baggage', status: 'Intake'
+            id: r.transaction_id || r.id, name: r.passenger_name || 'Passenger', detail: `${r.flight_no || ''}`, amount: r.amount || 0, amountPaid: r.amount_paid || 0, mode: 'Debt', time: r.created_at, type: 'baggage', status: 'Intake', raw: r
           }));
         }
         if (mktDebts.data) {
           mktDebts.data.forEach(r => mappedDebts.push({
-            id: r.entry_ref || r.id, name: r.customer_name || 'Customer', detail: `${r.route || ''}`, amount: r.amount || 0, amountPaid: r.debt_amount_paid || 0, mode: 'Debt', time: r.created_at, type: 'marketing', status: 'Intake'
+            // marketing_entries has an inverted naming convention from the
+            // other 3 tables (see clear_marketing_debt's own comment):
+            // amount_paid holds the SALE TOTAL, not what's been paid down;
+            // debt repayment tracking is the separate debt_amount_paid
+            // column. `r.amount` itself is never written by the app at all
+            // (EHIApp.tsx's marketing INSERT payload writes the sale total
+            // into amount_paid, not amount) -- using it here as the debt's
+            // principal meant every marketing debt computed a balance of
+            // 0 - debt_amount_paid, always <= 0, and was silently filtered
+            // out of this screen's debt list entirely, regardless of role.
+            id: r.entry_ref || r.id, name: r.customer_name || 'Customer', detail: `${r.route || ''}`, amount: r.amount_paid || 0, amountPaid: r.debt_amount_paid || 0, mode: 'Debt', time: r.created_at, type: 'marketing', status: 'Intake', raw: r
           }));
         }
         if (pkgDebts.data) {
           pkgDebts.data.forEach(r => mappedDebts.push({
-            id: r.entry_ref || r.id, name: r.customer_name || 'Customer', detail: `${r.destination || ''}`, amount: r.amount || 0, amountPaid: r.amount_paid || 0, mode: 'Debt', time: r.created_at, type: 'package', status: r.status || 'Intake'
+            id: r.entry_ref || r.id, name: r.customer_name || 'Customer', detail: `${r.destination || ''}`, amount: r.amount || 0, amountPaid: r.amount_paid || 0, mode: 'Debt', time: r.created_at, type: 'package', status: r.status || 'Intake', raw: r
           }));
         }
-        setDebtsData(mappedDebts.filter(tx => (tx.amount - (tx.amountPaid || 0)) > 0));
+        // Subtract retrieved_amount too (matches DebtorsTab.tsx/clear_*_debt's
+        // canonical balance formula) -- a debt already settled in full or in
+        // part via a retrieval, not a manual payment, was still showing its
+        // full original balance as outstanding here.
+        setDebtsData(mappedDebts.filter(tx => (tx.amount - (tx.amountPaid || 0) - ((tx.raw as any)?.retrieved_amount || 0)) > 0));
 
         // Fetch Credits (last 30 days of cargo)
         const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
@@ -114,17 +133,22 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
     return debtsData.filter(tx => (tx.name.toLowerCase().includes(search.toLowerCase()) || tx.awb_tag_number?.includes(search)));
   }, [debtsData, search]);
 
+  // Canonical remaining-balance formula (matches clear_*_debt's own SQL and
+  // DebtorsTab.tsx) -- subtracting retrieved_amount too, not just
+  // amountPaid, so a debt already settled via a retrieval doesn't show an
+  // inflated balance anywhere this screen displays one.
+  const debtBalance = (tx: Transaction) => tx.amount - (tx.amountPaid || 0) - ((tx.raw as any)?.retrieved_amount || 0);
+
   const debtSummary = useMemo(() => {
     const summary: Record<string, number> = {};
     debts.forEach(tx => {
       const name = tx.name || 'Unknown';
-      const balance = tx.amount - (tx.amountPaid || 0);
-      summary[name] = (summary[name] || 0) + balance;
+      summary[name] = (summary[name] || 0) + debtBalance(tx);
     });
     return Object.entries(summary).map(([name, amount]) => ({ name, amount })).sort((a, b) => b.amount - a.amount);
   }, [debts]);
 
-  const totalDebt = debts.reduce((acc, tx) => acc + (tx.amount - (tx.amountPaid || 0)), 0);
+  const totalDebt = debts.reduce((acc, tx) => acc + debtBalance(tx), 0);
 
   const credits = useMemo(() => {
     return creditsData.filter(tx => tx.airline && tx.airline.toLowerCase().includes(search.toLowerCase()));
@@ -171,7 +195,7 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
           generatedBy: user.name,
           generatedAt,
           debtSummary,
-          debts: debts.map(t => ({ name: t.name, detail: t.detail, balance: t.amount - (t.amountPaid || 0), id: t.id, time: t.time })),
+          debts: debts.map(t => ({ name: t.name, detail: t.detail, balance: debtBalance(t), id: t.id, time: t.time })),
           totalDebt,
         });
       });
@@ -294,7 +318,7 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
                     <div key={i} className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg p-4 hover:border-[var(--color-surface-2)] transition-colors">
                       <div className="flex justify-between items-start mb-2">
                         <span className="text-[14px] font-sans font-bold text-[var(--color-foreground)]">{tx.name}</span>
-                        <span className="text-[13px] font-mono font-bold text-[var(--color-accent-amber)]">{fmt(tx.amount - (tx.amountPaid || 0))}</span>
+                        <span className="text-[13px] font-mono font-bold text-[var(--color-accent-amber)]">{fmt(debtBalance(tx))}</span>
                       </div>
                       <div className="text-[12px] font-sans text-[var(--color-muted)] mb-3">{tx.detail}</div>
                       <div className="flex justify-between pt-3 border-t border-[var(--color-border)] text-[10px] font-mono text-[var(--color-muted)] uppercase">

@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Transaction, User } from '../../lib/types';
 import { fmt, tnow } from '../../lib/helpers';
 import { ChevronDown, ChevronUp, Printer, Plus, HandCoins } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '../../lib/ToastContext';
 import { clearDebt } from '../../lib/debt';
+import { supabase } from '../../lib/supabase';
 
 export const DebtorsTab = ({
   transactions = [],
@@ -28,6 +29,74 @@ export const DebtorsTab = ({
   const [paymentBank, setPaymentBank] = useState('');
 
   const [statementPrint, setStatementPrint] = useState<Transaction | null>(null);
+  const [submittingPaymentId, setSubmittingPaymentId] = useState<string | null>(null);
+
+  // This screen only ever received the `transactions` prop, which
+  // EHIApp.tsx's fetchInitial windows to `globalDateRange` (defaults to
+  // the last 7 days, in-memory only -- resets on every login/reload). A
+  // debt logged 10 days ago was simply never fetched, so it silently
+  // vanished from the debtor list for anyone who hadn't manually widened
+  // the date range elsewhere in their current session. A debtor screen
+  // inherently needs every outstanding debt regardless of when it was
+  // entered, so this does its own dedicated, date-unbounded fetch --
+  // filtered server-side to Debt-mode rows only (a small slice of the
+  // full ledger), so it doesn't reintroduce the "All Time" filter's
+  // known 5000-row-cap performance problem. RLS scopes this the same way
+  // it scopes every other query (sibling-hub visibility / unrestricted
+  // roles) -- no manual hub filter needed here.
+  const [fetchedDebts, setFetchedDebts] = useState<Transaction[]>([]);
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const [cargoRes, baggageRes, marketingRes, packageRes] = await Promise.all([
+          supabase.from('cargo_entries').select('*').eq('receipt_mode', 'Debt').order('created_at', { ascending: false }).limit(1000),
+          supabase.from('manifests').select('*').eq('payment_mode', 'Debt').order('created_at', { ascending: false }).limit(1000),
+          supabase.from('marketing_entries').select('*').eq('payment_mode', 'Debt').order('created_at', { ascending: false }).limit(1000),
+          supabase.from('package_entries').select('*').eq('payment_mode', 'Debt').order('created_at', { ascending: false }).limit(1000),
+        ]);
+        const mapped: Transaction[] = [];
+        (cargoRes.data || []).forEach((r: any) => mapped.push({
+          id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo', detail: `${r.airline || ''} · ${r.awb_tag_number || ''}`,
+          amount: r.amount || 0, amountPaid: r.amount_paid || 0, paymentHistory: r.payment_history || [], mode: 'Debt',
+          time: r.created_at, created_at: r.created_at, type: 'cargo', awb_tag_number: r.awb_tag_number, status: r.status || 'Intake',
+          airline: r.airline, hub_id: r.hub_id, hub: r.hub, clientType: r.client_type, corporate_client_id: r.corporate_client_id,
+          consigneePhone: r.consignee_phone, raw: r,
+        } as Transaction));
+        (baggageRes.data || []).forEach((r: any) => mapped.push({
+          id: r.transaction_id || r.id, name: r.passenger_name || 'Passenger', detail: `${r.flight_no || ''}`,
+          amount: r.amount || 0, amountPaid: r.amount_paid || 0, paymentHistory: r.payment_history || [], mode: 'Debt',
+          time: r.created_at, created_at: r.created_at, type: 'baggage', status: r.status || 'Intake',
+          hub_id: r.hub_id, hub: r.hub, clientType: r.client_type, consigneePhone: r.passenger_phone, raw: r,
+        } as Transaction));
+        (marketingRes.data || []).forEach((r: any) => mapped.push({
+          id: r.entry_ref || r.id, name: r.customer_name || 'Customer', detail: `${r.route || ''}`,
+          amount: r.amount_paid || 0, amountPaid: r.debt_amount_paid || 0, paymentHistory: r.payment_history || [], mode: 'Debt',
+          time: r.created_at, created_at: r.created_at, type: 'marketing', status: r.status || 'Intake',
+          hub_id: r.hub_id, hub: r.hub, clientType: r.client_type, consigneePhone: r.customer_phone, raw: r,
+        } as Transaction));
+        (packageRes.data || []).forEach((r: any) => mapped.push({
+          id: r.entry_ref || r.id, name: r.customer_name || 'Customer', detail: `${r.destination || ''}`,
+          amount: r.amount || 0, amountPaid: r.amount_paid || 0, paymentHistory: r.payment_history || [], mode: 'Debt',
+          time: r.created_at, created_at: r.created_at, type: 'package', status: r.status || 'Intake',
+          hub_id: r.hub_id, hub: r.hub, raw: r,
+        } as Transaction));
+        if (active) setFetchedDebts(mapped);
+      } catch { /* keep whatever's already in the transactions prop */ }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  // Merge the dedicated fetch with the live, realtime-updated `transactions`
+  // prop -- the prop wins on a shared id (it reflects any edit/payment made
+  // this session), the fetch only fills in debts the prop's date window
+  // never included.
+  const debtSource = useMemo(() => {
+    const byId = new Map<string, Transaction>();
+    fetchedDebts.forEach(t => byId.set(t.id, t));
+    transactions.forEach(t => byId.set(t.id, t));
+    return Array.from(byId.values());
+  }, [transactions, fetchedDebts]);
 
   // Compute real aging from the transaction's created_at timestamp
   const realAgeInDays = (t: any): number => {
@@ -37,7 +106,7 @@ export const DebtorsTab = ({
     return Math.max(0, Math.floor((Date.now() - created) / 86400000));
   };
 
-  const debts = transactions
+  const debts = debtSource
     .filter(t => t.mode === 'Debt' || t.mode?.includes('Debt'))
     .map(t => {
       const ageInDays = realAgeInDays(t);
@@ -102,6 +171,14 @@ export const DebtorsTab = ({
   };
 
   const handleRecordPayment = async (id: string) => {
+    // Synchronous, first line -- this Confirm button previously had zero
+    // double-submit protection (unlike every other submit path in the
+    // app), so a double-click/fast-tap could fire two clearDebt() calls
+    // for one physical payment; each independently passed the RPC's own
+    // "doesn't exceed remaining" guard for a PARTIAL payment (only a full
+    // payoff gets caught by that), double-deducting the debt and
+    // double-emitting the shadow ledger record below.
+    if (submittingPaymentId) return;
     const debt = debts.find(d => d.id === id);
     if (!debt) return;
     const paidNow = parseFloat(paymentAmount);
@@ -109,6 +186,7 @@ export const DebtorsTab = ({
       showToast({ message: 'Enter a payment amount greater than zero.', type: 'warning' });
       return;
     }
+    setSubmittingPaymentId(id);
     const cappedPaid = Math.min(paidNow, debt.balance);
     const remaining = debt.balance - cappedPaid;
 
@@ -125,10 +203,14 @@ export const DebtorsTab = ({
       paymentMode,
       bank: paymentMode === 'Transfer' ? paymentBank : undefined,
       loggedBy: user?.name || 'Unknown',
+      // Server re-validates this against the just-locked row and rejects
+      // a stale/duplicate call instead of silently double-applying it.
+      expectedRemaining: debt.balance,
     });
 
     if (!result.ok) {
       showToast({ message: result.error || 'Failed to record payment.', type: 'error' });
+      setSubmittingPaymentId(null);
       return;
     }
 
@@ -185,6 +267,7 @@ export const DebtorsTab = ({
 
     setShowPaymentForm(null);
     setPaymentAmount('');
+    setSubmittingPaymentId(null);
     showToast({ message: `₦${cappedPaid.toLocaleString()} recorded. ${remaining > 0 ? `Balance: ${fmt(remaining)}` : 'Debt fully cleared.'}`, type: 'success' });
   };
 
@@ -484,11 +567,12 @@ export const DebtorsTab = ({
                                    </div>
                                    
                                    <div className="flex justify-end pt-2">
-                                     <button 
+                                     <button
+                                       disabled={submittingPaymentId === d.id}
                                        onClick={() => handleRecordPayment(d.id)}
-                                       className="bg-[var(--color-success)] text-[#0B0F19] px-6 py-2 rounded-lg text-[13px] font-sans font-bold hover:bg-opacity-90 transition-opacity focus:outline-none"
+                                       className="bg-[var(--color-success)] text-[#0B0F19] px-6 py-2 rounded-lg text-[13px] font-sans font-bold hover:bg-opacity-90 transition-opacity focus:outline-none disabled:opacity-50"
                                      >
-                                       Confirm
+                                       {submittingPaymentId === d.id ? 'Saving...' : 'Confirm'}
                                      </button>
                                    </div>
                                  </div>

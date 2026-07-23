@@ -123,6 +123,11 @@ export const TransactionLedger = ({
   const [editOriginalMode, setEditOriginalMode] = useState<string | null>(null);
   const [editWallet, setEditWallet] = useState<CustomerWallet | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  // In-flight guard for toggleConfirm/savePosCode -- neither had any
+  // per-row lock before, so a fast double-click could fire two
+  // confirmPayment() RPC calls for the same entry with no reconciliation
+  // between the two responses.
+  const [confirmingIds, setConfirmingIds] = useState<Set<string>>(new Set());
   // Marketing entries store bag counts inside the composed `detail` string,
   // not as discrete Transaction fields, so the edit modal keeps its own
   // working copy (seeded by parsing `detail` in handleEditClick) and
@@ -318,7 +323,7 @@ export const TransactionLedger = ({
       } else if (modeFilter === "Expense") {
         if (e.source !== "expense") return false;
       } else if (modeFilter === "Unverified") {
-        if (!((e.mode === 'Cash' || e.mode === 'Transfer') && !e.raw.paymentConfirmed)) return false;
+        if (!((e.mode === 'Cash' || e.mode === 'Transfer' || e.mode === 'POS') && !e.raw.paymentConfirmed)) return false;
       } else {
         if (e.mode.toLowerCase() !== modeFilter.toLowerCase()) return false;
       }
@@ -437,6 +442,13 @@ export const TransactionLedger = ({
 
   const handleSaveEdit = async () => {
     if (!editingTx) return;
+    // Synchronous, first line -- a fast double-click/double-tap on Save
+    // Changes previously reached the async wallet-charge branch below
+    // twice before React re-rendered the button's disabled state,
+    // double-deducting the same customer's wallet for one edit.
+    if (savingEdit) return;
+    setSavingEdit(true);
+
     const pieces = parseInt(pieceInput) || 0;
     const kg = parseFloat(kgInput) || 0;
     const amount = parseFloat(amountInput) || 0;
@@ -445,10 +457,22 @@ export const TransactionLedger = ({
     const sb = parseInt(editBagCounts.sb) || 0;
     if (amount < 0 || pieces < 0 || kg < 0 || bb < 0 || mb < 0 || sb < 0) {
       showToast({ message: 'Amount, pieces, weight, and bag counts cannot be negative.', type: 'warning' });
+      setSavingEdit(false);
       return;
     }
     if (editingTx.type === 'package' && amount < MIN_PACKAGE_AMOUNT) {
       showToast({ message: `Package/Parcel transactions must have an amount of at least ₦${MIN_PACKAGE_AMOUNT.toLocaleString()}`, type: 'warning' });
+      setSavingEdit(false);
+      return;
+    }
+    // Amount can never be edited below what's already been recorded as
+    // paid (a partial debt payment, a retrieval, etc.) -- doing so would
+    // leave amountPaid/paymentHistory referencing a debt state larger
+    // than the entry's own total, silently corrupting DebtorsTab's
+    // balance math and any prior payment history for this entry.
+    if (editingTx.amountPaid && amount < editingTx.amountPaid) {
+      showToast({ message: `Amount cannot be reduced below the ₦${fmt(editingTx.amountPaid)} already recorded as paid on this entry.`, type: 'warning' });
+      setSavingEdit(false);
       return;
     }
 
@@ -459,6 +483,7 @@ export const TransactionLedger = ({
         const computedFloor = rate * kg;
         if (amount < computedFloor) {
           showToast({ message: `Amount cannot be lower than the calculated price (₦${computedFloor.toLocaleString()})`, type: 'warning' });
+          setSavingEdit(false);
           return;
         }
       } catch (e) {}
@@ -476,13 +501,14 @@ export const TransactionLedger = ({
     if (switchingToWallet) {
       if (!editWallet) {
         showToast({ message: 'Select a customer wallet to charge before saving.', type: 'warning' });
+        setSavingEdit(false);
         return;
       }
       if (editWallet.balance < amount) {
         showToast({ message: `${editWallet.customer_name}'s wallet only has ₦${fmt(editWallet.balance)} -- not enough to cover ₦${fmt(amount)}.`, type: 'error' });
+        setSavingEdit(false);
         return;
       }
-      setSavingEdit(true);
       const charge = await chargeWalletForSale({
         wallet: editWallet,
         amount,
@@ -490,9 +516,9 @@ export const TransactionLedger = ({
         description: `Mode changed to Wallet on edit (${editingTx.type} ${editingTx.id})`,
         loggedBy: user.name,
       });
-      setSavingEdit(false);
       if (!charge.ok || charge.remainder > 0) {
         showToast({ message: `Wallet charge failed: ${charge.error || 'insufficient balance'}. Entry not saved.`, type: 'error' });
+        setSavingEdit(false);
         return;
       }
       walletId = editWallet.id;
@@ -520,6 +546,7 @@ export const TransactionLedger = ({
       finalTx.detail = `${finalTx.destination || ''} · ${finalTx.contentType || 'Package'} · ${pieces}pcs · ${kg}kg${finalTx.contents ? ` · ${finalTx.contents}` : ''}`;
     }
     onUpdateTx(finalTx);
+    setSavingEdit(false);
     setEditingTx(null);
     setEditWallet(null);
     setEditOriginalMode(null);
@@ -993,55 +1020,70 @@ export const TransactionLedger = ({
       showToast({ message: "You can't confirm a payment you personally logged.", type: 'warning' });
       return;
     }
-    const nextConfirmed = !e.raw.paymentConfirmed;
-    // State-wide-authorized RPC does the real write (the generic onUpdateTx
-    // path below is hub-locked to an exact match, unlike this table's own
-    // sibling-hub read policy -- see confirmPayment's own comment).
-    const result = await confirmPayment(e.raw.type as PaymentEntryType, {
-      id: e.raw.id,
-      confirmed: nextConfirmed,
-      loggedBy: user.name || 'Unknown',
-    });
-    if (!result.ok) {
-      showToast({ message: result.error || 'Failed to confirm payment.', type: 'error' });
-      return;
+    // Per-row in-flight lock -- a fast double-click previously fired two
+    // confirmPayment() RPC calls for the same entry with no reconciliation
+    // between the two responses.
+    if (confirmingIds.has(e.raw.id)) return;
+    setConfirmingIds(prev => new Set(prev).add(e.raw.id));
+    try {
+      const nextConfirmed = !e.raw.paymentConfirmed;
+      // State-wide-authorized RPC does the real write (the generic onUpdateTx
+      // path below is hub-locked to an exact match, unlike this table's own
+      // sibling-hub read policy -- see confirmPayment's own comment).
+      const result = await confirmPayment(e.raw.type as PaymentEntryType, {
+        id: e.raw.id,
+        confirmed: nextConfirmed,
+        loggedBy: user.name || 'Unknown',
+      });
+      if (!result.ok) {
+        showToast({ message: result.error || 'Failed to confirm payment.', type: 'error' });
+        return;
+      }
+      const updated = { ...e.raw };
+      if (nextConfirmed) {
+        updated.paymentConfirmed = true;
+        updated.confirmedAt = new Date().toISOString();
+        updated.confirmedBy = user.name;
+      } else {
+        updated.paymentConfirmed = false;
+        updated.confirmedAt = undefined;
+        updated.confirmedBy = undefined;
+      }
+      onUpdateTx(updated);
+    } finally {
+      setConfirmingIds(prev => { const n = new Set(prev); n.delete(e.raw.id); return n; });
     }
-    const updated = { ...e.raw };
-    if (nextConfirmed) {
-      updated.paymentConfirmed = true;
-      updated.confirmedAt = new Date().toISOString();
-      updated.confirmedBy = user.name;
-    } else {
-      updated.paymentConfirmed = false;
-      updated.confirmedAt = undefined;
-      updated.confirmedBy = undefined;
-    }
-    onUpdateTx(updated);
   };
 
   const savePosCode = async (e: Entry, evt: React.MouseEvent) => {
     evt.stopPropagation();
     if (e.source !== 'transaction') return;
     if (!posCodeInput.code.trim()) return;
-    const code = posCodeInput.code.trim();
-    // Same state-wide-authorized RPC as toggleConfirm.
-    const result = await confirmPayment(e.raw.type as PaymentEntryType, {
-      id: e.raw.id,
-      confirmed: true,
-      posApprovalCode: code,
-      loggedBy: user.name || 'Unknown',
-    });
-    if (!result.ok) {
-      showToast({ message: result.error || 'Failed to save POS code.', type: 'error' });
-      return;
+    if (confirmingIds.has(e.raw.id)) return;
+    setConfirmingIds(prev => new Set(prev).add(e.raw.id));
+    try {
+      const code = posCodeInput.code.trim();
+      // Same state-wide-authorized RPC as toggleConfirm.
+      const result = await confirmPayment(e.raw.type as PaymentEntryType, {
+        id: e.raw.id,
+        confirmed: true,
+        posApprovalCode: code,
+        loggedBy: user.name || 'Unknown',
+      });
+      if (!result.ok) {
+        showToast({ message: result.error || 'Failed to save POS code.', type: 'error' });
+        return;
+      }
+      const updated = { ...e.raw };
+      updated.posApprovalCode = code;
+      updated.paymentConfirmed = true;
+      updated.confirmedAt = new Date().toISOString();
+      updated.confirmedBy = user.name;
+      onUpdateTx(updated);
+      setPosCodeInput({ id: '', code: '' });
+    } finally {
+      setConfirmingIds(prev => { const n = new Set(prev); n.delete(e.raw.id); return n; });
     }
-    const updated = { ...e.raw };
-    updated.posApprovalCode = code;
-    updated.paymentConfirmed = true;
-    updated.confirmedAt = new Date().toISOString();
-    updated.confirmedBy = user.name;
-    onUpdateTx(updated);
-    setPosCodeInput({ id: '', code: '' });
   };
 
   const handleClearDebt = async (e: Entry, evt?: React.MouseEvent) => {
@@ -1070,12 +1112,27 @@ export const TransactionLedger = ({
       paymentAmount: remaining,
       paymentMode: 'Cash',
       loggedBy: user.name || 'Unknown',
+      // Server re-validates this against the just-locked row and rejects
+      // the call if it's changed -- catches a double-click/retry (or two
+      // staff clearing the same debt near-simultaneously) that would
+      // otherwise both independently pass the RPC's own "doesn't exceed
+      // remaining" check and double-clear the debt.
+      expectedRemaining: remaining,
     });
 
     if (!result.ok) {
       showToast({ message: result.error || 'Failed to clear debt.', type: 'error' });
       return;
     }
+
+    // Trust the RPC's own returned state rather than assuming full
+    // settlement -- this call always requests payment of the full
+    // `remaining` balance, so fullyPaid should be true, but reflecting
+    // what the server actually recorded (rather than what the client
+    // assumed) means a future formula change on either side can't
+    // silently desync the ledger's displayed mode from the real balance.
+    const stillOwed = result.remainingBalance ?? 0;
+    const fullyPaid = result.fullyPaid ?? (stillOwed <= 0);
 
     const historyEntry = {
       amount: remaining,
@@ -1097,17 +1154,21 @@ export const TransactionLedger = ({
       // computation for any entry that had been partially retrieved.
       amountPaid: result.newAmountPaid ?? tx.amount,
       paymentHistory: [...(tx.paymentHistory || []), historyEntry],
-      mode: 'Debt Paid',
-      paymentConfirmed: true,
-      confirmedBy: user.name || 'Unknown',
-      confirmedAt: new Date().toISOString(),
-      ...(tx.type === 'package' ? {
+      mode: fullyPaid ? 'Debt Paid' : 'Debt',
+      paymentConfirmed: fullyPaid,
+      confirmedBy: fullyPaid ? (user.name || 'Unknown') : tx.confirmedBy,
+      confirmedAt: fullyPaid ? new Date().toISOString() : tx.confirmedAt,
+      ...(tx.type === 'package' && fullyPaid ? {
         debtPaid: true,
         debtPaidAt: new Date().toISOString()
       } : {})
     };
 
     onUpdateTx(updated);
+
+    if (!fullyPaid) {
+      showToast({ message: `Payment recorded, but ₦${fmt(stillOwed)} still remains on this debt -- check with the server before assuming it's fully cleared.`, type: 'warning' });
+    }
 
     // Same shadow-clearance record DebtorsTab.tsx's handleRecordPayment
     // emits, and for the same reason: without a NEW, dated entry, this
@@ -1123,7 +1184,7 @@ export const TransactionLedger = ({
       onAddTx({
         id: `DC-${Date.now()}-${tx.id.slice(-6)}`,
         name: tx.name,
-        detail: `DEBT CLEARANCE${awbLabel} · Orig: ${fmt(tx.amount)} · Paid: ${fmt(remaining)} · Bal: ₦0`,
+        detail: `DEBT CLEARANCE${awbLabel} · Orig: ${fmt(tx.amount)} · Paid: ${fmt(remaining)} · Bal: ₦${fmt(stillOwed)}`,
         amount: remaining,
         mode: 'Cash',
         time: tnow(),
@@ -1140,11 +1201,13 @@ export const TransactionLedger = ({
       } as Transaction);
     }
 
-    showToast({ message: 'Debt cleared successfully', type: 'success' });
+    if (fullyPaid) {
+      showToast({ message: 'Debt cleared successfully', type: 'success' });
+    }
     if (viewingDetail && viewingDetail.id === tx.id) {
       setViewingDetail({
         ...viewingDetail,
-        mode: 'Debt Paid',
+        mode: fullyPaid ? 'Debt Paid' : 'Debt',
         raw: updated
       });
     }
@@ -1210,7 +1273,10 @@ export const TransactionLedger = ({
       customerName,
       hubId: user.hub_id,
       loggedBy: user.name,
-      customerPhone: (retrievalModalEntry?.raw as any)?.consignee_phone,
+      // Entry.raw is the Transaction, which only carries camelCase
+      // consigneePhone -- the snake_case DB column lives one level
+      // deeper, at Entry.raw.raw (Transaction.raw is the true DB row).
+      customerPhone: (retrievalModalEntry?.raw as any)?.raw?.consignee_phone,
     });
 
     if (!result.ok) {
@@ -1275,6 +1341,11 @@ export const TransactionLedger = ({
 
   const unverifiedCash = filteredEntries.filter(e => e.mode === 'Cash' && !e.raw.paymentConfirmed);
   const unconfirmedTransfer = filteredEntries.filter(e => e.mode === 'Transfer' && !e.raw.paymentConfirmed);
+  // POS sits unconfirmed until a staff member manually enters the approval
+  // code (savePosCode) -- unlike Cash/Transfer, it previously had zero
+  // passive visibility anywhere on this screen, so a POS sale nobody came
+  // back to enter a code for could sit unconfirmed indefinitely unnoticed.
+  const unconfirmedPOS = filteredEntries.filter(e => e.mode === 'POS' && !e.raw.paymentConfirmed);
 
   const selectAllCash = async () => {
     let skipped = 0;
@@ -1595,7 +1666,12 @@ export const TransactionLedger = ({
                       : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:border-[var(--color-accent-amber)]'
                   }`}
                 >
-                  <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider mb-1">POS</div>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider">POS</div>
+                    {isAccountantOrAdmin && unconfirmedPOS.length > 0 && (
+                      <span className="text-[8px] font-mono font-bold bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded">!{unconfirmedPOS.length}</span>
+                    )}
+                  </div>
                   <div className="text-[15px] font-bold font-mono text-[var(--color-accent-amber)] leading-none">₦{fmt(posAmount)}</div>
                 </button>
               </div>
@@ -1894,7 +1970,7 @@ export const TransactionLedger = ({
                                     onChange={evt => setPosCodeInput({ id: e.id, code: evt.target.value })}
                                     onKeyDown={evt => { if(evt.key === 'Enter') savePosCode(e, evt as any); }}
                                   />
-                                  <button onClick={(evt) => savePosCode(e, evt)} className="text-[var(--color-success)]"><Check size={12}/></button>
+                                  <button disabled={confirmingIds.has(e.id)} onClick={(evt) => savePosCode(e, evt)} className="text-[var(--color-success)] disabled:opacity-50"><Check size={12}/></button>
                                 </div>
                               ) : (
                                 <button
@@ -1906,8 +1982,9 @@ export const TransactionLedger = ({
                               )
                             ) : (
                               <button
+                                disabled={confirmingIds.has(e.id)}
                                 onClick={(evt) => toggleConfirm(e, evt)}
-                                className="flex items-center justify-center text-[var(--color-accent-amber)] hover:text-amber-400"
+                                className="flex items-center justify-center text-[var(--color-accent-amber)] hover:text-amber-400 disabled:opacity-50"
                               >
                                 {e.raw.paymentConfirmed ? (
                                   <div className="w-4 h-4 bg-[var(--color-accent-amber)] rounded flex items-center justify-center">
@@ -2334,9 +2411,10 @@ export const TransactionLedger = ({
                       </button>
                     )}
                     {viewingDetail.mode !== 'Debt' && !viewingDetail.raw.paymentConfirmed && isAccountantOrAdmin && (
-                      <button 
+                      <button
+                        disabled={confirmingIds.has(viewingDetail.id)}
                         onClick={(evt) => toggleConfirm(viewingDetail, evt)}
-                        className="flex-1 py-2.5 flex items-center justify-center gap-2 bg-[rgba(16,185,129,0.1)] hover:bg-[rgba(16,185,129,0.2)] text-[var(--color-success)] rounded-lg transition-colors border border-[rgba(16,185,129,0.2)] text-[12px] font-bold"
+                        className="flex-1 py-2.5 flex items-center justify-center gap-2 bg-[rgba(16,185,129,0.1)] hover:bg-[rgba(16,185,129,0.2)] text-[var(--color-success)] rounded-lg transition-colors border border-[rgba(16,185,129,0.2)] text-[12px] font-bold disabled:opacity-50"
                       >
                         <CheckSquare size={14} /> Confirm
                       </button>
@@ -2566,9 +2644,10 @@ export const TransactionLedger = ({
                       id="edit-tx-baggage-name"
                       name="edit-tx-baggage-name"
                       type="text"
+                      disabled={!canEdit}
                       value={editingTx.name}
                       onChange={(e) => setEditingTx({ ...editingTx, name: e.target.value })}
-                      className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                      className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -2580,9 +2659,10 @@ export const TransactionLedger = ({
                         id="edit-tx-flight"
                         name="edit-tx-flight"
                         type="text"
+                        disabled={!canEdit}
                         value={editingTx.flight || ''}
                         onChange={(e) => setEditingTx({ ...editingTx, flight: e.target.value })}
-                        className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                        className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
                       />
                     </div>
                     <div className="space-y-1">
@@ -2593,9 +2673,10 @@ export const TransactionLedger = ({
                         id="edit-tx-destination"
                         name="edit-tx-destination"
                         type="text"
+                        disabled={!canEdit}
                         value={editingTx.destination || ''}
                         onChange={(e) => setEditingTx({ ...editingTx, destination: e.target.value })}
-                        className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                        className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
                       />
                     </div>
                   </div>
@@ -2612,9 +2693,10 @@ export const TransactionLedger = ({
                       id="edit-tx-marketing-name"
                       name="edit-tx-marketing-name"
                       type="text"
+                      disabled={!canEdit}
                       value={editingTx.name}
                       onChange={(e) => setEditingTx({ ...editingTx, name: e.target.value })}
-                      className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                      className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
                     />
                   </div>
                   <div className="space-y-1">
@@ -2625,9 +2707,10 @@ export const TransactionLedger = ({
                       id="edit-tx-marketing-route"
                       name="edit-tx-marketing-route"
                       type="text"
+                      disabled={!canEdit}
                       value={editingTx.route || ''}
                       onChange={(e) => setEditingTx({ ...editingTx, route: e.target.value })}
-                      className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                      className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
                     />
                   </div>
                   <div className="grid grid-cols-3 gap-2">
@@ -2640,9 +2723,10 @@ export const TransactionLedger = ({
                         name="edit-tx-bb"
                         type="number"
                         min="0"
+                        disabled={!canEdit}
                         value={editBagCounts.bb}
                         onChange={(e) => setEditBagCounts({ ...editBagCounts, bb: e.target.value })}
-                        className="w-full h-10 px-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[14px] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
+                        className="w-full h-10 px-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[14px] text-center focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
                       />
                     </div>
                     <div className="space-y-1">
@@ -2654,9 +2738,10 @@ export const TransactionLedger = ({
                         name="edit-tx-mb"
                         type="number"
                         min="0"
+                        disabled={!canEdit}
                         value={editBagCounts.mb}
                         onChange={(e) => setEditBagCounts({ ...editBagCounts, mb: e.target.value })}
-                        className="w-full h-10 px-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[14px] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
+                        className="w-full h-10 px-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[14px] text-center focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
                       />
                     </div>
                     <div className="space-y-1">
@@ -2668,9 +2753,10 @@ export const TransactionLedger = ({
                         name="edit-tx-sb"
                         type="number"
                         min="0"
+                        disabled={!canEdit}
                         value={editBagCounts.sb}
                         onChange={(e) => setEditBagCounts({ ...editBagCounts, sb: e.target.value })}
-                        className="w-full h-10 px-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[14px] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
+                        className="w-full h-10 px-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[14px] text-center focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
                       />
                     </div>
                   </div>
@@ -2687,9 +2773,10 @@ export const TransactionLedger = ({
                       id="edit-tx-package-name"
                       name="edit-tx-package-name"
                       type="text"
+                      disabled={!canEdit}
                       value={editingTx.name}
                       onChange={(e) => setEditingTx({ ...editingTx, name: e.target.value })}
-                      className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                      className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -2701,9 +2788,10 @@ export const TransactionLedger = ({
                         id="edit-tx-package-destination"
                         name="edit-tx-package-destination"
                         type="text"
+                        disabled={!canEdit}
                         value={editingTx.destination || ''}
                         onChange={(e) => setEditingTx({ ...editingTx, destination: e.target.value })}
-                        className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                        className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
                       />
                     </div>
                     <div className="space-y-1">
@@ -2713,9 +2801,10 @@ export const TransactionLedger = ({
                       <select
                         id="edit-tx-package-content-type"
                         name="edit-tx-package-content-type"
+                        disabled={!canEdit}
                         value={editingTx.contentType || 'Package'}
                         onChange={(e) => setEditingTx({ ...editingTx, contentType: e.target.value })}
-                        className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                        className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
                       >
                         <option value="Package">Package</option>
                         <option value="Parcel">Parcel</option>
@@ -2732,9 +2821,10 @@ export const TransactionLedger = ({
                         name="edit-tx-package-pcs"
                         type="number"
                         min="0"
+                        disabled={!canEdit}
                         value={pieceInput}
                         onChange={(e) => setPieceInput(e.target.value)}
-                        className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                        className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
                       />
                     </div>
                     <div className="space-y-1">
@@ -2746,9 +2836,10 @@ export const TransactionLedger = ({
                         name="edit-tx-package-kg"
                         type="number"
                         min="0"
+                        disabled={!canEdit}
                         value={kgInput}
                         onChange={(e) => setKgInput(e.target.value)}
-                        className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                        className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
                       />
                     </div>
                   </div>
@@ -2759,9 +2850,10 @@ export const TransactionLedger = ({
                     <select
                       id="edit-tx-package-contents"
                       name="edit-tx-package-contents"
+                      disabled={!canEdit}
                       value={editingTx.contents || contentTypes[0]}
                       onChange={(e) => setEditingTx({ ...editingTx, contents: e.target.value })}
-                      className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                      className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
                     >
                       {contentTypes.map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
@@ -2782,9 +2874,10 @@ export const TransactionLedger = ({
                   name="edit-tx-amount"
                   type="number"
                   min="0"
+                  disabled={!canEdit}
                   value={amountInput}
                   onChange={(e) => setAmountInput(e.target.value)}
-                  className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                  className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
                 />
               </div>
 
@@ -2793,13 +2886,14 @@ export const TransactionLedger = ({
                   Payment Mode
                 </label>
                 <select
+                  disabled={!canEdit}
                   value={editingTx.mode}
                   onChange={(e) => {
                     const nextMode = e.target.value as any;
                     setEditingTx({ ...editingTx, mode: nextMode });
                     if (nextMode !== 'Wallet') setEditWallet(null);
                   }}
-                  className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                  className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
                 >
                   <option value="Cash">Cash</option>
                   <option value="Transfer">Bank Transfer</option>
@@ -2829,11 +2923,12 @@ export const TransactionLedger = ({
                     Bank
                   </label>
                   <select
+                    disabled={!canEdit}
                     value={editingTx.bank || ""}
                     onChange={(e) =>
                       setEditingTx({ ...editingTx, bank: e.target.value })
                     }
-                    className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                    className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
                   >
                     <option value="">Select Bank</option>
                     {banks.map((b) => <option key={b} value={b}>{b}</option>)}
@@ -2846,6 +2941,7 @@ export const TransactionLedger = ({
                   Status
                 </label>
                 <select
+                  disabled={!canEdit}
                   value={editingTx.status}
                   onChange={(e) =>
                     setEditingTx({
@@ -2853,7 +2949,7 @@ export const TransactionLedger = ({
                       status: e.target.value as any,
                     })
                   }
-                  className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                  className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
                 >
                   <option value="Intake">Intake</option>
                   <option value="Dispatched">Dispatched</option>
@@ -2870,7 +2966,7 @@ export const TransactionLedger = ({
                 className="h-9 px-4 bg-[var(--color-success)] hover:bg-emerald-600 text-[var(--color-obsidian)] font-bold font-sans text-[13px] rounded-lg cursor-pointer flex items-center gap-1.5 transition-colors disabled:opacity-50"
               >
                 <Check size={14} />
-                <span>{savingEdit ? 'Charging Wallet...' : 'Save Changes'}</span>
+                <span>{savingEdit ? 'Saving...' : 'Save Changes'}</span>
               </button>
             </div>
           </div>

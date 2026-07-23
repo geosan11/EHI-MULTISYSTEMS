@@ -28,18 +28,32 @@ export async function confirmPayment(type: PaymentEntryType, params: {
   confirmed: boolean;
   posApprovalCode?: string;
   loggedBy: string;
+  // Only meaningful for cargo/baggage/marketing -- package_entries has no
+  // bank_reference/bank_sender/bank_alert_text columns (its debt is
+  // Cash/POS-collected, not Transfer), so these are simply ignored by
+  // confirm_payment_package's narrower signature.
+  bankReference?: string;
+  bankSender?: string;
+  bankAlertText?: string;
 }): Promise<ConfirmPaymentResult> {
   const rpc = RPC_BY_TYPE[type];
   if (!rpc) {
     return { ok: false, error: `Payment confirmation isn't supported for transaction type "${type}"` };
   }
 
-  const { error } = await supabase.rpc(rpc.name, {
+  const rpcParams: Record<string, unknown> = {
     [rpc.idParam]: params.id,
     p_confirmed: params.confirmed,
     p_pos_approval_code: params.posApprovalCode ?? null,
     p_logged_by: params.loggedBy,
-  });
+  };
+  if (type !== 'package') {
+    rpcParams.p_bank_reference = params.bankReference ?? null;
+    rpcParams.p_bank_sender = params.bankSender ?? null;
+    rpcParams.p_bank_alert_text = params.bankAlertText ?? null;
+  }
+
+  const { error } = await supabase.rpc(rpc.name, rpcParams);
 
   if (error) {
     return { ok: false, error: error.message };

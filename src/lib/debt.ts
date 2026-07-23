@@ -37,6 +37,12 @@ export async function clearDebt(params: {
   paymentMode: string;
   bank?: string;
   loggedBy: string;
+  // The remaining balance as displayed to the user right before this call.
+  // The RPC re-checks it against the real, just-locked row and rejects the
+  // call if it's changed -- closes the double-partial-payment race where a
+  // double-click/retry could each independently pass the "doesn't exceed
+  // remaining" check and silently double-pay a debt.
+  expectedRemaining?: number;
 }): Promise<ClearDebtResult> {
   const rpc = RPC_BY_TYPE[params.type];
   if (!rpc) {
@@ -49,6 +55,7 @@ export async function clearDebt(params: {
     p_payment_mode: params.paymentMode,
     p_bank: params.bank ?? null,
     p_logged_by: params.loggedBy,
+    p_expected_remaining: params.expectedRemaining ?? null,
   });
 
   if (error) {

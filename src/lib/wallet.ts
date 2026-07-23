@@ -100,6 +100,7 @@ export async function processRetrieval(type: RetrievalEntryType, params: {
     p_hub_id: params.hubId ?? null,
     p_logged_by: params.loggedBy,
     p_wallet_id: params.walletId ?? null,
+    p_customer_phone: params.customerPhone ?? null,
   });
 
   if (error) {
