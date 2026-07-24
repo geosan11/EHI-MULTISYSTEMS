@@ -79,6 +79,31 @@ export function useHubRoutes(opts: HubRoutesOptions = {}): string[] {
 // TransactionLedger.tsx, which only ever have the debt's hub_id reliably)
 // needs an actual lookup instead. Same simple fetch-once-on-mount pattern
 // Reports.tsx already uses for its own hubNames map.
+export interface HubRecord { id: string; name: string; code: string; }
+
+// Full hub records (id/name/code), for UI that needs to let an admin pick
+// an actual hub to act as (e.g. CargoForm/PackageForm/MarketingWorkspace's
+// "Admin: Global Hub Context" selector) -- deliberately NOT sourced from
+// CARGO_ROUTES (a static list of route DISPLAY strings like "LOS/Lagos"
+// with no real hub_id behind them at all). That selector used to seed
+// itself with CARGO_ROUTES values and, worse, default its initial state to
+// the admin's raw hub_id (a UUID) before they'd picked anything -- so
+// `user.hub_id` for an admin who hadn't touched the dropdown was garbage
+// non-UUID data feeding straight into hub-scoped rate lookups and the
+// actual sale INSERT's hub_id column. This is the real-hubs-table source
+// that fix needs.
+export function useHubs(): HubRecord[] {
+  const [hubs, setHubs] = useState<HubRecord[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    supabase.from('hubs').select('id, name, code').order('name').then(({ data }) => {
+      if (data && !cancelled) setHubs(data as HubRecord[]);
+    });
+    return () => { cancelled = true; };
+  }, []);
+  return hubs;
+}
+
 export function useHubNames(): Record<string, string> {
   const [names, setNames] = useState<Record<string, string>>({});
   useEffect(() => {

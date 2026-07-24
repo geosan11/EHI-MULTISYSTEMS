@@ -5,7 +5,7 @@ import { fmt, uid, tnow, generatePaymentNarration, getHubCode, upperOnChange, is
 import { chargeWalletForSale } from "../../lib/walletPayment";
 import { matchWallet } from "../../lib/customerIdentity";
 import { WalletRemainderSelector } from "../WalletRemainderSelector";
-import { useHubRoutes, useValidatedRouteSelection } from "../../lib/hubRoutes";
+import { useHubRoutes, useValidatedRouteSelection, useHubs } from "../../lib/hubRoutes";
 import { useContentTypes } from "../../lib/contentTypes";
 import { useExpenseCategories } from "../../lib/expenseCategories";
 import { useBanks } from "../../lib/banks";
@@ -47,8 +47,23 @@ export const PackageForm = ({
   forcedTerminal?: 'MMA2' | 'GAT';
 }) => {
   const isAdmin = ['super_admin', 'admin', 'accountant'].includes(propUser.role);
-  const [adminSelectedHub, setAdminSelectedHub] = useState(propUser.hub_id || 'LOS/Lagos');
-  const user = isAdmin ? { ...propUser, hub_id: adminSelectedHub, hub: adminSelectedHub } : propUser;
+  // See CargoForm.tsx's identical fix for the full explanation: this used
+  // to default to the raw propUser.hub_id (a UUID) and be sourced from
+  // CARGO_ROUTES route-display-strings, corrupting both user.hub (shown as
+  // a garbled "74D"-style code via getHubCode()) and user.hub_id (a
+  // Postgres uuid column rejects a "LOS/Lagos" string) once an admin
+  // picked anything from the dropdown.
+  const hubList = useHubs();
+  const [adminSelectedHubId, setAdminSelectedHubId] = useState<string>(propUser.hub_id || '');
+  const selectedHubRecord = hubList.find(h => h.id === adminSelectedHubId);
+  const user = isAdmin
+    ? {
+        ...propUser,
+        hub_id: adminSelectedHubId || propUser.hub_id,
+        hub: selectedHubRecord?.name || propUser.hub,
+        hub_code: selectedHubRecord?.code || propUser.hub_code,
+      }
+    : propUser;
   // GAT (General Aviation Terminal / MM1) is a second physical Lagos counter,
   // not a new hub -- only show the switch to LOS-hub agents.
   const userHubCode = getHubCode(user.hub_code || user.hub);
@@ -415,8 +430,8 @@ export const PackageForm = ({
              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
              Admin: Global Hub Context
            </label>
-           <select value={adminSelectedHub} onChange={(e) => setAdminSelectedHub(e.target.value)} className="w-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] font-bold text-[13px] p-2 rounded border border-[var(--color-border)] focus:border-[var(--color-accent-amber)] focus:outline-none cursor-pointer">
-             {CARGO_ROUTES.map(route => <option key={route} value={route}>{route}</option>)}
+           <select value={adminSelectedHubId} onChange={(e) => setAdminSelectedHubId(e.target.value)} className="w-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] font-bold text-[13px] p-2 rounded border border-[var(--color-border)] focus:border-[var(--color-accent-amber)] focus:outline-none cursor-pointer">
+             {hubList.map(h => <option key={h.id} value={h.id}>{h.code}/{h.name}</option>)}
            </select>
         </div>
       )}

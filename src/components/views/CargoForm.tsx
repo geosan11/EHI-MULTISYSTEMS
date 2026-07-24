@@ -5,7 +5,7 @@ import { fmt, roundMoney, tnow, generatePickupPin, normalizeAirlineName, getHubC
 import { chargeWalletForSale } from "../../lib/walletPayment";
 import { matchWallet } from "../../lib/customerIdentity";
 import { WalletRemainderSelector } from "../WalletRemainderSelector";
-import { useHubRoutes, useValidatedRouteSelection } from "../../lib/hubRoutes";
+import { useHubRoutes, useValidatedRouteSelection, useHubs } from "../../lib/hubRoutes";
 import { useAirlines, addAirlineIfMissing } from "../../lib/airlines";
 import { useContentTypes } from "../../lib/contentTypes";
 import { useSpecialGoodsRates, resolveSpecialGoodsRate } from "../../lib/specialGoodsRates";
@@ -151,8 +151,31 @@ export const CargoForm = ({
   forcedTerminal?: 'MMA2' | 'GAT';
 }) => {
   const isAdmin = ['super_admin', 'admin', 'accountant'].includes(propUser.role);
-  const [adminSelectedHub, setAdminSelectedHub] = useState(propUser.hub_id || 'LOS/Lagos');
-  const user = isAdmin ? { ...propUser, hub_id: adminSelectedHub, hub: adminSelectedHub } : propUser;
+  // The "Global Hub Context" dropdown used to be sourced from CARGO_ROUTES
+  // (a static list of route DISPLAY strings like "LOS/Lagos", with no real
+  // hub_id behind any entry) and defaulted its initial selection to the
+  // raw propUser.hub_id (a UUID) before the admin ever touched it. Since
+  // `user` below spreads that SAME value into BOTH hub_id AND hub (the
+  // human-readable name field), every admin/super_admin who hadn't
+  // manually picked a hub had their effective user.hub_id/hub corrupted:
+  // hub showed as a garbled "74D"-style code once getHubCode() truncated
+  // the UUID for AWB tag/receipt labels, and hub_id -- used directly in
+  // hub-scoped rate lookups (hub_airline_route_rates etc) and the actual
+  // cargo_entries INSERT below -- was never a valid UUID at all once the
+  // admin DID pick a route from the dropdown (a Postgres uuid column
+  // rejects a "LOS/Lagos" string outright). useHubs() sources real hub
+  // records instead, so both fields are always genuinely correct.
+  const hubList = useHubs();
+  const [adminSelectedHubId, setAdminSelectedHubId] = useState<string>(propUser.hub_id || '');
+  const selectedHubRecord = hubList.find(h => h.id === adminSelectedHubId);
+  const user = isAdmin
+    ? {
+        ...propUser,
+        hub_id: adminSelectedHubId || propUser.hub_id,
+        hub: selectedHubRecord?.name || propUser.hub,
+        hub_code: selectedHubRecord?.code || propUser.hub_code,
+      }
+    : propUser;
   // GAT (General Aviation Terminal / MM1) is a second physical Lagos counter,
   // not a new hub -- only show the switch to LOS-hub agents, same hub-code
   // derivation the AWB tag pool already uses below.
@@ -1832,8 +1855,8 @@ export const CargoForm = ({
              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
              Admin: Global Hub Context
            </label>
-           <select value={adminSelectedHub} onChange={(e) => setAdminSelectedHub(e.target.value)} className="w-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] font-bold text-[13px] p-2 rounded border border-[var(--color-border)] focus:border-[var(--color-accent-amber)] focus:outline-none cursor-pointer">
-             {CARGO_ROUTES.map(route => <option key={route} value={route}>{route}</option>)}
+           <select value={adminSelectedHubId} onChange={(e) => setAdminSelectedHubId(e.target.value)} className="w-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] font-bold text-[13px] p-2 rounded border border-[var(--color-border)] focus:border-[var(--color-accent-amber)] focus:outline-none cursor-pointer">
+             {hubList.map(h => <option key={h.id} value={h.id}>{h.code}/{h.name}</option>)}
            </select>
         </div>
       )}
