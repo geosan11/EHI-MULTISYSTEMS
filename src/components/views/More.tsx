@@ -237,7 +237,11 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
   }
 
   if (activeSub === 'contentTypes') {
-    return <ContentTypes onBack={closeSub} onManageRates={(contentTypeId) => { setSpecialGoodsPreset(contentTypeId); openSub('specialGoodsRates'); }} />;
+    return <ContentTypes onBack={closeSub} onManageRates={(contentTypeId, rateType) => {
+      if (rateType === 'flat') { openSub('flatTierRates'); }
+      else if (rateType === 'size') { openSub('sizeTierRates'); }
+      else { setSpecialGoodsPreset(contentTypeId); openSub('specialGoodsRates'); }
+    }} />;
   }
 
   if (activeSub === 'specialGoodsRates') {

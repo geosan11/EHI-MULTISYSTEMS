@@ -9,8 +9,8 @@ export interface SizeTierRate {
   content_type_id: string;
   content_type_name: string;
   airline: string;
-  hub_id: string;
-  route_name: string;
+  hub_id: string | null;
+  route_name: string | null;
   min_inches: number;
   max_inches: number | null;
   flat_amount: number;
@@ -34,7 +34,7 @@ export async function fetchSizeTierRates(): Promise<SizeTierRate[] | null> {
     const ct = Array.isArray(r.content_types) ? r.content_types[0] : r.content_types;
     return {
       id: r.id, content_type_id: r.content_type_id, content_type_name: ct?.name || '',
-      airline: r.airline, hub_id: r.hub_id, route_name: r.route_name,
+      airline: r.airline, hub_id: r.hub_id ?? null, route_name: r.route_name ?? null,
       min_inches: Number(r.min_inches), max_inches: r.max_inches == null ? null : Number(r.max_inches),
       flat_amount: Number(r.flat_amount),
     };
@@ -61,19 +61,28 @@ export function useSizeTierRates(): SizeTierRate[] {
 export function resolveSizeTier(
   rows: SizeTierRate[], contentTypeName: string, airline: string, route: string, inches: number, hubId?: string | null,
 ): number | null {
-  if (!hubId) return null;
   const normCt = contentTypeName.trim().toLowerCase();
   const normAir = normalizeAirlineName(airline).toLowerCase();
-  const normRoute = cleanRoute(route);
+  const normRoute = route ? cleanRoute(route) : null;
 
-  const match = rows.find(r =>
+  const scoped = rows.filter(r =>
     r.content_type_name.trim().toLowerCase() === normCt &&
     normalizeAirlineName(r.airline).toLowerCase() === normAir &&
-    cleanRoute(r.route_name) === normRoute &&
-    r.hub_id === hubId &&
     inches >= r.min_inches &&
     (r.max_inches == null || inches <= r.max_inches)
   );
+
+  const pick = (hubOk: boolean, routeOk: boolean) => scoped.find(r =>
+    (hubOk ? r.hub_id === hubId : (r.hub_id == null || r.hub_id === '')) &&
+    (routeOk ? (r.route_name != null && normRoute != null && cleanRoute(r.route_name) === normRoute) : (r.route_name == null || r.route_name === ''))
+  );
+
+  const match =
+    (hubId && normRoute && pick(true, true)) ||
+    (hubId && pick(true, false)) ||
+    (normRoute && pick(false, true)) ||
+    pick(false, false);
+
   return match ? match.flat_amount : null;
 }
 

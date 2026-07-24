@@ -14,7 +14,7 @@ interface ContentType {
   is_size_tier: boolean;
 }
 
-export const ContentTypes = ({ onBack, onManageRates }: { onBack: () => void; onManageRates?: (contentTypeId: string) => void }) => {
+export const ContentTypes = ({ onBack, onManageRates }: { onBack: () => void; onManageRates?: (contentTypeId: string, rateType?: 'special' | 'flat' | 'size') => void }) => {
   const [types, setTypes] = useState<ContentType[]>([]);
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
@@ -224,9 +224,9 @@ export const ContentTypes = ({ onBack, onManageRates }: { onBack: () => void; on
                     >
                       <Ruler size={11} /> {t.is_size_tier ? 'Size Tier' : 'Mark Size Tier'}
                     </button>
-                    {t.is_special_goods && onManageRates && (
+                    {(t.is_special_goods || t.is_flat_tier || t.is_size_tier) && onManageRates && (
                       <button
-                        onClick={() => onManageRates(t.id)}
+                        onClick={() => onManageRates(t.id, t.is_special_goods ? 'special' : t.is_flat_tier ? 'flat' : 'size')}
                         className="text-[10px] font-bold text-[var(--color-accent-cobalt)] hover:opacity-80 transition-opacity"
                       >
                         Manage Rates →
