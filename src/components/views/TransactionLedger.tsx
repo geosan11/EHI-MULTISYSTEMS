@@ -31,6 +31,7 @@ import {
   Clock,
   Undo2,
   ShieldCheck,
+  Truck,
 } from "lucide-react";
 import { QRCode } from "../QRCode";
 import TagPrintHistory from "./TagPrintHistory";
@@ -2178,11 +2179,13 @@ export const TransactionLedger = ({
                           e.type === 'cargo' ? 'bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)]' :
                           e.type === 'baggage' ? 'bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)]' :
                           e.type === 'marketing' ? 'bg-[rgba(16,185,129,0.15)] text-[var(--color-success)]' :
+                          e.type === 'package' ? 'bg-[rgba(168,85,247,0.15)] text-[var(--color-purple)]' :
                           'bg-[rgba(239,68,68,0.15)] text-[var(--color-error)]'
                         }`}>
                           {e.type === 'cargo' && <Package size={10} />}
                           {e.type === 'baggage' && <Plane size={10} />}
                           {e.type === 'marketing' && <TrendingUp size={10} />}
+                          {e.type === 'package' && <Truck size={10} />}
                           {e.source === 'expense' && <Minus size={10} />}
                         </div>
                         <span className="truncate min-w-0" title={e.id}>{e.id}</span>
@@ -2378,11 +2381,13 @@ export const TransactionLedger = ({
                   viewingDetail.type === 'cargo' ? 'bg-blue-500/20 text-blue-400' :
                   viewingDetail.type === 'baggage' ? 'bg-amber-500/20 text-amber-400' :
                   viewingDetail.type === 'marketing' ? 'bg-emerald-500/20 text-emerald-400' :
+                  viewingDetail.type === 'package' ? 'bg-purple-500/20 text-purple-400' :
                   'bg-red-500/20 text-red-400'
                 }`}>
                   {viewingDetail.type === 'cargo' && <Package size={20} />}
                   {viewingDetail.type === 'baggage' && <Plane size={20} />}
                   {viewingDetail.type === 'marketing' && <TrendingUp size={20} />}
+                  {viewingDetail.type === 'package' && <Truck size={20} />}
                   {viewingDetail.source === 'expense' && <Minus size={20} />}
                 </div>
                 <div>
