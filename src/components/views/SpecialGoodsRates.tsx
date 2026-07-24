@@ -248,7 +248,7 @@ export const SpecialGoodsRates = ({ onBack, presetContentTypeId, user }: { onBac
               <KgTierEditor
                 tiers={tiers}
                 priceLabel="RATE (₦/KG)"
-                priceUnit="RATE (₦/KG)"
+                priceUnit="₦/kg"
                 itemLabel="rate bracket"
                 onAdd={handleAdd}
                 onUpdateField={handleUpdateField}

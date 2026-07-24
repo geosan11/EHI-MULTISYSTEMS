@@ -51,7 +51,7 @@ export const KgTierEditor = ({
     const max_kg = newMax.trim() === '' ? null : parseFloat(newMax);
     const price = parseFloat(newPrice);
     if (isNaN(min_kg) || min_kg < 0 || isNaN(price)) return;
-    if (max_kg != null && (isNaN(max_kg) || max_kg <= min_kg)) return;
+    if (max_kg != null && (isNaN(max_kg) || max_kg < min_kg)) return;
     setAdding(true);
     await onAdd({ min_kg, max_kg, price });
     setAdding(false);

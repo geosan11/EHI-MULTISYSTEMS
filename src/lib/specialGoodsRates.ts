@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase.js';
+import { normalizeAirlineName, cleanRoute } from './helpers.js';
 
 export const SPECIAL_GOODS_RATES_CACHE_KEY = 'ehi_special_goods_rates';
 
@@ -29,7 +30,8 @@ function getCached(): SpecialGoodsRate[] {
 export async function fetchSpecialGoodsRates(): Promise<SpecialGoodsRate[] | null> {
   const { data, error } = await supabase
     .from('special_goods_rates')
-    .select('id, content_type_id, airline, hub_id, route_name, min_kg, max_kg, rate_per_kg, content_types(name), hubs(name)');
+    .select('id, content_type_id, airline, hub_id, route_name, min_kg, max_kg, rate_per_kg, content_types(name), hubs(name)')
+    .order('min_kg', { ascending: true });
   if (!data || error) return null;
   const rows: SpecialGoodsRate[] = data.map((r: any) => {
     const ct = Array.isArray(r.content_types) ? r.content_types[0] : r.content_types;
@@ -92,20 +94,28 @@ export function resolveSpecialGoodsRate(
   hubId?: string | null,
   route?: string | null,
 ): number | null {
+  const normCt = contentTypeName.trim().toLowerCase();
+  const normAir = normalizeAirlineName(airline).toLowerCase();
+  const normRoute = route ? cleanRoute(route) : null;
+
   const scoped = rows.filter(r =>
-    r.content_type_name === contentTypeName &&
-    r.airline === airline &&
+    r.content_type_name.trim().toLowerCase() === normCt &&
+    normalizeAirlineName(r.airline).toLowerCase() === normAir &&
     kg >= r.min_kg &&
     (r.max_kg == null || kg <= r.max_kg)
   );
+
   const pick = (hubOk: boolean, routeOk: boolean) => scoped.find(r =>
     (hubOk ? r.hub_id === hubId : r.hub_id == null) &&
-    (routeOk ? r.route_name === route : r.route_name == null)
+    (routeOk ? (r.route_name != null && normRoute != null && cleanRoute(r.route_name) === normRoute) : r.route_name == null)
   );
+
   const match =
-    (hubId && route && pick(true, true)) ||
+    (hubId && normRoute && pick(true, true)) ||
     (hubId && pick(true, false)) ||
-    (route && pick(false, true)) ||
+    (normRoute && pick(false, true)) ||
     pick(false, false);
+
   return match ? match.rate_per_kg : null;
 }
+

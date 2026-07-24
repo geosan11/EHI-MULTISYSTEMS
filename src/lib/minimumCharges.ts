@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase.js';
+import { normalizeAirlineName, cleanRoute } from './helpers.js';
 
 export const MINIMUM_CHARGES_CACHE_KEY = 'ehi_minimum_charges';
 
@@ -25,7 +26,8 @@ function getCached(): MinimumCharge[] {
 export async function fetchMinimumCharges(): Promise<MinimumCharge[] | null> {
   const { data, error } = await supabase
     .from('minimum_charges')
-    .select('id, airline, route_name, min_kg, max_kg, minimum_amount');
+    .select('id, airline, route_name, min_kg, max_kg, minimum_amount')
+    .order('min_kg', { ascending: true });
   if (!data || error) return null;
   const rows: MinimumCharge[] = data.map((r: any) => ({
     id: r.id,
@@ -61,11 +63,15 @@ export function useMinimumCharges(): MinimumCharge[] {
 // bracket contains kg (max_kg null = open-ended top tier). Shared by
 // CargoForm.tsx's floor logic and the read-only rates list.
 export function resolveMinimumCharge(rows: MinimumCharge[], airline: string, route: string, kg: number): number | null {
+  const normAir = normalizeAirlineName(airline).toLowerCase();
+  const normRoute = cleanRoute(route);
+
   const match = rows.find(r =>
-    r.airline === airline &&
-    r.route_name === route &&
+    normalizeAirlineName(r.airline).toLowerCase() === normAir &&
+    cleanRoute(r.route_name) === normRoute &&
     kg >= r.min_kg &&
     (r.max_kg == null || kg <= r.max_kg)
   );
   return match ? match.minimum_amount : null;
 }
+

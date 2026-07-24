@@ -425,7 +425,7 @@ export const CargoForm = ({
   // field. Derived without setState so there is no extra re-render on every
   // keystroke.
   const autoAmount = useMemo(() => {
-    const w = Math.round(parseFloat(kg)) || 0;
+    const w = parseFloat(kg) || 0;
     // Size-tier content (e.g. Plasma TV) prices as one whole amount per
     // screen-size bracket, keyed on inches instead of kg -- checked before
     // the kg-based checks below since w may legitimately be 0/irrelevant
@@ -463,7 +463,7 @@ export const CargoForm = ({
         if (sized != null) return { type: 'size' as const, amount: sized };
       }
     }
-    const w = Math.round(parseFloat(kg)) || 0;
+    const w = parseFloat(kg) || 0;
     if (w <= 0) return null;
     const flat = resolveFlatTier(flatTierRates, actualContentType, actualAirline, route, w, user.hub_id);
     if (flat != null) {
@@ -834,7 +834,7 @@ export const CargoForm = ({
   const officePricedSigRef = useRef<string>('');
   useEffect(() => {
     if (!linkedAsOfficeWork || !officeWorkRate) return;
-    const w = Math.round(parseFloat(kg)) || 0;
+    const w = parseFloat(kg) || 0;
     if (w <= 0) return;
     const sig = `${officeWorkRate.corporate_client_id}|${route}|${w}`;
     if (officePricedSigRef.current === sig) return;
@@ -1243,7 +1243,7 @@ export const CargoForm = ({
 
   // --- RETAIL BILLING SUBMIT ---
   const actualConsignee = consignee === "Other" ? customConsignee : consignee;
-  const w = Math.round(parseFloat(kg)) || 0;
+  const w = parseFloat(kg) || 0;
   const rate = resolveRate(actualAirline, route, actualContentType, w);
   const minCharge = resolveMinimumCharge(minimumCharges, actualAirline, route, w);
   // null rate/minCharge = nothing configured at any tier (special-goods,
@@ -1372,7 +1372,7 @@ export const CargoForm = ({
       airline: actualAirline,
       commissionRate,
       pieces: parseInt(pcs) || 1,
-      kg: Math.round(parseFloat(kg)) || 0,
+      kg: parseFloat(kg) || 0,
       sizeInches: isSizeTierContent && sizeInches ? (Math.round(parseFloat(sizeInches)) || undefined) : undefined,
       pickupPin,
       consigneePhone: consigneePhone.trim(),
@@ -1525,7 +1525,7 @@ export const CargoForm = ({
         consignee: successTx.name,
         awbTagNumber: successTx.awb_tag_number || awb,
         pieces: successTx.pieces || parseInt(pcs),
-        kg: successTx.kg || Math.round(parseFloat(kg)),
+        kg: successTx.kg || parseFloat(kg),
         route: successTx.detail.split(" · ")[4] || route,
         contentType: successTx.detail.split(" · ")[5] || contentType,
         amount: successTx.amount,
@@ -1566,7 +1566,7 @@ export const CargoForm = ({
           name: successTx.name,
           route: successTx.detail.split(" · ")[4] || route,
           pieces: successTx.pieces || parseInt(pcs) || 1,
-          weight: successTx.kg || Math.round(parseFloat(kg)),
+          weight: successTx.kg || parseFloat(kg),
           airline: (() => {
             const txAir = successTx.airline || airline;
             return txAir === "Green Africa"
@@ -1637,7 +1637,7 @@ export const CargoForm = ({
       consignee: successTx.name,
       awbTagNumber: successTx.awb_tag_number || awb,
       pieces: successTx.pieces || parseInt(pcs),
-      kg: successTx.kg || Math.round(parseFloat(kg)),
+      kg: successTx.kg || parseFloat(kg),
       route: successTx.detail.split(" · ")[4] || route,
       contentType: successTx.detail.split(" · ")[5] || contentType,
       amount: successTx.amount,
@@ -2042,7 +2042,7 @@ export const CargoForm = ({
                               setLinkedAsOfficeWork(true);
                               // Auto-apply contract rate if one exists
                               if (officeWorkRate && kg) {
-                                const w = Math.round(parseFloat(kg)) || 0;
+                                const w = parseFloat(kg) || 0;
                                 if (w > 0) {
                                   const computed = Math.max(
                                     w * officeWorkRate.rate_per_kg,
@@ -2270,12 +2270,12 @@ export const CargoForm = ({
                 {priceOverrideInfo && (
                   <div className="text-[10px] text-[var(--color-accent-cobalt)] mt-1">
                     {priceOverrideInfo.type === 'size'
-                      ? `Size Tier Rate applied: ${fmt(priceOverrideInfo.amount)} (whole bracket, by screen size)`
+                      ? `Size Tier Rate applied: ₦${fmt(priceOverrideInfo.amount)} (whole bracket, by screen size)`
                       : priceOverrideInfo.type === 'flat'
-                      ? `Flat Rate applied: ${fmt(priceOverrideInfo.amount)} (whole bracket, not per-kg)`
+                      ? `Flat Rate applied: ₦${fmt(priceOverrideInfo.amount)} (whole bracket, not per-kg)`
                       : priceOverrideInfo.type === 'special'
-                      ? `Special Goods Rate applied: ${fmt(priceOverrideInfo.rate)}/kg`
-                      : `Minimum Charge applied: ${fmt(priceOverrideInfo.amount)}`}
+                      ? `Special Goods Rate applied: ₦${fmt(priceOverrideInfo.rate)}/kg`
+                      : `Minimum Charge applied: ₦${fmt(priceOverrideInfo.amount)}`}
                   </div>
                 )}
               </div>

@@ -112,7 +112,7 @@ export const ExcessBaggageForm = ({
   const freeAllowance = airline.free_allowance_kg;
   const ratePerKg = airline.rate_per_kg;
 
-  const kgVal = Math.round(parseFloat(kg)) || 0;
+  const kgVal = parseFloat(kg) || 0;
   const pcsVal = Math.max(1, parseInt(pcs) || 1);
   const excessKg = Math.max(0, kgVal - freeAllowance);
   const minAmount = roundMoney(excessKg * ratePerKg);

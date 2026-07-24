@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase.js';
+import { normalizeAirlineName, cleanRoute } from './helpers.js';
 
 export const FLAT_TIER_RATES_CACHE_KEY = 'ehi_flat_tier_rates';
 
@@ -26,7 +27,8 @@ function getCached(): FlatTierRate[] {
 export async function fetchFlatTierRates(): Promise<FlatTierRate[] | null> {
   const { data, error } = await supabase
     .from('flat_tier_rates')
-    .select('id, content_type_id, airline, hub_id, route_name, min_kg, max_kg, flat_amount, content_types(name)');
+    .select('id, content_type_id, airline, hub_id, route_name, min_kg, max_kg, flat_amount, content_types(name)')
+    .order('min_kg', { ascending: true });
   if (!data || error) return null;
   const rows: FlatTierRate[] = data.map((r: any) => {
     const ct = Array.isArray(r.content_types) ? r.content_types[0] : r.content_types;
@@ -59,13 +61,18 @@ export function resolveFlatTier(
   rows: FlatTierRate[], contentTypeName: string, airline: string, route: string, kg: number, hubId?: string | null,
 ): number | null {
   if (!hubId) return null;
+  const normCt = contentTypeName.trim().toLowerCase();
+  const normAir = normalizeAirlineName(airline).toLowerCase();
+  const normRoute = cleanRoute(route);
+
   const match = rows.find(r =>
-    r.content_type_name === contentTypeName &&
-    r.airline === airline &&
-    r.route_name === route &&
+    r.content_type_name.trim().toLowerCase() === normCt &&
+    normalizeAirlineName(r.airline).toLowerCase() === normAir &&
+    cleanRoute(r.route_name) === normRoute &&
     r.hub_id === hubId &&
     kg >= r.min_kg &&
     (r.max_kg == null || kg <= r.max_kg)
   );
   return match ? match.flat_amount : null;
 }
+
