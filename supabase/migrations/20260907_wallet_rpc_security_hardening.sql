@@ -187,7 +187,9 @@ BEGIN
   UPDATE public.marketing_entries SET wallet_id = NULL WHERE wallet_id = p_wallet_id;
   UPDATE public.package_entries   SET wallet_id = NULL WHERE wallet_id = p_wallet_id;
 
-  -- Cascades to wallet_transactions automatically (ON DELETE CASCADE).
+  -- Delete wallet transactions explicitly in case FK lacks ON DELETE CASCADE
+  DELETE FROM public.wallet_transactions WHERE wallet_id = p_wallet_id;
+
   DELETE FROM public.customer_wallets WHERE id = p_wallet_id;
 END;
 $$;

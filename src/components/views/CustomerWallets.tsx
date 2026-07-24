@@ -297,11 +297,30 @@ export const CustomerWallets = ({
 
     setForceDeletingId(wallet.id);
     try {
-      const { error } = await supabase.rpc('force_delete_wallet', { p_wallet_id: wallet.id });
+      let { error } = await supabase.rpc('force_delete_wallet', { p_wallet_id: wallet.id });
+      
+      // If RPC fails (e.g. foreign key constraint error on database where wallet_transactions_wallet_id_fkey
+      // lacks ON DELETE CASCADE), fall back to explicit step-by-step unlinking and deletion.
       if (error) {
-        showToast({ message: `Failed to force-delete wallet: ${error.message}`, type: 'error' });
-        return;
+        console.warn('force_delete_wallet RPC encountered error, executing fallback client cleanup:', error.message);
+        try {
+          await supabase.from('cargo_entries').update({ wallet_id: null }).eq('wallet_id', wallet.id);
+          await supabase.from('manifests').update({ wallet_id: null }).eq('wallet_id', wallet.id);
+          await supabase.from('marketing_entries').update({ wallet_id: null }).eq('wallet_id', wallet.id);
+          await supabase.from('package_entries').update({ wallet_id: null }).eq('wallet_id', wallet.id);
+          await supabase.from('wallet_transactions').delete().eq('wallet_id', wallet.id);
+          const { error: delErr } = await supabase.from('customer_wallets').delete().eq('id', wallet.id);
+          if (delErr) {
+            showToast({ message: `Failed to force-delete wallet: ${delErr.message}`, type: 'error' });
+            return;
+          }
+          error = null;
+        } catch (fallbackErr: any) {
+          showToast({ message: `Failed to force-delete wallet: ${fallbackErr.message || error.message}`, type: 'error' });
+          return;
+        }
       }
+
       setWallets((prev) => prev.filter((w) => w.id !== wallet.id));
       showToast({ message: `${wallet.customer_name}'s wallet permanently deleted`, type: 'success' });
       writeAuditLog({
