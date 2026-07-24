@@ -5,7 +5,7 @@ import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDate
 import { applyWalletTransaction, processRetrieval, unretrieveEntry, approveRetrieval, RetrievalEntryType } from "../../lib/wallet";
 import { clearDebt, DebtEntryType } from "../../lib/debt";
 import { confirmPayment, PaymentEntryType } from "../../lib/paymentConfirmation";
-import { useHubRoutes } from "../../lib/hubRoutes";
+import { useHubRoutes, useHubNames } from "../../lib/hubRoutes";
 import { useAirlines } from "../../lib/airlines";
 import { MIN_PACKAGE_AMOUNT } from "../../lib/constants";
 import { useContentTypes } from "../../lib/contentTypes";
@@ -122,6 +122,12 @@ export const TransactionLedger = ({
 }) => {
   const contentTypes = useContentTypes();
   const routes = useHubRoutes();
+  // hub_id -> name, for the debt-clearance shadow entry's `hub` display
+  // field in confirmClearDebt below -- tx.hub is unreliable (see
+  // useHubNames' own comment: fetchInitial never selects the DB `hub`
+  // text column for any of the 4 department types), so this is the only
+  // way to reliably show the debt's REAL hub name.
+  const hubNames = useHubNames();
   // includeOther: false -- same as the Route select right below this field,
   // which also has no "Other" entry. A free-text escape hatch isn't offered
   // here (unlike CargoForm.tsx's intake picker); editAirlineOptions below
@@ -1291,7 +1297,13 @@ export const TransactionLedger = ({
           airline: (tx as any).airline,
           enteredByName: user.name || 'Unknown',
           hub_id: tx.hub_id,
-          hub: tx.hub,
+          // FIXED AGAIN: tx.hub alone doesn't actually fix the hub_id/hub
+          // mismatch this was meant to close -- fetchInitial never selects
+          // the DB `hub` text column for any of the 4 department types
+          // (only hub_id), so tx.hub is undefined for the vast majority of
+          // debts by the time this runs. hubNames resolves the real
+          // hub_id to its real name instead of trusting that field.
+          hub: hubNames[tx.hub_id || ''] || tx.hub,
         } as Transaction);
       }
 

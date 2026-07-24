@@ -68,6 +68,33 @@ export function useHubRoutes(opts: HubRoutesOptions = {}): string[] {
   return routes;
 }
 
+// hub_id -> hub name lookup. Exists because cargo_entries/manifests/
+// marketing_entries/package_entries.hub (the free-text display name
+// column, distinct from hub_id) is never actually selected/mapped back by
+// EHIApp.tsx's fetchInitial for ANY of the 4 types -- only hub_id is. So a
+// Transaction's own `.hub` field is reliable only in the same session,
+// right after something explicitly set it client-side (e.g. a form's own
+// success state); anything that needs a real hub NAME from just a hub_id
+// (debt-clearance shadow entries built in DebtorsTab.tsx/
+// TransactionLedger.tsx, which only ever have the debt's hub_id reliably)
+// needs an actual lookup instead. Same simple fetch-once-on-mount pattern
+// Reports.tsx already uses for its own hubNames map.
+export function useHubNames(): Record<string, string> {
+  const [names, setNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let cancelled = false;
+    supabase.from('hubs').select('id, name').then(({ data }) => {
+      if (data && !cancelled) {
+        const map: Record<string, string> = {};
+        data.forEach((h: any) => { map[h.id] = h.name; });
+        setNames(map);
+      }
+    });
+    return () => { cancelled = true; };
+  }, []);
+  return names;
+}
+
 // A selection seeded from routes[0] on first render (before the live fetch
 // resolves) never re-checks itself once `routes` later swaps to the live
 // list -- if that cache/fallback-era first entry was since renamed or

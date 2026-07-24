@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '../../lib/ToastContext';
 import { clearDebt } from '../../lib/debt';
 import { supabase } from '../../lib/supabase';
+import { useHubNames } from '../../lib/hubRoutes';
 
 export const DebtorsTab = ({
   transactions = [],
@@ -19,6 +20,11 @@ export const DebtorsTab = ({
   onAddTx?: (tx: Transaction) => void;
 }) => {
   const { showToast } = useToast();
+  // hub_id -> name, for the debt-clearance shadow entry's `hub` display
+  // field below -- (debt as any).hub is unreliable (see useHubNames'
+  // own comment), so this is the only way to reliably show the debt's
+  // REAL hub name rather than falling through to the clearing user's own.
+  const hubNames = useHubNames();
   const [filter, setFilter] = useState<'All' | 'Corporate' | 'Individual'>('All');
   const [sort, setSort] = useState<'Highest Amount' | 'Oldest First' | 'Newest First' | 'Alphabetical'>('Highest Amount');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -269,15 +275,16 @@ export const DebtorsTab = ({
           // branch's own agents (RLS scopes them to their own hub_id), even
           // though the super_admin could always see it fine.
           // `hub` (the display name) must match `hub_id` for the same
-          // reason -- this previously stamped the CLEARING user's hub name
-          // here while correctly using the debt's own hub_id above, so a
-          // super_admin clearing a sibling branch's debt produced a shadow
-          // row whose hub_id and displayed hub name pointed at two
-          // different hubs (matches TransactionLedger.tsx's own
-          // confirmClearDebt, which already used tx.hub/tx.hub_id
-          // consistently).
+          // reason. FIXED AGAIN: (debt as any).hub alone doesn't actually
+          // fix this -- fetchInitial never selects/maps the DB `hub` text
+          // column for ANY of the 4 department types (only hub_id), so
+          // debt.hub is undefined for the vast majority of debts by the
+          // time this runs, silently falling straight through to
+          // user?.hub (the clearing user's own hub) exactly like before.
+          // hubNames resolves the debt's real hub_id to its real name
+          // instead of trusting that unreliable field.
           hub_id: (debt as any).hub_id || user?.hub_id,
-          hub: (debt as any).hub || user?.hub,
+          hub: hubNames[(debt as any).hub_id] || (debt as any).hub || user?.hub,
         };
         onAddTx(shadowTx);
       }

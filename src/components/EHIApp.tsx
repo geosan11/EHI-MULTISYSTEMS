@@ -1493,6 +1493,15 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       updatePayload.amount = t.amount;
     }
 
+    // remark now exists on all 4 department tables (see
+    // 20260910_remark_column_all_departments.sql) -- this used to be set
+    // only inside the cargo branch below, so editing the ledger's
+    // Remarks field (canEditRemarks, rendered for every transaction type
+    // with no type gate) on a baggage/marketing/package entry looked
+    // like it saved (optimistic UI update) but silently never reached
+    // the database, reverting on the next refetch.
+    if ((t as any).remarks !== undefined) updatePayload.remark = (t as any).remarks;
+
     if (t.type === 'cargo') {
       updatePayload.consignee_name = t.name;
       updatePayload.route = t.route;
@@ -1500,7 +1509,6 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       updatePayload.total_kg = t.kg;
       updatePayload.content_type = t.contentType;
       updatePayload.airline = t.airline;
-      if ((t as any).remarks !== undefined) updatePayload.remark = (t as any).remarks;
       if ((t as any).pickupPin !== undefined) updatePayload.pickup_pin = (t as any).pickupPin;
       if (t.consigneePhone !== undefined) updatePayload.consignee_phone = t.consigneePhone;
     } else if (t.type === 'baggage') {
