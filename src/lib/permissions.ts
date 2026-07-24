@@ -68,6 +68,12 @@ export const STATIC_VIEWS: ViewDef[] = [
   { id: 'More:AirlinePerformance', label: 'Airline Sales & Weight Breakdown', roles: ['super_admin', 'admin', 'accountant', 'auditor'], category: 'Finance' },
   { id: 'More:CorporateBilling', label: 'Corporate Client Billing', roles: ['super_admin', 'admin', 'accountant'], category: 'Finance' },
   { id: 'More:OfficeWorkReconcile', label: 'Office Work Reconciliation', roles: ['super_admin', 'admin', 'accountant'], category: 'Finance' },
+  // Was reachable by any role via More.tsx's unguarded menu item (no
+  // canAccessTab check at all -- the only sibling item missing one) even
+  // though its main action (Top-Up) is now role-gated at the RPC level
+  // (apply_wallet_transaction, 20260903_security_and_bugfix_pass.sql).
+  // Matches that RPC's own role list.
+  { id: 'More:CustomerWallets', label: 'Customer Credit Wallets', roles: ['super_admin', 'admin', 'accountant', 'auditor'], category: 'Finance' },
   { id: 'More:Forecasting', label: 'Demand Forecasting AI', roles: ['super_admin', 'admin'], category: 'Intelligence' },
   { id: 'More:FraudAlerts', label: 'Fraud & Anomalies Feed', roles: ['super_admin', 'admin', 'auditor', 'accountant'], category: 'Intelligence' },
   { id: 'More:AuditLog', label: 'Revision Audit Log', roles: ['super_admin', 'auditor'], category: 'Intelligence' },

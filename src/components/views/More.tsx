@@ -468,7 +468,8 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
           icon={CurrencyDollarIcon}
           title="Customer Credit Wallets"
           subtitle="Manage customer advance balances, top-ups, and credit history"
-          onClick={() => openSub('customerWallets')}
+          onClick={() => { if (canAccessTab(user, 'More:CustomerWallets', excessBaggageAirlines)) openSub('customerWallets'); }}
+          disabled={!canAccessTab(user, 'More:CustomerWallets', excessBaggageAirlines)}
         />
       </div>
 

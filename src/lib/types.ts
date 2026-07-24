@@ -45,6 +45,7 @@ export interface User {
   active?: boolean;
   can_print_ledger?: boolean;   // Super admin grants this per user
   can_edit_remarks?: boolean;   // Super admin grants this per user to edit cargo remarks
+  can_approve_retrievals?: boolean;   // Super admin grants this per user to approve retrieval events in the ledger
   // Which excess_baggage_airlines.name this user tickets for -- only
   // meaningful when role === 'baggage_agent'.
   assigned_airline?: string;
@@ -251,6 +252,12 @@ export interface Transaction {
   retrievalNote?: string;   // structured: "Retrieved by X at T. Was: Arik ₦12k → Now: United ₦11.5k"
   retrievedAt?: string;     // ISO timestamp
   retrievedBy?: string;     // staff name
+  // Post-hoc review stamp -- set by an authorized staff member reviewing
+  // an already-processed retrieval in the ledger. Never re-triggers any
+  // wallet/debt movement; purely an oversight/audit confirmation.
+  retrievalApproved?: boolean;
+  retrievalApprovedBy?: string;
+  retrievalApprovedAt?: string;
 
   // ── Debt Clearance (shadow ledger event) ───────────────────────────────
   // A synthetic entry created when a prior-debt payment is recorded via

@@ -120,6 +120,11 @@ export const CustomerWallets = ({
   // named set of roles rather than reusing canApprovePayouts.
   const canForceDelete = ['super_admin', 'accountant', 'admin', 'office_work'].includes(user.role);
   const [forceDeletingId, setForceDeletingId] = useState<string | null>(null);
+  // Matches apply_wallet_transaction's own server-side gate for
+  // top_up/adjustment (20260903_security_and_bugfix_pass.sql) -- without
+  // this, unprivileged roles could open the Top-Up form and submit it,
+  // only to have the RPC reject it after the fact.
+  const canTopUp = ['accountant', 'admin', 'super_admin', 'auditor'].includes(user.role);
 
   // Cash-payout request form
   const [payoutWalletId, setPayoutWalletId] = useState<string | null>(null);
@@ -345,6 +350,7 @@ export const CustomerWallets = ({
       );
 
       let walletId = existing?.id;
+      let isNewWallet = false;
 
       if (existing) {
         if (formPhone.trim() && formPhone.trim() !== existing.customer_phone) {
@@ -377,6 +383,7 @@ export const CustomerWallets = ({
 
         if (insertErr) throw insertErr;
         walletId = newWallet.id;
+        isNewWallet = true;
       }
 
       // 2. Atomically credit the wallet + write its wallet_transactions audit row
@@ -389,7 +396,18 @@ export const CustomerWallets = ({
         loggedBy: user.name,
       });
 
-      if (!result.ok) throw new Error(result.error);
+      if (!result.ok) {
+        // A rejected top-up (e.g. a stale/unprivileged session slipping
+        // past the canTopUp gate above, or the server-side role check in
+        // apply_wallet_transaction) must not leave the zero-balance wallet
+        // row just inserted above permanently orphaned. Scoped to exactly
+        // that row and only if it's still untouched, so this can never
+        // delete a wallet that already has real balance/activity.
+        if (isNewWallet && walletId) {
+          await supabase.from('customer_wallets').delete().eq('id', walletId).eq('balance', 0).eq('total_topped_up', 0);
+        }
+        throw new Error(result.error);
+      }
 
       showToast({ message: `Successfully topped up ₦${fmt(amt)} for ${name}!`, type: 'success' });
       setShowTopUpModal(false);
@@ -541,13 +559,15 @@ export const CustomerWallets = ({
             CUSTOMER CREDIT WALLETS
           </span>
         </div>
-        <button
-          onClick={() => setShowTopUpModal(true)}
-          className="px-3 py-1.5 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[11px] font-mono font-bold rounded-lg flex items-center gap-1.5 hover:opacity-90 transition-opacity cursor-pointer shadow-sm"
-        >
-          <Plus size={14} strokeWidth={3} />
-          <span>Top-Up Wallet</span>
-        </button>
+        {canTopUp && (
+          <button
+            onClick={() => setShowTopUpModal(true)}
+            className="px-3 py-1.5 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[11px] font-mono font-bold rounded-lg flex items-center gap-1.5 hover:opacity-90 transition-opacity cursor-pointer shadow-sm"
+          >
+            <Plus size={14} strokeWidth={3} />
+            <span>Top-Up Wallet</span>
+          </button>
+        )}
       </div>
 
       {/* Summary KPI Cards */}
@@ -834,16 +854,18 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
                   >
                     <History size={10} /> History
                   </button>
-                  <button
-                    onClick={() => {
-                      setFormName(wallet.customer_name);
-                      setFormPhone(wallet.customer_phone || '');
-                      setShowTopUpModal(true);
-                    }}
-                    className="px-2 py-1 rounded text-[9px] font-mono font-bold bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)] hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-obsidian)] transition-colors flex items-center gap-1 cursor-pointer"
-                  >
-                    <Plus size={10} strokeWidth={3} /> Top-Up
-                  </button>
+                  {canTopUp && (
+                    <button
+                      onClick={() => {
+                        setFormName(wallet.customer_name);
+                        setFormPhone(wallet.customer_phone || '');
+                        setShowTopUpModal(true);
+                      }}
+                      className="px-2 py-1 rounded text-[9px] font-mono font-bold bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)] hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-obsidian)] transition-colors flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus size={10} strokeWidth={3} /> Top-Up
+                    </button>
+                  )}
                   {wallet.balance > 0 && (
                     <button
                       onClick={() => { setPayoutWalletId(wallet.id); setPayoutAmount(''); setPayoutNote(''); }}

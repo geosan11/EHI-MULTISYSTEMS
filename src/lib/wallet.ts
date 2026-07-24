@@ -149,6 +149,39 @@ export async function unretrieveEntry(type: RetrievalEntryType, params: {
   return { ok: true, reversedAmount: Number(data) };
 }
 
+const APPROVE_RETRIEVAL_RPC_BY_TYPE: Record<RetrievalEntryType, { name: string; idParam: string }> = {
+  cargo: { name: 'approve_cargo_retrieval', idParam: 'p_entry_ref' },
+  baggage: { name: 'approve_baggage_retrieval', idParam: 'p_transaction_id' },
+  marketing: { name: 'approve_marketing_retrieval', idParam: 'p_entry_ref' },
+  package: { name: 'approve_package_retrieval', idParam: 'p_entry_ref' },
+};
+
+export interface ApproveRetrievalResult {
+  ok: boolean;
+  error?: string;
+}
+
+// Post-hoc review stamp for an already-processed retrieval -- does not
+// re-trigger any wallet/debt movement. Routes through approve_<type>_
+// retrieval(), which re-checks the caller's can_approve_retrievals
+// permission server-side (see 20260906_retrieval_approval_and_permission.sql)
+// rather than trusting the client-side gate alone.
+export async function approveRetrieval(type: RetrievalEntryType, params: {
+  entryRef: string;
+  approvedBy: string;
+}): Promise<ApproveRetrievalResult> {
+  const rpc = APPROVE_RETRIEVAL_RPC_BY_TYPE[type];
+  if (!rpc) {
+    return { ok: false, error: `Retrieval approval isn't supported for transaction type "${type}"` };
+  }
+  const { error } = await supabase.rpc(rpc.name, {
+    [rpc.idParam]: params.entryRef,
+    p_approved_by: params.approvedBy,
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 export interface CashPayoutResult {
   ok: boolean;
   transactionId?: string;

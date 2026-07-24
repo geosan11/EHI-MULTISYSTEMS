@@ -149,7 +149,7 @@ export async function fetchAndApplyServerConfig(): Promise<boolean> {
 export async function writeAuditLog(entry: {
   user_id?: string;
   user_name: string;
-  action: 'LOGIN' | 'LOGOUT' | 'CREATE' | 'UPDATE' | 'DELETE' | 'EOD_LOCK' | 'SETTINGS_CHANGE' | 'PAYMENT_CONFIRM';
+  action: 'LOGIN' | 'LOGOUT' | 'CREATE' | 'UPDATE' | 'DELETE' | 'EOD_LOCK' | 'SETTINGS_CHANGE' | 'PAYMENT_CONFIRM' | 'RETRIEVAL' | 'UNRETRIEVE' | 'RETRIEVAL_APPROVE';
   table_name?: string;
   record_id?: string;
   description: string;

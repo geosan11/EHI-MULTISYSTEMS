@@ -326,10 +326,10 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
         const [shifts, cargoRes, baggageRes, mktRes, packageRes, expRes, profilesRes] = await Promise.all([
           fetchShifts(),
-          addHubFilter(supabase.from('cargo_entries').select('entry_ref,consignee_name,airline,awb_tag_number,total_pcs,total_kg,size_inches,route,content_type,amount,receipt_mode,pickup_pin,status,created_at,commission_rate,bank,hub_id,terminal,remark,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,consignee_phone,client_type,corporate_client_id,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,is_debt_clearance,related_tx_id').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
-          addHubFilter(supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs,amount_paid,payment_history,airline,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
-          addHubFilter(supabase.from('marketing_entries').select('entry_ref,awb_tag_number,customer_name,route,qty_big_bag,qty_med_bag,qty_small_bag,bb_kg,mb_kg,sb_kg,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,last_edited_by,last_edited_at,debt_amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,customer_phone').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
-          addHubFilter(supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,total_pcs,total_kg,contents,status,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,amount_paid,payment_history,created_at,hub_id,terminal,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,customer_phone').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
+          addHubFilter(supabase.from('cargo_entries').select('entry_ref,consignee_name,airline,awb_tag_number,total_pcs,total_kg,size_inches,route,content_type,amount,receipt_mode,pickup_pin,status,created_at,commission_rate,bank,hub_id,terminal,remark,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,consignee_phone,client_type,corporate_client_id,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
+          addHubFilter(supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs,amount_paid,payment_history,airline,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
+          addHubFilter(supabase.from('marketing_entries').select('entry_ref,awb_tag_number,customer_name,route,qty_big_bag,qty_med_bag,qty_small_bag,bb_kg,mb_kg,sb_kg,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,last_edited_by,last_edited_at,debt_amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,customer_phone').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
+          addHubFilter(supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,total_pcs,total_kg,contents,status,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,amount_paid,payment_history,created_at,hub_id,terminal,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,customer_phone').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
           addHubFilter(supabase.from('expenses').select('*').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
           supabase.from('user_profiles').select('id,name')
         ]);
@@ -396,6 +396,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               retrievalNote: r.retrieval_note ?? undefined,
               retrievedAt: r.retrieved_at ?? undefined,
               retrievedBy: r.retrieved_by ?? undefined,
+              retrievalApproved: r.retrieval_approved ?? undefined,
+              retrievalApprovedBy: r.retrieval_approved_by ?? undefined,
+              retrievalApprovedAt: r.retrieval_approved_at ?? undefined,
               // Was never selected/mapped back -- a debt-clearance shadow
               // entry's "COLLECTION" badge and link to the original debt
               // only survived until the next refetch, after which it was
@@ -448,6 +451,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               retrievalNote: r.retrieval_note ?? undefined,
               retrievedAt: r.retrieved_at ?? undefined,
               retrievedBy: r.retrieved_by ?? undefined,
+              retrievalApproved: r.retrieval_approved ?? undefined,
+              retrievalApprovedBy: r.retrieval_approved_by ?? undefined,
+              retrievalApprovedAt: r.retrieval_approved_at ?? undefined,
               // Not previously set for baggage -- DebtorsTab's balance calc
               // and TransactionLedger's handleClearDebt both read
               // (t.raw as any)?.retrieved_amount, which silently resolved to
@@ -498,6 +504,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               retrievalNote: r.retrieval_note ?? undefined,
               retrievedAt: r.retrieved_at ?? undefined,
               retrievedBy: r.retrieved_by ?? undefined,
+              retrievalApproved: r.retrieval_approved ?? undefined,
+              retrievalApprovedBy: r.retrieval_approved_by ?? undefined,
+              retrievalApprovedAt: r.retrieval_approved_at ?? undefined,
               // Was captured client-side but had no column to land in --
               // see MarketingWorkspace.tsx's own comment on this same gap.
               consigneePhone: r.customer_phone || undefined,
@@ -545,6 +554,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               retrievalNote: r.retrieval_note ?? undefined,
               retrievedAt: r.retrieved_at ?? undefined,
               retrievedBy: r.retrieved_by ?? undefined,
+              retrievalApproved: r.retrieval_approved ?? undefined,
+              retrievalApprovedBy: r.retrieval_approved_by ?? undefined,
+              retrievalApprovedAt: r.retrieval_approved_at ?? undefined,
               // Was captured client-side but had no column to land in --
               // see PackageForm.tsx's own comment on this same gap.
               consigneePhone: r.customer_phone || undefined,
@@ -863,6 +875,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             retrievalNote: r.retrieval_note ?? undefined,
             retrievedAt: r.retrieved_at ?? undefined,
             retrievedBy: r.retrieved_by ?? undefined,
+            retrievalApproved: r.retrieval_approved ?? undefined,
+            retrievalApprovedBy: r.retrieval_approved_by ?? undefined,
+            retrievalApprovedAt: r.retrieval_approved_at ?? undefined,
             raw: r,
           });
         }
@@ -905,6 +920,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               retrievalNote: r.retrieval_note ?? t.retrievalNote,
               retrievedAt: r.retrieved_at ?? t.retrievedAt,
               retrievedBy: r.retrieved_by ?? t.retrievedBy,
+              retrievalApproved: r.retrieval_approved ?? t.retrievalApproved,
+              retrievalApprovedBy: r.retrieval_approved_by ?? t.retrievalApprovedBy,
+              retrievalApprovedAt: r.retrieval_approved_at ?? t.retrievalApprovedAt,
               raw: { ...(t.raw || {}), ...r },
             } : t
           ));
@@ -942,6 +960,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             retrievalNote: r.retrieval_note ?? undefined,
             retrievedAt: r.retrieved_at ?? undefined,
             retrievedBy: r.retrieved_by ?? undefined,
+            retrievalApproved: r.retrieval_approved ?? undefined,
+            retrievalApprovedBy: r.retrieval_approved_by ?? undefined,
+            retrievalApprovedAt: r.retrieval_approved_at ?? undefined,
             raw: r,
           });
         }
@@ -966,6 +987,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               retrievalNote: r.retrieval_note ?? t.retrievalNote,
               retrievedAt: r.retrieved_at ?? t.retrievedAt,
               retrievedBy: r.retrieved_by ?? t.retrievedBy,
+              retrievalApproved: r.retrieval_approved ?? t.retrievalApproved,
+              retrievalApprovedBy: r.retrieval_approved_by ?? t.retrievalApprovedBy,
+              retrievalApprovedAt: r.retrieval_approved_at ?? t.retrievalApprovedAt,
               raw: { ...(t.raw || {}), ...r },
             } : t
           ));
@@ -998,6 +1022,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             retrievalNote: r.retrieval_note ?? undefined,
             retrievedAt: r.retrieved_at ?? undefined,
             retrievedBy: r.retrieved_by ?? undefined,
+            retrievalApproved: r.retrieval_approved ?? undefined,
+            retrievalApprovedBy: r.retrieval_approved_by ?? undefined,
+            retrievalApprovedAt: r.retrieval_approved_at ?? undefined,
             raw: r,
           });
         }
@@ -1025,6 +1052,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               retrievalNote: r.retrieval_note ?? t.retrievalNote,
               retrievedAt: r.retrieved_at ?? t.retrievedAt,
               retrievedBy: r.retrieved_by ?? t.retrievedBy,
+              retrievalApproved: r.retrieval_approved ?? t.retrievalApproved,
+              retrievalApprovedBy: r.retrieval_approved_by ?? t.retrievalApprovedBy,
+              retrievalApprovedAt: r.retrieval_approved_at ?? t.retrievalApprovedAt,
               raw: { ...(t.raw || {}), ...r },
             } : t
           ));
@@ -1061,6 +1091,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             retrievalNote: r.retrieval_note ?? undefined,
             retrievedAt: r.retrieved_at ?? undefined,
             retrievedBy: r.retrieved_by ?? undefined,
+            retrievalApproved: r.retrieval_approved ?? undefined,
+            retrievalApprovedBy: r.retrieval_approved_by ?? undefined,
+            retrievalApprovedAt: r.retrieval_approved_at ?? undefined,
             raw: r,
           });
         }
@@ -1093,6 +1126,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               retrievalNote: r.retrieval_note ?? t.retrievalNote,
               retrievedAt: r.retrieved_at ?? t.retrievedAt,
               retrievedBy: r.retrieved_by ?? t.retrievedBy,
+              retrievalApproved: r.retrieval_approved ?? t.retrievalApproved,
+              retrievalApprovedBy: r.retrieval_approved_by ?? t.retrievalApprovedBy,
+              retrievalApprovedAt: r.retrieval_approved_at ?? t.retrievalApprovedAt,
               raw: { ...(t.raw || {}), ...r },
             } : t
           ));

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Transaction, User, Expense } from "../../lib/types";
 import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDateTime } from "../../lib/helpers";
-import { applyWalletTransaction, processRetrieval, unretrieveEntry, RetrievalEntryType } from "../../lib/wallet";
+import { applyWalletTransaction, processRetrieval, unretrieveEntry, approveRetrieval, RetrievalEntryType } from "../../lib/wallet";
 import { clearDebt, DebtEntryType } from "../../lib/debt";
 import { confirmPayment, PaymentEntryType } from "../../lib/paymentConfirmation";
 import { useHubRoutes } from "../../lib/hubRoutes";
@@ -30,10 +30,11 @@ import {
   HandCoins,
   Clock,
   Undo2,
+  ShieldCheck,
 } from "lucide-react";
 import { QRCode } from "../QRCode";
 import TagPrintHistory from "./TagPrintHistory";
-import { supabase } from "../../lib/supabase";
+import { supabase, writeAuditLog } from "../../lib/supabase";
 import { useToast } from "../../lib/ToastContext";
 import { useConfirm } from "../../lib/ConfirmContext";
 import { LiveCreditFeed } from "../LiveCreditFeed";
@@ -55,6 +56,18 @@ type Entry = {
   raw: any;
   paymentConfirmed?: boolean;
   posApprovalCode?: string;
+};
+
+// Maps a transaction type to its real DB table -- needed anywhere a
+// retrieval/approval action writes an audit_log row, since audit_log's
+// table_name should point at the actual table (cargo_entries/manifests/
+// marketing_entries/package_entries), not the app-level 'cargo'/'baggage'/
+// 'marketing'/'package' type string.
+const RETRIEVAL_TABLE_NAME: Record<RetrievalEntryType, string> = {
+  cargo: 'cargo_entries',
+  baggage: 'manifests',
+  marketing: 'marketing_entries',
+  package: 'package_entries',
 };
 
 export const TransactionLedger = ({
@@ -348,6 +361,8 @@ export const TransactionLedger = ({
         if (e.source !== "expense") return false;
       } else if (modeFilter === "Unverified") {
         if (!((e.mode === 'Cash' || e.mode === 'Transfer' || e.mode === 'POS') && !e.raw.paymentConfirmed)) return false;
+      } else if (modeFilter === "Retrieved") {
+        if (!((e.raw as any)?.raw?.retrieved_amount > 0)) return false;
       } else {
         if (e.mode.toLowerCase() !== modeFilter.toLowerCase()) return false;
       }
@@ -1303,9 +1318,22 @@ export const TransactionLedger = ({
       retrieved: false,
       retrievalNote: `Retrieval reversed by ${user.name || 'Unknown'}`,
       status: 'Intake',
-      raw: { ...(tx.raw || {}), retrieved: false, retrieved_amount: 0, retrieved_pieces: 0, retrieved_kg: 0, status: 'Intake' },
+      raw: { ...(tx.raw || {}), retrieved: false, retrieved_amount: 0, retrieved_pieces: 0, retrieved_kg: 0, status: 'Intake', retrieval_approved: false, retrieval_approved_by: null, retrieval_approved_at: null },
     };
     onUpdateTx(updated);
+    // Retrieval/unretrieve previously wrote nothing to audit_log at all --
+    // called directly here (not routed through EHIApp.tsx's handleUpdateTx,
+    // whose isGenuineEdit/PAYMENT_CONFIRM gates key off dedicated marker
+    // fields like editedBy/paymentConfirmed that this action has no
+    // equivalent of).
+    writeAuditLog({
+      user_id: user.id, user_name: user.name || 'Unknown', action: 'UNRETRIEVE',
+      table_name: RETRIEVAL_TABLE_NAME[tx.type as RetrievalEntryType], record_id: tx.id,
+      description: `Retrieval reversed for ${tx.name} (was ${fmt(reversedAmount)} retrieved)`,
+      hub: user.hub, hub_id: user.hub_id,
+      old_values: { retrieved_amount: reversedAmount },
+      new_values: { retrieved_amount: 0 },
+    }).catch(() => {});
     showToast({ message: 'Retrieval undone', type: 'success' });
     setViewingDetail({ ...viewingDetail, raw: updated });
   };
@@ -1378,9 +1406,62 @@ export const TransactionLedger = ({
       : refund > 0
         ? `Successfully deposited ₦${fmt(refund)} to ${customerName}'s wallet!`
         : `₦${fmt(debtCleared)} debt cleared for ${customerName}. No wallet refund was due.`;
+
+    // Same audit_log gap fix as handleUnretrieve above.
+    writeAuditLog({
+      user_id: user.id, user_name: user.name || 'Unknown', action: 'RETRIEVAL',
+      table_name: RETRIEVAL_TABLE_NAME[entry.type as RetrievalEntryType], record_id: entry.id,
+      description: `${data.isPartial ? 'Partial' : 'Full'} retrieval processed for ${customerName} -- ₦${fmt(data.retrievedValue)} (₦${fmt(debtCleared)} debt cleared, ₦${fmt(refund)} to wallet)`,
+      hub: user.hub, hub_id: user.hub_id,
+      old_values: { retrieved_amount: priorRetrievedAmount },
+      new_values: { retrieved_amount: newRetrievedAmount, retrieved_by: user.name, retrieved_at: new Date().toISOString() },
+    }).catch(() => {});
+
     showToast({ message, type: 'success' });
     setViewingDetail(null);
     setRetrievalModalEntry(null);
+  };
+
+  const canApproveRetrievals = user.role === 'super_admin' || user.can_approve_retrievals === true;
+
+  const handleApproveRetrieval = async () => {
+    if (!viewingDetail || viewingDetail.source !== 'transaction') return;
+    const tx = viewingDetail.raw as Transaction;
+    const ok = await confirm({
+      title: 'Approve this retrieval?',
+      message: `Marks ${tx.name}'s retrieval as reviewed/approved. This does not re-trigger any wallet or debt movement -- it's a review stamp only.`,
+      confirmLabel: 'Approve',
+      tone: 'default',
+    });
+    if (!ok) return;
+
+    const result = await approveRetrieval(tx.type as RetrievalEntryType, {
+      entryRef: tx.id,
+      approvedBy: user.name || 'Unknown',
+    });
+    if (!result.ok) {
+      showToast({ message: result.error || 'Failed to approve retrieval.', type: 'error' });
+      return;
+    }
+
+    const approvedAt = new Date().toISOString();
+    const updated: Transaction = {
+      ...tx,
+      retrievalApproved: true,
+      retrievalApprovedBy: user.name,
+      retrievalApprovedAt: approvedAt,
+      raw: { ...(tx.raw || {}), retrieval_approved: true, retrieval_approved_by: user.name, retrieval_approved_at: approvedAt },
+    };
+    onUpdateTx(updated);
+    writeAuditLog({
+      user_id: user.id, user_name: user.name || 'Unknown', action: 'RETRIEVAL_APPROVE',
+      table_name: RETRIEVAL_TABLE_NAME[tx.type as RetrievalEntryType], record_id: tx.id,
+      description: `Retrieval approved for ${tx.name}`,
+      hub: user.hub, hub_id: user.hub_id,
+      new_values: { retrieval_approved: true, retrieval_approved_by: user.name },
+    }).catch(() => {});
+    showToast({ message: 'Retrieval approved', type: 'success' });
+    setViewingDetail({ ...viewingDetail, raw: updated });
   };
 
   // Edit allowed only when not view-only AND user has can_print_ledger or is super_admin
@@ -1855,6 +1936,7 @@ export const TransactionLedger = ({
                     <option value="POS">POS</option>
                     <option value="Debt">Debt</option>
                     <option value="Unverified">Unverified</option>
+                    <option value="Retrieved">Retrieved</option>
                   </select>
                 </div>
 
@@ -2441,6 +2523,18 @@ export const TransactionLedger = ({
                         Retrieved: {(viewingDetail.raw as any).raw.retrieved_kg || 0} KG · {(viewingDetail.raw as any).raw.retrieved_pieces || 0} PCS · ₦{fmt((viewingDetail.raw as any).raw.retrieved_amount || 0)}
                       </div>
                     )}
+                    {((viewingDetail.raw as any)?.raw?.retrieved_amount || 0) > 0 && (
+                      <div className="text-[10px] font-mono text-[var(--color-muted)]">
+                        Retrieved by {(viewingDetail.raw as any)?.retrievedBy || (viewingDetail.raw as any)?.raw?.retrieved_by || 'Unknown'}
+                        {(viewingDetail.raw as any)?.raw?.retrieved_at ? ` at ${new Date((viewingDetail.raw as any).raw.retrieved_at).toLocaleString('en-NG')}` : ''}
+                      </div>
+                    )}
+                    {(viewingDetail.raw as any)?.raw?.retrieval_approved && (
+                      <div className="text-[10px] font-mono text-[var(--color-success)]">
+                        ✓ Approved by {(viewingDetail.raw as any)?.raw?.retrieval_approved_by || 'Unknown'}
+                        {(viewingDetail.raw as any)?.raw?.retrieval_approved_at ? ` at ${new Date((viewingDetail.raw as any).raw.retrieval_approved_at).toLocaleString('en-NG')}` : ''}
+                      </div>
+                    )}
                   </div>
                 </section>
               )}
@@ -2491,6 +2585,21 @@ export const TransactionLedger = ({
                         title="Undo this entry's retrieval record (does not touch any wallet balance)"
                       >
                         <Undo2 size={14} /> Unretrieve
+                      </button>
+                    )}
+                    {/* Post-hoc review stamp, gated by the can_approve_retrievals
+                        permission -- unlike Refund to Wallet/Unretrieve above,
+                        this one IS gated: it's an oversight/audit action, not
+                        retrieval execution itself, which stays open to any
+                        staff by design. Never re-triggers any wallet/debt
+                        movement. */}
+                    {canApproveRetrievals && ((viewingDetail.raw as any)?.raw?.retrieved_amount || 0) > 0 && !(viewingDetail.raw as any)?.raw?.retrieval_approved && (
+                      <button
+                        onClick={handleApproveRetrieval}
+                        className="flex-1 py-2.5 flex items-center justify-center gap-1.5 bg-[rgba(16,185,129,0.1)] hover:bg-[var(--color-success)] hover:text-white text-[var(--color-success)] rounded-lg transition-colors border border-[rgba(16,185,129,0.2)] text-[11px] font-mono font-bold"
+                        title="Mark this retrieval as reviewed and approved"
+                      >
+                        <ShieldCheck size={14} /> Approve Retrieval
                       </button>
                     )}
                     {viewingDetail.mode === 'Debt' && !viewOnly && (

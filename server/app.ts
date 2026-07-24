@@ -395,6 +395,13 @@ export function createApp() {
       return res.status(403).json({ error: 'Only a super_admin can edit remarks editing permission.' });
     }
 
+    // Granting approval authority over retrieved transactions is an
+    // accountability-sensitive permission -- same reasoning as
+    // can_edit_remarks/view_overrides above, not just a hub admin's call.
+    if ('can_approve_retrievals' in updates && adminCtx.callerRole !== 'super_admin') {
+      return res.status(403).json({ error: 'Only a super_admin can grant retrieval-approval permission.' });
+    }
+
     try {
       const { error } = await adminClient.from('user_profiles').update(updates).eq('id', userId);
       if (error) return res.status(400).json({ error: error.message });
