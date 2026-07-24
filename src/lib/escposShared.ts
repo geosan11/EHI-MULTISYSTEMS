@@ -153,8 +153,10 @@ export async function getAirlineLogoRaster(
   if (!airline) return null;
   const url = airlineLogoUrl(airline);
   if (!url) return null;
+  const isWideAirline = /aero|contractors|overland|valuejet/i.test(airline);
+  const targetWidth = isWideAirline ? Math.round(widthDots * 1.35) : widthDots;
   try {
-    return await imageToEscPosRaster(url, widthDots, 160);
+    return await imageToEscPosRaster(url, targetWidth, 180);
   } catch {
     return null;
   }
