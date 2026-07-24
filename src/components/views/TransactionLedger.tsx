@@ -2242,6 +2242,25 @@ export const TransactionLedger = ({
                             RETRIEVED
                           </span>
                         )}
+                        {/* A PARTIAL retrieval (some amount already handed
+                            over, but the entry hasn't reached its full amount
+                            yet -- e.raw.retrieved only flips true at 100%)
+                            previously showed nothing at all in the row list;
+                            the only place it was visible was the "Retrieved:
+                            X KG · Y PCS · ₦Z" line inside the detail view,
+                            one click away. Same retrieved_pieces/kg/amount
+                            fields, shown right here instead of requiring
+                            that click -- e.raw.raw is the true DB row (see
+                            the COLLECTION badge's own comment on this exact
+                            Entry -> Transaction -> raw DB row chain). */}
+                        {!e.raw?.retrieved && ((e.raw as any)?.raw?.retrieved_amount || 0) > 0 && (
+                          <span
+                            className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.3)]"
+                            title={`Partially retrieved: ${(e.raw as any).raw.retrieved_kg || 0} KG · ${(e.raw as any).raw.retrieved_pieces || 0} PCS`}
+                          >
+                            PARTIAL: {(e.raw as any).raw.retrieved_kg || 0}KG · {(e.raw as any).raw.retrieved_pieces || 0}PC · ₦{fmt((e.raw as any).raw.retrieved_amount)}
+                          </span>
+                        )}
                         {e.raw?.linked_as_office_work && (
                           <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(139,92,246,0.15)] text-[#a78bfa] border border-[rgba(139,92,246,0.3)]">
                             OFFICE WORK
