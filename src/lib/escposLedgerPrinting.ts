@@ -38,10 +38,9 @@ export interface LedgerPrintMetadata {
 
 /**
  * Compiles a compact 80mm ESC/POS thermal receipt stream for the transaction ledger.
- * Excludes Customer Name and Payment Mode per configuration for maximum space efficiency.
  * Format per row:
  *   ID
- *   DEST: <DEST_CODE>  <KG>KG  <PC>PC  ₦<AMOUNT>
+ *   <DEST_CODE>  <KG>KG  <PC>PC  ₦<AMOUNT>
  */
 export async function compileLedger80mmStream(
   entries: LedgerPrintEntry[],
@@ -93,7 +92,7 @@ export async function compileLedger80mmStream(
 
     const raw = e.raw || {};
     const destCode = getHubCode(raw.destination || raw.hub || 'DEST');
-    const kgVal = parseFloat(raw.totalKg || raw.kg || raw.excessKg || 0) || 0;
+    const kgVal = Math.round(parseFloat(raw.totalKg || raw.kg || raw.excessKg || 0) || 0);
     const pcsVal = parseInt(raw.pieces || raw.pcs || 1) || 1;
 
     totalKg += kgVal;
@@ -105,10 +104,10 @@ export async function compileLedger80mmStream(
     chunks.push(encoder.encode(idLine));
     chunks.push(new Uint8Array(BOLD_OFF));
 
-    const destPart = `   DEST: ${destCode.padEnd(6)}`;
-    const kgPart = `${kgVal.toFixed(1)}KG`.padStart(8);
+    const destPart = `   ${destCode.padEnd(5)}`;
+    const kgPart = `${kgVal}KG`.padStart(8);
     const pcPart = `${pcsVal}PC`.padStart(5);
-    const amtPart = `N${fmt(e.amount)}`.padStart(12);
+    const amtPart = `N${fmt(e.amount)}`.padStart(14);
 
     const specLine = `${destPart}${kgPart}${pcPart} ${amtPart}\n`;
     chunks.push(encoder.encode(specLine));
@@ -118,15 +117,11 @@ export async function compileLedger80mmStream(
   // Footer Totals
   chunks.push(encoder.encode(lineChar));
   chunks.push(new Uint8Array(BOLD_ON));
-  chunks.push(encoder.encode(`TOTAL WEIGHT: ${totalKg.toFixed(1)} KG\n`));
+  chunks.push(encoder.encode(`TOTAL WEIGHT: ${Math.round(totalKg)} KG\n`));
   chunks.push(encoder.encode(`TOTAL PIECES: ${totalPcs} PCS\n`));
   chunks.push(encoder.encode(`TOTAL REVENUE: N${fmt(meta.totalAmount)}\n`));
   chunks.push(new Uint8Array(BOLD_OFF));
   chunks.push(encoder.encode(doubleLine));
-
-  // Signatures
-  chunks.push(encoder.encode("\n"));
-  chunks.push(encoder.encode("Agent Sig: ____________  Acct Sig: ____________\n"));
   chunks.push(encoder.encode("\n"));
 
   chunks.push(new Uint8Array(FEED_AND_CUT));
