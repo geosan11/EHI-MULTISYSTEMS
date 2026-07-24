@@ -1992,6 +1992,46 @@ export const TransactionLedger = ({
               </div>
             </div>
 
+            {/* ── Type Quick-Filter Chips ──────────────────────── */}
+            <div className="px-4 py-2 border-b border-[var(--color-border)] shrink-0">
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                {([
+                  { label: 'All',        value: 'All',        activeClass: 'bg-[var(--color-surface-2)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
+                  { label: 'Cargo',      value: 'Cargo',      activeClass: 'bg-[rgba(59,130,246,0.15)] border-[var(--color-accent-cobalt)] text-[var(--color-accent-cobalt)]' },
+                  { label: 'Baggage',    value: 'Baggage',    activeClass: 'bg-[rgba(245,158,11,0.15)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
+                  { label: 'Marketing',  value: 'Marketing',  activeClass: 'bg-[rgba(16,185,129,0.15)] border-[var(--color-success)] text-[var(--color-success)]' },
+                  { label: 'Package',    value: 'Package',    activeClass: 'bg-[rgba(168,85,247,0.15)] border-purple-400 text-purple-400' },
+                  { label: 'Expense',    value: 'Expense',    activeClass: 'bg-[rgba(239,68,68,0.15)] border-[var(--color-error)] text-[var(--color-error)]' },
+                  { label: 'Office Work',value: 'Office Work',activeClass: 'bg-[var(--color-surface-2)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
+                ] as const).map(({ label, value, activeClass }) => {
+                  const count = value === 'All'
+                    ? entries.length
+                    : value === 'Office Work'
+                      ? entries.filter(e => e.raw?.clientType === 'Corporate' || e.raw?.linked_as_office_work).length
+                      : entries.filter(e => e.type === value.toLowerCase()).length;
+                  const isActive = typeFilter === value;
+                  return (
+                    <button
+                      key={value}
+                      onClick={() => setTypeFilter(value)}
+                      className={`shrink-0 h-7 px-2.5 rounded-full text-[10px] font-mono font-bold border transition-all cursor-pointer flex items-center gap-1 ${
+                        isActive
+                          ? activeClass
+                          : 'bg-[var(--color-surface-1)] border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-muted)]'
+                      }`}
+                    >
+                      {label}
+                      <span className={`text-[9px] px-1 py-0 rounded-full min-w-[16px] text-center ${
+                        isActive ? 'bg-[rgba(255,255,255,0.15)]' : 'bg-[var(--color-surface-2)]'
+                      }`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* ── Filter Strip ─────────────────────────────────── */}
             <div className="px-4 py-2.5 border-b border-[var(--color-border)] space-y-2 shrink-0">
               {/* Row 1: Search + Shift Scope */}
@@ -2317,7 +2357,7 @@ export const TransactionLedger = ({
                           )}
                         </div>
 
-                        {/* Bottom Row: Mode & Amount & Action */}
+                        {/* Bottom Row: Mode & Amount & Quick Actions */}
                         <div className="flex items-center justify-between border-t border-[var(--color-border)] pt-2 mt-1">
                           <div className="flex items-center gap-2">
                             <span className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${
@@ -2345,10 +2385,37 @@ export const TransactionLedger = ({
                             )}
                           </div>
 
-                          <div className={`font-mono font-bold text-[13px] ${e.source === "expense" ? "text-[var(--color-error)]" : "text-[var(--color-success)]"}`}>
-                            {e.source === "expense" ? "-" : ""}₦{fmt(e.amount)}
+                          <div className="flex items-center gap-1.5">
+                            {/* Quick-copy reference */}
+                            <button
+                              onClick={(evt) => {
+                                evt.stopPropagation();
+                                navigator.clipboard?.writeText(e.id).catch(() => {});
+                              }}
+                              title="Copy Reference"
+                              className="h-6 w-6 flex items-center justify-center rounded bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] transition-colors cursor-pointer shrink-0"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                            </button>
+                            {/* QR code */}
+                            {e.source === 'transaction' && (
+                              <button
+                                onClick={(evt) => {
+                                  evt.stopPropagation();
+                                  setViewingQrTx(e);
+                                }}
+                                title="Show QR Code"
+                                className="h-6 w-6 flex items-center justify-center rounded bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] transition-colors cursor-pointer shrink-0"
+                              >
+                                <QrCode size={10} />
+                              </button>
+                            )}
+                            <div className={`font-mono font-bold text-[13px] ${e.source === "expense" ? "text-[var(--color-error)]" : "text-[var(--color-success)]"}`}>
+                              {e.source === "expense" ? "-" : ""}₦{fmt(e.amount)}
+                            </div>
                           </div>
                         </div>
+
                       </div>
                     );
                   })

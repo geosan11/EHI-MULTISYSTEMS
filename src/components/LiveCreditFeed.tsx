@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CustomerWallet, Transaction } from '../lib/types';
 import { fmt, tnow } from '../lib/helpers';
-import { Wallet, RefreshCw, ArrowUpRight, ArrowDownLeft, Sparkles, ChevronRight, ChevronLeft, Plus, History } from 'lucide-react';
+import { Wallet, RefreshCw, ArrowUpRight, ArrowDownLeft, Sparkles, ChevronRight, ChevronLeft, Plus, History, X } from 'lucide-react';
 
 interface LiveCreditFeedProps {
   wallets: CustomerWallet[];
@@ -20,6 +20,7 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
 }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<'wallets' | 'activity'>('wallets');
+  const [drawerWallet, setDrawerWallet] = useState<CustomerWallet | null>(null);
 
   const totalLiability = wallets.reduce((sum, w) => sum + (w.balance || 0), 0);
   const activeWalletsCount = wallets.filter((w) => (w.balance || 0) > 0).length;
@@ -119,7 +120,8 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
             wallets.map((w) => (
               <div
                 key={w.id}
-                className="p-2 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] rounded-lg space-y-1.5 transition-all group"
+                onClick={() => setDrawerWallet(w)}
+                className="p-2 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] border border-[var(--color-border)] rounded-lg space-y-1.5 transition-all group cursor-pointer"
               >
                 <div className="flex items-start justify-between gap-1">
                   <div className="min-w-0">
@@ -253,6 +255,89 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
           >
             Manage All Wallets & Receipts →
           </button>
+        </div>
+      )}
+
+      {/* Wallet Mini-Drawer */}
+      {drawerWallet && (
+        <div className="absolute inset-0 z-50 flex flex-col bg-[var(--color-surface-1)] border-l border-[var(--color-border)]">
+          {/* Drawer Header */}
+          <div className="p-3 bg-[var(--color-surface-2)] border-b border-[var(--color-border)] flex items-center justify-between shrink-0">
+            <div className="min-w-0">
+              <div className="text-[11px] font-bold font-sans text-[var(--color-foreground)] truncate">{drawerWallet.customer_name}</div>
+              <div className="text-[9px] font-mono text-[var(--color-muted)]">{drawerWallet.customer_phone || 'No phone'}</div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="text-right">
+                <div className="text-[14px] font-bold font-mono text-[var(--color-accent-amber)]">₦{fmt(drawerWallet.balance)}</div>
+                <div className="text-[8px] font-mono text-[var(--color-success)] uppercase">Credit Balance</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDrawerWallet(null)}
+                className="p-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)] rounded-lg cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+            <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider px-1 pb-1">Recent Transactions</div>
+            {transactions
+              .filter(t =>
+                (t.name || '').toLowerCase() === (drawerWallet.customer_name || '').toLowerCase() ||
+                (t as any).wallet_id === drawerWallet.id
+              )
+              .slice(0, 8)
+              .map((t, i) => (
+                <div key={i} className="p-2 bg-[var(--color-surface-2)] rounded-lg border border-[var(--color-border)] flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-mono font-bold text-[var(--color-foreground)] truncate">{(t as any).id || 'TX'}</div>
+                    <div className="text-[9px] font-mono text-[var(--color-muted)] truncate">{t.detail || t.mode}</div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-[11px] font-mono font-bold text-[var(--color-success)]">₦{fmt(t.amount)}</div>
+                    <div className="text-[8px] font-mono text-[var(--color-muted)]">{t.mode}</div>
+                  </div>
+                </div>
+              ))}
+            {transactions.filter(t =>
+              (t.name || '').toLowerCase() === (drawerWallet.customer_name || '').toLowerCase() ||
+              (t as any).wallet_id === drawerWallet.id
+            ).length === 0 && (
+              <div className="py-6 text-center text-[10px] font-mono text-[var(--color-muted)]">No recent activity for this wallet</div>
+            )}
+          </div>
+
+          {/* Quick Actions */}
+          <div className="p-2 border-t border-[var(--color-border)] space-y-1.5 shrink-0">
+            {onFilterByCustomer && (
+              <button
+                type="button"
+                onClick={() => {
+                  onFilterByCustomer(drawerWallet.customer_name);
+                  setDrawerWallet(null);
+                }}
+                className="w-full h-8 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[10px] font-mono font-bold text-[var(--color-foreground)] hover:border-[var(--color-accent-amber)] hover:text-[var(--color-accent-amber)] transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <History size={11} /> Filter Ledger
+              </button>
+            )}
+            {onOpenTopUp && (
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenTopUp(drawerWallet.customer_name);
+                  setDrawerWallet(null);
+                }}
+                className="w-full h-8 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg text-[10px] font-mono font-bold hover:opacity-90 transition-opacity cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Plus size={11} /> Top-Up Wallet
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
