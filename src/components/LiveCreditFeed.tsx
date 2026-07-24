@@ -97,7 +97,7 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
               : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
           }`}
         >
-          <Wallet size={11} /> Wallets ({activeWalletsCount})
+          <Wallet size={11} /> Wallets ({wallets.length})
         </button>
         <button
           type="button"

@@ -152,9 +152,10 @@ export const CustomerWallets = ({
         ? query.not('archived_at', 'is', null)
         : query.is('archived_at', null);
 
-      if (user.role !== 'admin' && user.role !== 'super_admin' && user.hub_id) {
-        query = query.eq('hub_id', user.hub_id);
-      }
+      // Customer credit wallets are company-wide customer accounts -- all station
+      // agents across all hubs require visibility into all customer wallets
+      // to process wallet payments, top-ups, and ledger checks regardless of
+      // origin hub.
 
       const { data, error } = await query;
       if (error) {
