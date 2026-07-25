@@ -932,7 +932,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               // silently reverted back to 'Debt' the instant this
               // handler's own realtime round-trip for that same RPC
               // write arrives.
-              mode: r.receipt_mode === 'Debt' && Number(r.amount_paid || 0) >= Number(r.amount || 0) ? 'Debt Paid' : (r.receipt_mode || t.mode),
+              mode: (r.receipt_mode || t.mode) === 'Debt' && Number(r.amount_paid ?? t.amountPaid ?? 0) >= Number(r.amount ?? t.amount ?? 0) ? 'Debt Paid' : (r.receipt_mode || t.mode),
               paymentConfirmed: r.payment_confirmed,
               posApprovalCode: r.pos_approval_code,
               bank: r.bank ?? t.bank,
@@ -1013,7 +1013,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               ...t,
               // Same 'Debt Paid' recomputation as the cargo channel above --
               // see its comment for why this can't just pass payment_mode through.
-              mode: r.payment_mode === 'Debt' && Number(r.amount_paid || 0) >= Number(r.amount || 0) ? 'Debt Paid' : (r.payment_mode || t.mode),
+              mode: (r.payment_mode || t.mode) === 'Debt' && Number(r.amount_paid ?? t.amountPaid ?? 0) >= Number(r.amount ?? t.amount ?? 0) ? 'Debt Paid' : (r.payment_mode || t.mode),
               paymentConfirmed: r.payment_confirmed,
               posApprovalCode: r.pos_approval_code,
               editedBy: r.last_edited_by ?? t.editedBy,
@@ -1084,7 +1084,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               // entries' own naming inversion (amount_paid there is the
               // SALE total, not what's been paid down; see clear_marketing_
               // debt's comment on this).
-              mode: r.payment_mode === 'Debt' && Number(r.debt_amount_paid || 0) >= Number(r.amount_paid || 0) ? 'Debt Paid' : (r.payment_mode || t.mode),
+              mode: (r.payment_mode || t.mode) === 'Debt' && Number(r.debt_amount_paid ?? t.amountPaid ?? 0) >= Number(r.amount_paid ?? t.amount ?? 0) ? 'Debt Paid' : (r.payment_mode || t.mode),
               paymentConfirmed: r.payment_confirmed,
               status: r.status || t.status,
               editedBy: r.last_edited_by ?? t.editedBy,
@@ -1158,7 +1158,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               // Same 'Debt Paid' recomputation as the cargo channel above,
               // also OR'ing in the legacy debt_paid boolean flag to match
               // fetchInitial's own package formula exactly.
-              mode: r.payment_mode === 'Debt' && (r.debt_paid === true || Number(r.amount_paid || 0) >= Number(r.amount || 0)) ? 'Debt Paid' : (r.payment_mode || t.mode),
+              mode: (r.payment_mode || t.mode) === 'Debt' && (r.debt_paid === true || t.debtPaid === true || Number(r.amount_paid ?? t.amountPaid ?? 0) >= Number(r.amount ?? t.amount ?? 0)) ? 'Debt Paid' : (r.payment_mode || t.mode),
               paymentConfirmed: r.payment_confirmed,
               posApprovalCode: r.pos_approval_code,
               bank: r.bank ?? t.bank,
