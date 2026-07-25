@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Transaction, User, Expense } from "../../lib/types";
 import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDateTime } from "../../lib/helpers";
@@ -179,7 +179,17 @@ export const TransactionLedger = ({
   const [viewingQrTx, setViewingQrTx] = useState<Entry | null>(null);
   const [viewingDetail, setViewingDetail] = useState<Entry | null>(null);
   const [retrievalModalEntry, setRetrievalModalEntry] = useState<Entry | null>(null);
+  // Raw input value (updates on every keystroke for controlled input)
+  const [searchInput, setSearchInput] = useState("");
+  // Debounced value fed into the filteredEntries useMemo — avoids running
+  // a full 5000-row scan on every character typed.
   const [searchQuery, setSearchQuery] = useState("");
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleSearchChange = useCallback((val: string) => {
+    setSearchInput(val);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => setSearchQuery(val), 200);
+  }, []);
   const [typeFilter, setTypeFilter] = useState(defaultTypeFilter || "All");
   const [modeFilter, setModeFilter] = useState("All");
   // GAT (General Aviation Terminal / MM1) is a second physical Lagos
@@ -243,11 +253,24 @@ export const TransactionLedger = ({
 
     const channel = supabase
       .channel('customer_wallets_ledger_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'customer_wallets' }, () => {
-        fetchWallets();
+      // UPDATE: patch in-place — avoids a full SELECT * on every wallet change
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'customer_wallets' }, payload => {
+        const updated = payload.new as any;
+        setWallets(prev => prev.map(w => w.id === updated.id ? { ...w, ...updated } : w));
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_transactions' }, () => {
-        fetchWallets();
+      // INSERT: prepend the new wallet
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'customer_wallets' }, payload => {
+        const inserted = payload.new as any;
+        setWallets(prev => [inserted, ...prev]);
+      })
+      // wallet_transactions: trigger a targeted balance refresh for just that wallet
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_transactions' }, payload => {
+        const walletId = (payload.new as any)?.wallet_id || (payload.old as any)?.wallet_id;
+        if (!walletId) { fetchWallets(); return; }
+        supabase.from('customer_wallets').select('*').eq('id', walletId).single()
+          .then(({ data }) => {
+            if (data) setWallets(prev => prev.map(w => w.id === walletId ? { ...w, ...data } : w));
+          });
       })
       .subscribe();
 
@@ -1654,42 +1677,52 @@ export const TransactionLedger = ({
     count: displayEntries.length,
     getScrollElement: () => tableRef.current,
     estimateSize: () => 72,
-    overscan: 10,
+    overscan: 4, // reduced from 10 — fewer off-screen rows rendered per frame
   });
 
-  const transferAmount = filteredEntries.filter(e => e.mode === 'Transfer').reduce((acc, e) => acc + (e.source === 'expense' ? -e.amount : e.amount), 0);
-  const posAmount = filteredEntries.filter(e => e.mode === 'POS').reduce((acc, e) => acc + (e.source === 'expense' ? -e.amount : e.amount), 0);
+  // ─── KPI Math ─────────────────────────────────────────────────────────────
+  // All five reduce passes are wrapped in a single useMemo so they only run
+  // when filteredEntries actually changes, not on every render (e.g. typing,
+  // modal open, checkbox tick). Each pass used to block the main thread for
+  // 20–80ms on a 1000-5000 row ledger.
+  const kpis = useMemo(() => {
+    let transfer = 0, pos = 0, debt = 0, wallet = 0, debtCount = 0;
+    for (const e of filteredEntries) {
+      const sign = e.source === 'expense' ? -1 : 1;
+      if (e.mode === 'Transfer') transfer += sign * e.amount;
+      if (e.mode === 'POS') pos += sign * e.amount;
+      if (e.mode === 'Debt') {
+        const tx = e.raw as Transaction;
+        debt += Math.max(0, (tx.amount || 0) - (tx.amountPaid || 0) - ((tx.raw as any)?.retrieved_amount || 0));
+        debtCount++;
+      }
+      const ded = e.raw?.wallet_deduction_amount || (e.mode === 'Wallet' ? e.amount : 0);
+      wallet += ded;
+    }
+    return { transferAmount: transfer, posAmount: pos, debtAmount: debt, walletAmount: wallet, unpaidDebtCount: debtCount };
+  }, [filteredEntries]);
 
-  const debtAmount = filteredEntries.filter(e => e.mode === 'Debt').reduce((acc, e) => {
-    const tx = e.raw as Transaction;
-    const remaining = Math.max(0, (tx.amount || 0) - (tx.amountPaid || 0) - ((tx.raw as any)?.retrieved_amount || 0));
-    return acc + remaining;
-  }, 0);
+  const { transferAmount, posAmount, debtAmount, walletAmount, unpaidDebtCount } = kpis;
 
-  const walletAmount = filteredEntries.reduce((acc, e) => {
-    const ded = e.raw?.wallet_deduction_amount || (e.mode === 'Wallet' ? e.amount : 0);
-    return acc + ded;
-  }, 0);
-
-  const unpaidDebtCount = filteredEntries.filter(e => e.mode === 'Debt').length;
-
-  const hasNonDefaultFilters =
-    typeFilter !== (defaultTypeFilter || "All") ||
-    modeFilter !== "All" ||
-    terminalFilter !== (defaultTerminalFilter || "All") ||
-    timeFilter !== "All" ||
-    searchQuery.trim() !== "" ||
-    vjFlightFilter !== "All" ||
-    vjDestFilter !== "All";
-
-  const activeFilterCount =
-    (typeFilter !== (defaultTypeFilter || "All") ? 1 : 0) +
-    (modeFilter !== "All" ? 1 : 0) +
-    (terminalFilter !== (defaultTerminalFilter || "All") ? 1 : 0) +
-    (timeFilter !== "All" ? 1 : 0) +
-    (searchQuery.trim() !== "" ? 1 : 0) +
-    (vjFlightFilter !== "All" ? 1 : 0) +
-    (vjDestFilter !== "All" ? 1 : 0);
+  const { hasNonDefaultFilters, activeFilterCount } = useMemo(() => {
+    const hasNDF =
+      typeFilter !== (defaultTypeFilter || "All") ||
+      modeFilter !== "All" ||
+      terminalFilter !== (defaultTerminalFilter || "All") ||
+      timeFilter !== "All" ||
+      searchQuery.trim() !== "" ||
+      vjFlightFilter !== "All" ||
+      vjDestFilter !== "All";
+    const count =
+      (typeFilter !== (defaultTypeFilter || "All") ? 1 : 0) +
+      (modeFilter !== "All" ? 1 : 0) +
+      (terminalFilter !== (defaultTerminalFilter || "All") ? 1 : 0) +
+      (timeFilter !== "All" ? 1 : 0) +
+      (searchQuery.trim() !== "" ? 1 : 0) +
+      (vjFlightFilter !== "All" ? 1 : 0) +
+      (vjDestFilter !== "All" ? 1 : 0);
+    return { hasNonDefaultFilters: hasNDF, activeFilterCount: count };
+  }, [typeFilter, defaultTypeFilter, modeFilter, terminalFilter, defaultTerminalFilter, timeFilter, searchQuery, vjFlightFilter, vjDestFilter]);
 
   const resetAllFilters = () => {
     setTypeFilter(defaultTypeFilter || "All");
@@ -1698,7 +1731,9 @@ export const TransactionLedger = ({
     setTimeFilter("All");
     setTimeStart("");
     setTimeEnd("");
+    setSearchInput("");
     setSearchQuery("");
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     setVjFlightFilter("All");
     setVjDestFilter("All");
   };
@@ -2043,8 +2078,8 @@ export const TransactionLedger = ({
                     name="search"
                     type="text"
                     placeholder="Search name, amount, reference..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    value={searchInput}
+                    onChange={(e) => handleSearchChange(e.target.value)}
                     className="w-full h-8 pl-7 pr-3 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg text-[11px] font-sans text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
                   />
                 </div>
@@ -3712,7 +3747,7 @@ export const TransactionLedger = ({
       <LiveCreditFeed
         wallets={wallets}
         transactions={transactions}
-        onFilterByCustomer={(name) => setSearchQuery(name)}
+        onFilterByCustomer={(name) => handleSearchChange(name)}
       />
     </div>
   );

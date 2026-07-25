@@ -243,11 +243,23 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
     const channel = supabase
       .channel('customer_wallets_realtime_global')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'customer_wallets' }, () => {
-        fetchWallets();
+      // UPDATE: patch balance in-place — no full refetch needed
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'customer_wallets' }, payload => {
+        const updated = payload.new as any;
+        setCustomerWallets(prev => prev.map(w => w.id === updated.id ? { ...w, ...updated } : w));
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_transactions' }, () => {
-        fetchWallets();
+      // INSERT: prepend the new wallet row
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'customer_wallets' }, payload => {
+        setCustomerWallets(prev => [payload.new as any, ...prev]);
+      })
+      // wallet_transactions: refresh only the affected wallet row
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_transactions' }, payload => {
+        const walletId = (payload.new as any)?.wallet_id || (payload.old as any)?.wallet_id;
+        if (!walletId) { fetchWallets(); return; }
+        supabase.from('customer_wallets').select('*').eq('id', walletId).single()
+          .then(({ data }) => {
+            if (active && data) setCustomerWallets(prev => prev.map(w => w.id === walletId ? { ...w, ...data } : w));
+          });
       })
       .subscribe();
 
