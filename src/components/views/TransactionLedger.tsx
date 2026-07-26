@@ -683,14 +683,7 @@ export const TransactionLedger = ({
         return;
       }
 
-      if (editingTx.type === 'cargo') {
-        const rate = getRateForCargo(editingTx.airline, editingTx.route);
-        const computedFloor = rate * kg;
-        if (computedFloor > 0 && amount < computedFloor) {
-          showToast({ message: `Amount cannot be lower than the calculated price for ${editingTx.airline || 'this route'} (₦${computedFloor.toLocaleString()})`, type: 'warning' });
-          return;
-        }
-      }
+
 
       // Switching an entry's mode TO 'Wallet' (from anything else) deducts
       // the amount from the selected customer's wallet, same as picking
