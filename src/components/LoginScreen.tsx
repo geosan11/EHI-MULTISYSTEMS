@@ -122,7 +122,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
             {/* Live Operational Status */}
             <div className="w-full space-y-3 pt-2">
               <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
-                <ShieldCheck size={20} className="text-emerald-400 shrink-0" />
+                <ShieldCheck size={20} className="text-sky-400 shrink-0" />
                 <div>
                   <div className="text-[12px] font-bold text-white">End-to-End Encrypted</div>
                   <div className="text-[10px] text-white/60">Offline-first local cache & DB sync</div>
@@ -220,7 +220,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                     onChange={(e) => setRememberMe(e.target.checked)}
                     className="hidden"
                   />
-                  <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${rememberMe ? 'bg-emerald-500 border-emerald-400 text-white shadow-[0_0_12px_rgba(16,185,129,0.6)]' : 'border-white/40 bg-white/10'}`}>
+                  <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${rememberMe ? 'bg-amber-500 border-amber-400 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.6)]' : 'border-white/40 bg-white/10'}`}>
                     {rememberMe && <Check size={14} strokeWidth={3} />}
                   </div>
                   <span>Remember me</span>
@@ -247,7 +247,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
               <button
                 type="submit"
                 disabled={isLoading || connStatus === 'unconfigured'}
-                className="w-full h-12 sm:h-13 rounded-2xl bg-gradient-to-r from-lime-500 via-emerald-500 to-emerald-600 hover:from-lime-400 hover:to-emerald-500 text-slate-950 font-bold font-sans text-[15px] shadow-[0_10px_30px_rgba(16,185,129,0.4)] transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
+                className="w-full h-12 sm:h-13 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 hover:from-amber-300 hover:to-amber-500 text-slate-950 font-bold font-sans text-[15px] shadow-[0_10px_30px_rgba(245,158,11,0.4)] transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
               >
                 {isLoading ? (
                   <>
@@ -290,13 +290,13 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
             <div className="p-5">
               {resetSent ? (
                 <div className="text-center py-4 space-y-3">
-                  <div className="text-[14px] text-emerald-400 font-sans font-bold">Reset link sent ✓</div>
+                  <div className="text-[14px] text-amber-400 font-sans font-bold">Reset link sent ✓</div>
                   <p className="text-[12px] text-white/80 font-sans leading-relaxed">
                     Check {resetEmail} for a password reset link. It may take a minute to arrive.
                   </p>
                   <button
                     onClick={() => setShowForgotPassword(false)}
-                    className="w-full h-11 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[13px] font-bold rounded-xl mt-2 transition-colors cursor-pointer"
+                    className="w-full h-11 bg-amber-500 hover:bg-amber-400 text-slate-950 text-[13px] font-bold rounded-xl mt-2 transition-colors cursor-pointer"
                   >
                     Done
                   </button>
@@ -312,7 +312,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                     placeholder="you@ehimultisystems.com"
                     autoComplete="email"
                     autoFocus
-                    className="w-full h-12 px-4 text-sm rounded-xl bg-white/10 text-white placeholder-white/50 border border-white/20 focus:outline-none focus:border-emerald-400"
+                    className="w-full h-12 px-4 text-sm rounded-xl bg-white/10 text-white placeholder-white/50 border border-white/20 focus:outline-none focus:border-amber-400"
                   />
                   {resetError && (
                     <p className="text-[12px] text-red-400 font-sans font-medium">{resetError}</p>
@@ -328,7 +328,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                     <button
                       type="submit"
                       disabled={resetSending}
-                      className="flex-1 h-11 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[13px] font-bold rounded-xl disabled:opacity-60 transition-colors cursor-pointer"
+                      className="flex-1 h-11 bg-amber-500 hover:bg-amber-400 text-slate-950 text-[13px] font-bold rounded-xl disabled:opacity-60 transition-colors cursor-pointer"
                     >
                       {resetSending ? 'Sending…' : 'Send Reset Link'}
                     </button>
