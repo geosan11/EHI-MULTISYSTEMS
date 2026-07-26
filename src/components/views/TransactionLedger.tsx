@@ -2632,7 +2632,9 @@ export const TransactionLedger = ({
                           {e.type === 'package' && <Truck size={10} />}
                           {e.source === 'expense' && <Minus size={10} />}
                         </div>
-                        <span className="truncate min-w-0" title={e.id}>{e.id}</span>
+                        <span className="truncate min-w-0 font-mono text-[11px]" title={e.id}>
+                          {e.id.length > 20 ? `${e.id.slice(0, 5)}…${e.id.slice(-6)}` : e.id}
+                        </span>
                       </div>
                     </td>
                     {/* Date + Time */}
@@ -2654,17 +2656,6 @@ export const TransactionLedger = ({
                             RETRIEVED
                           </span>
                         )}
-                        {/* A PARTIAL retrieval (some amount already handed
-                            over, but the entry hasn't reached its full amount
-                            yet -- e.raw.retrieved only flips true at 100%)
-                            previously showed nothing at all in the row list;
-                            the only place it was visible was the "Retrieved:
-                            X KG · Y PCS · ₦Z" line inside the detail view,
-                            one click away. Same retrieved_pieces/kg/amount
-                            fields, shown right here instead of requiring
-                            that click -- e.raw.raw is the true DB row (see
-                            the COLLECTION badge's own comment on this exact
-                            Entry -> Transaction -> raw DB row chain). */}
                         {!e.raw?.retrieved && ((e.raw as any)?.raw?.retrieved_amount || 0) > 0 && (
                           <span
                             className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.3)]"
@@ -2702,27 +2693,16 @@ export const TransactionLedger = ({
                         {e.detail}
                       </div>
                       {e.raw.remarks && (
-                        <div className="text-[9px] text-[var(--color-success)] font-sans italic mt-1 leading-snug">
+                        <div className={`text-[9px] font-sans italic mt-1 leading-snug ${ (e.raw?.is_debt_clearance || e.id?.startsWith('DC-')) ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-success)]' }`}>
                           Remarks: {e.raw.remarks}
                         </div>
                       )}
-                      {/* Which staff member touched this entry -- shift view pools every
-                          agent at the hub together, so this is the only place (besides
-                          the detail modal) that says who actually did what. Priority:
-                          most-recent edit, then payment/debt confirmation, then original
-                          entry. */}
                       {(() => {
                         const raw = e.raw as any;
                         if (!raw) return null;
                         const lastPayment = Array.isArray(raw.paymentHistory) && raw.paymentHistory.length > 0
                           ? raw.paymentHistory[raw.paymentHistory.length - 1]
                           : null;
-                        // Compare actual timestamps rather than a fixed priority order --
-                        // editedBy/editedAt carry forward on every subsequent action that
-                        // spreads this entry (confirm, retrieve, clear debt), so a fixed
-                        // "edit always wins" order would keep showing a stale editor's name
-                        // forever after the first edit, even once someone else genuinely
-                        // confirmed or paid down the entry more recently.
                         const candidates: { label: string; at: number }[] = [];
                         if (raw.editedBy && raw.editedAt) {
                           candidates.push({ label: `Edited by ${raw.editedBy}`, at: new Date(raw.editedAt).getTime() });
@@ -2746,8 +2726,12 @@ export const TransactionLedger = ({
                     </td>
                     {/* Status */}
                     <td className="py-2.5 px-2 text-center">
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold font-mono whitespace-nowrap ${statusColor}`}>
-                        {e.source === 'expense' ? 'Expense' : (e.status || 'Intake')}
+                      <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold font-mono whitespace-nowrap ${
+                        (e.raw?.is_debt_clearance || e.id?.startsWith('DC-'))
+                          ? 'text-[var(--color-accent-cobalt)] bg-[rgba(59,130,246,0.15)] border border-[rgba(59,130,246,0.3)]'
+                          : statusColor
+                      }`}>
+                        {e.source === 'expense' ? 'Expense' : (e.raw?.is_debt_clearance || e.id?.startsWith('DC-')) ? 'Collection' : (e.status || 'Intake')}
                       </span>
                     </td>
                     {/* Amount */}

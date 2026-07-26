@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CustomerWallet, Transaction } from '../lib/types';
 import { fmt, tnow } from '../lib/helpers';
-import { Wallet, RefreshCw, ArrowUpRight, ArrowDownLeft, Sparkles, ChevronRight, ChevronLeft, Plus, History, X } from 'lucide-react';
+import { Wallet, RefreshCw, ArrowUpRight, ArrowDownLeft, Sparkles, ChevronRight, ChevronLeft, Plus, History, X, Search } from 'lucide-react';
 
 interface LiveCreditFeedProps {
   wallets: CustomerWallet[];
@@ -148,23 +148,24 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 pt-1 border-t border-[var(--color-border)] text-[10px] font-mono">
+                <div className="flex items-center gap-1.5 pt-1.5 border-t border-[var(--color-border)] text-[10px] font-mono">
                   {onOpenTopUp && (
                     <button
                       type="button"
-                      onClick={() => onOpenTopUp(w.customer_name)}
-                      className="flex-1 py-1 bg-[rgba(245,158,11,0.1)] hover:bg-[var(--color-accent-amber)] text-[var(--color-accent-amber)] hover:text-[var(--color-obsidian)] rounded-lg font-bold text-center transition-colors cursor-pointer"
+                      onClick={(e) => { e.stopPropagation(); onOpenTopUp(w.customer_name); }}
+                      className="flex-1 py-1 bg-[rgba(245,158,11,0.12)] hover:bg-[var(--color-accent-amber)] text-[var(--color-accent-amber)] hover:text-[var(--color-obsidian)] rounded-lg font-bold text-center transition-colors cursor-pointer flex items-center justify-center gap-1"
                     >
-                      + Top Up
+                      <Plus size={11} /> Top Up
                     </button>
                   )}
                   {onFilterByCustomer && (
                     <button
                       type="button"
-                      onClick={() => onFilterByCustomer(w.customer_name)}
-                      className="flex-1 py-1 bg-[var(--color-surface-3)] hover:bg-[var(--color-border)] text-[var(--color-foreground)] rounded-lg text-center transition-colors cursor-pointer"
+                      onClick={(e) => { e.stopPropagation(); onFilterByCustomer(w.customer_name); }}
+                      className="flex-1 py-1 bg-[var(--color-surface-3)] hover:bg-[var(--color-border)] text-[var(--color-foreground)] rounded-lg text-center transition-colors cursor-pointer flex items-center justify-center gap-1"
+                      title={`Filter ledger by ${w.customer_name}`}
                     >
-                      Filter Ledger
+                      <Search size={11} /> Filter
                     </button>
                   )}
                 </div>

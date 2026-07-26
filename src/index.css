@@ -742,7 +742,7 @@ select {
   appearance: none !important;
 }
 /* For standard forms, add custom SVG chevron vector */
-select:not(.appearance-none) {
+select:not([class*="appearance-none"]) {
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'%3E%3Cpath stroke='%238b9ab1' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
   background-position: right 14px center !important;
   background-repeat: no-repeat !important;
@@ -753,23 +753,23 @@ select::-ms-expand {
   display: none !important;
 }
 
-/* Customize mobile date-input placeholder icons */
+/* Customize mobile/desktop date-input placeholder icons */
 input[type="date"]::-webkit-inner-spin-button,
 input[type="date"]::-webkit-clear-button {
-  display: none;
+  display: none !important;
 }
 input[type="date"]::-webkit-calendar-picker-indicator {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  opacity: 0 !important;
+  cursor: pointer !important;
 }
 input[type="date"] {
-  position: relative;
-  cursor: pointer;
+  position: relative !important;
+  cursor: pointer !important;
 }
 
 
