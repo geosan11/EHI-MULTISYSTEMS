@@ -32,7 +32,7 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
 
   if (collapsed) {
     return (
-      <div className="w-10 bg-[var(--color-surface-1)] border-l border-[var(--color-border)] flex flex-col items-center py-4 space-y-4 shrink-0 transition-all">
+      <div className="w-10 overflow-hidden bg-[var(--color-surface-1)] border-l border-[var(--color-border)] flex flex-col items-center py-4 space-y-4 shrink-0 transition-all z-20 select-none">
         <button
           type="button"
           onClick={() => setCollapsed(false)}
@@ -41,8 +41,8 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
         >
           <ChevronLeft size={18} />
         </button>
-        <div className="writing-mode-vertical text-[10px] font-mono font-bold tracking-widest text-[var(--color-accent-amber)] uppercase rotate-180 flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-[var(--color-accent-amber)] animate-pulse" />
+        <div className="writing-mode-vertical text-[10px] font-mono font-bold tracking-widest text-[var(--color-accent-amber)] uppercase rotate-180 flex items-center gap-2 whitespace-nowrap truncate max-h-[calc(100vh-140px)] overflow-hidden">
+          <span className="w-2 h-2 rounded-full bg-[var(--color-accent-amber)] animate-pulse shrink-0" />
           Prepaid Credit Feed (₦{fmt(totalLiability)})
         </div>
       </div>

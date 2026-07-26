@@ -1910,7 +1910,7 @@ export const TransactionLedger = ({
             popup. Only shown to non-viewOnly users on a station ledger where a
             shift handler is wired. */}
         {!viewOnly && (onStartShift || onEndShift) && (
-          <div className="px-4 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-surface-1)] flex items-center justify-between gap-3 shrink-0">
+          <div className="px-4 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-surface-1)] flex items-center justify-between gap-3 shrink-0 relative z-10">
             <div className="flex items-center gap-2 min-w-0">
               <span className={`w-2 h-2 rounded-full ${activeShift ? 'bg-[var(--color-success)] animate-pulse' : 'bg-[var(--color-muted)]'}`} />
               <span className="text-[11px] font-mono text-[var(--color-muted)] truncate">
