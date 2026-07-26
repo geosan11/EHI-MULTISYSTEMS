@@ -68,7 +68,7 @@ export const ResetPasswordScreen = ({ onDone }: { onDone: () => void }) => {
           <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 160, height: 'auto', objectFit: 'contain' }} />
         </div>
 
-        <div className="w-full bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-[var(--radius-lg)] p-6">
+        <div className="w-full bg-[var(--color-surface-card-glass)] backdrop-blur-xl border border-white/10 rounded-[var(--radius-lg)] p-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
           {done ? (
             <div className="text-center">
               <div className="text-[15px] font-sans font-bold text-[var(--color-foreground)] mb-2">
@@ -79,9 +79,9 @@ export const ResetPasswordScreen = ({ onDone }: { onDone: () => void }) => {
               </div>
               <button
                 onClick={onDone}
-                className="w-full h-12 bg-[var(--color-accent-amber)] text-[#111827] font-sans font-bold rounded-[var(--radius-sm)] cursor-pointer"
+                className="w-full h-12 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-[var(--color-obsidian)] font-sans font-bold rounded-[var(--radius-sm)] shadow-[0_4px_12px_rgba(252,191,73,0.25)] transition-all cursor-pointer"
               >
-                Continue
+                Continue to Dashboard
               </button>
             </div>
           ) : (
@@ -127,9 +127,9 @@ export const ResetPasswordScreen = ({ onDone }: { onDone: () => void }) => {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full h-12 bg-[var(--color-accent-amber)] text-[#111827] font-sans font-bold rounded-[var(--radius-sm)] cursor-pointer disabled:opacity-60"
+                className="w-full h-12 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-[var(--color-obsidian)] font-sans font-bold rounded-[var(--radius-sm)] shadow-[0_4px_12px_rgba(252,191,73,0.25)] transition-all cursor-pointer disabled:opacity-60"
               >
-                {submitting ? 'Updating…' : 'Update Password'}
+                {submitting ? 'Updating…' : 'Save New Password'}
               </button>
             </form>
           )}
