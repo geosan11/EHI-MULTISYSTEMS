@@ -86,75 +86,79 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
 
   const statusConfig: Record<ConnStatus, { label: string; color: string; dot: string; pulse: boolean }> = {
     checking:     { label: 'Connecting…',    color: '#94a3b8', dot: '#94a3b8', pulse: true  },
-    live:         { label: 'System Online',  color: '#34d399', dot: '#10b981', pulse: true  },
-    offline:      { label: 'Server Offline', color: '#f87171', dot: '#ef4444', pulse: false },
+    live:         { label: 'System Online',  color: '#3b9797', dot: '#3b9797', pulse: true  },
+    offline:      { label: 'Server Offline', color: '#bf092f', dot: '#bf092f', pulse: false },
     unconfigured: { label: 'Not Configured', color: '#fbbf24', dot: '#f59e0b', pulse: false },
   };
   const status = statusConfig[connStatus];
 
   return (
     <div
-      className="relative flex flex-col items-center justify-center min-h-[100dvh] w-full bg-cover bg-center bg-no-repeat overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-10 select-none"
+      className="relative flex flex-col items-center justify-center min-h-[100dvh] w-full bg-cover bg-center bg-no-repeat overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-10 select-none animate-in fade-in duration-300"
       style={{
         backgroundImage: `url(${loginBg})`,
       }}
     >
       {/* Dark Ambient Glass Overlay */}
-      <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-[4px] pointer-events-none" />
+      <div className="absolute inset-0 bg-slate-950/65 backdrop-blur-[6px] pointer-events-none" />
 
-      {/* Main Responsive Container: Single card on mobile, 2-column split layout on desktop */}
-      <div className="relative z-10 w-full max-w-[420px] lg:max-w-4xl bg-slate-950/60 backdrop-blur-2xl border border-white/20 rounded-3xl p-6 sm:p-8 lg:p-10 shadow-[0_30px_80px_rgba(0,0,0,0.7),inset_0_1px_1px_rgba(255,255,255,0.3)] animate-in fade-in zoom-in-95 duration-200">
-        <div className="lg:grid lg:grid-cols-12 lg:gap-10 lg:items-center">
+      {/* Main Container: Split card with inner gradient card on desktop */}
+      <div className="relative z-10 w-full max-w-[420px] lg:max-w-4xl bg-slate-950/70 backdrop-blur-2xl border border-white/10 rounded-[28px] p-4 lg:p-6 shadow-[0_30px_85px_rgba(0,0,0,0.75),inset_0_1px_1px_rgba(255,255,255,0.08)]">
+        <div className="lg:grid lg:grid-cols-12 lg:gap-6 lg:items-center">
 
-          {/* Left Column (Desktop Only Operational Overview) */}
-          <div className="hidden lg:flex lg:col-span-5 flex-col items-start space-y-6 border-r border-white/10 pr-8">
-            <div className="p-3 rounded-2xl bg-slate-900/80 border border-white/15 shadow-xl backdrop-blur-md">
-              <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 180, height: 'auto', objectFit: 'contain' }} />
+          {/* Left Column (Desktop Only Inner Gradient Card) */}
+          <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-7 rounded-[22px] bg-gradient-to-br from-[#132440] via-[#16476a] to-[#3b9797] border border-white/10 text-white min-h-[470px] shadow-lg relative overflow-hidden">
+            {/* Soft Ambient Inner Glow */}
+            <div className="absolute -top-12 -left-12 w-48 h-48 rounded-full bg-white/10 filter blur-[40px] pointer-events-none" />
+            <div className="absolute -bottom-12 -right-12 w-48 h-48 rounded-full bg-teal-400/10 filter blur-[40px] pointer-events-none" />
+
+            <div className="relative z-10 p-3 rounded-2xl bg-white/10 border border-white/15 w-fit shadow-md backdrop-blur-md">
+              <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 150, height: 'auto', objectFit: 'contain' }} />
             </div>
 
-            <div>
-              <h2 className="text-2xl font-extrabold text-white tracking-tight leading-tight">Logistics & Aviation Operations Portal</h2>
-              <p className="text-xs text-white/70 mt-2 font-sans leading-relaxed">
-                Centralized hub management, cargo manifests, passenger baggage accounting, and live station ledgers.
-              </p>
-            </div>
-
-            {/* Live Operational Status */}
-            <div className="w-full space-y-3 pt-2">
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
-                <ShieldCheck size={20} className="text-sky-400 shrink-0" />
-                <div>
-                  <div className="text-[12px] font-bold text-white">End-to-End Encrypted</div>
-                  <div className="text-[10px] text-white/60">Offline-first local cache & DB sync</div>
-                </div>
+            <div className="relative z-10 space-y-4 pt-12">
+              <div>
+                <span className="inline-block text-[9px] uppercase font-extrabold tracking-widest text-[#3b9797] bg-white/95 px-2 py-0.5 rounded-full shadow-sm mb-2.5">
+                  OPERATIONS HUB
+                </span>
+                <h2 className="text-[21px] font-extrabold text-white tracking-tight leading-snug">
+                  Logistics & Aviation Operations Portal
+                </h2>
+                <p className="text-[11.5px] text-white/80 mt-1.5 font-sans leading-relaxed">
+                  Centralized hub management, cargo manifests, passenger baggage accounting, and live station ledgers.
+                </p>
               </div>
 
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
-                <Plane size={20} className="text-amber-400 shrink-0" />
-                <div>
-                  <div className="text-[12px] font-bold text-white">Multi-Station Network</div>
-                  <div className="text-[10px] text-white/60">MMA2 Lagos, Abuja, Kano, Port Harcourt, Enugu</div>
+              {/* Status checklist */}
+              <div className="space-y-2.5 pt-2">
+                <div className="flex items-center gap-2 text-white/95">
+                  <ShieldCheck size={16} className="text-teal-300 shrink-0" />
+                  <span className="text-[11px] font-semibold font-sans">End-to-End Encrypted DB Sync</span>
+                </div>
+                <div className="flex items-center gap-2 text-white/95">
+                  <Plane size={16} className="text-teal-300 shrink-0" />
+                  <span className="text-[11px] font-semibold font-sans">Multi-Station Hub Network</span>
                 </div>
               </div>
             </div>
 
-            <div className="text-[10px] font-mono text-white/50 pt-4">
-              EHI Multisystems Nigeria Ltd · Operations Platform v2.0
+            <div className="relative z-10 text-[9px] font-mono text-white/50 pt-6">
+              EHI Multisystems Ltd · Portal v2.0
             </div>
           </div>
 
           {/* Right Column (Mobile Header + Authentication Form) */}
-          <div className="w-full lg:col-span-7 flex flex-col items-center">
+          <div className="w-full lg:col-span-7 flex flex-col items-center lg:px-6 py-2">
             
             {/* Header Branding */}
             <div className="text-center mb-6 flex flex-col items-center w-full">
               {/* Mobile Logo Display */}
-              <div className="mb-3 p-2.5 rounded-2xl bg-slate-900/80 border border-white/15 backdrop-blur-md shadow-lg lg:hidden">
-                <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 160, height: 'auto', objectFit: 'contain' }} />
+              <div className="mb-3.5 p-2.5 rounded-2xl bg-slate-900/80 border border-white/15 backdrop-blur-md shadow-lg lg:hidden">
+                <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 150, height: 'auto', objectFit: 'contain' }} />
               </div>
 
               <h1 className="text-2xl sm:text-3xl font-extrabold font-sans text-white tracking-tight">Login</h1>
-              <p className="text-[12px] sm:text-[13px] font-sans text-white/80 mt-1 font-medium">Welcome back please login to your account</p>
+              <p className="text-[12px] sm:text-[13px] font-sans text-white/70 mt-1">Welcome back, please login to your account</p>
 
               {/* Connection Status Badge */}
               <div
@@ -162,65 +166,75 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                 style={{ background: `${status.dot}20`, borderColor: `${status.dot}40` }}
               >
                 <div
-                  className={`w-2 h-2 rounded-full ${status.pulse ? 'animate-pulse' : ''}`}
+                  className={`w-1.5 h-1.5 rounded-full ${status.pulse ? 'animate-pulse' : ''}`}
                   style={{ background: status.dot }}
                 />
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider" style={{ color: status.color }}>
+                <span className="text-[9px] font-mono font-bold uppercase tracking-wider" style={{ color: status.color }}>
                   {status.label}
                 </span>
               </div>
             </div>
 
             {/* Login Form */}
-            <form onSubmit={handleSubmit} className="w-full space-y-4 sm:space-y-5">
+            <form onSubmit={handleSubmit} className="w-full space-y-4">
               {/* Email / Username Input */}
-              <div className="relative w-full">
-                <input
-                  id="login-email"
-                  name="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="User Name"
-                  autoComplete="email"
-                  className="w-full h-12 sm:h-13 px-4 pr-12 rounded-2xl bg-slate-900/60 text-white placeholder-white/50 border border-white/25 focus:border-amber-400 focus:bg-slate-900/80 focus:outline-none transition-all text-sm font-sans font-medium shadow-inner"
-                  required
-                />
-                <User size={19} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/60 pointer-events-none" />
+              <div className="w-full">
+                <label htmlFor="login-email" className="block text-[11px] font-sans font-bold text-white/60 mb-1.5 ml-1 uppercase tracking-wider">
+                  User Name / Email
+                </label>
+                <div className="relative">
+                  <input
+                    id="login-email"
+                    name="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter user name or email"
+                    autoComplete="email"
+                    className="w-full h-12 px-4 pr-12 rounded-xl bg-slate-900/60 text-white placeholder-white/30 border border-white/15 focus:border-[#3b9797] focus:bg-slate-900/80 focus:outline-none transition-all text-sm font-sans font-medium shadow-inner"
+                    required
+                  />
+                  <User size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
+                </div>
               </div>
 
               {/* Password Input */}
-              <div className="relative w-full">
-                <input
-                  id="login-password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
-                  autoComplete="current-password"
-                  className="w-full h-12 sm:h-13 px-4 pr-12 rounded-2xl bg-slate-900/60 text-white placeholder-white/50 border border-white/25 focus:border-amber-400 focus:bg-slate-900/80 focus:outline-none transition-all text-sm font-sans font-medium shadow-inner"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/60 hover:text-white transition-colors cursor-pointer p-1"
-                >
-                  {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
-                </button>
+              <div className="w-full">
+                <label htmlFor="login-password" className="block text-[11px] font-sans font-bold text-white/60 mb-1.5 ml-1 uppercase tracking-wider">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    id="login-password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter account password"
+                    autoComplete="current-password"
+                    className="w-full h-12 px-4 pr-12 rounded-xl bg-slate-900/60 text-white placeholder-white/30 border border-white/15 focus:border-[#3b9797] focus:bg-slate-900/80 focus:outline-none transition-all text-sm font-sans font-medium shadow-inner"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors cursor-pointer p-1"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
 
               {/* Remember Me Control */}
               <div className="flex items-center justify-between px-1">
-                <label className="flex items-center gap-2.5 cursor-pointer text-[13px] font-sans font-medium text-white/90 select-none">
+                <label className="flex items-center gap-2.5 cursor-pointer text-[12.5px] font-sans font-semibold text-white/90 select-none">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
                     className="hidden"
                   />
-                  <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${rememberMe ? 'bg-amber-500 border-amber-400 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.6)]' : 'border-white/40 bg-white/10'}`}>
+                  <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${rememberMe ? 'bg-[#3b9797] border-[#3b9797] text-slate-950 shadow-[0_0_12px_rgba(59,151,151,0.5)]' : 'border-white/20 bg-white/5'}`}>
                     {rememberMe && <Check size={14} strokeWidth={3} />}
                   </div>
                   <span>Remember me</span>
@@ -229,8 +243,8 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
 
               {/* Error Message Alert */}
               {error && (
-                <div className="flex items-center gap-2.5 bg-red-500/20 border border-red-500/40 backdrop-blur-md rounded-xl px-4 py-3 animate-in fade-in">
-                  <AlertCircle size={17} className="text-red-400 shrink-0" />
+                <div className="flex items-center gap-2.5 bg-red-500/10 border border-red-500/25 backdrop-blur-md rounded-xl px-4 py-3 animate-in fade-in">
+                  <AlertCircle size={16} className="text-red-400 shrink-0" />
                   <p className="text-[12px] font-sans text-red-200 leading-snug font-medium">{error}</p>
                 </div>
               )}
@@ -243,19 +257,19 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                 </div>
               )}
 
-              {/* Gradient Action Button */}
+              {/* Brand-Colored Action Button */}
               <button
                 type="submit"
                 disabled={isLoading || connStatus === 'unconfigured'}
-                className="w-full h-12 sm:h-13 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 hover:from-amber-300 hover:to-amber-500 text-slate-950 font-bold font-sans text-[15px] shadow-[0_10px_30px_rgba(245,158,11,0.4)] transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
+                className="w-full h-12 rounded-xl bg-gradient-to-r from-[#3b9797] to-[#16476a] hover:from-[#3b9797]/90 hover:to-[#16476a]/90 text-white font-extrabold font-sans text-[15px] shadow-[0_10px_25px_rgba(59,151,151,0.25)] transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-3"
               >
                 {isLoading ? (
                   <>
-                    <Loader2 size={20} className="animate-spin text-slate-950" />
+                    <Loader2 size={18} className="animate-spin text-white" />
                     <span>Logging in…</span>
                   </>
                 ) : (
-                  'Login'
+                  'Login to Dashboard'
                 )}
               </button>
 
@@ -264,7 +278,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                 <button
                   type="button"
                   onClick={() => { setShowForgotPassword(true); setResetEmail(email); setResetSent(false); setResetError(''); }}
-                  className="text-[12px] font-sans text-white/80 hover:text-white transition-colors cursor-pointer"
+                  className="text-[12px] font-sans text-white/60 hover:text-white transition-colors cursor-pointer"
                 >
                   Don't have an account? <span className="font-bold underline text-white">Signup / Reset</span>
                 </button>
@@ -272,8 +286,8 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
             </form>
 
             {/* Footer Credit (Mobile only) */}
-            <div className="mt-6 text-center text-[11px] font-sans text-white/60 font-medium lg:hidden">
-              Created by <span className="italic font-semibold text-white/80">EHI Multisystems Nigeria Ltd</span>
+            <div className="mt-6 text-center text-[10px] font-sans text-white/50 font-medium lg:hidden">
+              Created by <span className="italic font-semibold text-white/70">EHI Multisystems Nigeria Ltd</span>
             </div>
           </div>
         </div>
