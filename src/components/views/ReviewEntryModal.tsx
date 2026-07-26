@@ -37,36 +37,25 @@ export const ReviewEntryModal: React.FC<ReviewEntryModalProps> = ({
   };
 
   return (
-    // Fullscreen on mobile (no surrounding padding, the card fills the
-    // viewport) -- a small centered card on a phone leaves the review
-    // details cramped into a fraction of the screen. From sm: up it's back
-    // to a normal centered modal; shared by every form that uses this
-    // (Cargo/Package/Marketing/ExcessBaggage), so all of them get this at once.
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center sm:p-4">
-      <div className="bg-[var(--color-obsidian)] border-0 sm:border border-[var(--color-border)] rounded-none sm:rounded-xl w-full h-full sm:h-auto sm:max-w-md sm:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+    <div className="fixed inset-0 bg-black/65 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
+      <div className="bg-[var(--color-obsidian)] border border-[var(--color-border)] rounded-xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col shrink-0">
         {/* Header */}
-        <div className="flex items-center justify-between p-3 border-b border-[var(--color-border)] bg-[var(--color-surface-card)] shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-surface-card)] shrink-0">
           <h3 className="text-[14px] font-bold font-sans text-[var(--color-foreground)] tracking-wide">
             {title}
           </h3>
-          <button onClick={onCancel} disabled={isSubmitting} className="p-1 hover:bg-[var(--color-surface-2)] rounded text-[var(--color-muted)] transition-colors">
+          <button onClick={onCancel} disabled={isSubmitting} className="p-1 hover:bg-[var(--color-surface-2)] rounded text-[var(--color-muted)] transition-colors cursor-pointer">
             <X size={16} />
           </button>
         </div>
 
-        {/* Content -- tightened (smaller padding/row height) so every
-            entry's handful of detail rows fits without scrolling on
-            realistic viewports; staff shouldn't have to scroll past
-            fields to reach Confirm, or risk missing one they never
-            scrolled down to see. flex-1 fills the fullscreen mobile card;
-            sm:max-h caps it back down once the card returns to its normal
-            centered/auto-height size on larger screens. */}
-        <div className="p-3 overflow-y-auto flex-1 sm:flex-none sm:max-h-[55vh]">
-          <div className="space-y-1.5">
+        {/* Content -- Fixed & Non-Scrollable */}
+        <div className="px-4 py-3 overflow-hidden">
+          <div className="space-y-1">
             {details.map((detail, idx) => (
-              <div key={idx} className="flex justify-between items-center py-1.5 border-b border-[var(--color-border)] last:border-0">
+              <div key={idx} className="flex justify-between items-center py-2 border-b border-[var(--color-border)] last:border-0">
                 <span className="text-[11px] font-mono text-[var(--color-muted)] uppercase tracking-wider">{detail.label}</span>
-                <span className={`text-[13px] font-sans font-bold ${detail.label.toLowerCase().includes('amount') ? 'text-[var(--color-success)]' : 'text-[var(--color-foreground)]'}`}>
+                <span className={`text-[13px] font-sans font-bold text-right truncate max-w-[65%] ${detail.label.toLowerCase().includes('amount') ? 'text-[var(--color-success)]' : 'text-[var(--color-foreground)]'}`}>
                   {detail.label.toLowerCase().includes('amount') && typeof detail.value === 'number' ? `₦${fmt(detail.value)}` : detail.value}
                 </span>
               </div>
@@ -75,18 +64,18 @@ export const ReviewEntryModal: React.FC<ReviewEntryModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-3 border-t border-[var(--color-border)] bg-[var(--color-surface-card)] flex gap-3 shrink-0">
+        <div className="p-4 border-t border-[var(--color-border)] bg-[var(--color-surface-card)] flex gap-3 shrink-0">
           <button
             onClick={onCancel}
             disabled={isSubmitting}
-            className="flex-1 h-11 rounded-lg bg-[var(--color-surface-2)] text-[var(--color-foreground)] text-[13px] font-bold hover:bg-[var(--color-surface-1)] transition-colors"
+            className="flex-1 h-11 rounded-lg bg-[var(--color-surface-2)] text-[var(--color-foreground)] text-[13px] font-bold hover:bg-[var(--color-surface-1)] transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
             onClick={handleConfirmClick}
             disabled={isSubmitting}
-            className="flex-1 h-11 flex items-center justify-center gap-2 rounded-lg text-[13px] font-bold transition-colors bg-[var(--color-success)] text-[#030712] hover:bg-[#10b981]"
+            className="flex-1 h-11 flex items-center justify-center gap-2 rounded-lg text-[13px] font-bold transition-colors bg-[var(--color-success)] text-[#030712] hover:bg-[#10b981] cursor-pointer"
           >
             {isSubmitting ? (
               <span className="w-5 h-5 border-2 border-[#030712] border-t-transparent rounded-full animate-spin" />
