@@ -383,7 +383,7 @@ export async function getSession(): Promise<UserProfile | null> {
     // instead of an infinite spinner.
     return await Promise.race([
       getSessionInner(),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000)),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 3500)),
     ]);
   } catch (err) {
     console.error('Failed to get session:', err);
