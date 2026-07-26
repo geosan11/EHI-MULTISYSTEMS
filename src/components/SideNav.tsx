@@ -256,18 +256,18 @@ export const SideNav = ({
             <button
               key={tab.id}
               onClick={() => onChangeTab(tab.id)}
-              className={`group ${isActive ? "" : "hover:bg-[rgba(255,255,255,0.02)]"}`}
+              className={`group ${isActive ? "bg-[var(--glow-amber)]" : "hover:bg-[rgba(255,255,255,0.03)]"}`}
               style={{
                 width: "100%",
                 display: "flex",
                 alignItems: "center",
                 gap: isExpanded ? 12 : 0,
                 padding: "11px 14px",
-                background: "transparent",
+                background: isActive ? "rgba(245, 158, 11, 0.1)" : "transparent",
                 border: "none",
                 borderLeft: isActive
-                  ? `2px solid ${activeColor}`
-                  : "2px solid transparent",
+                  ? `3px solid var(--color-accent-amber)`
+                  : "3px solid transparent",
                 cursor: "pointer",
                 transition: "all 0.15s ease",
                 textAlign: "left",

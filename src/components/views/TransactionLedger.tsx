@@ -3190,17 +3190,17 @@ export const TransactionLedger = ({
 
       {/* Edit Modal Dialog */}
       {editingTx && (
-        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in" onClick={() => setEditingTx(null)}>
-          <div className="bg-[var(--color-surface-card)] border border-[var(--color-surface-2)] rounded-xl w-full max-w-sm max-h-[85vh] sm:max-h-[90vh] shadow-xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[60] bg-black/65 backdrop-blur-sm flex items-center justify-center p-4 select-none animate-in fade-in" onClick={() => setEditingTx(null)}>
+          <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-2xl w-full max-w-md max-h-[85vh] sm:max-h-[90vh] shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="p-4 border-b border-[var(--color-border)] flex justify-between items-center bg-[var(--color-surface-card)] shrink-0">
-              <h3 className="font-bold font-sans text-[var(--color-foreground)]">
+              <h3 className="font-bold font-sans text-[15px] text-[var(--color-foreground)] tracking-wide">
                 Edit Transaction
               </h3>
               <button
                 onClick={() => setEditingTx(null)}
-                className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] p-1 cursor-pointer"
+                className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] p-1 rounded hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
 
@@ -3668,13 +3668,21 @@ export const TransactionLedger = ({
               </div>
             </div>
 
-            <div className="p-4 border-t border-[var(--color-border)] bg-[var(--color-surface-card)] flex justify-end shrink-0">
+            <div className="p-4 border-t border-[var(--color-border)] bg-[var(--color-surface-card)] flex gap-3 justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => setEditingTx(null)}
+                disabled={savingEdit}
+                className="h-11 px-4 border border-[var(--color-border)] bg-[var(--color-surface-2)] text-[var(--color-foreground)] font-bold text-[13px] rounded-xl hover:bg-[var(--color-surface-1)] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
               <button
                 onClick={handleSaveEdit}
                 disabled={savingEdit}
-                className="h-9 px-4 bg-[var(--color-success)] hover:bg-emerald-600 text-[var(--color-obsidian)] font-bold font-sans text-[13px] rounded-lg cursor-pointer flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                className="h-11 px-5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-bold font-sans text-[13px] rounded-xl cursor-pointer flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(16,185,129,0.3)] transition-all active:scale-[0.98] disabled:opacity-50"
               >
-                <Check size={14} />
+                <Check size={16} strokeWidth={2.5} />
                 <span>{savingEdit ? 'Saving...' : 'Save Changes'}</span>
               </button>
             </div>
