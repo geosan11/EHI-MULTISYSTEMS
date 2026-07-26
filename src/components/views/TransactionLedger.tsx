@@ -32,6 +32,8 @@ import {
   Undo2,
   ShieldCheck,
   Truck,
+  ChevronDown,
+  Calendar,
 } from "lucide-react";
 import { QRCode } from "../QRCode";
 import TagPrintHistory from "./TagPrintHistory";
@@ -2068,11 +2070,11 @@ export const TransactionLedger = ({
             </div>
 
             {/* ── Filter Strip ─────────────────────────────────── */}
-            <div className="px-4 py-2.5 border-b border-[var(--color-border)] space-y-2 shrink-0">
+            <div className="px-4 py-3 border-b border-[var(--color-border)] space-y-2.5 shrink-0 bg-[var(--color-surface-card)]">
               {/* Row 1: Search + Shift Scope */}
-              <div className="flex items-center gap-2">
-                <div className="flex-1 relative">
-                  <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
+              <div className="flex items-center gap-3">
+                <div className="flex-1 relative group">
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)] transition-colors group-focus-within:text-[var(--color-accent-amber)]" />
                   <input
                     id="ledger-search"
                     name="search"
@@ -2080,26 +2082,16 @@ export const TransactionLedger = ({
                     placeholder="Search name, amount, reference..."
                     value={searchInput}
                     onChange={(e) => handleSearchChange(e.target.value)}
-                    className="w-full h-8 pl-7 pr-3 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg text-[11px] font-sans text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
+                    className="w-full h-9 pl-9 pr-3 bg-[var(--color-surface-1)] border border-[var(--color-border)] focus:border-[var(--color-accent-amber)] rounded-xl text-[11px] font-sans text-[var(--color-foreground)] focus:outline-none focus:shadow-[0_0_12px_rgba(240,178,48,0.15)] transition-all placeholder-[var(--color-muted)] font-medium"
                   />
                 </div>
                 {/* Shift scope pills */}
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-1 p-0.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl shrink-0">
                   {(['current', 'all'] as const).map((scope) => (
                     <button
                       key={scope}
                       onClick={() => {
                         setShiftFilter(scope);
-                        // "All Time" only ever lifted the shift-hour boundary on
-                        // whatever's already in `entries` -- it did nothing about
-                        // the calendar date range those entries were FETCHED with
-                        // (dateRange/onDateRangeChange, default: last 7 days from
-                        // EHIApp's globalDateRange). Clicking it looked broken --
-                        // anything older than the current date-picker window
-                        // stayed invisible no matter what. Widen the actual fetch
-                        // window here so "All Time" fetches genuinely old data too;
-                        // "Current Shift" doesn't need to touch it, since it only
-                        // narrows within what's already loaded.
                         if (scope === 'all' && dateRange && onDateRangeChange) {
                           onDateRangeChange({
                             start: new Date(Date.now() - 5 * 365 * 86400000).toISOString().split('T')[0],
@@ -2107,10 +2099,10 @@ export const TransactionLedger = ({
                           });
                         }
                       }}
-                      className={`h-8 px-2.5 rounded-lg text-[10px] font-mono font-bold transition-all border ${
+                      className={`h-7 px-3.5 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer ${
                         shiftFilter === scope
-                          ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] border-[var(--color-accent-amber)]'
-                          : 'bg-[var(--color-surface-1)] text-[var(--color-muted)] border-[var(--color-border)] hover:border-[var(--color-accent-amber)] hover:text-[var(--color-accent-amber)]'
+                          ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] shadow-md'
+                          : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[rgba(255,255,255,0.03)]'
                       }`}
                     >
                       {scope === 'current' ? 'Current Shift' : 'All Time'}
@@ -2123,80 +2115,81 @@ export const TransactionLedger = ({
               <div className="flex items-center gap-2 flex-wrap">
                 {/* Date range */}
                 {dateRange && onDateRangeChange && (
-                  <div className="flex items-center gap-1 h-8 px-2 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg font-mono text-[10px]">
+                  <div className="flex items-center gap-2 h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-lg font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
+                    <Calendar size={11} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
                     <input
                       id="ledger-date-start"
                       name="date-start"
                       type="date"
                       value={dateRange.start}
                       onChange={(e) => onDateRangeChange({ ...dateRange, start: e.target.value })}
-                      className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none h-full w-[110px]"
+                      className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none h-full w-[100px] font-bold cursor-pointer"
                     />
-                    <span className="text-[var(--color-border)]">→</span>
+                    <span className="text-[var(--color-muted)] font-sans">→</span>
                     <input
                       id="ledger-date-end"
                       name="date-end"
                       type="date"
                       value={dateRange.end}
                       onChange={(e) => onDateRangeChange({ ...dateRange, end: e.target.value })}
-                      className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none h-full w-[110px]"
+                      className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none h-full w-[100px] font-bold cursor-pointer"
                     />
                   </div>
                 )}
 
                 {/* Type filter */}
-                <div className="flex items-center h-8 px-2 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg font-mono text-[10px]">
-                  <Filter size={9} className="text-[var(--color-muted)] mr-1.5 shrink-0" />
+                <div className="relative flex items-center h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-lg font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
+                  <Filter size={10} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] mr-2 shrink-0 transition-colors" />
                   <select
                     value={typeFilter}
                     onChange={(e) => setTypeFilter(e.target.value)}
-                    className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none cursor-pointer h-full"
+                    className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none cursor-pointer h-full appearance-none font-bold pr-1"
                   >
-                    <option value="All">All Types</option>
-                    <option value="Cargo">Cargo</option>
-                    <option value="Baggage">Baggage</option>
-                    <option value="Marketing">Marketing</option>
-                    <option value="Package">Package</option>
-                    <option value="Expense">Expense</option>
-                    <option value="Office Work">Office Work</option>
+                    <option value="All" className="bg-[var(--color-surface-card)]">All Types</option>
+                    <option value="Cargo" className="bg-[var(--color-surface-card)]">Cargo</option>
+                    <option value="Baggage" className="bg-[var(--color-surface-card)]">Baggage</option>
+                    <option value="Marketing" className="bg-[var(--color-surface-card)]">Marketing</option>
+                    <option value="Package" className="bg-[var(--color-surface-card)]">Package</option>
+                    <option value="Expense" className="bg-[var(--color-surface-card)]">Expense</option>
+                    <option value="Office Work" className="bg-[var(--color-surface-card)]">Office Work</option>
                   </select>
+                  <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-muted)] pointer-events-none group-hover:text-[var(--color-accent-amber)] transition-colors" />
                 </div>
 
                 {/* Mode filter */}
-                <div className="flex items-center h-8 px-2 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg font-mono text-[10px]">
+                <div className="relative flex items-center h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-lg font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
+                  <HandCoins size={10} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] mr-2 shrink-0 transition-colors" />
                   <select
                     value={modeFilter}
                     onChange={(e) => setModeFilter(e.target.value)}
-                    className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none cursor-pointer h-full"
+                    className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none cursor-pointer h-full appearance-none font-bold pr-1"
                   >
-                    <option value="All">All Modes</option>
-                    <option value="Revenue">Revenue Only</option>
-                    <option value="Expense">Expense Only</option>
-                    <option value="Cash">Cash</option>
-                    <option value="Transfer">Transfer</option>
-                    <option value="POS">POS</option>
-                    <option value="Debt">Debt</option>
-                    <option value="Unverified">Unverified</option>
-                    <option value="Retrieved">Retrieved</option>
-                    <option value="Debt Paid">Debt Cleared</option>
-                    <option value="Debt Clearance">Debt Clearance</option>
+                    <option value="All" className="bg-[var(--color-surface-card)]">All Modes</option>
+                    <option value="Revenue" className="bg-[var(--color-surface-card)]">Revenue Only</option>
+                    <option value="Expense" className="bg-[var(--color-surface-card)]">Expense Only</option>
+                    <option value="Cash" className="bg-[var(--color-surface-card)]">Cash</option>
+                    <option value="Transfer" className="bg-[var(--color-surface-card)]">Transfer</option>
+                    <option value="POS" className="bg-[var(--color-surface-card)]">POS</option>
+                    <option value="Debt" className="bg-[var(--color-surface-card)]">Debt</option>
+                    <option value="Unverified" className="bg-[var(--color-surface-card)]">Unverified</option>
+                    <option value="Retrieved" className="bg-[var(--color-surface-card)]">Retrieved</option>
+                    <option value="Debt Paid" className="bg-[var(--color-surface-card)]">Debt Cleared</option>
+                    <option value="Debt Clearance" className="bg-[var(--color-surface-card)]">Debt Clearance</option>
                   </select>
+                  <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-muted)] pointer-events-none group-hover:text-[var(--color-accent-amber)] transition-colors" />
                 </div>
 
-                {/* Terminal filter -- GAT is a second physical Lagos counter
-                    (see TerminalSwitch.tsx), not a separate hub. Only shown
-                    for Lagos-hub users or once a GAT row has actually shown
-                    up, so other states never see an irrelevant filter. */}
+                {/* Terminal filter */}
                 {(userHubCode === 'LOS' || hasGat) && (
-                  <div className="flex items-center gap-1 h-8 px-1 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg">
+                  <div className="flex items-center gap-1.5 h-8 p-1 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg font-mono text-[10px]">
                     {(['All', 'MMA2', 'GAT'] as const).map((t) => (
                       <button
                         key={t}
                         onClick={() => setTerminalFilter(t)}
-                        className={`h-6 px-2 rounded text-[10px] font-mono font-bold transition-all ${
+                        className={`h-6 px-3 rounded-md text-[10px] font-mono font-bold transition-all cursor-pointer ${
                           terminalFilter === t
-                            ? 'bg-[var(--color-accent-cobalt)] text-white'
-                            : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+                            ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] shadow-sm'
+                            : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[rgba(255,255,255,0.03)]'
                         }`}
                       >
                         {t}
@@ -2206,39 +2199,41 @@ export const TransactionLedger = ({
                 )}
 
                 {/* Time filter */}
-                <div className="flex items-center h-8 px-2 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg font-mono text-[10px]">
-                  <Clock size={9} className="text-[var(--color-muted)] mr-1.5 shrink-0" />
+                <div className="relative flex items-center h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-lg font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
+                  <Clock size={10} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] mr-2 shrink-0 transition-colors" />
                   <select
                     value={timeFilter}
                     onChange={(e) => setTimeFilter(e.target.value as any)}
-                    className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none cursor-pointer h-full"
+                    className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none cursor-pointer h-full appearance-none font-bold pr-1"
                   >
-                    <option value="All">All Time</option>
-                    <option value="Morning">Morning (06–12)</option>
-                    <option value="Afternoon">Afternoon (12–17)</option>
-                    <option value="Evening">Evening (17–24)</option>
-                    <option value="Custom">Custom…</option>
+                    <option value="All" className="bg-[var(--color-surface-card)]">All Time</option>
+                    <option value="Morning" className="bg-[var(--color-surface-card)]">Morning (06–12)</option>
+                    <option value="Afternoon" className="bg-[var(--color-surface-card)]">Afternoon (12–17)</option>
+                    <option value="Evening" className="bg-[var(--color-surface-card)]">Evening (17–24)</option>
+                    <option value="Custom" className="bg-[var(--color-surface-card)]">Custom…</option>
                   </select>
+                  <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-muted)] pointer-events-none group-hover:text-[var(--color-accent-amber)] transition-colors" />
                 </div>
 
+                {/* Custom Time range */}
                 {timeFilter === "Custom" && (
-                  <div className="flex items-center gap-1 h-8 px-2 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg font-mono text-[10px]">
+                  <div className="flex items-center gap-1.5 h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-lg font-mono text-[10px] text-[var(--color-foreground)] transition-colors">
                     <input
                       id="ledger-time-start"
                       name="time-start"
                       type="time"
                       value={timeStart}
                       onChange={(e) => setTimeStart(e.target.value)}
-                      className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none h-full w-[72px]"
+                      className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none h-full w-[72px] cursor-pointer"
                     />
-                    <span className="text-[var(--color-muted)]">–</span>
+                    <span className="text-[var(--color-muted)] font-sans">–</span>
                     <input
                       id="ledger-time-end"
                       name="time-end"
                       type="time"
                       value={timeEnd}
                       onChange={(e) => setTimeEnd(e.target.value)}
-                      className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none h-full w-[72px]"
+                      className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none h-full w-[72px] cursor-pointer"
                     />
                   </div>
                 )}

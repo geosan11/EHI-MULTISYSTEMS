@@ -112,28 +112,30 @@ export const DebtorsTab = ({
     return Math.max(0, Math.floor((Date.now() - created) / 86400000));
   };
 
-  const debts = debtSource
-    .filter(t => t.mode === 'Debt' || t.mode?.includes('Debt'))
-    .map(t => {
-      const ageInDays = realAgeInDays(t);
-      let bucket: 'current' | 'overdue' | 'critical' | 'writeoff-risk' = 'current';
-      if (ageInDays > 90) bucket = 'writeoff-risk';
-      else if (ageInDays > 60) bucket = 'critical';
-      else if (ageInDays > 30) bucket = 'overdue';
+  const debts = useMemo(() => {
+    return debtSource
+      .filter(t => t.mode === 'Debt' || t.mode?.includes('Debt'))
+      .map(t => {
+        const ageInDays = realAgeInDays(t);
+        let bucket: 'current' | 'overdue' | 'critical' | 'writeoff-risk' = 'current';
+        if (ageInDays > 90) bucket = 'writeoff-risk';
+        else if (ageInDays > 60) bucket = 'critical';
+        else if (ageInDays > 30) bucket = 'overdue';
 
-      return {
-        ...t,
-        // Prefer the value set at entry time; otherwise classify off the
-        // real corporate_client_id link rather than matching a hardcoded
-        // list of client names (which silently misclassified any corporate
-        // client not on that list, and never updated as new ones onboarded).
-        clientType: t.clientType || (t.corporate_client_id ? 'Corporate' : 'Individual'),
-        ageInDays,
-        agingBucket: bucket,
-        balance: t.amount - (t.amountPaid || 0) - ((t.raw as any)?.retrieved_amount || 0),
-      };
-    })
-    .filter(d => d.balance > 0);
+        const amt = Number(t.amount || 0);
+        const amtPaid = Number(t.amountPaid || 0);
+        const retrieved = Number((t.raw as any)?.retrieved_amount || 0);
+
+        return {
+          ...t,
+          clientType: t.clientType || (t.corporate_client_id ? 'Corporate' : 'Individual'),
+          ageInDays,
+          agingBucket: bucket,
+          balance: amt - amtPaid - retrieved,
+        };
+      })
+      .filter(d => d.balance > 0);
+  }, [debtSource]);
 
   let visibleDebts = debts;
   if (filter !== 'All') {
@@ -218,6 +220,32 @@ export const DebtorsTab = ({
       if (!result.ok) {
         showToast({ message: result.error || 'Failed to record payment.', type: 'error' });
         return;
+      }
+
+      // Optimistically update the original transaction in global state
+      if (onUpdateTx) {
+        const stillOwed = result.remainingBalance ?? remaining;
+        const fullyPaid = result.fullyPaid ?? (stillOwed <= 0);
+        const historyEntry = {
+          amount: cappedPaid,
+          mode: paymentMode,
+          by: user?.name || 'Unknown',
+          at: new Date().toISOString()
+        };
+        const updatedTx: Transaction = {
+          ...debt,
+          amountPaid: result.newAmountPaid ?? ((debt.amountPaid || 0) + cappedPaid),
+          paymentHistory: [...(debt.paymentHistory || []), historyEntry],
+          mode: fullyPaid ? 'Debt Paid' : 'Debt',
+          paymentConfirmed: fullyPaid,
+          confirmedBy: fullyPaid ? (user?.name || 'Unknown') : debt.confirmedBy,
+          confirmedAt: fullyPaid ? new Date().toISOString() : debt.confirmedAt,
+          ...(debt.type === 'package' && fullyPaid ? {
+            debtPaid: true,
+            debtPaidAt: new Date().toISOString()
+          } : {})
+        };
+        onUpdateTx(updatedTx);
       }
 
       // 2. Emit a visible debt-clearance shadow transaction so today's
