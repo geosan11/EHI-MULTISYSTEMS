@@ -6,6 +6,7 @@ import { BackButton } from '../BackButton';
 import { User } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../lib/ToastContext';
+import { syncLagosRates } from '../../lib/lagosHubSync';
 
 const HUB_DEFAULT_AIRLINE = '__HUB_DEFAULT__';
 
@@ -87,6 +88,7 @@ export const HubCargoRates = ({ user, onBack }: { user: User; onBack: () => void
         setHubRouteRates(prev);
         showToast({ message: `Failed to save ${route} default rate: ${error.message}`, type: 'error' });
       } else {
+        syncLagosRates();
         showToast({ message: `${route} default rate saved.`, type: 'success' });
       }
     } else {
@@ -105,6 +107,7 @@ export const HubCargoRates = ({ user, onBack }: { user: User; onBack: () => void
         setHubAirlineRouteRates(prev);
         showToast({ message: `Failed to save ${route} rate for ${selectedAirline}: ${error.message}`, type: 'error' });
       } else {
+        syncLagosRates();
         showToast({ message: `${route} rate for ${selectedAirline} saved.`, type: 'success' });
       }
     }

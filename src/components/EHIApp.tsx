@@ -36,6 +36,7 @@ import { AirlineLedger } from './views/AirlineLedger';
 import { WeightManifest } from './views/WeightManifest';
 
 import { ErrorBoundary } from './ErrorBoundary';
+import { syncLagosRates } from '../lib/lagosHubSync';
 
 const Header = memo(HeaderRaw);
 const BottomNav = memo(BottomNavRaw);
@@ -194,13 +195,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
   });
 
   useEffect(() => {
-    supabase.from('excess_baggage_airlines').select('*').eq('active', true).order('created_at', { ascending: true })
-      .then(({ data, error }) => {
-        if (data && !error) {
-          setExcessBaggageAirlines(data);
-          localStorage.setItem('ehi_excess_baggage_airlines', JSON.stringify(data));
-        }
-      });
+    syncLagosRates();
   }, []);
 
   const { theme, toggle } = useTheme();

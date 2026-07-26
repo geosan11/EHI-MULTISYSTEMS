@@ -9,6 +9,7 @@ import { useHubRoutes, useValidatedRouteSelection, useHubs } from "../../lib/hub
 import { useAirlines, addAirlineIfMissing } from "../../lib/airlines";
 import { useContentTypes } from "../../lib/contentTypes";
 import { useSpecialGoodsRates, resolveSpecialGoodsRate } from "../../lib/specialGoodsRates";
+import { getEquivalentHubIds } from "../../lib/lagosHubSync";
 import { useFlatTierRates, resolveFlatTier } from "../../lib/flatTierRates";
 import { useSizeTierRates, resolveSizeTier, useSizeTierContentTypeNames } from "../../lib/sizeTierRates";
 import { useMinimumCharges, resolveMinimumCharge } from "../../lib/minimumCharges";
@@ -347,9 +348,10 @@ export const CargoForm = ({
   useEffect(() => {
     if (!user.hub_id) return;
     const fetchHubRates = async () => {
+      const hubIds = await getEquivalentHubIds(user.hub_id);
       const [airlineRes, hubRes] = await Promise.all([
-        supabase.from('hub_airline_route_rates').select('airline, route_name, rate_per_kg').eq('hub_id', user.hub_id),
-        supabase.from('hub_route_rates').select('route_name, rate_per_kg').eq('hub_id', user.hub_id),
+        supabase.from('hub_airline_route_rates').select('airline, route_name, rate_per_kg').in('hub_id', hubIds),
+        supabase.from('hub_route_rates').select('route_name, rate_per_kg').in('hub_id', hubIds),
       ]);
       if (airlineRes.data && !airlineRes.error) {
         const rates: Record<string, number> = {};

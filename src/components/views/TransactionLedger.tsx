@@ -6,6 +6,7 @@ import { applyWalletTransaction, processRetrieval, unretrieveEntry, approveRetri
 import { clearDebt, DebtEntryType } from "../../lib/debt";
 import { confirmPayment, PaymentEntryType } from "../../lib/paymentConfirmation";
 import { useHubRoutes, useHubNames } from "../../lib/hubRoutes";
+import { getEquivalentHubIds } from "../../lib/lagosHubSync";
 import { useAirlines } from "../../lib/airlines";
 import { MIN_PACKAGE_AMOUNT } from "../../lib/constants";
 import { useContentTypes } from "../../lib/contentTypes";
@@ -226,10 +227,11 @@ export const TransactionLedger = ({
     let active = true;
     const fetchRates = async () => {
       try {
+        const hubIds = user?.hub_id ? await getEquivalentHubIds(user.hub_id) : [];
         const [stdRes, airRes, hubRes] = await Promise.all([
           supabase.from('standard_cargo_rates').select('route_name, rate_per_kg'),
-          user?.hub_id ? supabase.from('hub_airline_route_rates').select('airline, route_name, rate_per_kg').eq('hub_id', user.hub_id) : Promise.resolve({ data: null, error: null }),
-          user?.hub_id ? supabase.from('hub_route_rates').select('route_name, rate_per_kg').eq('hub_id', user.hub_id) : Promise.resolve({ data: null, error: null }),
+          hubIds.length > 0 ? supabase.from('hub_airline_route_rates').select('airline, route_name, rate_per_kg').in('hub_id', hubIds) : Promise.resolve({ data: null, error: null }),
+          hubIds.length > 0 ? supabase.from('hub_route_rates').select('route_name, rate_per_kg').in('hub_id', hubIds) : Promise.resolve({ data: null, error: null }),
         ]);
 
         if (active && stdRes.data) {
