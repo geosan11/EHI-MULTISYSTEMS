@@ -75,33 +75,33 @@
 :root.dark {
   --app-height: 100dvh;
 
-  /* ColorHunt Deep Prussian Navy Midnight Surfaces */
-  --color-obsidian: #020d18;
-  --color-surface-1: #001a2c;
-  --color-surface-2: #00263d;
-  --color-surface-3: #003049;
-  --color-surface-card: #002438;
-  --color-surface-card-glass: rgba(0, 48, 73, 0.75);
-  --color-nav-bg: #011524;
-  --color-nav-glass: rgba(1, 21, 36, 0.82);
-  --color-background: #020d18;
-  --color-input-bg: #00263d;
+  /* ColorHunt Deep Prussian Navy Midnight Surfaces (#132440, #16476a, #3b9797, #bf092f) */
+  --color-obsidian: #0b1526;          /* Deepest Navy background */
+  --color-surface-1: #132440;         /* Deep Prussian Navy */
+  --color-surface-2: #16476a;         /* Steel Blue */
+  --color-surface-3: #1c527a;         /* Lighter Steel Blue */
+  --color-surface-card: #132440;      /* Card surfaces */
+  --color-surface-card-glass: rgba(19, 36, 64, 0.75);
+  --color-nav-bg: #0b1424;
+  --color-nav-glass: rgba(11, 20, 36, 0.82);
+  --color-background: #0b1526;
+  --color-input-bg: #0e1b30;
   --color-input-text: #e6edf3;
 
   /* ColorHunt Palette Accents */
-  --color-accent-amber: #fcbf49;      /* Honey Gold */
-  --color-warning: #f77f00;           /* Flame Amber / Orange */
-  --color-error: #d62828;             /* Crimson Red */
-  --color-accent-cobalt: #3b82f6;
-  --color-success: #10b981;
+  --color-accent-amber: #3b9797;      /* Primary Accent: Teal */
+  --color-warning: #f59e0b;           /* Warning remains standard Gold/Orange */
+  --color-error: #bf092f;             /* Primary Alert: Crimson Red */
+  --color-accent-cobalt: #16476a;     /* Secondary Accent: Steel Blue */
+  --color-success: #3b9797;           /* Success matches Teal */
   --color-purple: #8b5cf6;
-  --color-navy: #003049;
-  --color-navy-deep: #001a2c;
+  --color-navy: #132440;
+  --color-navy-deep: #0b1424;
 
-  --glow-amber: rgba(252, 191, 73, 0.22);
-  --glow-cobalt: rgba(59, 130, 246, 0.22);
-  --glow-success: rgba(16, 185, 129, 0.22);
-  --glow-error: rgba(214, 40, 40, 0.22);
+  --glow-amber: rgba(59, 151, 151, 0.22); /* Teal glow */
+  --glow-cobalt: rgba(22, 71, 106, 0.22);  /* Steel Blue glow */
+  --glow-success: rgba(59, 151, 151, 0.22);
+  --glow-error: rgba(191, 9, 47, 0.22);     /* Crimson Red glow */
 
   --color-foreground: #f8fafc;
   --color-muted: #809bb0;
@@ -121,9 +121,9 @@
   --shadow-dropdown:
     0 8px 32px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.4),
     0 0 0 1px rgba(255, 255, 255, 0.1);
-  --shadow-amber: 0 4px 16px rgba(252, 191, 73, 0.35);
-  --shadow-cobalt: 0 4px 16px rgba(59, 130, 246, 0.35);
-  --shadow-success: 0 4px 16px rgba(16, 185, 129, 0.35);
+  --shadow-amber: 0 4px 16px rgba(59, 151, 151, 0.35); /* Teal accent shadow */
+  --shadow-cobalt: 0 4px 16px rgba(22, 71, 106, 0.35);
+  --shadow-success: 0 4px 16px rgba(59, 151, 151, 0.35);
   --shadow-modal:
     0 20px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08);
 
@@ -148,32 +148,32 @@
 
 :root,
 :root.light {
-  --color-obsidian: #f1f5f9;
+  --color-obsidian: #f4f6f8;
   --color-surface-1: #ffffff;
-  --color-surface-2: #e2e8f0;
-  --color-surface-3: #cbd5e1;
+  --color-surface-2: #e9ecef;
+  --color-surface-3: #dee2e6;
   --color-surface-card: #ffffff;
   --color-surface-card-glass: rgba(255, 255, 255, 0.85);
   --color-nav-bg: #ffffff;
   --color-nav-glass: rgba(255, 255, 255, 0.88);
-  --color-background: #f1f5f9;
+  --color-background: #f4f6f8;
   --color-input-bg: #ffffff;
-  --color-input-text: #003049;
+  --color-input-text: #132440;        /* Prussian Navy text */
 
-  --color-foreground: #003049;        /* High-contrast Prussian Navy typography */
-  --color-accent-amber: #f77f00;      /* Flame Amber */
+  --color-foreground: #132440;        /* High-contrast Prussian Navy typography */
+  --color-accent-amber: #3b9797;      /* Teal brand accent */
   --color-warning: #d97706;
-  --color-error: #d62828;            /* Crimson Red */
-  --color-accent-cobalt: #2563eb;
-  --color-success: #059669;
+  --color-error: #bf092f;             /* Crimson Red */
+  --color-accent-cobalt: #16476a;     /* Steel Blue */
+  --color-success: #3b9797;           /* Teal */
   --color-purple: #7c3aed;
-  --color-navy: #003049;
-  --color-navy-deep: #001a2c;
+  --color-navy: #132440;
+  --color-navy-deep: #0b1424;
 
-  --glow-amber: rgba(217, 119, 6, 0.18);
-  --glow-cobalt: rgba(37, 99, 235, 0.18);
-  --glow-success: rgba(5, 150, 105, 0.18);
-  --glow-error: rgba(220, 38, 38, 0.18);
+  --glow-amber: rgba(59, 151, 151, 0.18); /* Teal glow */
+  --glow-cobalt: rgba(22, 71, 106, 0.18);  /* Steel Blue glow */
+  --glow-success: rgba(59, 151, 151, 0.18);
+  --glow-error: rgba(191, 9, 47, 0.18);     /* Crimson Red glow */
 
   --color-foreground: #111827;
   --color-muted: #9ca3af;
@@ -191,9 +191,9 @@
   --shadow-dropdown:
     0 8px 32px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.08),
     0 0 0 1px rgba(0, 0, 0, 0.07);
-  --shadow-amber: 0 4px 14px rgba(217, 119, 6, 0.3);
-  --shadow-cobalt: 0 4px 14px rgba(37, 99, 235, 0.28);
-  --shadow-success: 0 4px 14px rgba(5, 150, 105, 0.28);
+  --shadow-amber: 0 4px 14px rgba(59, 151, 151, 0.28); /* Teal shadow */
+  --shadow-cobalt: 0 4px 14px rgba(22, 71, 106, 0.28);
+  --shadow-success: 0 4px 14px rgba(59, 151, 151, 0.28);
   --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.08);
 
   --radius-xs: 4px;
