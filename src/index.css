@@ -75,55 +75,57 @@
 :root.dark {
   --app-height: 100dvh;
 
-  --color-obsidian: #0d1117;
-  --color-surface-1: #161b22;
-  --color-surface-2: #1c2333;
-  --color-surface-3: #21293b;
-  --color-surface-card: #1a2232;
-  --color-surface-card-glass: rgba(26, 34, 50, 0.72);
-  --color-nav-bg: #0f141d;
-  --color-nav-glass: rgba(15, 20, 29, 0.72);
-  --color-background: #0d1117;
-  --color-input-bg: #1c2333;
+  /* ColorHunt Deep Prussian Navy Midnight Surfaces */
+  --color-obsidian: #020d18;
+  --color-surface-1: #001a2c;
+  --color-surface-2: #00263d;
+  --color-surface-3: #003049;
+  --color-surface-card: #002438;
+  --color-surface-card-glass: rgba(0, 48, 73, 0.75);
+  --color-nav-bg: #011524;
+  --color-nav-glass: rgba(1, 21, 36, 0.82);
+  --color-background: #020d18;
+  --color-input-bg: #00263d;
   --color-input-text: #e6edf3;
 
-  --color-accent-amber: #F0B230;
+  /* ColorHunt Palette Accents */
+  --color-accent-amber: #fcbf49;      /* Honey Gold */
+  --color-warning: #f77f00;           /* Flame Amber / Orange */
+  --color-error: #d62828;             /* Crimson Red */
   --color-accent-cobalt: #3b82f6;
   --color-success: #10b981;
-  --color-error: #ef4444;
-  --color-warning: #f59e0b;
   --color-purple: #8b5cf6;
-  --color-navy: #084985;
-  --color-navy-deep: #052c52;
+  --color-navy: #003049;
+  --color-navy-deep: #001a2c;
 
-  --glow-amber: rgba(245, 158, 11, 0.22);
+  --glow-amber: rgba(252, 191, 73, 0.22);
   --glow-cobalt: rgba(59, 130, 246, 0.22);
   --glow-success: rgba(16, 185, 129, 0.22);
-  --glow-error: rgba(239, 68, 68, 0.22);
+  --glow-error: rgba(214, 40, 40, 0.22);
 
-  --color-foreground: #e6edf3;
-  --color-muted: #6e7b8d;
-  --color-light-muted: #8b9ab1;
+  --color-foreground: #f8fafc;
+  --color-muted: #809bb0;
+  --color-light-muted: #a0b8cc;
 
-  --color-border: rgba(255, 255, 255, 0.09);
-  --color-border-strong: rgba(255, 255, 255, 0.16);
-  --color-nav-border: rgba(255, 255, 255, 0.08);
-  --color-overlay: rgba(0, 0, 0, 0.78);
+  --color-border: rgba(255, 255, 255, 0.11);
+  --color-border-strong: rgba(255, 255, 255, 0.18);
+  --color-nav-border: rgba(255, 255, 255, 0.1);
+  --color-overlay: rgba(0, 13, 24, 0.85);
 
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.25);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.3);
   --shadow-card:
-    0 2px 8px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    0 4px 14px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
   --shadow-nav:
-    0 -4px 24px rgba(0, 0, 0, 0.45), 0 -1px 0 rgba(255, 255, 255, 0.06);
+    0 -4px 24px rgba(0, 0, 0, 0.55), 0 -1px 0 rgba(255, 255, 255, 0.08);
   --shadow-dropdown:
-    0 8px 32px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35),
-    0 0 0 1px rgba(255, 255, 255, 0.08);
-  --shadow-amber: 0 4px 16px rgba(245, 158, 11, 0.35);
+    0 8px 32px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+  --shadow-amber: 0 4px 16px rgba(252, 191, 73, 0.35);
   --shadow-cobalt: 0 4px 16px rgba(59, 130, 246, 0.35);
   --shadow-success: 0 4px 16px rgba(16, 185, 129, 0.35);
   --shadow-modal:
-    0 20px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
+    0 20px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08);
 
   --radius-xs: 4px;
   --radius-sm: 8px;
@@ -141,31 +143,27 @@
 
 :root,
 :root.light {
-  /* The page canvas sits a clear step below card/nav surfaces instead of
-     near-white-on-white -- that's what reads as "glare" at a glance. Cards
-     and the nav also drop from stark #ffffff to a faint cool-tinted white
-     so no single surface is pure #fff; shadow/border strength is bumped
-     slightly to compensate for the reduced contrast between layers. */
-  --color-obsidian: #e7ebf1;
-  --color-surface-1: #fdfdfe;
-  --color-surface-2: #eef1f6;
-  --color-surface-3: #e1e6ee;
-  --color-surface-card: #fcfdfe;
-  --color-surface-card-glass: rgba(252, 253, 254, 0.72);
-  --color-nav-bg: #fbfcfe;
-  --color-nav-glass: rgba(251, 252, 254, 0.72);
-  --color-background: #e7ebf1;
-  --color-input-bg: #fdfdfe;
-  --color-input-text: #111827;
+  --color-obsidian: #f1f5f9;
+  --color-surface-1: #ffffff;
+  --color-surface-2: #e2e8f0;
+  --color-surface-3: #cbd5e1;
+  --color-surface-card: #ffffff;
+  --color-surface-card-glass: rgba(255, 255, 255, 0.85);
+  --color-nav-bg: #ffffff;
+  --color-nav-glass: rgba(255, 255, 255, 0.88);
+  --color-background: #f1f5f9;
+  --color-input-bg: #ffffff;
+  --color-input-text: #003049;
 
-  --color-accent-amber: #C98E28;
+  --color-foreground: #003049;        /* High-contrast Prussian Navy typography */
+  --color-accent-amber: #f77f00;      /* Flame Amber */
+  --color-warning: #d97706;
+  --color-error: #d62828;            /* Crimson Red */
   --color-accent-cobalt: #2563eb;
   --color-success: #059669;
-  --color-error: #dc2626;
-  --color-warning: #d97706;
   --color-purple: #7c3aed;
-  --color-navy: #084985;
-  --color-navy-deep: #052c52;
+  --color-navy: #003049;
+  --color-navy-deep: #001a2c;
 
   --glow-amber: rgba(217, 119, 6, 0.18);
   --glow-cobalt: rgba(37, 99, 235, 0.18);
