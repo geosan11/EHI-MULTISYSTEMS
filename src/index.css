@@ -139,6 +139,11 @@
   --content-padding: 0px;
   --content-max-width: 100%;
   --card-grid: 1fr 1fr;
+
+  /* Toast variables dark mode defaults */
+  --toast-text-color: #f1f5f9;
+  --toast-icon-bg: rgba(255, 255, 255, 0.08);
+  --toast-icon-border: rgba(255, 255, 255, 0.04);
 }
 
 :root,
@@ -203,6 +208,14 @@
   --content-padding: 0px;
   --content-max-width: 100%;
   --card-grid: 1fr 1fr;
+
+  /* Toast variables light mode overrides */
+  --toast-bg: rgba(255, 255, 255, 0.96);
+  --toast-border: rgba(0, 0, 0, 0.08);
+  --toast-title-color: #0f172a;
+  --toast-text-color: #475569;
+  --toast-icon-bg: rgba(0, 0, 0, 0.03);
+  --toast-icon-border: rgba(0, 0, 0, 0.04);
 }
 
 @media (min-width: 768px) {
