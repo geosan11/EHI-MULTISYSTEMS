@@ -218,21 +218,88 @@ export const TransactionLedger = ({
     && corpNameSet.has((e.name || '').trim().toUpperCase().replace(/\s+/g, ' '));
 
 
-  // Auto-calculate amount for cargo edits
+  const [hubAirlineRates, setHubAirlineRates] = useState<Record<string, number>>({});
+  const [hubRouteRates, setHubRouteRates] = useState<Record<string, number>>({});
+  const [standardRatesMap, setStandardRatesMap] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let active = true;
+    const fetchRates = async () => {
+      try {
+        const [stdRes, airRes, hubRes] = await Promise.all([
+          supabase.from('standard_cargo_rates').select('route_name, rate_per_kg'),
+          user?.hub_id ? supabase.from('hub_airline_route_rates').select('airline, route_name, rate_per_kg').eq('hub_id', user.hub_id) : Promise.resolve({ data: null, error: null }),
+          user?.hub_id ? supabase.from('hub_route_rates').select('route_name, rate_per_kg').eq('hub_id', user.hub_id) : Promise.resolve({ data: null, error: null }),
+        ]);
+
+        if (active && stdRes.data) {
+          const stdMap: Record<string, number> = {};
+          stdRes.data.forEach((r: any) => { stdMap[r.route_name] = Number(r.rate_per_kg); });
+          setStandardRatesMap(stdMap);
+          localStorage.setItem("ehi_standard_cargo_rates", JSON.stringify(stdMap));
+        } else if (active) {
+          const saved = localStorage.getItem("ehi_standard_cargo_rates");
+          if (saved) setStandardRatesMap(JSON.parse(saved));
+        }
+
+        if (active && airRes.data) {
+          const airMap: Record<string, number> = {};
+          airRes.data.forEach((r: any) => {
+            airMap[`${r.airline}|${r.route_name}`] = Number(r.rate_per_kg);
+          });
+          setHubAirlineRates(airMap);
+        }
+
+        if (active && hubRes.data) {
+          const hMap: Record<string, number> = {};
+          hubRes.data.forEach((r: any) => { hMap[r.route_name] = Number(r.rate_per_kg); });
+          setHubRouteRates(hMap);
+        }
+      } catch {
+        if (active) {
+          const saved = localStorage.getItem("ehi_standard_cargo_rates");
+          if (saved) setStandardRatesMap(JSON.parse(saved));
+        }
+      }
+    };
+    fetchRates();
+    return () => { active = false; };
+  }, [user?.hub_id]);
+
+  const getRateForCargo = (airlineName?: string, routeName?: string): number => {
+    const a = (airlineName || '').trim();
+    const r = (routeName || '').trim();
+    if (a && r && hubAirlineRates[`${a}|${r}`] != null) {
+      return hubAirlineRates[`${a}|${r}`];
+    }
+    if (r && hubRouteRates[r] != null) {
+      return hubRouteRates[r];
+    }
+    if (r && standardRatesMap[r] != null) {
+      return standardRatesMap[r];
+    }
+    const saved = localStorage.getItem("ehi_standard_cargo_rates");
+    if (saved && r) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed[r] != null) return Number(parsed[r]);
+      } catch {}
+    }
+    return 0;
+  };
+
+  // Auto-calculate amount for cargo edits when Airline, Route, or KG changes
   useEffect(() => {
     if (editingTx && editingTx.type === 'cargo') {
       const kg = parseFloat(kgInput) || 0;
-      try {
-        const standardRates = JSON.parse(localStorage.getItem("ehi_standard_cargo_rates") || "{}");
-        const rate = standardRates[editingTx.route || ''] || 0;
-        const computedFloor = rate * kg;
-        const currentAmount = parseFloat(amountInput) || 0;
-        if (computedFloor > 0 && currentAmount < computedFloor) {
-            setAmountInput(String(computedFloor));
-        }
-      } catch (e) {}
+      if (kg <= 0) return;
+      const rate = getRateForCargo(editingTx.airline, editingTx.route);
+      if (rate > 0) {
+        const computedAmount = rate * kg;
+        setAmountInput(String(computedAmount));
+      }
     }
-  }, [editingTx?.route, kgInput, editingTx?.type, amountInput]);
+  }, [editingTx?.airline, editingTx?.route, kgInput, editingTx?.type, hubAirlineRates, hubRouteRates, standardRatesMap]);
 
   const [vjFlightFilter, setVjFlightFilter] = useState("All");
   const [vjDestFilter, setVjDestFilter] = useState("All");
@@ -617,15 +684,12 @@ export const TransactionLedger = ({
       }
 
       if (editingTx.type === 'cargo') {
-        try {
-          const standardRates = JSON.parse(localStorage.getItem("ehi_standard_cargo_rates") || "{}");
-          const rate = standardRates[editingTx.route || ''] || 0;
-          const computedFloor = rate * kg;
-          if (amount < computedFloor) {
-            showToast({ message: `Amount cannot be lower than the calculated price (₦${computedFloor.toLocaleString()})`, type: 'warning' });
-            return;
-          }
-        } catch (e) {}
+        const rate = getRateForCargo(editingTx.airline, editingTx.route);
+        const computedFloor = rate * kg;
+        if (computedFloor > 0 && amount < computedFloor) {
+          showToast({ message: `Amount cannot be lower than the calculated price for ${editingTx.airline || 'this route'} (₦${computedFloor.toLocaleString()})`, type: 'warning' });
+          return;
+        }
       }
 
       // Switching an entry's mode TO 'Wallet' (from anything else) deducts
