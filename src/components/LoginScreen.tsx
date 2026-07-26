@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile, signIn } from '../lib/auth';
 import ehiLogo from '../assets/branding/ehi-logo.png';
+import loginBg from '../assets/branding/login-bg.jpg';
 import { getConnectionMode, testSupabaseConnection, supabase } from '../lib/supabase';
+import { User, Eye, EyeOff, Check, Loader2, AlertCircle } from 'lucide-react';
 
 type ConnStatus = 'checking' | 'live' | 'offline' | 'unconfigured';
 
 export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void }) => {
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError]       = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [connStatus, setConnStatus] = useState<ConnStatus>('checking');
@@ -26,14 +30,6 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
     setResetSending(true);
     setResetError('');
     try {
-      // Always point the emailed reset link at the real production app, not
-      // whichever origin happened to be open when "Forgot password" was
-      // clicked -- window.location.origin previously meant a reset requested
-      // from a local dev server, a Vercel preview URL, or any other non-canonical
-      // origin sent staff a link that only worked on that one machine/deploy,
-      // not "reset your password" in any usable sense elsewhere. import.meta.env.DEV
-      // (Vite's built-in flag, true only under `vite dev`) keeps the dynamic
-      // origin for local testing, where the production domain isn't reachable.
       const resetOrigin = import.meta.env.DEV ? window.location.origin : 'https://app.ehimultisystems.com';
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim().toLowerCase(), {
         redirectTo: `${resetOrigin}/`,
@@ -51,7 +47,6 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
   };
 
   useEffect(() => {
-    // Quick connection probe on mount
     if (getConnectionMode() === 'unconfigured') {
       setConnStatus('unconfigured');
       return;
@@ -74,7 +69,6 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
       onLogin(user);
     } catch (err: any) {
       const msg: string = err.message || '';
-      // Distinguish network errors from auth errors
       if (msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('network') || msg.toLowerCase().includes('connect')) {
         setError('Cannot reach the server. Check your internet connection and try again.');
         setConnStatus('offline');
@@ -91,192 +85,216 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
   };
 
   const statusConfig: Record<ConnStatus, { label: string; color: string; dot: string; pulse: boolean }> = {
-    checking:     { label: 'Connecting…',    color: 'var(--color-muted)',          dot: '#64748b', pulse: true  },
-    live:         { label: 'System Online',  color: 'var(--color-success)',         dot: '#10b981', pulse: true  },
-    offline:      { label: 'Server Offline', color: 'var(--color-error)',           dot: '#ef4444', pulse: false },
-    unconfigured: { label: 'Not Configured', color: 'var(--color-accent-amber)',    dot: '#f59e0b', pulse: false },
+    checking:     { label: 'Connecting…',    color: '#94a3b8', dot: '#94a3b8', pulse: true  },
+    live:         { label: 'System Online',  color: '#34d399', dot: '#10b981', pulse: true  },
+    offline:      { label: 'Server Offline', color: '#f87171', dot: '#ef4444', pulse: false },
+    unconfigured: { label: 'Not Configured', color: '#fbbf24', dot: '#f59e0b', pulse: false },
   };
   const status = statusConfig[connStatus];
 
   return (
     <div
-      className="bg-[var(--color-obsidian)] relative flex flex-col items-center justify-center overflow-y-auto overflow-x-hidden"
+      className="relative flex flex-col items-center justify-center min-h-screen w-full bg-cover bg-center bg-no-repeat overflow-hidden p-4 select-none"
       style={{
-        // html/body are `position: fixed; overflow: hidden` globally (see
-        // src/index.css) so the whole app never rubber-band scrolls as one
-        // page -- every full-screen view is expected to own its own
-        // scrolling instead. A `minHeight` here would grow this div past
-        // the viewport on a short screen (small phone, or the on-screen
-        // keyboard shrinking the visible area) with nowhere for the extra
-        // height to go: body's overflow:hidden would just silently clip it,
-        // and this div's own overflow-y-auto never engages because the div
-        // itself was never actually constrained. A fixed `height` caps it
-        // at the viewport so overflow-y-auto has something to scroll.
-        height: '100dvh',
-        paddingTop: 'calc(env(safe-area-inset-top) + 2rem)',
-        paddingBottom: 'calc(env(safe-area-inset-bottom) + 2rem)',
-        paddingLeft: 'calc(env(safe-area-inset-left) + 2rem)',
-        paddingRight: 'calc(env(safe-area-inset-right) + 2rem)',
+        backgroundImage: `url(${loginBg})`,
       }}
     >
-      {/* Background glows */}
-      <div className="absolute w-[500px] h-[500px] rounded-full pointer-events-none filter blur-[100px]" style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.12) 0%, transparent 65%)', top: '-10%', left: '-10%' }} />
-      <div className="absolute w-[500px] h-[500px] rounded-full pointer-events-none filter blur-[100px]" style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.09) 0%, transparent 65%)', bottom: '-10%', right: '-10%' }} />
+      {/* Dark Ambient Overlay */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[3px] pointer-events-none" />
 
-      <div className="w-full max-w-[380px] flex flex-col items-center z-10">
-        {/* Header */}
-        <div className="text-center mb-10 flex flex-col items-center">
-          <div className="mb-4">
-            <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 180, height: 'auto', objectFit: 'contain' }} />
+      {/* Main Glassmorphic Card */}
+      <div className="relative z-10 w-full max-w-[420px] bg-slate-950/45 backdrop-blur-2xl border border-white/25 rounded-3xl p-8 shadow-[0_30px_70px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.4)] flex flex-col items-center animate-in fade-in zoom-in-95 duration-200">
+        
+        {/* Header Branding */}
+        <div className="text-center mb-8 flex flex-col items-center w-full">
+          <div className="mb-3 p-2 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+            <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 170, height: 'auto', objectFit: 'contain' }} />
           </div>
-          {/* Dynamic connection status badge */}
+
+          <h1 className="text-3xl font-extrabold font-sans text-white tracking-tight mt-1">Login</h1>
+          <p className="text-[13px] font-sans text-white/80 mt-1 font-medium">Welcome back please login to your account</p>
+
+          {/* Connection Status Badge */}
           <div
-            className="mt-2 inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full border transition-all"
-            style={{ background: `${status.dot}18`, borderColor: `${status.dot}33` }}
+            className="mt-3 inline-flex items-center space-x-1.5 px-3 py-1 rounded-full border backdrop-blur-md transition-all"
+            style={{ background: `${status.dot}20`, borderColor: `${status.dot}40` }}
           >
             <div
-              className={`w-1.5 h-1.5 rounded-full ${status.pulse ? 'animate-pulse' : ''}`}
+              className={`w-2 h-2 rounded-full ${status.pulse ? 'animate-pulse' : ''}`}
               style={{ background: status.dot }}
             />
-            <span className="text-[10px] font-sans font-semibold uppercase tracking-wide" style={{ color: status.color }}>
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider" style={{ color: status.color }}>
               {status.label}
             </span>
           </div>
-          <div className="text-[14px] font-sans text-[var(--color-muted)] mt-4">Staff Operations Portal</div>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="w-full space-y-4">
-          <div className="space-y-1.5">
-            <label htmlFor="login-email" className="text-[13px] font-sans font-medium text-[var(--color-light-muted)]">Email Address</label>
+        {/* Login Form */}
+        <form onSubmit={handleSubmit} className="w-full space-y-5">
+          {/* Email / Username Input */}
+          <div className="relative w-full">
             <input
               id="login-email"
               name="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@ehimultisystems.com"
+              placeholder="User Name"
               autoComplete="email"
-              className="w-full h-12 px-4 text-sm rounded-xl bg-[var(--color-surface-1)] text-[var(--color-foreground)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent-amber)] focus:ring-1 focus:ring-[var(--color-accent-amber)] transition-all"
+              className="w-full h-13 px-4 pr-12 rounded-2xl bg-white/10 text-white placeholder-white/60 border border-white/30 focus:border-[var(--color-accent-amber)] focus:bg-white/20 focus:outline-none transition-all text-sm font-sans font-medium shadow-inner"
               required
             />
+            <User size={19} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 pointer-events-none" />
           </div>
-          <div className="space-y-1.5">
-            <label htmlFor="login-password" className="text-[13px] font-sans font-medium text-[var(--color-light-muted)]">Password</label>
+
+          {/* Password Input */}
+          <div className="relative w-full">
             <input
               id="login-password"
               name="password"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
               autoComplete="current-password"
-              className="w-full h-12 px-4 text-sm rounded-xl bg-[var(--color-surface-1)] text-[var(--color-foreground)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent-amber)] focus:ring-1 focus:ring-[var(--color-accent-amber)] transition-all"
+              className="w-full h-13 px-4 pr-12 rounded-2xl bg-white/10 text-white placeholder-white/60 border border-white/30 focus:border-[var(--color-accent-amber)] focus:bg-white/20 focus:outline-none transition-all text-sm font-sans font-medium shadow-inner"
               required
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors cursor-pointer p-1"
+            >
+              {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+            </button>
           </div>
 
+          {/* Remember Me Control */}
+          <div className="flex items-center justify-between px-1">
+            <label className="flex items-center gap-2.5 cursor-pointer text-[13px] font-sans font-medium text-white/90 select-none">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="hidden"
+              />
+              <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${rememberMe ? 'bg-emerald-500 border-emerald-400 text-white shadow-[0_0_12px_rgba(16,185,129,0.6)]' : 'border-white/40 bg-white/10'}`}>
+                {rememberMe && <Check size={14} strokeWidth={3} />}
+              </div>
+              <span>Remember me</span>
+            </label>
+          </div>
+
+          {/* Error Message Alert */}
           {error && (
-            <div className="flex items-start gap-2 bg-[rgba(239,68,68,0.08)] border border-[rgba(239,68,68,0.25)] rounded-lg px-3 py-2">
-              <span className="text-[var(--color-error)] mt-0.5 shrink-0">⚠</span>
-              <p className="text-[12px] font-sans text-[var(--color-error)] leading-snug">{error}</p>
+            <div className="flex items-center gap-2.5 bg-red-500/20 border border-red-500/40 backdrop-blur-md rounded-xl px-4 py-3 animate-in fade-in">
+              <AlertCircle size={17} className="text-red-400 shrink-0" />
+              <p className="text-[12px] font-sans text-red-200 leading-snug font-medium">{error}</p>
             </div>
           )}
 
           {connStatus === 'unconfigured' && (
-            <div className="bg-[rgba(245,158,11,0.08)] border border-[rgba(245,158,11,0.25)] rounded-lg px-3 py-2">
-              <p className="text-[11px] font-mono text-[var(--color-accent-amber)]">
+            <div className="bg-amber-500/20 border border-amber-500/40 backdrop-blur-md rounded-xl px-4 py-3">
+              <p className="text-[11px] font-mono text-amber-200">
                 VITE_SUPABASE_URL not configured. Add it to Vercel environment variables.
               </p>
             </div>
           )}
 
+          {/* Gradient Action Button */}
           <button
             type="submit"
             disabled={isLoading || connStatus === 'unconfigured'}
-            className="ehi-btn-primary ehi-btn"
+            className="w-full h-13 rounded-2xl bg-gradient-to-r from-lime-500 via-emerald-500 to-emerald-600 hover:from-lime-400 hover:to-emerald-500 text-white font-bold font-sans text-[15px] shadow-[0_10px_30px_rgba(16,185,129,0.4)] transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
           >
-            {isLoading ? 'Signing in…' : 'Sign In'}
+            {isLoading ? (
+              <>
+                <Loader2 size={20} className="animate-spin" />
+                <span>Logging in…</span>
+              </>
+            ) : (
+              'Login'
+            )}
           </button>
 
-          <button
-            type="button"
-            onClick={() => { setShowForgotPassword(true); setResetEmail(email); setResetSent(false); setResetError(''); }}
-            className="w-full text-center text-[12px] font-sans text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] transition-colors mt-1"
-          >
-            Forgot password?
-          </button>
+          {/* Forgot Password Trigger */}
+          <div className="text-center pt-1">
+            <button
+              type="button"
+              onClick={() => { setShowForgotPassword(true); setResetEmail(email); setResetSent(false); setResetError(''); }}
+              className="text-[12px] font-sans text-white/80 hover:text-white transition-colors cursor-pointer"
+            >
+              Don't have an account? <span className="font-bold underline text-white">Signup / Reset</span>
+            </button>
+          </div>
         </form>
 
-        {showForgotPassword && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="bg-[var(--color-obsidian)] border border-[var(--color-border)] rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
-              <div className="p-5 border-b border-[var(--color-border)] bg-[var(--color-surface-card)]">
-                <div className="text-[15px] font-bold text-[var(--color-foreground)]">Reset Password</div>
-                <div className="text-[11px] text-[var(--color-muted)] mt-0.5">We'll email you a secure link to set a new password.</div>
-              </div>
-              <div className="p-5">
-                {resetSent ? (
-                  <div className="text-center py-4 space-y-3">
-                    <div className="text-[13px] text-[var(--color-success)] font-sans font-semibold">Reset link sent ✓</div>
-                    <p className="text-[11px] text-[var(--color-muted)] font-sans leading-relaxed">
-                      Check {resetEmail} for a password reset link. It may take a minute to arrive.
-                    </p>
-                    <button
-                      onClick={() => setShowForgotPassword(false)}
-                      className="w-full h-10 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[12px] font-bold rounded-lg mt-2"
-                    >
-                      Done
-                    </button>
-                  </div>
-                ) : (
-                  <form onSubmit={handleForgotPassword} className="space-y-3">
-                    <input
-                      id="reset-email"
-                      name="email"
-                      type="email"
-                      value={resetEmail}
-                      onChange={(e) => setResetEmail(e.target.value)}
-                      placeholder="you@ehimultisystems.com"
-                      autoComplete="email"
-                      autoFocus
-                      className="w-full h-11 px-3 text-sm rounded-lg bg-[var(--color-surface-1)] text-[var(--color-foreground)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent-amber)]"
-                    />
-                    {resetError && (
-                      <p className="text-[11px] text-[var(--color-error)] font-sans">{resetError}</p>
-                    )}
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowForgotPassword(false)}
-                        className="flex-1 h-10 border border-[var(--color-border)] text-[var(--color-muted)] text-[12px] font-bold rounded-lg"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={resetSending}
-                        className="flex-1 h-10 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[12px] font-bold rounded-lg disabled:opacity-60"
-                      >
-                        {resetSending ? 'Sending…' : 'Send Reset Link'}
-                      </button>
-                    </div>
-                  </form>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Normal flow, not absolutely positioned -- on a short viewport
-            (small phone, or the on-screen keyboard shrinking the visible
-            area) an absolutely-positioned footer here would sit at a fixed
-            distance from the bottom of the whole screen regardless of how
-            tall the form above it actually is, and could overlap the
-            "Forgot password?" button instead of just pushing below it. */}
-        <div className="text-center text-[11px] font-sans text-[var(--color-muted)] mt-8">
-          EHI Multisystems Nigeria Ltd · MMA2, Ikeja, Lagos
+        {/* Footer Credit */}
+        <div className="mt-8 text-center text-[11px] font-sans text-white/60 font-medium">
+          Created by <span className="italic font-semibold text-white/80">EHI Multisystems Nigeria Ltd</span>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotPassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+          <div className="bg-slate-950/90 border border-white/20 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl backdrop-blur-2xl">
+            <div className="p-5 border-b border-white/10 bg-white/5">
+              <div className="text-[16px] font-bold text-white">Reset Password</div>
+              <div className="text-[12px] text-white/70 mt-0.5">We'll email you a secure link to set a new password.</div>
+            </div>
+            <div className="p-5">
+              {resetSent ? (
+                <div className="text-center py-4 space-y-3">
+                  <div className="text-[14px] text-emerald-400 font-sans font-bold">Reset link sent ✓</div>
+                  <p className="text-[12px] text-white/80 font-sans leading-relaxed">
+                    Check {resetEmail} for a password reset link. It may take a minute to arrive.
+                  </p>
+                  <button
+                    onClick={() => setShowForgotPassword(false)}
+                    className="w-full h-11 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[13px] font-bold rounded-xl mt-2 transition-colors cursor-pointer"
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <input
+                    id="reset-email"
+                    name="email"
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="you@ehimultisystems.com"
+                    autoComplete="email"
+                    autoFocus
+                    className="w-full h-12 px-4 text-sm rounded-xl bg-white/10 text-white placeholder-white/50 border border-white/20 focus:outline-none focus:border-emerald-400"
+                  />
+                  {resetError && (
+                    <p className="text-[12px] text-red-400 font-sans font-medium">{resetError}</p>
+                  )}
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotPassword(false)}
+                      className="flex-1 h-11 border border-white/20 text-white/80 text-[13px] font-bold rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={resetSending}
+                      className="flex-1 h-11 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[13px] font-bold rounded-xl disabled:opacity-60 transition-colors cursor-pointer"
+                    >
+                      {resetSending ? 'Sending…' : 'Send Reset Link'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
