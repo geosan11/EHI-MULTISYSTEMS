@@ -1658,159 +1658,143 @@ export const CargoForm = ({
     };
 
     return (
-      <div ref={successRef} className="p-4 space-y-4 max-w-xl mx-auto w-full">
-        <div className="border-b border-[var(--color-border)] pb-2 mb-2">
-          <span className="text-[14px] font-sans font-semibold text-[var(--color-foreground)]">
-            Cargo Receipt Portal
+      <div ref={successRef} className="p-3 space-y-3 max-w-md mx-auto w-full select-none">
+        
+        {/* Compact Header banner */}
+        <div className="bg-[rgba(16,185,129,0.05)] border border-[var(--color-success)] rounded-xl px-3 py-2 flex items-center justify-between gap-3 shadow-[0_2px_8px_rgba(16,185,129,0.05)]">
+          <div className="flex items-center gap-2">
+            <CheckCircle
+              size={18}
+              className="text-[var(--color-success)] shrink-0"
+            />
+            <span className="text-[12.5px] font-bold text-[var(--color-success)] tracking-wide">
+              {successTx.mode === "Debt"
+                ? successTx.clientType === "Corporate"
+                  ? "B2B Invoice Saved!"
+                  : "Credit Sale Logged!"
+                : "Cargo Saved Successfully!"}
+            </span>
+          </div>
+          <span className="text-[9px] font-mono text-[var(--color-muted)] truncate max-w-[120px]">
+            REF: {successTx.id.slice(0, 8)}...
           </span>
         </div>
 
-        <div className="bg-[rgba(16,185,129,0.05)] border border-[var(--color-success)] rounded-[var(--radius-md)] text-center p-5 flex flex-col items-center">
-          <CheckCircle
-            size={32}
-            className="text-[var(--color-success)] mb-2"
-          />
-          <div className="text-[15px] font-semibold font-sans text-[var(--color-success)] mb-1">
-            {successTx.mode === "Debt"
-              ? successTx.clientType === "Corporate"
-                ? "Office Work Invoice Saved!"
-                : "Credit Sale Logged!"
-              : "Cargo entry saved successfully!"}
+        {/* QR Code + Pickup PIN Side-by-Side row */}
+        <div className="flex gap-3 items-stretch">
+          {/* QR Code Container */}
+          <div className="flex items-center justify-center p-1.5 bg-white rounded-xl border border-[var(--color-border)] shrink-0 shadow-sm">
+            <QRCode id={successTx.id} size={72} />
           </div>
-          <div className="text-[12px] font-mono text-[var(--color-muted)] mb-3">
-            REF: {successTx.id}
-          </div>
-
-          <div className="w-full bg-[var(--color-surface-card)] rounded-[var(--radius-md)] p-4 mb-4 border border-[var(--color-border)] text-left space-y-2 shadow-md">
-            <div className="flex justify-center mb-2 p-2 bg-white rounded">
-              <QRCode id={successTx.id} size={90} />
-            </div>
-
-            {/* PICKUP PIN SECTION */}
-            {(successTx as any).pickupPin && (
-              <div className="my-3 border border-[var(--color-accent-amber)] rounded-[var(--radius-md)] bg-[rgba(245,158,11,0.05)] overflow-hidden">
-                <div className="bg-[rgba(245,158,11,0.1)] px-4 py-2 border-b border-[var(--color-accent-amber)] flex justify-between items-center">
-                  <span className="text-[12px] font-bold text-[var(--color-accent-amber)] uppercase tracking-wider">
-                    Pickup PIN
-                  </span>
-                  <button
-                    onClick={() =>
-                      navigator.clipboard.writeText(
-                        (successTx as any).pickupPin,
-                      )
-                    }
-                    className="text-[var(--color-accent-amber)] hover:text-[var(--color-foreground)] transition-colors"
-                    title="Copy PIN"
-                    aria-label="Copy PIN"
-                  >
-                    <Copy size={14} />
-                  </button>
-                </div>
-                <div className="p-3 text-center">
-                  <div className="text-[28px] font-mono font-bold text-[var(--color-foreground)] tracking-[0.5em] ml-[0.25em]">
-                    {(successTx as any).pickupPin}
-                  </div>
-                  <p className="text-[11px] text-[var(--color-muted)] mt-1.5 font-sans leading-snug max-w-[250px] mx-auto">
-                    Share this PIN with the consignee. They must present it at
-                    the destination hub to collect the cargo.
-                  </p>
-                </div>
+          
+          {/* Pickup PIN or Reference details */}
+          {(successTx as any).pickupPin ? (
+            <div className="flex-1 border border-[var(--color-accent-amber)] rounded-xl bg-[rgba(245,158,11,0.03)] flex flex-col justify-center px-3 py-1.5 shadow-sm">
+              <div className="flex justify-between items-center">
+                <span className="text-[9px] font-mono font-bold text-[var(--color-accent-amber)] uppercase tracking-wider">
+                  Pickup PIN
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigator.clipboard.writeText((successTx as any).pickupPin)
+                  }
+                  className="text-[var(--color-accent-amber)] hover:text-white transition-colors cursor-pointer p-0.5"
+                  title="Copy PIN"
+                  aria-label="Copy PIN"
+                >
+                  <Copy size={11} />
+                </button>
               </div>
-            )}
-
-            <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5">
-              <span className="text-[13px] font-sans text-[var(--color-muted)]">
-                Consignee
-              </span>
-              <span className="text-[14px] font-sans font-medium text-[var(--color-foreground)]">
-                {successTx.name}
-              </span>
-            </div>
-
-            {/* WALLET DEBITED SUMMARY BOX */}
-            {successTx.wallet_deduction_amount && (
-              <div className="p-2.5 bg-[rgba(245,158,11,0.08)] border border-[var(--color-accent-amber)] rounded-lg text-left space-y-1 my-2 animate-in zoom-in-95">
-                <div className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)] flex items-center justify-between">
-                  <span>💰 CREDIT WALLET DEBITED</span>
-                  <span className="bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] px-1.5 py-0.5 rounded text-[10px] uppercase font-bold">SUCCESS</span>
-                </div>
-                <div className="flex justify-between text-[12px] font-mono text-[var(--color-foreground)]">
-                  <span>Amount Deducted:</span>
-                  <span className="font-bold text-[var(--color-error)]">-₦{fmt(successTx.wallet_deduction_amount)}</span>
-                </div>
-                {(successTx as any).wallet_balance_after != null && (
-                  <div className="flex justify-between text-[12px] font-mono border-t border-[rgba(245,158,11,0.2)] pt-1.5 font-bold">
-                    <span className="text-[var(--color-muted)]">Remaining Credit Balance:</span>
-                    <span className="text-[var(--color-success)] text-[13px]">₦{fmt((successTx as any).wallet_balance_after)}</span>
-                  </div>
-                )}
+              <div className="text-[20px] font-mono font-extrabold text-[var(--color-foreground)] tracking-widest mt-0.5">
+                {(successTx as any).pickupPin}
               </div>
-            )}
-            <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5">
-              <span className="text-[13px] font-sans text-[var(--color-muted)]">
-                AWB / Tag No
-              </span>
-              <span className="text-[14px] font-sans font-semibold text-[var(--color-accent-amber)]">
-                {successTx.awb_tag_number}
-              </span>
+              <p className="text-[9px] text-[var(--color-muted)] leading-tight mt-0.5">
+                Share this PIN with the consignee for pickup verification.
+              </p>
             </div>
-            <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5">
-              <span className="text-[13px] font-sans text-[var(--color-muted)]">
-                Weight / Route
-              </span>
-              <span className="text-[14px] font-sans font-medium text-[var(--color-foreground)]">
-                {successTx.kg} KG — {successTx.detail.split(" · ")[4]}
-              </span>
+          ) : (
+            <div className="flex-1 flex flex-col justify-center border border-[var(--color-border)] rounded-xl bg-[var(--color-surface-2)] px-3 py-1.5 shadow-sm">
+              <span className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Reference ID</span>
+              <span className="text-[11px] font-mono font-semibold text-[var(--color-foreground)] truncate mt-0.5">{successTx.id}</span>
+              <p className="text-[9px] text-[var(--color-muted)] leading-tight mt-0.5">
+                Scannable cargo QR code generated for waybill tags.
+              </p>
             </div>
-            <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5">
-              <span className="text-[13px] font-sans text-[var(--color-muted)]">
-                Content
-              </span>
-              <span className="text-[14px] font-sans font-medium text-[var(--color-foreground)]">
-                {successTx.detail.split(" · ")[5] || "Package"}
-              </span>
-            </div>
-            <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5">
-              <span className="text-[13px] font-sans text-[var(--color-muted)]">
-                Amount Charged
-              </span>
-              <span className="text-[16px] font-extrabold font-mono text-[var(--color-accent-amber)]">
-                {fmt(successTx.amount)}
-              </span>
-            </div>
-            <div className="flex justify-between pt-1">
-              <span className="text-[13px] font-sans text-[var(--color-muted)]">
-                Payment billing
-              </span>
-              <span
-                className={`text-[13px] font-sans font-bold px-2 py-0.5 rounded ${successTx.mode === "Debt" ? "bg-[rgba(239,68,68,0.1)] text-[var(--color-error)]" : "bg-[rgba(16,185,129,0.1)] text-[var(--color-success)]"}`}
-              >
-                {successTx.mode === "Debt"
-                  ? successTx.clientType === "Corporate"
-                    ? "B2B MONTHLY DEBT"
-                    : "INDIVIDUAL DEBT"
-                  : successTx.mode}
-              </span>
-            </div>
+          )}
+        </div>
+
+        {/* Details Card */}
+        <div className="w-full bg-[var(--color-surface-card)] rounded-xl p-3 border border-[var(--color-border)] text-left space-y-1.5 shadow-sm">
+          
+          <div className="flex justify-between border-b border-[var(--color-border)] pb-1">
+            <span className="text-[11px] font-sans text-[var(--color-muted)]">Consignee</span>
+            <span className="text-[12px] font-sans font-bold text-[var(--color-foreground)] truncate max-w-[65%]">{successTx.name}</span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 mb-2">
+          {/* WALLET DEBITED SUMMARY ROW */}
+          {successTx.wallet_deduction_amount && (
+            <div className="flex justify-between border-b border-[var(--color-border)] pb-1 text-[11px] font-mono text-[var(--color-accent-amber)] font-bold">
+              <span>Wallet Ded. (Bal: ₦{fmt((successTx as any).wallet_balance_after || 0)})</span>
+              <span className="text-[var(--color-error)]">-₦{fmt(successTx.wallet_deduction_amount)}</span>
+            </div>
+          )}
+
+          <div className="flex justify-between border-b border-[var(--color-border)] pb-1">
+            <span className="text-[11px] font-sans text-[var(--color-muted)]">AWB / Tag No</span>
+            <span className="text-[12px] font-mono font-bold text-[var(--color-accent-amber)]">{successTx.awb_tag_number}</span>
+          </div>
+
+          <div className="flex justify-between border-b border-[var(--color-border)] pb-1">
+            <span className="text-[11px] font-sans text-[var(--color-muted)]">Weight / Route</span>
+            <span className="text-[12px] font-sans font-bold text-[var(--color-foreground)] truncate max-w-[65%]">
+              {successTx.kg} KG — {successTx.detail.split(" · ")[4]}
+            </span>
+          </div>
+
+          <div className="flex justify-between border-b border-[var(--color-border)] pb-1">
+            <span className="text-[11px] font-sans text-[var(--color-muted)]">Content</span>
+            <span className="text-[12px] font-sans font-bold text-[var(--color-foreground)]">{successTx.detail.split(" · ")[5] || "Package"}</span>
+          </div>
+
+          <div className="flex justify-between border-b border-[var(--color-border)] pb-1">
+            <span className="text-[11px] font-sans text-[var(--color-muted)]">Amount Charged</span>
+            <span className="text-[14px] font-mono font-extrabold text-[var(--color-accent-amber)]">₦{fmt(successTx.amount)}</span>
+          </div>
+
+          <div className="flex justify-between pt-0.5">
+            <span className="text-[11px] font-sans text-[var(--color-muted)]">Payment billing</span>
+            <span className={`text-[10px] font-sans font-extrabold px-2 py-0.5 rounded tracking-wide ${successTx.mode === "Debt" ? "bg-[rgba(239,68,68,0.1)] text-[var(--color-error)]" : "bg-[rgba(16,185,129,0.1)] text-[var(--color-success)]"}`}>
+              {successTx.mode === "Debt"
+                ? successTx.clientType === "Corporate"
+                  ? "B2B MONTHLY DEBT"
+                  : "INDIVIDUAL DEBT"
+                : successTx.mode.toUpperCase()}
+            </span>
+          </div>
+        </div>
+
+        {/* Compact Grid of Print Buttons (2x2) */}
+        <div className="grid grid-cols-2 gap-2">
+          {/* Column 1: Document PDFs */}
+          <div className="flex flex-col gap-2">
             <button
               onClick={handlePrintReceipt}
-              className="py-3 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] text-[12px] font-sans font-semibold rounded-[var(--radius-sm)] border border-[var(--color-border)] transition-colors cursor-pointer focus:outline-none flex items-center justify-center gap-1.5"
+              className="w-full h-9 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] text-[11px] font-sans font-bold rounded-lg border border-[var(--color-border)] transition-colors cursor-pointer focus:outline-none flex items-center justify-center gap-1.5"
             >
               PDF Receipt
             </button>
             <button
               onClick={handlePrintTagPDF100mm}
-              className="py-3 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] text-[12px] font-sans font-semibold rounded-[var(--radius-sm)] border border-[var(--color-border)] transition-colors cursor-pointer focus:outline-none"
-              title="Fixed 100mm x 80mm label -- for the XP-402B and similar gap/die-cut label printers"
+              className="w-full h-9 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] text-[11px] font-sans font-bold rounded-lg border border-[var(--color-border)] transition-colors cursor-pointer focus:outline-none"
+              title="Fixed 100mm x 80mm label"
             >
-              Tag PDF (100×80mm)
+              Tag PDF (100×80)
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 mb-2">
+          {/* Column 2: Thermal POS Prints */}
+          <div className="flex flex-col gap-2">
             <button
               onClick={() => {
                 import('../../lib/escpos').then(async ({ printViaBluetooth }) => {
@@ -1827,9 +1811,9 @@ export const CargoForm = ({
                   showToast({ message: err?.message || 'Bluetooth print failed. Ensure the printer is paired and powered on.', type: 'error' });
                 });
               }}
-              className="py-2.5 bg-[var(--color-accent-amber)] hover:bg-opacity-95 text-[#0D1117] text-[12px] font-bold font-sans rounded-[var(--radius-sm)] shadow-[var(--shadow-button)] transition-opacity cursor-pointer focus:outline-none border-none flex flex-col items-center justify-center leading-tight"
+              className="w-full h-9 bg-[var(--color-accent-amber)] hover:bg-opacity-95 text-[#0D1117] text-[11px] font-bold font-sans rounded-lg shadow-sm transition-opacity cursor-pointer focus:outline-none border-none flex items-center justify-center gap-1"
             >
-              <Bluetooth size={14} className="mb-0.5" />
+              <Bluetooth size={12} />
               <span>POS Print (80mm)</span>
             </button>
             <button
@@ -1848,21 +1832,22 @@ export const CargoForm = ({
                   showToast({ message: err?.message || 'Bluetooth print failed. Ensure the printer is paired and powered on.', type: 'error' });
                 });
               }}
-              className="py-2.5 bg-[var(--color-accent-amber)] hover:bg-opacity-85 text-[#0D1117] text-[12px] font-bold font-sans rounded-[var(--radius-sm)] shadow-[var(--shadow-button)] transition-opacity cursor-pointer focus:outline-none border-none flex flex-col items-center justify-center leading-tight"
+              className="w-full h-9 bg-[var(--color-accent-amber)] hover:bg-opacity-85 text-[#0D1117] text-[11px] font-bold font-sans rounded-lg shadow-sm transition-opacity cursor-pointer focus:outline-none border-none flex items-center justify-center gap-1"
             >
-              <Bluetooth size={14} className="mb-0.5" />
+              <Bluetooth size={12} />
               <span>POS Print (58mm)</span>
             </button>
           </div>
-
-          <button
-            onClick={handleReset}
-            className="w-full py-3 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] text-[14px] font-sans font-semibold rounded-[var(--radius-sm)] border border-[var(--color-border)] transition-colors cursor-pointer focus:outline-none"
-          >
-            New Entry
-          </button>
-
         </div>
+
+        {/* New Entry Button */}
+        <button
+          onClick={handleReset}
+          className="w-full h-10 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] text-[13px] font-sans font-bold rounded-lg border border-[var(--color-border)] transition-colors cursor-pointer focus:outline-none mt-1"
+        >
+          New Entry
+        </button>
+
       </div>
     );
   }
