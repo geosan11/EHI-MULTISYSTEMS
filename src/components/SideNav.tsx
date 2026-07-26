@@ -347,13 +347,13 @@ export const SideNav = ({
             <SunIcon
               size={18}
               weight="regular"
-              className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors"
+              className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-transform duration-300 group-hover:rotate-45 active:scale-90"
             />
           ) : (
             <MoonIcon
               size={18}
               weight="regular"
-              className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors"
+              className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-transform duration-300 group-hover:-rotate-12 active:scale-90"
             />
           )}
           <div
