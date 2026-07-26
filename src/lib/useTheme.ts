@@ -6,17 +6,26 @@ const STORAGE_KEY = 'ehi-theme';
 
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
-  root.classList.add('theme-transition');
-  if (theme === 'light') {
-    root.classList.add('light');
-    root.classList.remove('dark');
+
+  const updateDOM = () => {
+    root.classList.add('theme-transition');
+    if (theme === 'light') {
+      root.classList.add('light');
+      root.classList.remove('dark');
+    } else {
+      root.classList.remove('light');
+      root.classList.add('dark');
+    }
+    setTimeout(() => {
+      root.classList.remove('theme-transition');
+    }, 450);
+  };
+
+  if (typeof document !== 'undefined' && 'startViewTransition' in document && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    (document as any).startViewTransition(updateDOM);
   } else {
-    root.classList.remove('light');
-    root.classList.add('dark');
+    updateDOM();
   }
-  setTimeout(() => {
-    root.classList.remove('theme-transition');
-  }, 400);
 }
 
 export function useTheme() {
