@@ -265,6 +265,18 @@ export const TransactionLedger = ({
         const inserted = payload.new as any;
         setWallets(prev => [inserted, ...prev]);
       })
+      // DELETE: drop it from local state -- CustomerWallets.tsx's
+      // handleRemoveWallet/handleForceDelete both hard-delete the row (the
+      // latter with no zero-balance restriction), and the old blanket `'*'`
+      // subscription this replaced used to catch that via a full refetch.
+      // Without this, a wallet deleted from another tab/session stayed
+      // in this screen's Live Credit Feed -- balance, liability total and
+      // all -- until a manual page reload.
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'customer_wallets' }, payload => {
+        const deletedId = (payload.old as any)?.id;
+        if (!deletedId) return;
+        setWallets(prev => prev.filter(w => w.id !== deletedId));
+      })
       // wallet_transactions: trigger a targeted balance refresh for just that wallet
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_transactions' }, payload => {
         const walletId = (payload.new as any)?.wallet_id || (payload.old as any)?.wallet_id;
@@ -529,8 +541,13 @@ export const TransactionLedger = ({
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       const raw = e.raw as any;
+      // Placeholder advertises "Search name, amount, reference..." -- amount
+      // was never actually in this text, so searching by amount silently
+      // matched nothing. Includes both the raw number (typed as "15000")
+      // and fmt()'s comma-grouped form (typed as "15,000"), same as the
+      // amount is actually displayed on the row.
       const text =
-        `${e.id} ${e.time} ${e.type} ${e.name} ${e.detail} ${e.mode} ${raw.awb_tag_number || ''} ${raw.route || ''}`.toLowerCase();
+        `${e.id} ${e.time} ${e.type} ${e.name} ${e.detail} ${e.mode} ${e.amount} ${fmt(e.amount)} ${raw.awb_tag_number || ''} ${raw.route || ''}`.toLowerCase();
       if (!text.includes(q)) return false;
     }
 
