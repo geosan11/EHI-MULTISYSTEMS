@@ -441,25 +441,13 @@ export const TransactionLedger = ({
         if (!((e.mode === 'Cash' || e.mode === 'Transfer' || e.mode === 'POS') && !e.raw.paymentConfirmed)) return false;
       } else if (modeFilter === "Retrieved") {
         if (!((e.raw as any)?.raw?.retrieved_amount > 0)) return false;
-      } else if (modeFilter === "Debt Clearance") {
-        // The DC-... shadow COLLECTION record itself, not the original
-        // debt it paid off -- is_debt_clearance is a top-level Transaction
-        // field (e.raw IS the Transaction; NOT nested under e.raw.raw),
-        // same access pattern as the COLLECTION-badge row tint above.
-        // Also matches on the "DC-" id prefix: is_debt_clearance only
-        // existed on cargo_entries until 20260909_debt_clearance_columns_
-        // all_departments.sql added it to manifests/marketing_entries/
-        // package_entries -- any baggage/marketing/package clearance
-        // created BEFORE that migration has the column's false default,
-        // not true, even though it genuinely is one. The id prefix is a
-        // reliable signal regardless of when the row was created.
-        if (!((e.raw as any)?.is_debt_clearance || e.id?.startsWith('DC-'))) return false;
+      } else if (modeFilter === "Debt Clearance" || modeFilter === "Debt Paid") {
+        // Show BOTH the original entry whose mode flipped to 'Debt Paid' AND
+        // any DC-... shadow collection entry created when a debt was cleared.
+        const isDC = (e.raw as any)?.is_debt_clearance || e.id?.startsWith('DC-');
+        const isPaidMode = e.mode.toLowerCase() === 'debt paid';
+        if (!isPaidMode && !isDC) return false;
       } else {
-        // "Debt Paid" (dropdown label "Debt Cleared", matching the same
-        // wording the status badge already uses at e.mode === "Debt Paid"
-        // ? "Debt Cleared" below) falls through to here and works via this
-        // plain string match -- the ORIGINAL debt entry's mode flips to
-        // exactly that string once fully cleared, no special-case needed.
         if (e.mode.toLowerCase() !== modeFilter.toLowerCase()) return false;
       }
     }
@@ -547,7 +535,7 @@ export const TransactionLedger = ({
       // and fmt()'s comma-grouped form (typed as "15,000"), same as the
       // amount is actually displayed on the row.
       const text =
-        `${e.id} ${e.time} ${e.type} ${e.name} ${e.detail} ${e.mode} ${e.amount} ${fmt(e.amount)} ${raw.awb_tag_number || ''} ${raw.route || ''}`.toLowerCase();
+        `${e.id} ${e.time} ${e.type} ${e.name} ${e.detail} ${e.mode} ${e.amount} ${fmt(e.amount)} ${raw.awb_tag_number || ''} ${raw.route || ''} ${raw.remarks || ''} ${raw.related_tx_id || ''} ${raw.phone || ''} ${raw.consignee_phone || ''} ${raw.consigneePhone || ''} ${raw.customer_phone || ''} ${raw.pickupPin || ''}`.toLowerCase();
       if (!text.includes(q)) return false;
     }
 
