@@ -345,10 +345,13 @@ export const CargoForm = ({
     };
   }, []);
 
+  const [lagosHubIds, setLagosHubIds] = useState<string[]>([]);
+
   useEffect(() => {
     if (!user.hub_id) return;
     const fetchHubRates = async () => {
       const hubIds = await getEquivalentHubIds(user.hub_id);
+      setLagosHubIds(hubIds);
       const [airlineRes, hubRes] = await Promise.all([
         supabase.from('hub_airline_route_rates').select('airline, route_name, rate_per_kg').in('hub_id', hubIds),
         supabase.from('hub_route_rates').select('route_name, rate_per_kg').in('hub_id', hubIds),
@@ -402,7 +405,7 @@ export const CargoForm = ({
   // replaces could silently under/overcharge for any route/hub that simply
   // hadn't been configured yet).
   const resolveRate = (forAirline: string, forRoute: string, forContentType: string, forKg: number): number | null => {
-    const special = resolveSpecialGoodsRate(specialGoodsRates, forContentType, forAirline, forKg, user.hub_id, forRoute);
+    const special = resolveSpecialGoodsRate(specialGoodsRates, forContentType, forAirline, forKg, user.hub_id, forRoute, lagosHubIds);
     if (special != null) return special;
     const exact = hubAirlineRouteRates[`${forAirline}|${forRoute}`] ?? hubAirlineRouteRates[`${normalizeAirlineName(forAirline)}|${forRoute}`];
     if (exact != null) return exact;
@@ -439,7 +442,7 @@ export const CargoForm = ({
     if (isSizeTierContent) {
       const inches = Math.round(parseFloat(sizeInches)) || 0;
       if (inches > 0) {
-        const sized = resolveSizeTier(sizeTierRates, actualContentType, actualAirline, route, inches, user.hub_id);
+        const sized = resolveSizeTier(sizeTierRates, actualContentType, actualAirline, route, inches, user.hub_id, lagosHubIds);
         if (sized != null) return sized.toString();
       }
     }
@@ -447,7 +450,7 @@ export const CargoForm = ({
     // Flat-tier content (e.g. Bumper & Burnet) prices as one whole amount per
     // weight bracket, not per-kg -- it overrides the entire per-kg cascade
     // below (including minimum charges) rather than layering on top of it.
-    const flat = resolveFlatTier(flatTierRates, actualContentType, actualAirline, route, w, user.hub_id);
+    const flat = resolveFlatTier(flatTierRates, actualContentType, actualAirline, route, w, user.hub_id, lagosHubIds);
     if (flat != null) return flat.toString();
     const rate = resolveRate(actualAirline, route, actualContentType, w);
     const minCharge = resolveMinimumCharge(minimumCharges, actualAirline, route, w);
@@ -465,17 +468,17 @@ export const CargoForm = ({
     if (isSizeTierContent) {
       const inches = Math.round(parseFloat(sizeInches)) || 0;
       if (inches > 0) {
-        const sized = resolveSizeTier(sizeTierRates, actualContentType, actualAirline, route, inches, user.hub_id);
+        const sized = resolveSizeTier(sizeTierRates, actualContentType, actualAirline, route, inches, user.hub_id, lagosHubIds);
         if (sized != null) return { type: 'size' as const, amount: sized };
       }
     }
     const w = parseFloat(kg) || 0;
     if (w <= 0) return null;
-    const flat = resolveFlatTier(flatTierRates, actualContentType, actualAirline, route, w, user.hub_id);
+    const flat = resolveFlatTier(flatTierRates, actualContentType, actualAirline, route, w, user.hub_id, lagosHubIds);
     if (flat != null) {
       return { type: 'flat' as const, amount: flat };
     }
-    const specialRate = resolveSpecialGoodsRate(specialGoodsRates, actualContentType, actualAirline, w, user.hub_id, route);
+    const specialRate = resolveSpecialGoodsRate(specialGoodsRates, actualContentType, actualAirline, w, user.hub_id, route, lagosHubIds);
     const minCharge = resolveMinimumCharge(minimumCharges, actualAirline, route, w);
     // Was special-goods-only -- when no special-goods rate applied but the
     // full cascade (hub/company rate) still resolved a legitimately higher

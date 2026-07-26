@@ -59,11 +59,17 @@ export function useSizeTierRates(): SizeTierRate[] {
 // top of, the per-kg cascade and minimum charge (same contract as
 // resolveFlatTier, just keyed on screen-size inches instead of weight).
 export function resolveSizeTier(
-  rows: SizeTierRate[], contentTypeName: string, airline: string, route: string, inches: number, hubId?: string | null,
+  rows: SizeTierRate[], contentTypeName: string, airline: string, route: string, inches: number, hubId?: string | null, equivalentHubIds?: string[] | null,
 ): number | null {
   const normCt = contentTypeName.trim().toLowerCase();
   const normAir = normalizeAirlineName(airline).toLowerCase();
   const normRoute = route ? cleanRoute(route) : null;
+  const isTargetHub = (rHubId: string | null) => {
+    if (!rHubId) return false;
+    if (rHubId === hubId) return true;
+    if (equivalentHubIds && equivalentHubIds.includes(rHubId)) return true;
+    return false;
+  };
 
   const scoped = rows.filter(r =>
     r.content_type_name.trim().toLowerCase() === normCt &&
@@ -73,7 +79,7 @@ export function resolveSizeTier(
   );
 
   const pick = (hubOk: boolean, routeOk: boolean) => scoped.find(r =>
-    (hubOk ? r.hub_id === hubId : (r.hub_id == null || r.hub_id === '')) &&
+    (hubOk ? isTargetHub(r.hub_id) : (r.hub_id == null || r.hub_id === '')) &&
     (routeOk ? (r.route_name != null && normRoute != null && cleanRoute(r.route_name) === normRoute) : (r.route_name == null || r.route_name === ''))
   );
 
