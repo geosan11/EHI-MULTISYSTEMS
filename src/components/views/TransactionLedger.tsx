@@ -318,27 +318,61 @@ export const TransactionLedger = ({
 
   const entries = useMemo(() => {
     const list: Entry[] = [
-      ...transactions.map((t) => ({
-        ...t,
-        source: "transaction" as const,
-        raw: t,
-        _sortTime: t.created_at ? new Date(t.created_at).getTime() : 0,
-      })),
-      ...expenses.map((e) => ({
-        id: e.id,
-        time: e.time,
-        type: "expense",
-        name: e.type || 'Expense',
-        detail: e.logged_by ? `${e.description} (Logged by: ${e.logged_by})` : e.description,
-        amount: e.amount,
-        mode: e.mode || "Expense",
-        status: e.status || "N/A",
-        source: "expense" as const,
-        raw: e,
-        paymentConfirmed: e.posApprovalCode ? true : false,
-        posApprovalCode: e.posApprovalCode,
-        _sortTime: e.time ? new Date(e.time).getTime() : 0,
-      })),
+      ...transactions.map((t) => {
+        const dtStr = t.created_at || t.time;
+        const d = dtStr ? new Date(dtStr) : null;
+        let displayDate = 'Unknown date';
+        let displayDateMobile = 'Unknown';
+        let displayTime = t.time || '';
+        let _sortTime = 0;
+        if (d && !isNaN(d.getTime())) {
+          _sortTime = d.getTime();
+          displayDate = d.toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' });
+          displayDateMobile = d.toLocaleDateString('en-NG', { day: '2-digit', month: 'short' });
+          displayTime = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        }
+        return {
+          ...t,
+          source: "transaction" as const,
+          raw: t,
+          _sortTime,
+          displayDate,
+          displayDateMobile,
+          displayTime,
+        };
+      }),
+      ...expenses.map((e) => {
+        const dtStr = e.time;
+        const d = dtStr ? new Date(dtStr) : null;
+        let displayDate = 'Unknown date';
+        let displayDateMobile = 'Unknown';
+        let displayTime = e.time || '';
+        let _sortTime = 0;
+        if (d && !isNaN(d.getTime())) {
+          _sortTime = d.getTime();
+          displayDate = d.toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' });
+          displayDateMobile = d.toLocaleDateString('en-NG', { day: '2-digit', month: 'short' });
+          displayTime = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        }
+        return {
+          id: e.id,
+          time: e.time,
+          type: "expense",
+          name: e.type || 'Expense',
+          detail: e.logged_by ? `${e.description} (Logged by: ${e.logged_by})` : e.description,
+          amount: e.amount,
+          mode: e.mode || "Expense",
+          status: e.status || "N/A",
+          source: "expense" as const,
+          raw: e,
+          paymentConfirmed: e.posApprovalCode ? true : false,
+          posApprovalCode: e.posApprovalCode,
+          _sortTime,
+          displayDate,
+          displayDateMobile,
+          displayTime,
+        };
+      }),
     ];
     return list.sort((a: any, b: any) => {
       const timeA = a._sortTime || 0;
@@ -2289,22 +2323,8 @@ export const TransactionLedger = ({
                       );
                     }
 
-                    let displayDate = '';
-                    let displayTime = '';
-                    const dtStr = (e as any).created_at || (e.raw && e.raw.created_at) || e.time;
-                    try {
-                      const d = new Date(dtStr);
-                      if (!isNaN(d.getTime())) {
-                        displayDate = d.toLocaleDateString('en-NG', { day: '2-digit', month: 'short' });
-                        displayTime = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-                      } else {
-                        displayDate = 'Unknown';
-                        displayTime = e.time;
-                      }
-                    } catch {
-                      displayDate = 'Unknown';
-                      displayTime = e.time;
-                    }
+                    const displayDate = (e as any).displayDateMobile || 'Unknown';
+                    const displayTime = (e as any).displayTime || e.time;
 
                     const statusColor =
                       e.status === 'Delivered' ? 'text-[var(--color-success)] bg-[rgba(16,185,129,0.12)] border-[rgba(16,185,129,0.3)]' :
@@ -2498,26 +2518,8 @@ export const TransactionLedger = ({
                       );
                     }
                     
-                    // Parse date and time safely from created_at or fallback to time string
-                    let displayDate = '';
-                    let displayTime = '';
-                    const dtStr = (e as any).created_at || (e.raw && e.raw.created_at) || e.time;
-                    try {
-                      const d = new Date(dtStr);
-                      if (!isNaN(d.getTime())) {
-                        displayDate = d.toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' });
-                        displayTime = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-                      } else {
-                        // Genuinely no parseable date on this entry -- show that
-                        // honestly rather than asserting 'Today', which would be
-                        // wrong for a historical entry with a malformed timestamp.
-                        displayDate = 'Unknown date';
-                        displayTime = e.time;
-                      }
-                    } catch {
-                      displayDate = 'Unknown date';
-                      displayTime = e.time;
-                    }
+                    const displayDate = (e as any).displayDate || 'Unknown date';
+                    const displayTime = (e as any).displayTime || e.time;
 
                   // Status colour
                   const statusColor =
