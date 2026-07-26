@@ -18,13 +18,13 @@ export default defineConfig(() => {
           description: 'EHI Multisystems Logistics Intelligence Platform — cargo, ValueJet excess baggage, and marketing operations.',
           start_url: '/',
           display: 'standalone',
-          // Matches the app's default (light) theme -- these are static and
+          // Matches the app's default (dark) theme -- these are static and
           // can't react to a user's later in-app dark-mode toggle, so they're
           // set to whatever the majority of first launches will actually see
-          // (src/lib/useTheme.ts defaults to 'light'), avoiding a light/dark
+          // (src/lib/useTheme.ts defaults to 'dark'), avoiding a light/dark
           // flash on the OS-level PWA splash for the common case.
-          background_color: '#e7ebf1',
-          theme_color: '#e7ebf1',
+          background_color: '#0d1117',
+          theme_color: '#0d1117',
           icons: [
             { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
             { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },

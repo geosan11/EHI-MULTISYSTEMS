@@ -54,6 +54,7 @@ import {
   Calendar,
   Ruler,
   BarChart2,
+  X,
 } from "lucide-react";
 import {
   sendReceiptWhatsApp,
@@ -2579,7 +2580,7 @@ export const CargoForm = ({
       {activePortal === "corporate" && (
         <div className="space-y-6 p-4">
           {/* CORPORATE MENU ROUTING */}
-          <div className="flex border-b border-[var(--color-border)] text-[13px] font-sans font-bold gap-4 py-1">
+          <div className="flex border-b border-[var(--color-border)] text-[13px] font-sans font-bold gap-4 py-1 overflow-x-auto no-scrollbar whitespace-nowrap">
             <button
               onClick={() => setCorpSubTab("intake")}
               className={`pb-2.5 px-1 transition-all cursor-pointer flex items-center gap-1.5 ${
@@ -3192,21 +3193,29 @@ export const CargoForm = ({
       )}
 
       {showCloseModal && (
-        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 16 }}>
-          <div style={{ background: "var(--color-obsidian)", width: "100%", maxWidth: 480, maxHeight: "90vh", borderRadius: 16, border: "1px solid var(--color-surface-2)", padding: "24px 24px 0 24px", position: "relative", display: "flex", flexDirection: "column" }}>
-            <button onClick={() => setShowCloseModal(false)} aria-label="Close" style={{ position: "absolute", top: 16, right: 16, color: "var(--color-muted)" }}>×</button>
-            <div style={{ overflowY: "auto", flex: 1 }}>
-              <div className="text-[10px] font-mono text-[var(--color-accent-amber)] tracking-widest font-bold mb-1">▸ CARGO DESK SALES ANALYSIS</div>
-              <div className="text-[12px] text-[var(--color-muted)] mb-4">Agent: <span className="text-[var(--color-foreground)]">{user.name}</span></div>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center sm:p-4">
+          <div className="bg-[var(--color-obsidian)] border-0 sm:border border-[var(--color-border)] rounded-none sm:rounded-xl w-full h-full sm:h-auto sm:max-w-lg sm:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-3 border-b border-[var(--color-border)] bg-[var(--color-surface-card)] shrink-0">
+              <div>
+                <div className="text-[10px] font-mono text-[var(--color-accent-amber)] tracking-widest font-bold">▸ CARGO DESK SALES ANALYSIS</div>
+                <div className="text-[12px] text-[var(--color-muted)] mt-0.5">Agent: <span className="text-[var(--color-foreground)]">{user.name}</span></div>
+              </div>
+              <button onClick={() => setShowCloseModal(false)} className="p-1 hover:bg-[var(--color-surface-2)] rounded text-[var(--color-muted)] transition-colors">
+                <X size={16} />
+              </button>
+            </div>
 
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto p-4">
               <div className="space-y-2 mb-4 border-t border-b border-[var(--color-border)] py-3">
                 <div className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wider flex items-center gap-1.5">
                   <Calendar size={12} /> Closing Period
                 </div>
-                <div className="flex items-center gap-2">
-                  <input type="datetime-local" value={periodStart} onChange={e => setPeriodStart(e.target.value)} className="ehi-input text-[12px]" />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <input type="datetime-local" value={periodStart} onChange={e => setPeriodStart(e.target.value)} className="ehi-input text-[12px] flex-1" />
                   <span className="text-[var(--color-muted)] text-[11px]">to</span>
-                  <input type="datetime-local" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} className="ehi-input text-[12px]" />
+                  <input type="datetime-local" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} className="ehi-input text-[12px] flex-1" />
                 </div>
                 {lastCloseEnd && (
                   <div className="text-[10px] font-mono text-[var(--color-muted)]">Last close ended: {new Date(lastCloseEnd).toLocaleString('en-GB')}</div>
@@ -3231,7 +3240,7 @@ export const CargoForm = ({
                     {closeDebtSales > 0 && <div className="flex justify-between border-t border-[var(--color-border)] pt-1 mt-1"><span className="text-orange-400 font-sans">Unpaid Credit Sales (Owed)</span><span className="text-orange-400 font-bold">{fmt(closeDebtSales)}</span></div>}
                     {closeDebtTotalRecoveredToday > 0 && <div className="flex justify-between"><span className="text-emerald-400 font-sans">Debt Collected Today</span><span className="text-emerald-400 font-bold">{fmt(closeDebtTotalRecoveredToday)}</span></div>}
                   </div>
-                  <div className="bg-[rgba(245,158,11,0.1)] border border-[var(--color-accent-amber)] rounded-xl p-4 mb-6">
+                  <div className="bg-[rgba(245,158,11,0.1)] border border-[var(--color-accent-amber)] rounded-xl p-4">
                     <div className="flex justify-between items-center">
                       <span className="text-[14px] text-[var(--color-accent-amber)] font-bold font-mono">BAL. CASH</span>
                       <span className={`text-[22px] font-bold font-mono ${closeBalanceCash >= 0 ? 'text-[var(--color-accent-amber)]' : 'text-red-400'}`}>{fmt(Math.abs(closeBalanceCash))}</span>
@@ -3241,7 +3250,9 @@ export const CargoForm = ({
                 </>
               )}
             </div>
-            <div className="flex gap-3" style={{ paddingTop: 16, paddingBottom: 24, flexShrink: 0 }}>
+
+            {/* Footer actions */}
+            <div className="p-3 border-t border-[var(--color-border)] bg-[var(--color-surface-card)] flex gap-3 shrink-0">
               <button
                 disabled={closeSummaryLoading}
                 onClick={() => {
@@ -3272,17 +3283,22 @@ export const CargoForm = ({
                     balanceCash: closeBalanceCash,
                   }));
                 }}
-                style={{ flex: 1, padding: 12, background: "transparent", border: "1px solid rgba(245,158,11,0.4)", borderRadius: 8, color: "var(--color-accent-amber)", fontSize: 11, fontFamily: "monospace", fontWeight: "bold", cursor: "pointer" }}
+                className="flex-1 h-11 rounded-lg bg-transparent border border-[rgba(245,158,11,0.4)] text-[var(--color-accent-amber)] text-[11px] font-mono font-bold hover:bg-[rgba(245,158,11,0.08)] transition-colors disabled:opacity-50 cursor-pointer"
               >
                 DOWNLOAD SUMMARY PDF
               </button>
-              <button onClick={handleCloseDay} disabled={closingDay || closeSummaryLoading} style={{ flex: 1, padding: 12, background: "var(--color-accent-amber)", border: "none", borderRadius: 8, color: "#0B0F19", fontSize: 11, fontFamily: "monospace", fontWeight: "bold", cursor: closingDay ? "not-allowed" : "pointer", opacity: closingDay ? 0.6 : 1 }}>
+              <button
+                onClick={handleCloseDay}
+                disabled={closingDay || closeSummaryLoading}
+                className="flex-1 h-11 rounded-lg bg-[var(--color-accent-amber)] text-[#0B0F19] text-[11px] font-mono font-bold hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
+              >
                 {closingDay ? 'CLOSING…' : 'CONFIRM & CLOSE PERIOD'}
               </button>
             </div>
           </div>
         </div>
       )}
+
 
       {showSalesAnalysis && (
         <DepartmentSalesAnalysisModal

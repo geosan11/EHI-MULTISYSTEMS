@@ -480,7 +480,7 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
       </div>
 
       {/* Tabs Menu */}
-      <div className="flex border-b border-[var(--color-border)] mb-5 gap-1">
+      <div className="flex border-b border-[var(--color-border)] mb-5 gap-1 overflow-x-auto no-scrollbar whitespace-nowrap">
         <button 
           onClick={() => setActiveTab('bugs')}
           className={`px-4 py-2 text-[11px] font-mono tracking-wider uppercase border-b-2 font-bold cursor-pointer transition-all ${activeTab === 'bugs' ? 'border-[var(--color-accent-amber)] text-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.03)]' : 'border-transparent text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}

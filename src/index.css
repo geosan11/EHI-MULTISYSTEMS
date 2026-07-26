@@ -736,12 +736,18 @@ main {
 }
 
 /* Force-hide native select arrow dropdown indicators across all platforms/browsers */
-select,
-.custom-select-elem {
+select {
   -webkit-appearance: none !important;
   -moz-appearance: none !important;
   appearance: none !important;
-  background-image: none !important;
+}
+/* For standard forms, add custom SVG chevron vector */
+select:not(.appearance-none) {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'%3E%3Cpath stroke='%238b9ab1' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-position: right 14px center !important;
+  background-repeat: no-repeat !important;
+  background-size: 15px !important;
+  padding-right: 38px !important;
 }
 select::-ms-expand {
   display: none !important;
