@@ -2072,8 +2072,8 @@ export const TransactionLedger = ({
             {/* ── Filter Strip ─────────────────────────────────── */}
             <div className="px-4 py-3 border-b border-[var(--color-border)] space-y-2.5 shrink-0 bg-[var(--color-surface-card)]">
               {/* Row 1: Search + Shift Scope */}
-              <div className="flex items-center gap-3">
-                <div className="flex-1 relative group">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
+                <div className="w-full sm:flex-1 relative group">
                   <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)] transition-colors group-focus-within:text-[var(--color-accent-amber)]" />
                   <input
                     id="ledger-search"
@@ -2086,7 +2086,7 @@ export const TransactionLedger = ({
                   />
                 </div>
                 {/* Shift scope pills */}
-                <div className="flex items-center gap-1 p-0.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl shrink-0">
+                <div className="flex items-center gap-1 p-0.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl shrink-0 w-full sm:w-auto">
                   {(['current', 'all'] as const).map((scope) => (
                     <button
                       key={scope}
@@ -2099,7 +2099,7 @@ export const TransactionLedger = ({
                           });
                         }
                       }}
-                      className={`h-7 px-3.5 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                      className={`h-7 px-3.5 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer flex-1 sm:flex-initial text-center ${
                         shiftFilter === scope
                           ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] shadow-md'
                           : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[rgba(255,255,255,0.03)]'

@@ -734,3 +734,36 @@ main {
   z-index: 20;
   flex-shrink: 0;
 }
+
+/* Force-hide native select arrow dropdown indicators across all platforms/browsers */
+select,
+.custom-select-elem {
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  background-image: none !important;
+}
+select::-ms-expand {
+  display: none !important;
+}
+
+/* Customize mobile date-input placeholder icons */
+input[type="date"]::-webkit-inner-spin-button,
+input[type="date"]::-webkit-clear-button {
+  display: none;
+}
+input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+input[type="date"] {
+  position: relative;
+  cursor: pointer;
+}
+
+
