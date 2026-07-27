@@ -75,57 +75,57 @@
 :root.dark {
   --app-height: 100dvh;
 
-  /* ColorHunt f4f6ff f3c623 eb8317 10375c */
-  --color-obsidian: #081d33;          /* Deep Prussian Cobalt background */
-  --color-surface-1: #10375c;         /* Prussian Cobalt Blue */
-  --color-surface-2: #164675;         /* Lighter Prussian Blue */
-  --color-surface-3: #1e568c;         /* Slate Blue */
-  --color-surface-card: #10375c;      /* Card surfaces */
-  --color-surface-card-glass: rgba(16, 55, 92, 0.75);
-  --color-nav-bg: #081d33;
-  --color-nav-glass: rgba(8, 29, 51, 0.82);
-  --color-background: #081d33;
-  --color-input-bg: #0d2a4a;
-  --color-input-text: #f4f6ff;
+  /* Option B — Obsidian Charcoal + Amber (Industry Standard) */
+  --color-obsidian: #0f1117;          /* Deep Charcoal — near-black background */
+  --color-surface-1: #1a1f2e;         /* Dark Slate — primary surfaces */
+  --color-surface-2: #1f2540;         /* Elevated Slate — secondary surfaces */
+  --color-surface-3: #252b47;         /* Lighter Slate — tertiary / hover */
+  --color-surface-card: #1a1f2e;      /* Card surfaces */
+  --color-surface-card-glass: rgba(26, 31, 46, 0.78);
+  --color-nav-bg: #0f1117;
+  --color-nav-glass: rgba(15, 17, 23, 0.88);
+  --color-background: #0f1117;
+  --color-input-bg: #141720;          /* Slightly raised input bg */
+  --color-input-text: #f1f5f9;
 
-  /* ColorHunt Palette Accents */
-  --color-accent-amber: #f3c623;      /* Golden Honey / Amber Yellow — Brand primary */
-  --color-warning: #eb8317;           /* Orange Flame — warnings only */
-  --color-error: #bf092f;             /* Crimson Red */
-  --color-accent-cobalt: #10375c;     /* Prussian Cobalt Blue */
+  /* Accent palette */
+  --color-accent-amber: #fbbf24;      /* Amber Yellow — Brand primary */
+  --color-warning: #f97316;           /* Orange — warnings only, distinct from amber */
+  --color-error: #ef4444;             /* Red */
+  --color-accent-cobalt: #3b82f6;     /* Blue accent for info states */
   --color-success: #22c55e;           /* Operational Green — cleared/confirmed states */
   --color-purple: #8b5cf6;
-  --color-navy: #10375c;
-  --color-navy-deep: #081d33;
+  --color-navy: #1a1f2e;
+  --color-navy-deep: #0f1117;
 
-  --glow-amber: rgba(243, 198, 35, 0.22); /* Golden Honey glow */
-  --glow-cobalt: rgba(16, 55, 92, 0.22);    /* Prussian Cobalt Blue glow */
-  --glow-success: rgba(34, 197, 94, 0.22);  /* Green success glow */
-  --glow-error: rgba(191, 9, 47, 0.22);     /* Crimson Red glow */
+  --glow-amber: rgba(251, 191, 36, 0.20);  /* Amber glow */
+  --glow-cobalt: rgba(59, 130, 246, 0.18);
+  --glow-success: rgba(34, 197, 94, 0.22);
+  --glow-error: rgba(239, 68, 68, 0.22);
 
-  --color-foreground: #f8fafc;
-  --color-muted: #809bb0;
-  --color-light-muted: #a0b8cc;
+  --color-foreground: #f1f5f9;        /* Slate White */
+  --color-muted: #64748b;
+  --color-light-muted: #94a3b8;
 
-  --color-border: rgba(255, 255, 255, 0.11);
-  --color-border-strong: rgba(255, 255, 255, 0.18);
-  --color-nav-border: rgba(255, 255, 255, 0.1);
-  --color-overlay: rgba(0, 13, 24, 0.85);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.14);
+  --color-nav-border: rgba(255, 255, 255, 0.07);
+  --color-overlay: rgba(0, 0, 0, 0.82);
 
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.6);
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.4);
   --shadow-card:
-    0 4px 14px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+    0 4px 16px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
   --shadow-nav:
-    0 -4px 24px rgba(0, 0, 0, 0.55), 0 -1px 0 rgba(255, 255, 255, 0.08);
+    0 -4px 24px rgba(0, 0, 0, 0.65), 0 -1px 0 rgba(255, 255, 255, 0.06);
   --shadow-dropdown:
-    0 8px 32px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.4),
-    0 0 0 1px rgba(255, 255, 255, 0.1);
-  --shadow-amber: 0 4px 16px rgba(243, 198, 35, 0.35); /* Golden Honey shadow */
-  --shadow-cobalt: 0 4px 16px rgba(16, 55, 92, 0.35);
-  --shadow-success: 0 4px 16px rgba(34, 197, 94, 0.30);  /* Green success shadow */
+    0 8px 32px rgba(0, 0, 0, 0.75), 0 2px 8px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+  --shadow-amber: 0 4px 16px rgba(251, 191, 36, 0.30);
+  --shadow-cobalt: 0 4px 16px rgba(59, 130, 246, 0.25);
+  --shadow-success: 0 4px 16px rgba(34, 197, 94, 0.28);
   --shadow-modal:
-    0 20px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08);
+    0 20px 60px rgba(0, 0, 0, 0.80), 0 0 0 1px rgba(255, 255, 255, 0.07);
 
   --radius-xs: 4px;
   --radius-sm: 8px;
@@ -142,59 +142,58 @@
 
   /* Toast variables dark mode defaults */
   --toast-text-color: #f1f5f9;
-  --toast-icon-bg: rgba(255, 255, 255, 0.08);
+  --toast-icon-bg: rgba(255, 255, 255, 0.07);
   --toast-icon-border: rgba(255, 255, 255, 0.04);
 }
 
 :root,
 :root.light {
-  --color-obsidian: #f4f6ff;          /* Soft Lavender off-white */
+  --color-obsidian: #f1f5f9;          /* Slate White — light background */
   --color-surface-1: #ffffff;
-  --color-surface-2: #e8ebf5;
-  --color-surface-3: #dce1f0;
+  --color-surface-2: #f1f5f9;
+  --color-surface-3: #e2e8f0;
   --color-surface-card: #ffffff;
-  --color-surface-card-glass: rgba(255, 255, 255, 0.85);
+  --color-surface-card-glass: rgba(255, 255, 255, 0.88);
   --color-nav-bg: #ffffff;
-  --color-nav-glass: rgba(255, 255, 255, 0.88);
-  --color-background: #f4f6ff;
+  --color-nav-glass: rgba(255, 255, 255, 0.92);
+  --color-background: #f1f5f9;
   --color-input-bg: #ffffff;
-  --color-input-text: #10375c;        /* Deep Cobalt Blue text */
+  --color-input-text: #0f172a;
 
-  --color-foreground: #10375c;        /* High-contrast Prussian Cobalt typography */
-  --color-accent-amber: #eb8317;      /* Orange brand accent in light mode */
-  --color-warning: #d97706;           /* Amber warning — warnings only */
-  --color-error: #bf092f;
-  --color-accent-cobalt: #10375c;     /* Cobalt Blue */
-  --color-success: #16a34a;           /* Operational Green — cleared/confirmed states */
+  --color-foreground: #0f172a;        /* Near-black for high contrast on light */
+  --color-accent-amber: #d97706;      /* Darker amber for contrast on white bg */
+  --color-warning: #ea580c;           /* Orange warning */
+  --color-error: #dc2626;
+  --color-accent-cobalt: #2563eb;
+  --color-success: #16a34a;
   --color-purple: #7c3aed;
-  --color-navy: #10375c;
-  --color-navy-deep: #081d33;
+  --color-navy: #1e293b;
+  --color-navy-deep: #0f172a;
 
-  --glow-amber: rgba(235, 131, 23, 0.18);   /* Orange glow */
-  --glow-cobalt: rgba(16, 55, 92, 0.18);     /* Cobalt glow */
-  --glow-success: rgba(22, 163, 74, 0.18);   /* Green success glow */
-  --glow-error: rgba(191, 9, 47, 0.18);     /* Crimson Red glow */
+  --glow-amber: rgba(217, 119, 6, 0.15);
+  --glow-cobalt: rgba(37, 99, 235, 0.15);
+  --glow-success: rgba(22, 163, 74, 0.15);
+  --glow-error: rgba(220, 38, 38, 0.15);
 
-  --color-foreground: #111827;
-  --color-muted: #9ca3af;
-  --color-light-muted: #6b7280;
+  --color-muted: #64748b;
+  --color-light-muted: #94a3b8;
 
-  --color-border: rgba(0, 0, 0, 0.11);
-  --color-border-strong: rgba(0, 0, 0, 0.18);
-  --color-nav-border: rgba(0, 0, 0, 0.1);
-  --color-overlay: rgba(0, 0, 0, 0.55);
+  --color-border: rgba(0, 0, 0, 0.09);
+  --color-border-strong: rgba(0, 0, 0, 0.15);
+  --color-nav-border: rgba(0, 0, 0, 0.08);
+  --color-overlay: rgba(0, 0, 0, 0.50);
 
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.07);
-  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.09), 0 2px 8px rgba(0, 0, 0, 0.05);
-  --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.06);
-  --shadow-nav: 0 -4px 16px rgba(0, 0, 0, 0.08), 0 -1px 0 rgba(0, 0, 0, 0.07);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.07), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  --shadow-nav: 0 -4px 16px rgba(0, 0, 0, 0.07), 0 -1px 0 rgba(0, 0, 0, 0.06);
   --shadow-dropdown:
-    0 8px 32px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.08),
-    0 0 0 1px rgba(0, 0, 0, 0.07);
-  --shadow-amber: 0 4px 14px rgba(235, 131, 23, 0.28);
-  --shadow-cobalt: 0 4px 14px rgba(16, 55, 92, 0.28);
-  --shadow-success: 0 4px 14px rgba(22, 163, 74, 0.25);  /* Green success shadow */
-  --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.08);
+    0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.07),
+    0 0 0 1px rgba(0, 0, 0, 0.06);
+  --shadow-amber: 0 4px 14px rgba(217, 119, 6, 0.22);
+  --shadow-cobalt: 0 4px 14px rgba(37, 99, 235, 0.18);
+  --shadow-success: 0 4px 14px rgba(22, 163, 74, 0.20);
+  --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.07);
 
   --radius-xs: 4px;
   --radius-sm: 8px;
@@ -210,8 +209,8 @@
   --card-grid: 1fr 1fr;
 
   /* Toast variables light mode overrides */
-  --toast-bg: rgba(255, 255, 255, 0.96);
-  --toast-border: rgba(0, 0, 0, 0.08);
+  --toast-bg: rgba(255, 255, 255, 0.97);
+  --toast-border: rgba(0, 0, 0, 0.07);
   --toast-title-color: #0f172a;
   --toast-text-color: #475569;
   --toast-icon-bg: rgba(0, 0, 0, 0.03);

@@ -103,16 +103,16 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
       <div className="absolute inset-0 bg-slate-950/65 backdrop-blur-[6px] pointer-events-none" />
 
       {/* Main Container: Split card with inner gradient card on desktop */}
-      <div className="relative z-10 w-full max-w-[390px] lg:max-w-3xl bg-slate-950/70 backdrop-blur-2xl border border-white/10 rounded-[24px] p-3 lg:p-4 shadow-[0_30px_85px_rgba(0,0,0,0.75),inset_0_1px_1px_rgba(255,255,255,0.08)]">
+      <div className="relative z-10 w-full max-w-[390px] lg:max-w-3xl bg-[#0f1117]/85 backdrop-blur-2xl border border-white/8 rounded-[24px] p-3 lg:p-4 shadow-[0_30px_85px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.06)]">
         <div className="lg:grid lg:grid-cols-12 lg:gap-6 lg:items-center">
 
           {/* Left Column (Desktop Only Inner Gradient Card) */}
-          <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-5 rounded-[18px] bg-[#0a1e35] border border-[#f3c623]/20 text-white min-h-[390px] shadow-[0_8px_32px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.06)] relative overflow-hidden">
-            {/* Subtle ambient glows — amber top-left, cobalt bottom-right */}
-            <div className="absolute -top-16 -left-16 w-56 h-56 rounded-full bg-[#f3c623]/10 filter blur-[50px] pointer-events-none" />
-            <div className="absolute -bottom-16 -right-16 w-56 h-56 rounded-full bg-[#10375c]/60 filter blur-[50px] pointer-events-none" />
-            {/* Subtle amber top border line accent */}
-            <div className="absolute top-0 left-8 right-8 h-[1px] bg-gradient-to-r from-transparent via-[#f3c623]/40 to-transparent pointer-events-none" />
+          <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-5 rounded-[18px] bg-[#1a1f2e] border border-[#fbbf24]/18 text-white min-h-[390px] shadow-[0_8px_32px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.04)] relative overflow-hidden">
+            {/* Subtle ambient glows — amber top-left, dark slate bottom-right */}
+            <div className="absolute -top-16 -left-16 w-56 h-56 rounded-full bg-[#fbbf24]/8 filter blur-[55px] pointer-events-none" />
+            <div className="absolute -bottom-16 -right-16 w-56 h-56 rounded-full bg-white/3 filter blur-[50px] pointer-events-none" />
+            {/* Amber top accent line */}
+            <div className="absolute top-0 left-8 right-8 h-[1px] bg-gradient-to-r from-transparent via-[#fbbf24]/35 to-transparent pointer-events-none" />
 
             <div className="relative z-10 p-2.5 rounded-xl bg-white/5 border border-white/10 w-fit shadow-md backdrop-blur-md">
               <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 110, height: 'auto', objectFit: 'contain' }} />
@@ -120,7 +120,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
 
             <div className="relative z-10 space-y-3 pt-7">
               <div>
-                <span className="inline-block text-[9px] uppercase font-extrabold tracking-widest text-[#f3c623] bg-[#f3c623]/10 border border-[#f3c623]/25 px-2 py-0.5 rounded-full shadow-sm mb-2.5">
+                <span className="inline-block text-[9px] uppercase font-extrabold tracking-widest text-[#fbbf24] bg-[#fbbf24]/10 border border-[#fbbf24]/22 px-2 py-0.5 rounded-full shadow-sm mb-2.5">
                   OPERATIONS HUB
                 </span>
                 <h2 className="text-[17px] font-extrabold text-white tracking-tight leading-snug">
@@ -134,14 +134,14 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
               {/* Status checklist */}
               <div className="space-y-2.5 pt-2">
                 <div className="flex items-center gap-2.5 text-white/90">
-                  <div className="w-5 h-5 rounded-full bg-[#f3c623]/15 border border-[#f3c623]/30 flex items-center justify-center shrink-0">
-                    <ShieldCheck size={11} className="text-[#f3c623]" />
+                  <div className="w-5 h-5 rounded-full bg-[#fbbf24]/12 border border-[#fbbf24]/25 flex items-center justify-center shrink-0">
+                    <ShieldCheck size={11} className="text-[#fbbf24]" />
                   </div>
                   <span className="text-[11px] font-semibold font-sans">End-to-End Encrypted DB Sync</span>
                 </div>
                 <div className="flex items-center gap-2.5 text-white/90">
-                  <div className="w-5 h-5 rounded-full bg-[#f3c623]/15 border border-[#f3c623]/30 flex items-center justify-center shrink-0">
-                    <Plane size={11} className="text-[#f3c623]" />
+                  <div className="w-5 h-5 rounded-full bg-[#fbbf24]/12 border border-[#fbbf24]/25 flex items-center justify-center shrink-0">
+                    <Plane size={11} className="text-[#fbbf24]" />
                   </div>
                   <span className="text-[11px] font-semibold font-sans">Multi-Station Hub Network</span>
                 </div>
