@@ -78,7 +78,7 @@ export const ReviewEntryModal: React.FC<ReviewEntryModalProps> = ({
             className="flex-1 h-11 flex items-center justify-center gap-2 rounded-lg text-[13px] font-bold transition-colors bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] hover:bg-[var(--color-accent-amber)]/90 cursor-pointer"
           >
             {isSubmitting ? (
-              <span className="w-5 h-5 border-2 border-[#030712] border-t-transparent rounded-full animate-spin" />
+              <span className="w-5 h-5 border-2 border-[var(--color-obsidian)] border-t-transparent rounded-full animate-spin" />
             ) : (
               <>
                 <CheckCircle2 size={16} />

@@ -60,8 +60,8 @@ export const ResetPasswordScreen = ({ onDone }: { onDone: () => void }) => {
         paddingRight: 'calc(env(safe-area-inset-right) + 2rem)',
       }}
     >
-      <div className="absolute w-[500px] h-[500px] rounded-full pointer-events-none filter blur-[100px]" style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.12) 0%, transparent 65%)', top: '-10%', left: '-10%' }} />
-      <div className="absolute w-[500px] h-[500px] rounded-full pointer-events-none filter blur-[100px]" style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.09) 0%, transparent 65%)', bottom: '-10%', right: '-10%' }} />
+      <div className="absolute w-[500px] h-[500px] rounded-full pointer-events-none filter blur-[100px]" style={{ background: 'radial-gradient(circle, rgba(59,151,151,0.12) 0%, transparent 65%)', top: '-10%', left: '-10%' }} />
+      <div className="absolute w-[500px] h-[500px] rounded-full pointer-events-none filter blur-[100px]" style={{ background: 'radial-gradient(circle, rgba(22,71,106,0.09) 0%, transparent 65%)', bottom: '-10%', right: '-10%' }} />
 
       <div className="w-full max-w-[380px] flex flex-col items-center z-10">
         <div className="mb-8">
@@ -79,7 +79,7 @@ export const ResetPasswordScreen = ({ onDone }: { onDone: () => void }) => {
               </div>
               <button
                 onClick={onDone}
-                className="w-full h-12 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-[var(--color-obsidian)] font-sans font-bold rounded-[var(--radius-sm)] shadow-[0_4px_12px_rgba(252,191,73,0.25)] transition-all cursor-pointer"
+                className="w-full h-12 bg-gradient-to-r from-[#3b9797] to-[#16476a] hover:from-[#3b9797]/90 hover:to-[#16476a]/90 text-white font-sans font-bold rounded-[var(--radius-sm)] shadow-[0_4px_12px_rgba(59,151,151,0.25)] transition-all cursor-pointer"
               >
                 Continue to Dashboard
               </button>
@@ -127,7 +127,7 @@ export const ResetPasswordScreen = ({ onDone }: { onDone: () => void }) => {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full h-12 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-[var(--color-obsidian)] font-sans font-bold rounded-[var(--radius-sm)] shadow-[0_4px_12px_rgba(252,191,73,0.25)] transition-all cursor-pointer disabled:opacity-60"
+                className="w-full h-12 bg-gradient-to-r from-[#3b9797] to-[#16476a] hover:from-[#3b9797]/90 hover:to-[#16476a]/90 text-white font-sans font-bold rounded-[var(--radius-sm)] shadow-[0_4px_12px_rgba(59,151,151,0.25)] transition-all cursor-pointer disabled:opacity-60"
               >
                 {submitting ? 'Updating…' : 'Save New Password'}
               </button>
