@@ -29,7 +29,7 @@ import { RatesList } from './RatesList';
 import { CustomerWallets } from './CustomerWallets';
 import { GatPrintQueue } from './GatPrintQueue';
 
-import { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { User, TabView, Transaction, Expense, ExcessBaggageAirline, HubShift } from '../../lib/types';
 import { fmt } from '../../lib/helpers';
@@ -127,25 +127,30 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
   // (see onManageRates/onBack below).
   const [specialGoodsPreset, setSpecialGoodsPreset] = useState<string | undefined>(undefined);
 
-  // View controllers
+  // View controllers — each wrapped in a keyed div to trigger the
+  // page-transition scroll-slide animation on every sub-view change.
+  const wrapSub = (key: string, el: React.ReactElement) => (
+    <div key={key} className="page-transition" style={{ display: 'contents' }}>{el}</div>
+  );
+
   if (activeSub === 'eod') {
-    return <EODReconciliation user={user} transactions={transactions} expenses={expenses} onBack={closeSub} onEOD={onEOD || (() => {})} />;
+    return wrapSub('eod', <EODReconciliation user={user} transactions={transactions} expenses={expenses} onBack={closeSub} onEOD={onEOD || (() => {})} />);
   }
 
   if (activeSub === 'accounting') {
-    return <AccountingConsole user={user} transactions={transactions} expenses={expenses} onBack={closeSub} onAddExpense={onAddExpense} onUpdateExpense={onUpdateExpense} onOpenBankRecon={() => openSub('bankRecon')} onFullUpdateTx={onFullUpdateTx} onAddTx={onAddTx} />;
+    return wrapSub('accounting', <AccountingConsole user={user} transactions={transactions} expenses={expenses} onBack={closeSub} onAddExpense={onAddExpense} onUpdateExpense={onUpdateExpense} onOpenBankRecon={() => openSub('bankRecon')} onFullUpdateTx={onFullUpdateTx} onAddTx={onAddTx} />);
   }
 
   if (activeSub === 'reports') {
-    return <Reports user={user} transactions={transactions} onBack={closeSub} />;
+    return wrapSub('reports', <Reports user={user} transactions={transactions} onBack={closeSub} />);
   }
 
   if (activeSub === 'settings') {
-    return <Settings user={user} onBack={closeSub} onOpenAirlineCommissions={() => openSub('airlineCommissions')} />;
+    return wrapSub('settings', <Settings user={user} onBack={closeSub} onOpenAirlineCommissions={() => openSub('airlineCommissions')} />);
   }
 
   if (activeSub === 'bankRecon') {
-    return <BankReconciliation
+    return wrapSub('bankRecon', <BankReconciliation
       transactions={transactions}
       onBack={closeSub}
       user={user}
@@ -159,27 +164,27 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
           });
         }
       }}
-    />;
+    />);
   }
 
   if (activeSub === 'fleet') {
-    return <Fleet onBack={closeSub} />;
+    return wrapSub('fleet', <Fleet onBack={closeSub} />);
   }
 
   if (activeSub === 'forecasting') {
-    return <Forecasting onBack={closeSub} />;
+    return wrapSub('forecasting', <Forecasting onBack={closeSub} />);
   }
 
   if (activeSub === 'fraudAlerts') {
-    return <FraudAlerts user={user} onBack={closeSub} />;
+    return wrapSub('fraudAlerts', <FraudAlerts user={user} onBack={closeSub} />);
   }
 
   if (activeSub === 'customerWallets') {
-    return <CustomerWallets user={user} onBack={closeSub} />;
+    return wrapSub('customerWallets', <CustomerWallets user={user} onBack={closeSub} />);
   }
 
   if (activeSub === 'ledger') {
-    return (
+    return wrapSub('ledger', (
       <TransactionLedger
         user={user}
         transactions={transactions}
@@ -193,75 +198,75 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         onStartShift={onStartShift}
         onEndShift={onEndShift}
       />
-    );
+    ));
   }
 
   if (activeSub === 'gatPrintQueue') {
-    return <GatPrintQueue user={user} onBack={closeSub} />;
+    return wrapSub('gatPrintQueue', <GatPrintQueue user={user} onBack={closeSub} />);
   }
 
   if (activeSub === 'auditLog') {
-    return <AuditLog onBack={closeSub} />;
+    return wrapSub('auditLog', <AuditLog onBack={closeSub} />);
   }
 
   if (activeSub === 'podLog') {
-    return <PODLog user={user} onBack={closeSub} />;
+    return wrapSub('podLog', <PODLog user={user} onBack={closeSub} />);
   }
 
   if (activeSub === 'dispatch') {
-    return <Dispatch onBack={closeSub} />;
+    return wrapSub('dispatch', <Dispatch onBack={closeSub} />);
   }
 
   if (activeSub === 'airlineCommissions') {
-    return <AirlineCommissions onBack={closeSub} />;
+    return wrapSub('airlineCommissions', <AirlineCommissions onBack={closeSub} />);
   }
 
   if (activeSub === 'corporateBilling') {
-    return <CorporateBilling user={user} onBack={closeSub} />;
+    return wrapSub('corporateBilling', <CorporateBilling user={user} onBack={closeSub} />);
   }
 
   if (activeSub === 'officeReconcile') {
-    return <OfficeWorkReconciliation user={user} onBack={closeSub} />;
+    return wrapSub('officeReconcile', <OfficeWorkReconciliation user={user} onBack={closeSub} />);
   }
 
   if (activeSub === 'pricing') {
-    return <PricingConfiguration user={user} onBack={closeSub} />;
+    return wrapSub('pricing', <PricingConfiguration user={user} onBack={closeSub} />);
   }
 
   if (activeSub === 'hubCargoRates') {
-    return <HubCargoRates user={user} onBack={closeSub} />;
+    return wrapSub('hubCargoRates', <HubCargoRates user={user} onBack={closeSub} />);
   }
 
   if (activeSub === 'excessBaggageAirlines') {
-    return <ExcessBaggageAirlines onBack={closeSub} />;
+    return wrapSub('excessBaggageAirlines', <ExcessBaggageAirlines onBack={closeSub} />);
   }
 
   if (activeSub === 'contentTypes') {
-    return <ContentTypes onBack={closeSub} onManageRates={(contentTypeId, rateType) => {
+    return wrapSub('contentTypes', <ContentTypes onBack={closeSub} onManageRates={(contentTypeId, rateType) => {
       if (rateType === 'flat') { openSub('flatTierRates'); }
       else if (rateType === 'size') { openSub('sizeTierRates'); }
       else { setSpecialGoodsPreset(contentTypeId); openSub('specialGoodsRates'); }
-    }} />;
+    }} />);
   }
 
   if (activeSub === 'specialGoodsRates') {
-    return <SpecialGoodsRates user={user} onBack={() => { setSpecialGoodsPreset(undefined); closeSub(); }} presetContentTypeId={specialGoodsPreset} />;
+    return wrapSub('specialGoodsRates', <SpecialGoodsRates user={user} onBack={() => { setSpecialGoodsPreset(undefined); closeSub(); }} presetContentTypeId={specialGoodsPreset} />);
   }
 
   if (activeSub === 'minimumCharges') {
-    return <MinimumCharges onBack={closeSub} />;
+    return wrapSub('minimumCharges', <MinimumCharges onBack={closeSub} />);
   }
 
   if (activeSub === 'flatTierRates') {
-    return <FlatTierRates user={user} onBack={closeSub} />;
+    return wrapSub('flatTierRates', <FlatTierRates user={user} onBack={closeSub} />);
   }
 
   if (activeSub === 'sizeTierRates') {
-    return <SizeTierRates user={user} onBack={closeSub} />;
+    return wrapSub('sizeTierRates', <SizeTierRates user={user} onBack={closeSub} />);
   }
 
   if (activeSub === 'ratesList') {
-    return <RatesList
+    return wrapSub('ratesList', <RatesList
       onBack={closeSub}
       onOpenConfig={(target) => {
         if (target === 'pricing') openSub('pricing');
@@ -272,23 +277,23 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         else if (target === 'minimumCharges') openSub('minimumCharges');
         else if (target === 'airlineCommissions') openSub('airlineCommissions');
       }}
-    />;
+    />);
   }
 
   if (activeSub === 'expenseCategories') {
-    return <ExpenseCategories onBack={closeSub} />;
+    return wrapSub('expenseCategories', <ExpenseCategories onBack={closeSub} />);
   }
 
   if (activeSub === 'banks') {
-    return <Banks onBack={closeSub} />;
+    return wrapSub('banks', <Banks onBack={closeSub} />);
   }
 
   if (activeSub === 'support') {
-    return <SupportTickets user={user} onBack={closeSub} />;
+    return wrapSub('support', <SupportTickets user={user} onBack={closeSub} />);
   }
 
   if (activeSub === 'staff') {
-    return <StaffManagement user={user} onBack={closeSub} />;
+    return wrapSub('staff', <StaffManagement user={user} onBack={closeSub} />);
   }
 
 
@@ -333,7 +338,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
   );
 
   return (
-    <div className="p-4 pb-8 select-none">
+    <div key="more-menu" className="page-transition p-4 pb-8 select-none">
 
       {/* Daily Operations */}
       <SectionLabel label="Daily Operations" />

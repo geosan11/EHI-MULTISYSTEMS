@@ -1872,7 +1872,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           style={{ display: 'flex', flexDirection: 'column' }}
         >
           <div
-            className="mx-auto w-full flex-1 flex flex-col"
+            key={currentTab}
+            className="page-transition mx-auto w-full flex-1 flex flex-col"
             style={{ maxWidth: 'var(--content-max-width)' }}
           >
             <ErrorBoundary>
