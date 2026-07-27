@@ -103,27 +103,27 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
       <div className="absolute inset-0 bg-slate-950/65 backdrop-blur-[6px] pointer-events-none" />
 
       {/* Main Container: Split card with inner gradient card on desktop */}
-      <div className="relative z-10 w-full max-w-[420px] lg:max-w-4xl bg-slate-950/70 backdrop-blur-2xl border border-white/10 rounded-[28px] p-4 lg:p-6 shadow-[0_30px_85px_rgba(0,0,0,0.75),inset_0_1px_1px_rgba(255,255,255,0.08)]">
+      <div className="relative z-10 w-full max-w-[390px] lg:max-w-3xl bg-slate-950/70 backdrop-blur-2xl border border-white/10 rounded-[24px] p-3 lg:p-4 shadow-[0_30px_85px_rgba(0,0,0,0.75),inset_0_1px_1px_rgba(255,255,255,0.08)]">
         <div className="lg:grid lg:grid-cols-12 lg:gap-6 lg:items-center">
 
           {/* Left Column (Desktop Only Inner Gradient Card) */}
-          <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-7 rounded-[22px] bg-[#0a1e35] border border-[#f3c623]/20 text-white min-h-[470px] shadow-[0_8px_32px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.06)] relative overflow-hidden">
+          <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-5 rounded-[18px] bg-[#0a1e35] border border-[#f3c623]/20 text-white min-h-[390px] shadow-[0_8px_32px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.06)] relative overflow-hidden">
             {/* Subtle ambient glows — amber top-left, cobalt bottom-right */}
             <div className="absolute -top-16 -left-16 w-56 h-56 rounded-full bg-[#f3c623]/10 filter blur-[50px] pointer-events-none" />
             <div className="absolute -bottom-16 -right-16 w-56 h-56 rounded-full bg-[#10375c]/60 filter blur-[50px] pointer-events-none" />
             {/* Subtle amber top border line accent */}
             <div className="absolute top-0 left-8 right-8 h-[1px] bg-gradient-to-r from-transparent via-[#f3c623]/40 to-transparent pointer-events-none" />
 
-            <div className="relative z-10 p-3 rounded-2xl bg-white/5 border border-white/10 w-fit shadow-md backdrop-blur-md">
-              <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 150, height: 'auto', objectFit: 'contain' }} />
+            <div className="relative z-10 p-2.5 rounded-xl bg-white/5 border border-white/10 w-fit shadow-md backdrop-blur-md">
+              <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 110, height: 'auto', objectFit: 'contain' }} />
             </div>
 
-            <div className="relative z-10 space-y-4 pt-12">
+            <div className="relative z-10 space-y-3 pt-7">
               <div>
                 <span className="inline-block text-[9px] uppercase font-extrabold tracking-widest text-[#f3c623] bg-[#f3c623]/10 border border-[#f3c623]/25 px-2 py-0.5 rounded-full shadow-sm mb-2.5">
                   OPERATIONS HUB
                 </span>
-                <h2 className="text-[21px] font-extrabold text-white tracking-tight leading-snug">
+                <h2 className="text-[17px] font-extrabold text-white tracking-tight leading-snug">
                   Logistics & Aviation Operations Portal
                 </h2>
                 <p className="text-[11.5px] text-white/60 mt-1.5 font-sans leading-relaxed">
@@ -160,10 +160,10 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
           </div>
 
           {/* Right Column (Mobile Header + Authentication Form) */}
-          <div className="w-full lg:col-span-7 flex flex-col items-center lg:px-6 py-2">
+          <div className="w-full lg:col-span-7 flex flex-col items-center lg:px-5 py-1">
             
             {/* Header Branding */}
-            <div className="text-center mb-6 flex flex-col items-center w-full">
+            <div className="text-center mb-4 flex flex-col items-center w-full">
               {/* Mobile Logo Display */}
               <div className="mb-3.5 p-2.5 rounded-2xl bg-slate-900/80 border border-white/15 backdrop-blur-md shadow-lg lg:hidden">
                 <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 150, height: 'auto', objectFit: 'contain' }} />
