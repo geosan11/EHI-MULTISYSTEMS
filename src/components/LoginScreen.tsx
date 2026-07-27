@@ -354,38 +354,49 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
             </div>
           </div>
 
-          {/* Right Column (Desktop 3D Artwork Panel - Embedded Inner Card) */}
-          <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-5 rounded-[18px] bg-[#090a0f] border border-white/8 text-white min-h-[380px] shadow-[0_8px_32px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.05)] relative overflow-hidden">
+          {/* Right Column (Desktop 3D Logistics Artwork Panel - Embedded Inner Card) */}
+          <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-5 rounded-[18px] bg-[#090a0f] border border-white/12 text-white min-h-[380px] shadow-[0_8px_32px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.08)] relative overflow-hidden">
             
-            {/* Background Artwork */}
+            {/* 3D Logistics Background Artwork (Truck, Plane, Globe) */}
             <div
-              className="absolute inset-0 bg-cover bg-center opacity-80 pointer-events-none mix-blend-screen"
+              className="absolute inset-0 bg-cover bg-center opacity-90 pointer-events-none"
               style={{ backgroundImage: `url(${loginArt})` }}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#090a0f] via-transparent to-[#090a0f]/60 pointer-events-none" />
+            {/* Vignette Overlay for Crisp Contrast */}
+            <div className="absolute inset-0 bg-gradient-to-b from-slate-950/85 via-black/30 to-slate-950/90 pointer-events-none" />
 
-            {/* Top Badge */}
-            <div className="relative z-10 flex items-center justify-between">
-              <span className="inline-block text-[8.5px] uppercase font-extrabold tracking-widest text-[#fbbf24] bg-[#fbbf24]/10 border border-[#fbbf24]/20 px-2 py-0.5 rounded-full backdrop-blur-md">
-                PORTAL v2.0
-              </span>
+            {/* Top Section: EHI Logo First + Content Under It */}
+            <div className="relative z-10 space-y-3.5">
+              {/* EHI Logo First (Crisp Frosted Glass Badge) */}
+              <div className="w-fit p-2.5 px-3.5 rounded-2xl bg-white/95 backdrop-blur-xl border border-white/50 shadow-xl flex items-center justify-center">
+                <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 110, height: 'auto', objectFit: 'contain' }} />
+              </div>
+
+              {/* Little Content Directly Under the Logo */}
+              <div className="space-y-2 pt-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="inline-block text-[8.5px] uppercase font-extrabold tracking-widest text-[#fbbf24] bg-black/70 border border-[#fbbf24]/30 px-2.5 py-0.5 rounded-full backdrop-blur-md shadow-md">
+                    PORTAL V2.0
+                  </span>
+                </div>
+
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center gap-2.5 text-white/90 bg-slate-950/75 border border-white/15 rounded-xl p-2.5 backdrop-blur-md shadow-lg">
+                    <ShieldCheck size={13} className="text-[#fbbf24] shrink-0" />
+                    <span className="text-[10.5px] font-bold font-sans tracking-wide">Encrypted DB Synchronization</span>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-white/90 bg-slate-950/75 border border-white/15 rounded-xl p-2.5 backdrop-blur-md shadow-lg">
+                    <Plane size={13} className="text-[#fbbf24] shrink-0" />
+                    <span className="text-[10.5px] font-bold font-sans tracking-wide">Multi-Station Aviation Network</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Middle Feature Highlights */}
-            <div className="relative z-10 space-y-2 py-4">
-              <div className="flex items-center gap-2 text-white/80 bg-white/5 border border-white/10 rounded-lg p-2 backdrop-blur-md">
-                <ShieldCheck size={12} className="text-[#fbbf24] shrink-0" />
-                <span className="text-[10.5px] font-medium font-sans">Encrypted DB Synchronization</span>
-              </div>
-              <div className="flex items-center gap-2 text-white/80 bg-white/5 border border-white/10 rounded-lg p-2 backdrop-blur-md">
-                <Plane size={12} className="text-[#fbbf24] shrink-0" />
-                <span className="text-[10.5px] font-medium font-sans">Multi-Station Aviation Network</span>
-              </div>
-            </div>
-
-            {/* Bottom Brand Logo (Matching the logo position at bottom center of mockup!) */}
-            <div className="relative z-10 flex flex-col items-center justify-center pt-2 border-t border-white/10">
-              <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 105, height: 'auto', objectFit: 'contain', filter: 'brightness(1.1)' }} />
+            {/* Bottom Footer Credit */}
+            <div className="relative z-10 pt-3 border-t border-white/15 flex items-center justify-between text-[9.5px] font-mono text-white/80">
+              <span className="font-semibold">EHI Multisystems Nigeria Ltd</span>
+              <span className="text-[#fbbf24] font-bold">Logistics & Aviation</span>
             </div>
 
           </div>
