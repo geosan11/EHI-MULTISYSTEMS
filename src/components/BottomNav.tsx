@@ -101,13 +101,12 @@ const BottomNavTabs = ({ tabs, currentTab, onChangeTab }: {
     <div
       className="relative w-full shrink-0 z-50"
       style={{
-        height: 'calc(78px + env(safe-area-inset-bottom))',
+        height: 'calc(70px + env(safe-area-inset-bottom))',
         paddingBottom: 'env(safe-area-inset-bottom)',
         overflow: 'visible',
       }}
     >
-      {/* Raised sliding bubble — a real button, not decorative, so the
-          region where it visually overlaps the pill isn't a dead tap zone */}
+      {/* Raised sliding bubble — a real button, not decorative */}
       <button
         onClick={() => onChangeTab(tabs[activeIndex].id)}
         aria-label={tabs[activeIndex]?.title}
@@ -116,11 +115,11 @@ const BottomNavTabs = ({ tabs, currentTab, onChangeTab }: {
         style={{
           left: `calc(16px + (100% - 32px) * ${(activeIndex + 0.5) / tabs.length})`,
           transform: 'translateX(-50%)',
-          bottom: 36,
-          width: 46,
-          height: 46,
+          bottom: 30,
+          width: 40,
+          height: 40,
           background: 'radial-gradient(circle at 35% 30%, var(--color-accent-amber), var(--color-accent-amber) 60%, #C98E28 100%)',
-          boxShadow: '0 8px 20px rgba(240,178,48,0.45), 0 0 0 5px var(--color-obsidian)',
+          boxShadow: '0 6px 16px rgba(240,178,48,0.40), 0 0 0 4px var(--color-obsidian)',
           border: 'none',
           cursor: 'pointer',
           zIndex: 2,
@@ -130,7 +129,7 @@ const BottomNavTabs = ({ tabs, currentTab, onChangeTab }: {
         {(() => {
           const ActiveIcon = tabs[activeIndex]?.icon;
           return ActiveIcon ? (
-            <ActiveIcon size={19} weight="duotone" color="#111827" />
+            <ActiveIcon size={15} weight="duotone" color="#111827" />
           ) : null;
         })()}
       </button>
@@ -139,7 +138,7 @@ const BottomNavTabs = ({ tabs, currentTab, onChangeTab }: {
       <div
         className="absolute left-4 right-4 bottom-0 flex items-center justify-around rounded-full"
         style={{
-          height: 64,
+          height: 56,
           background: 'var(--color-nav-glass)',
           backdropFilter: 'blur(18px)',
           WebkitBackdropFilter: 'blur(18px)',
@@ -154,7 +153,7 @@ const BottomNavTabs = ({ tabs, currentTab, onChangeTab }: {
             <button
               key={tab.id}
               onClick={() => onChangeTab(tab.id)}
-              className="group flex-1 h-full flex flex-col items-center justify-center gap-1 transition-opacity"
+              className="group flex-1 h-full flex flex-col items-center justify-center gap-0.5 transition-opacity"
               style={{
                 background: 'none',
                 border: 'none',
@@ -165,15 +164,15 @@ const BottomNavTabs = ({ tabs, currentTab, onChangeTab }: {
               aria-current={isActive ? 'page' : undefined}
               aria-label={tab.title}
             >
-              <div style={{ height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Icon
-                  size={17}
+                  size={14}
                   weight="regular"
                   className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors"
                 />
               </div>
               <span
-                style={{ fontSize: 9, fontWeight: 500, letterSpacing: '0.01em' }}
+                style={{ fontSize: 8.5, fontWeight: 500, letterSpacing: '0.01em' }}
                 className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors"
               >
                 {tab.title}
