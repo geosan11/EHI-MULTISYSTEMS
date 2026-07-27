@@ -225,8 +225,45 @@ export function downloadDailyCSV(
       ? new Date(t.created_at).toLocaleDateString('en-GB')
       : '';
 
+  const rowDateTime = (iso?: string): string =>
+    iso && !isNaN(new Date(iso).getTime())
+      ? `${new Date(iso).toLocaleDateString('en-GB')} ${new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+      : '';
+
+  // Shared columns appended to every stream's row set below: whether this
+  // row is a debt-clearance collection (and which original debt it clears),
+  // the full partial-payment trail, and whether/how much of this entry was
+  // paid from a customer wallet. Every one of these already exists on the
+  // Transaction object and is already shown on screen (TransactionLedger's
+  // COLLECTION badge, PARTIAL badge, and Wallet badge/amount) -- this CSV
+  // just never carried them through.
+  const debtAndWalletCols = (t: any): string[] => {
+    const isDC = !!t.is_debt_clearance || (typeof t.id === 'string' && t.id.startsWith('DC-'));
+    const history = Array.isArray(t.paymentHistory) ? t.paymentHistory : [];
+    const partialSummary = history
+      .map((p: any) => `${fmt(p.amount || 0)} ${p.mode || ''} by ${p.by || ''} @ ${rowDateTime(p.at)}`.trim())
+      .join(' | ');
+    return [
+      isDC ? 'YES' : 'NO',
+      isDC ? (t.related_tx_id || '') : '',
+      t.debtPaidAt ? rowDateTime(t.debtPaidAt) : '',
+      history.length > 0 ? 'YES' : 'NO',
+      partialSummary,
+      t.wallet_id ? 'YES' : 'NO',
+      t.wallet_deduction_amount ? String(t.wallet_deduction_amount) : '',
+      t.retrievedAt ? rowDateTime(t.retrievedAt) : '',
+      t.retrievedBy || '',
+    ];
+  };
+  const debtAndWalletHeaders = [
+    'Debt Clearance?', 'Cleared Debt Ref', 'Debt Cleared At',
+    'Partial Payment?', 'Partial Payment History',
+    'Wallet Used?', 'Wallet Deduction Amount',
+    'Retrieved At', 'Retrieved By',
+  ];
+
   if (streamType === 'cargo') {
-    headers = ['Ref', 'Date', 'Time', 'Consignee', 'AWB/Tag', 'Airline', 'Route', 'Pieces', 'KG', 'Content', 'Amount', 'Mode', 'Bank', 'Status'];
+    headers = ['Ref', 'Date', 'Time', 'Consignee', 'AWB/Tag', 'Airline', 'Route', 'Pieces', 'KG', 'Content', 'Amount', 'Mode', 'Bank', 'Status', ...debtAndWalletHeaders];
     rows = transactions.map(t => {
       const parts = t.detail?.split(' · ') || [];
       return [
@@ -244,10 +281,11 @@ export function downloadDailyCSV(
         t.mode || '',
         t.bank || '',
         t.status || 'Intake',
+        ...debtAndWalletCols(t),
       ];
     });
   } else if (streamType === 'baggage') {
-    headers = ['Ref', 'Date', 'Time', 'Airline', 'Passenger', 'PNR', 'Flight', 'Destination', 'PCS', 'Total KG', 'Excess KG', 'Amount', 'Mode', 'Bank'];
+    headers = ['Ref', 'Date', 'Time', 'Airline', 'Passenger', 'PNR', 'Flight', 'Destination', 'PCS', 'Total KG', 'Excess KG', 'Amount', 'Mode', 'Bank', ...debtAndWalletHeaders];
     rows = transactions.map(t => [
       t.id,
       rowDate(t),
@@ -263,9 +301,10 @@ export function downloadDailyCSV(
       String(t.amount || 0),
       t.mode || '',
       t.bank || '',
+      ...debtAndWalletCols(t),
     ]);
   } else if (streamType === 'marketing') {
-    headers = ['Ref', 'Date', 'Time', 'Customer', 'Phone', 'Route', 'Big Bags', 'Med Bags', 'Sm Bags', 'Amount', 'Mode', 'Bank'];
+    headers = ['Ref', 'Date', 'Time', 'Customer', 'Phone', 'Route', 'Big Bags', 'Med Bags', 'Sm Bags', 'Amount', 'Mode', 'Bank', ...debtAndWalletHeaders];
     rows = transactions.map(t => {
       const bags = t.detail?.split(' · ')[1] || '';
       const bb = bags.match(/(\d+)BB/)?.[1] || '';
@@ -282,10 +321,11 @@ export function downloadDailyCSV(
         String(t.amount || 0),
         t.mode || '',
         t.bank || '',
+        ...debtAndWalletCols(t),
       ];
     });
   } else if (streamType === 'package') {
-    headers = ['Ref', 'Date', 'Time', 'Name', 'Destination', 'Content Type', 'Pieces', 'KG', 'Contents', 'Amount', 'Mode', 'Bank', 'Status'];
+    headers = ['Ref', 'Date', 'Time', 'Name', 'Destination', 'Content Type', 'Pieces', 'KG', 'Contents', 'Amount', 'Mode', 'Bank', 'Status', ...debtAndWalletHeaders];
     rows = transactions.map(t => {
       const parts = t.detail?.split(' · ') || [];
       return [
@@ -302,13 +342,14 @@ export function downloadDailyCSV(
         t.mode || '',
         t.bank || '',
         t.status || 'Intake',
+        ...debtAndWalletCols(t),
       ];
     });
   } else {
     // 'mixed' -- generic export for the all-streams Master Ledger view,
     // where entries can be cargo/baggage/marketing/package all at once and
     // none of the stream-specific column sets above apply uniformly.
-    headers = ['Ref', 'Date', 'Time', 'Type', 'Name', 'Detail', 'KG', 'Amount', 'Mode', 'Bank', 'Status'];
+    headers = ['Ref', 'Date', 'Time', 'Type', 'Name', 'Detail', 'KG', 'Amount', 'Mode', 'Bank', 'Status', ...debtAndWalletHeaders];
     rows = transactions.map(t => [
       t.id,
       rowDate(t),
@@ -321,11 +362,15 @@ export function downloadDailyCSV(
       t.mode || '',
       t.bank || '',
       t.status || 'Intake',
+      ...debtAndWalletCols(t),
     ]);
   }
 
-  // Escape CSV values
-  const esc = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+  // Escape CSV values -- sanitizeSpreadsheetCell (already used by
+  // Reports.tsx/AirlinePerformance.tsx's XLSX exports) is applied FIRST so a
+  // customer/consignee name or remark starting with =, +, -, or @ can't be
+  // opened by Excel/Sheets as a live formula.
+  const esc = (v: string) => `"${String(sanitizeSpreadsheetCell(v)).replace(/"/g, '""')}"`;
 
   const streamLabel = streamType === 'cargo' ? 'Cargo'
     : streamType === 'baggage' ? 'Excess Baggage'
