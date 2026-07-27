@@ -237,19 +237,74 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                 </div>
               </div>
 
-              {/* Remember Me Control */}
+              {/* Remember Me — 3D Glass Toggle */}
               <div className="flex items-center justify-between px-1">
-                <label className="flex items-center gap-2.5 cursor-pointer text-[12.5px] font-sans font-semibold text-white/90 select-none">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="hidden"
-                  />
-                  <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${rememberMe ? 'bg-[var(--color-accent-amber)] border-[var(--color-accent-amber)] text-[var(--color-obsidian)] shadow-[0_0_12px_var(--glow-amber)]' : 'border-white/20 bg-white/5'}`}>
-                    {rememberMe && <Check size={14} strokeWidth={3} className="text-slate-950" />}
+                <label className="flex items-center gap-3 cursor-pointer select-none" onClick={() => setRememberMe(v => !v)}>
+                  {/* Glass pill track */}
+                  <div
+                    className="relative w-12 h-6 rounded-full transition-all duration-300 flex items-center"
+                    style={{
+                      background: rememberMe
+                        ? 'linear-gradient(135deg, rgba(251,191,36,0.18) 0%, rgba(251,191,36,0.08) 100%)'
+                        : 'rgba(255,255,255,0.06)',
+                      border: rememberMe ? '1px solid rgba(251,191,36,0.35)' : '1px solid rgba(255,255,255,0.12)',
+                      boxShadow: rememberMe
+                        ? 'inset 0 2px 6px rgba(0,0,0,0.4), inset 0 -1px 2px rgba(251,191,36,0.12)'
+                        : 'inset 0 2px 6px rgba(0,0,0,0.4)',
+                    }}
+                  >
+                    {/* Track label text */}
+                    <span
+                      className="absolute text-[7px] font-bold tracking-widest uppercase transition-all duration-300 pointer-events-none"
+                      style={{
+                        right: rememberMe ? 'auto' : '5px',
+                        left: rememberMe ? '7px' : 'auto',
+                        color: rememberMe ? 'rgba(251,191,36,0.7)' : 'rgba(255,255,255,0.25)',
+                      }}
+                    >
+                      {rememberMe ? 'ON' : 'OFF'}
+                    </span>
+
+                    {/* 3D Glass Orb Knob */}
+                    <div
+                      className="absolute w-7 h-7 rounded-full transition-all duration-300"
+                      style={{
+                        left: rememberMe ? 'calc(100% - 26px)' : '-2px',
+                        background: rememberMe
+                          ? 'radial-gradient(circle at 38% 32%, rgba(255,230,100,0.95) 0%, rgba(251,191,36,0.90) 45%, rgba(200,140,10,0.95) 100%)'
+                          : 'radial-gradient(circle at 38% 32%, rgba(255,255,255,0.55) 0%, rgba(200,210,225,0.45) 50%, rgba(140,155,175,0.55) 100%)',
+                        boxShadow: rememberMe
+                          ? '0 4px 14px rgba(251,191,36,0.55), 0 2px 4px rgba(0,0,0,0.4), inset 0 -3px 5px rgba(160,100,0,0.4), inset 0 2px 4px rgba(255,240,150,0.6)'
+                          : '0 4px 10px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.3), inset 0 -2px 4px rgba(0,0,0,0.25), inset 0 2px 4px rgba(255,255,255,0.4)',
+                        border: rememberMe
+                          ? '1px solid rgba(255,210,60,0.5)'
+                          : '1px solid rgba(255,255,255,0.25)',
+                      }}
+                    >
+                      {/* Top specular reflection */}
+                      <div
+                        className="absolute rounded-full pointer-events-none"
+                        style={{
+                          top: '18%', left: '22%',
+                          width: '40%', height: '22%',
+                          background: 'radial-gradient(ellipse, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0) 100%)',
+                          filter: 'blur(0.5px)',
+                        }}
+                      />
+                      {/* Bottom shadow rim */}
+                      <div
+                        className="absolute rounded-full pointer-events-none"
+                        style={{
+                          bottom: '12%', left: '20%',
+                          width: '60%', height: '18%',
+                          background: 'radial-gradient(ellipse, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 100%)',
+                          filter: 'blur(1px)',
+                        }}
+                      />
+                    </div>
                   </div>
-                  <span>Remember me</span>
+
+                  <span className="text-[12.5px] font-sans font-semibold text-white/80">Remember me</span>
                 </label>
               </div>
 
@@ -269,20 +324,40 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                 </div>
               )}
 
-              {/* Brand-Colored Action Button */}
+              {/* 3D Glass Login Button */}
               <button
                 type="submit"
                 disabled={isLoading || connStatus === 'unconfigured'}
-                className="w-full h-12 rounded-xl bg-gradient-to-r from-[var(--color-accent-amber)] to-[var(--color-accent-cobalt)] hover:opacity-90 text-[var(--color-obsidian)] font-extrabold font-sans text-[15px] shadow-[0_10px_25px_var(--glow-amber)] transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-3"
+                className="relative w-full h-12 rounded-xl overflow-hidden transition-all duration-150 transform active:scale-[0.97] active:translate-y-[1px] disabled:opacity-50 mt-3 cursor-pointer group"
+                style={{
+                  background: 'linear-gradient(160deg, #fde68a 0%, #fbbf24 35%, #d97706 100%)',
+                  boxShadow: '0 1px 0 rgba(255,255,255,0.25) inset, 0 -3px 0 rgba(0,0,0,0.35) inset, 0 6px 20px rgba(251,191,36,0.45), 0 2px 6px rgba(0,0,0,0.4)',
+                  border: '1px solid rgba(253,230,138,0.4)',
+                }}
               >
-                {isLoading ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin text-white" />
-                    <span>Logging in…</span>
-                  </>
-                ) : (
-                  'Login to Dashboard'
-                )}
+                {/* Top glass sheen */}
+                <div
+                  className="absolute inset-x-0 top-0 h-1/2 pointer-events-none rounded-t-xl"
+                  style={{
+                    background: 'linear-gradient(180deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.04) 100%)',
+                  }}
+                />
+                {/* Bottom depth shadow */}
+                <div
+                  className="absolute inset-x-0 bottom-0 h-[3px] pointer-events-none rounded-b-xl"
+                  style={{ background: 'rgba(0,0,0,0.30)' }}
+                />
+                {/* Content */}
+                <span className="relative z-10 flex items-center justify-center gap-2 text-[15px] font-extrabold font-sans text-amber-950">
+                  {isLoading ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      <span>Logging in…</span>
+                    </>
+                  ) : (
+                    'Login to Dashboard'
+                  )}
+                </span>
               </button>
 
               {/* Forgot Password Trigger */}
