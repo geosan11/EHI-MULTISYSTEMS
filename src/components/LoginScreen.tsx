@@ -354,28 +354,28 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
             </div>
           </div>
 
-          {/* Right Column (Desktop 3D Logistics Artwork Panel - Simple & Minimal) */}
-          <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-5 rounded-[18px] bg-[#090a0f] border border-white/12 text-white min-h-[360px] shadow-[0_8px_32px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.08)] relative overflow-hidden">
+          {/* Right Column (Desktop Cargo Aviation Artwork Panel - Centralized Logo) */}
+          <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-5 rounded-[18px] bg-[#090a0f] border border-white/12 text-white min-h-[380px] shadow-[0_8px_32px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.08)] relative overflow-hidden">
             
-            {/* 3D Logistics Background Artwork (Truck, Plane, Globe) */}
+            {/* Cargo Plane Loading Background Artwork */}
             <div
               className="absolute inset-0 bg-cover bg-center opacity-90 pointer-events-none"
               style={{ backgroundImage: `url(${loginArt})` }}
             />
-            {/* Soft Gradient Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-black/20 to-slate-950/85 pointer-events-none" />
+            {/* Soft Ambient Vignette Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-b from-slate-950/60 via-slate-950/30 to-slate-950/80 pointer-events-none" />
 
-            {/* Top Logo Container */}
-            <div className="relative z-10">
-              <div className="w-fit p-3 px-4 rounded-2xl bg-white/95 backdrop-blur-xl border border-white/50 shadow-xl flex items-center justify-center">
-                <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 120, height: 'auto', objectFit: 'contain' }} />
+            {/* Centralized EHI Logo Container */}
+            <div className="relative z-10 my-auto flex flex-col items-center justify-center w-full">
+              <div className="p-4 px-6 rounded-2xl bg-white/95 backdrop-blur-xl border border-white/60 shadow-2xl flex items-center justify-center transition-transform duration-300 hover:scale-105">
+                <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 135, height: 'auto', objectFit: 'contain' }} />
               </div>
             </div>
 
             {/* Bottom Minimal Brand Tag */}
-            <div className="relative z-10 pt-3 border-t border-white/15 flex items-center justify-between text-[10px] font-sans text-white/80">
-              <span className="font-semibold">EHI Multisystems Nigeria Ltd</span>
-              <span className="text-[#fbbf24] font-bold">Logistics & Aviation</span>
+            <div className="relative z-10 pt-3 border-t border-white/20 flex items-center justify-between text-[10px] font-sans text-white/90">
+              <span className="font-bold">EHI Multisystems Nigeria Ltd</span>
+              <span className="text-[#fbbf24] font-extrabold tracking-wide">Aviation Logistics</span>
             </div>
 
           </div>
