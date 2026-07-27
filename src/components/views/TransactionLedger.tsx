@@ -1319,6 +1319,22 @@ export const TransactionLedger = ({
     }
   };
 
+  // Jumps from a debt-clearance row's COLLECTION badge to the original debt
+  // it cleared, using related_tx_id (set when the clearance was created).
+  // The original may not be in `entries` if it falls outside the current
+  // date range/filters -- in that case this can't silently do nothing, so
+  // it tells the user why instead of looking broken.
+  const handleJumpToOriginalDebt = (relatedTxId: string | undefined, evt?: React.MouseEvent) => {
+    if (evt) evt.stopPropagation();
+    if (!relatedTxId) return;
+    const original = entries.find(e => e.id === relatedTxId);
+    if (original) {
+      setViewingDetail(original);
+    } else {
+      showToast({ message: 'Original debt entry is outside the current date range/filters -- widen them to view it.', type: 'warning' });
+    }
+  };
+
   // Opens the mode/bank picker instead of clearing immediately -- previously
   // this went straight to a generic yes/no confirm() and hardcoded
   // paymentMode: 'Cash', so the resulting DC- collection entry always
@@ -2436,10 +2452,10 @@ export const TransactionLedger = ({
 
                         {/* Customer & Detail */}
                         <div>
-                          <div className={`font-sans font-bold text-[13px] ${e.source === "expense" ? "text-[var(--color-error)]" : "text-[var(--color-foreground)]"}`}>
+                          <div className={`font-sans font-bold text-[13px] ${e.raw?.is_debt_clearance ? 'italic' : ''} ${e.source === "expense" ? "text-[var(--color-error)]" : "text-[var(--color-foreground)]"}`}>
                             {e.name}
                           </div>
-                          <div className="text-[10px] text-[var(--color-muted)] line-clamp-2 mt-0.5 font-sans">
+                          <div className={`text-[10px] text-[var(--color-muted)] line-clamp-2 mt-0.5 font-sans ${e.raw?.is_debt_clearance ? 'italic' : ''}`}>
                             {e.detail}
                           </div>
                         </div>
@@ -2447,9 +2463,13 @@ export const TransactionLedger = ({
                         {/* Badges */}
                         <div className="flex flex-wrap gap-1">
                           {e.raw?.is_debt_clearance && (
-                            <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[rgba(59,130,246,0.3)]">
-                              COLLECTION
-                            </span>
+                            <button
+                              onClick={(evt) => handleJumpToOriginalDebt(e.raw?.related_tx_id, evt)}
+                              title="View the original debt this collection cleared"
+                              className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[rgba(59,130,246,0.3)] hover:bg-[var(--color-accent-cobalt)] hover:text-white transition-colors cursor-pointer"
+                            >
+                              COLLECTION →
+                            </button>
                           )}
                           {e.raw?.retrieved && (
                             <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(239,68,68,0.12)] text-[var(--color-error)] border border-[rgba(239,68,68,0.25)] line-through">
@@ -2694,9 +2714,13 @@ export const TransactionLedger = ({
                       {/* Row-level badges for special transaction types */}
                       <div className="flex flex-wrap gap-1 mb-0.5">
                         {e.raw?.is_debt_clearance && (
-                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[rgba(59,130,246,0.3)]">
-                            COLLECTION
-                          </span>
+                          <button
+                            onClick={(evt) => handleJumpToOriginalDebt(e.raw?.related_tx_id, evt)}
+                            title="View the original debt this collection cleared"
+                            className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[rgba(59,130,246,0.3)] hover:bg-[var(--color-accent-cobalt)] hover:text-white transition-colors cursor-pointer"
+                          >
+                            COLLECTION →
+                          </button>
                         )}
                         {e.raw?.retrieved && (
                           <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(239,68,68,0.12)] text-[var(--color-error)] border border-[rgba(239,68,68,0.25)] line-through">
@@ -2733,10 +2757,10 @@ export const TransactionLedger = ({
                           <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[var(--color-accent-cobalt)]">GAT</span>
                         )}
                       </div>
-                      <div className={`font-sans font-bold text-[12px] leading-snug ${e.source === "expense" ? "text-[var(--color-error)]" : "text-[var(--color-foreground)]"}`}>
+                      <div className={`font-sans font-bold text-[12px] leading-snug ${e.raw?.is_debt_clearance ? 'italic' : ''} ${e.source === "expense" ? "text-[var(--color-error)]" : "text-[var(--color-foreground)]"}`}>
                         {e.name}
                       </div>
-                      <div className="text-[9px] text-[var(--color-muted)] mt-0.5 leading-snug line-clamp-2">
+                      <div className={`text-[9px] text-[var(--color-muted)] mt-0.5 leading-snug line-clamp-2 ${e.raw?.is_debt_clearance ? 'italic' : ''}`}>
                         {e.detail}
                       </div>
                       {e.raw.remarks && (
