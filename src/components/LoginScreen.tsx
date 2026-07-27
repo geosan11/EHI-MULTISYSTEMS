@@ -107,10 +107,10 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
         <div className="lg:grid lg:grid-cols-12 lg:gap-6 lg:items-center">
 
           {/* Left Column (Desktop Only Inner Gradient Card) */}
-          <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-7 rounded-[22px] bg-gradient-to-br from-[#132440] via-[#16476a] to-[#3b9797] border border-white/10 text-white min-h-[470px] shadow-lg relative overflow-hidden">
+          <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-7 rounded-[22px] bg-gradient-to-br from-[#000b58] via-[#003161] to-[#006a67] border border-white/10 text-white min-h-[470px] shadow-lg relative overflow-hidden">
             {/* Soft Ambient Inner Glow */}
             <div className="absolute -top-12 -left-12 w-48 h-48 rounded-full bg-white/10 filter blur-[40px] pointer-events-none" />
-            <div className="absolute -bottom-12 -right-12 w-48 h-48 rounded-full bg-teal-400/10 filter blur-[40px] pointer-events-none" />
+            <div className="absolute -bottom-12 -right-12 w-48 h-48 rounded-full bg-[#fff4b7]/5 filter blur-[40px] pointer-events-none" />
 
             <div className="relative z-10 p-3 rounded-2xl bg-white/10 border border-white/15 w-fit shadow-md backdrop-blur-md">
               <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 150, height: 'auto', objectFit: 'contain' }} />
@@ -118,7 +118,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
 
             <div className="relative z-10 space-y-4 pt-12">
               <div>
-                <span className="inline-block text-[9px] uppercase font-extrabold tracking-widest text-[#3b9797] bg-white/95 px-2 py-0.5 rounded-full shadow-sm mb-2.5">
+                <span className="inline-block text-[9px] uppercase font-extrabold tracking-widest text-[#fff4b7] bg-white/10 border border-white/20 px-2 py-0.5 rounded-full shadow-sm mb-2.5">
                   OPERATIONS HUB
                 </span>
                 <h2 className="text-[21px] font-extrabold text-white tracking-tight leading-snug">
@@ -132,11 +132,11 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
               {/* Status checklist */}
               <div className="space-y-2.5 pt-2">
                 <div className="flex items-center gap-2 text-white/95">
-                  <ShieldCheck size={16} className="text-teal-300 shrink-0" />
+                  <ShieldCheck size={16} className="text-[#fff4b7] shrink-0" />
                   <span className="text-[11px] font-semibold font-sans">End-to-End Encrypted DB Sync</span>
                 </div>
                 <div className="flex items-center gap-2 text-white/95">
-                  <Plane size={16} className="text-teal-300 shrink-0" />
+                  <Plane size={16} className="text-[#fff4b7] shrink-0" />
                   <span className="text-[11px] font-semibold font-sans">Multi-Station Hub Network</span>
                 </div>
               </div>
@@ -191,7 +191,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter user name or email"
                     autoComplete="email"
-                    className="w-full h-12 px-4 pr-12 rounded-xl bg-slate-900/60 text-white placeholder-white/30 border border-white/15 focus:border-[#3b9797] focus:bg-slate-900/80 focus:outline-none transition-all text-sm font-sans font-medium shadow-inner"
+                    className="w-full h-12 px-4 pr-12 rounded-xl bg-slate-900/60 text-white placeholder-white/30 border border-white/15 focus:border-[var(--color-accent-amber)] focus:bg-slate-900/80 focus:outline-none transition-all text-sm font-sans font-medium shadow-inner"
                     required
                   />
                   <User size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
@@ -212,7 +212,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter account password"
                     autoComplete="current-password"
-                    className="w-full h-12 px-4 pr-12 rounded-xl bg-slate-900/60 text-white placeholder-white/30 border border-white/15 focus:border-[#3b9797] focus:bg-slate-900/80 focus:outline-none transition-all text-sm font-sans font-medium shadow-inner"
+                    className="w-full h-12 px-4 pr-12 rounded-xl bg-slate-900/60 text-white placeholder-white/30 border border-white/15 focus:border-[var(--color-accent-amber)] focus:bg-slate-900/80 focus:outline-none transition-all text-sm font-sans font-medium shadow-inner"
                     required
                   />
                   <button
@@ -234,8 +234,8 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                     onChange={(e) => setRememberMe(e.target.checked)}
                     className="hidden"
                   />
-                  <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${rememberMe ? 'bg-[#3b9797] border-[#3b9797] text-slate-950 shadow-[0_0_12px_rgba(59,151,151,0.5)]' : 'border-white/20 bg-white/5'}`}>
-                    {rememberMe && <Check size={14} strokeWidth={3} />}
+                  <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${rememberMe ? 'bg-[var(--color-accent-amber)] border-[var(--color-accent-amber)] text-[var(--color-obsidian)] shadow-[0_0_12px_var(--glow-amber)]' : 'border-white/20 bg-white/5'}`}>
+                    {rememberMe && <Check size={14} strokeWidth={3} className="text-slate-950" />}
                   </div>
                   <span>Remember me</span>
                 </label>
@@ -261,7 +261,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
               <button
                 type="submit"
                 disabled={isLoading || connStatus === 'unconfigured'}
-                className="w-full h-12 rounded-xl bg-gradient-to-r from-[#3b9797] to-[#16476a] hover:from-[#3b9797]/90 hover:to-[#16476a]/90 text-white font-extrabold font-sans text-[15px] shadow-[0_10px_25px_rgba(59,151,151,0.25)] transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-3"
+                className="w-full h-12 rounded-xl bg-gradient-to-r from-[var(--color-accent-amber)] to-[var(--color-accent-cobalt)] hover:opacity-90 text-[var(--color-obsidian)] font-extrabold font-sans text-[15px] shadow-[0_10px_25px_var(--glow-amber)] transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-3"
               >
                 {isLoading ? (
                   <>

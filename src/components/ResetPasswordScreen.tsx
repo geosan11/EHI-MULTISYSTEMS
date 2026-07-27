@@ -79,7 +79,7 @@ export const ResetPasswordScreen = ({ onDone }: { onDone: () => void }) => {
               </div>
               <button
                 onClick={onDone}
-                className="w-full h-12 bg-gradient-to-r from-[#3b9797] to-[#16476a] hover:from-[#3b9797]/90 hover:to-[#16476a]/90 text-white font-sans font-bold rounded-[var(--radius-sm)] shadow-[0_4px_12px_rgba(59,151,151,0.25)] transition-all cursor-pointer"
+                className="w-full h-12 bg-gradient-to-r from-[var(--color-accent-amber)] to-[var(--color-accent-cobalt)] hover:opacity-90 text-[var(--color-obsidian)] font-sans font-bold rounded-[var(--radius-sm)] shadow-[0_4px_12px_var(--glow-amber)] transition-all cursor-pointer"
               >
                 Continue to Dashboard
               </button>
@@ -127,7 +127,7 @@ export const ResetPasswordScreen = ({ onDone }: { onDone: () => void }) => {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full h-12 bg-gradient-to-r from-[#3b9797] to-[#16476a] hover:from-[#3b9797]/90 hover:to-[#16476a]/90 text-white font-sans font-bold rounded-[var(--radius-sm)] shadow-[0_4px_12px_rgba(59,151,151,0.25)] transition-all cursor-pointer disabled:opacity-60"
+                className="w-full h-12 bg-gradient-to-r from-[var(--color-accent-amber)] to-[var(--color-accent-cobalt)] hover:opacity-90 text-[var(--color-obsidian)] font-sans font-bold rounded-[var(--radius-sm)] shadow-[0_4px_12px_var(--glow-amber)] transition-all cursor-pointer disabled:opacity-60"
               >
                 {submitting ? 'Updating…' : 'Save New Password'}
               </button>
