@@ -165,7 +165,38 @@ export const CustomerWallets = ({
         }
         throw error;
       }
-      setWallets((data as CustomerWallet[]) || []);
+      const fetched = (data as CustomerWallet[]) || [];
+
+      // apply_wallet_transaction() already sets status='exhausted' the
+      // instant a wallet's balance hits zero (see
+      // 20260810_wallet_atomicity_and_isolation.sql) -- but nothing used to
+      // read that column, so a spent-down wallet sat in the Active list
+      // forever looking identical to one with real spendable balance.
+      // Auto-archive it here instead: this only ARCHIVES (setting
+      // archived_at, exactly what the manual Archive button already does),
+      // it never deletes anything, so the wallet's full top-up/deduction
+      // history is preserved -- it just moves out of the everyday Active
+      // list automatically instead of requiring someone to notice and
+      // click Archive themselves.
+      if (walletView === 'active') {
+        const toArchive = fetched.filter(w => w.status === 'exhausted' && !w.archived_at);
+        if (toArchive.length > 0) {
+          const archivedAt = new Date().toISOString();
+          await supabase
+            .from('customer_wallets')
+            .update({ archived_at: archivedAt })
+            .in('id', toArchive.map(w => w.id));
+          const archivedIds = new Set(toArchive.map(w => w.id));
+          setWallets(fetched.filter(w => !archivedIds.has(w.id)));
+          if (toArchive.length === 1) {
+            showToast({ message: `${toArchive[0].customer_name}'s wallet balance reached ₦0 -- automatically archived (history preserved)`, type: 'success' });
+          } else {
+            showToast({ message: `${toArchive.length} wallets reached ₦0 balance -- automatically archived (history preserved)`, type: 'success' });
+          }
+          return;
+        }
+      }
+      setWallets(fetched);
     } catch (err: any) {
       console.error('Error fetching customer wallets:', err);
       showToast({ message: 'Failed to load customer wallets: ' + err.message, type: 'error' });
@@ -201,6 +232,36 @@ export const CustomerWallets = ({
   useEffect(() => {
     fetchWallets();
   }, [fetchWallets]);
+
+  // Live balance updates -- without this, a wallet spent down to zero (or
+  // partially deducted) from a DIFFERENT screen (Cargo/VJ/Marketing/Package
+  // retrieval) never reflects here until this screen is revisited/re-
+  // toggled and fetchWallets() re-runs. Mirrors the same realtime pattern
+  // TransactionLedger.tsx's own wallet feed already uses.
+  useEffect(() => {
+    const channel = supabase
+      .channel('customer_wallets_management_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_transactions' }, payload => {
+        const walletId = (payload.new as any)?.wallet_id || (payload.old as any)?.wallet_id;
+        if (!walletId) return;
+        supabase.from('customer_wallets').select('*').eq('id', walletId).single()
+          .then(async ({ data }) => {
+            if (!data) return;
+            if (walletView === 'active' && data.status === 'exhausted' && !data.archived_at) {
+              // Same auto-archive as fetchWallets above, triggered live the
+              // moment a deduction elsewhere exhausts this wallet, instead
+              // of waiting for the next time this screen is fetched.
+              await supabase.from('customer_wallets').update({ archived_at: new Date().toISOString() }).eq('id', walletId);
+              setWallets(prev => prev.filter(w => w.id !== walletId));
+              showToast({ message: `${data.customer_name}'s wallet balance reached ₦0 -- automatically archived (history preserved)`, type: 'success' });
+              return;
+            }
+            setWallets(prev => prev.map(w => w.id === walletId ? { ...w, ...data } : w));
+          });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [walletView, showToast]);
 
   const filteredWallets = wallets.filter(
     (w) =>
