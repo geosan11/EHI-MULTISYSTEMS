@@ -230,8 +230,8 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
 
     // Also push error log entry
     const errLogItem: LogMessage = { 
-      time: new Date().toLocaleTimeString(), 
-      level: 'ERROR', 
+      time: `${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
+      level: 'ERROR',
       source: 'IT_MONITOR', 
       text: `DETECTED CRITICAL ANOMALY: ${newBug.title}` 
     };
@@ -293,7 +293,7 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
     // Logger update
     setLogs(prev => [
       {
-        time: new Date().toLocaleTimeString(),
+        time: `${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
         level: 'INFO',
         source: 'IT_DEPT',
         text: `Bug [${id}] status migrated to ${newStatus}`

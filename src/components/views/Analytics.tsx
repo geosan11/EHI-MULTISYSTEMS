@@ -1215,7 +1215,7 @@ export const Analytics = ({
                         <tbody className="text-[12px] font-mono">
                           {shiftHistory.map((tx, i) => (
                             <tr key={i} className="border-b border-[var(--color-surface-2)] hover:bg-[var(--color-surface-1)]">
-                              <td className="p-2 text-[var(--color-muted)]">{new Date(tx.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                              <td className="p-2 text-[var(--color-muted)]">{new Date(tx.created_at).toLocaleDateString([], {day:'2-digit', month:'short'})} {new Date(tx.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
                               <td className="p-2 text-[var(--color-foreground)]">{tx.type}</td>
                               <td className="p-2 text-[var(--color-foreground)]">{tx.name}</td>
                               <td className="p-2 text-[var(--color-muted)]">{tx.mode}</td>
@@ -1268,7 +1268,7 @@ export const Analytics = ({
                       )}
                     </div>
                     <span className="text-[10px] font-mono bg-[var(--color-surface-2)] px-2 py-0.5 rounded text-[var(--color-muted)]">
-                      {new Date(s.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(s.ended_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(s.started_at).toLocaleDateString([], { day: '2-digit', month: 'short' })} {new Date(s.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(s.ended_at).toLocaleDateString([], { day: '2-digit', month: 'short' })} {new Date(s.ended_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
                   
