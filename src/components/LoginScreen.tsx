@@ -290,27 +290,28 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
               <button
                 type="submit"
                 disabled={isLoading || connStatus === 'unconfigured'}
-                className="relative w-full h-11 rounded-xl overflow-hidden transition-all duration-150 transform active:scale-[0.97] active:translate-y-[1px] disabled:opacity-50 mt-2 cursor-pointer group"
+                className="relative w-full h-11 rounded-xl overflow-hidden transition-all duration-200 transform hover:scale-[1.015] active:scale-[0.97] active:translate-y-[1px] disabled:opacity-50 mt-2 cursor-pointer group shadow-[0_6px_20px_rgba(251,191,36,0.45)] hover:shadow-[0_8px_28px_rgba(251,191,36,0.65)]"
                 style={{
                   background: 'linear-gradient(160deg, #fde68a 0%, #fbbf24 35%, #d97706 100%)',
-                  boxShadow: '0 1px 0 rgba(255,255,255,0.25) inset, 0 -3px 0 rgba(0,0,0,0.35) inset, 0 6px 20px rgba(251,191,36,0.45), 0 2px 6px rgba(0,0,0,0.4)',
-                  border: '1px solid rgba(253,230,138,0.4)',
+                  border: '1px solid rgba(253,230,138,0.5)',
                 }}
               >
                 {/* Top glass sheen */}
                 <div
                   className="absolute inset-x-0 top-0 h-1/2 pointer-events-none rounded-t-xl"
                   style={{
-                    background: 'linear-gradient(180deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.04) 100%)',
+                    background: 'linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.05) 100%)',
                   }}
                 />
+                {/* Dynamic light sheen streak on hover */}
+                <div className="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/50 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-[300%] transition-transform duration-1000 ease-in-out pointer-events-none" />
                 {/* Bottom depth shadow */}
                 <div
                   className="absolute inset-x-0 bottom-0 h-[3px] pointer-events-none rounded-b-xl"
                   style={{ background: 'rgba(0,0,0,0.30)' }}
                 />
                 {/* Content */}
-                <span className="relative z-10 flex items-center justify-center gap-2 text-[14px] font-extrabold font-sans text-amber-950">
+                <span className="relative z-10 flex items-center justify-center gap-2 text-[14px] font-extrabold font-sans text-amber-950 group-hover:scale-105 transition-transform duration-200">
                   {isLoading ? (
                     <>
                       <Loader2 size={16} className="animate-spin" />
