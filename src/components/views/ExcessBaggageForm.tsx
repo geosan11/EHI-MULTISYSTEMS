@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useEnterToNextField } from '../../lib/useEnterToNextField';
 import { PaymentMode, Transaction, User, ExcessBaggageAirline } from '../../lib/types';
-import { fmt, roundMoney, tnow, getHubCode, upperOnChange } from '../../lib/helpers';
+import { fmt, roundMoney, tnow, getHubCode, upperOnChange, generatePickupPin } from '../../lib/helpers';
 import { chargeWalletForSale } from '../../lib/walletPayment';
 import { matchWallet } from '../../lib/customerIdentity';
 import { WalletRemainderSelector } from '../WalletRemainderSelector';
 import { getNextTag } from '../../lib/tagPool';
-import { CheckCircle, Loader2, ClipboardList, MessageSquare, Plus, Printer, Bluetooth, BarChart2 } from 'lucide-react';
+import { CheckCircle, Loader2, ClipboardList, MessageSquare, Plus, Printer, Bluetooth, BarChart2, Copy } from 'lucide-react';
 import { QRCode } from '../QRCode';
 import { sendReceiptWhatsApp, buildExcessBaggageWhatsApp } from '../../lib/notifications';
 import { PaymentNarrationBox } from '../PaymentNarrationBox';
@@ -159,6 +159,7 @@ export const ExcessBaggageForm = ({
     } as any;
     // Attach phone for EHIApp to write to passenger_phone column
     (tx as any).phone = phone.trim() || undefined;
+    (tx as any).pickupPin = generatePickupPin();
 
     // Wallet payment — AUTO-SPLIT. Wallet covers what it can; any remainder is
     // collected by the chosen Cash/Transfer/POS method and recorded as the
@@ -298,61 +299,113 @@ export const ExcessBaggageForm = ({
   if (successTx) {
     const s = successTx;
     return (
-      <div className="p-4 space-y-4 max-w-xl mx-auto w-full">
-        <div className="border-b border-[var(--color-border)] pb-1 mb-2">
-          <span style={{ fontFamily: 'JetBrains Mono', fontSize: 10, color: '#3B82F6', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-            ▸ BAGGAGE RECEIPT
+      <div className="p-4 space-y-4 max-w-md mx-auto w-full select-none bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-2xl shadow-xl animate-in fade-in zoom-in-95 duration-200">
+        
+        {/* Compact Header banner */}
+        <div className="bg-[rgba(16,185,129,0.05)] border border-[var(--color-success)] rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-center gap-2">
+            <CheckCircle
+              size={18}
+              className="text-[var(--color-success)] shrink-0"
+            />
+            <span className="text-[13px] font-bold text-[var(--color-success)] tracking-wide">
+              Excess Baggage Logged!
+            </span>
+          </div>
+          <span className="text-[10px] font-mono text-[var(--color-muted)] truncate max-w-[130px]">
+            REF: {s.tx.id.slice(0, 10)}...
           </span>
         </div>
 
-        <div
-          className="bg-[rgba(59,130,246,0.1)] border border-[var(--color-accent-cobalt)] rounded text-center p-6 flex flex-col items-center animate-in fade-in zoom-in-95 duration-200"
+        {/* QR Code + Pickup PIN Side-by-Side row */}
+        <div className="flex gap-3 items-stretch">
+          {/* QR Code Container */}
+          <div className="flex items-center justify-center p-2 bg-white rounded-xl border border-[var(--color-border)] shrink-0 shadow-sm">
+            <QRCode id={s.tx.id} size={72} />
+          </div>
+          
+          {/* Pickup PIN or Reference details */}
+          {(s.tx as any).pickupPin ? (
+            <div className="flex-1 border border-[var(--color-accent-amber)] rounded-xl bg-[rgba(251,191,36,0.05)] flex flex-col justify-center px-3.5 py-2 shadow-sm">
+              <div className="flex justify-between items-center">
+                <span className="text-[9.5px] font-mono font-bold text-[var(--color-accent-amber)] uppercase tracking-wider">
+                  Pickup PIN
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText((s.tx as any).pickupPin);
+                    showToast({ message: "Pickup PIN copied!", type: "success" });
+                  }}
+                  className="text-[var(--color-accent-amber)] hover:text-white transition-colors cursor-pointer p-0.5"
+                  title="Copy PIN"
+                >
+                  <Copy size={12} />
+                </button>
+              </div>
+              <div className="text-[22px] font-mono font-extrabold text-[var(--color-foreground)] tracking-widest mt-0.5">
+                {(s.tx as any).pickupPin}
+              </div>
+              <p className="text-[9.5px] text-[var(--color-muted)] leading-tight mt-0.5">
+                Share this PIN with passenger for claim verification.
+              </p>
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col justify-center border border-[var(--color-border)] rounded-xl bg-[var(--color-surface-2)] px-3.5 py-2 shadow-sm">
+              <span className="text-[9.5px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Receipt Ref</span>
+              <span className="text-[12px] font-mono font-semibold text-[var(--color-foreground)] truncate mt-0.5">{s.tx.id}</span>
+              <p className="text-[9.5px] text-[var(--color-muted)] leading-tight mt-0.5">
+                Scannable baggage barcode generated.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Details Card */}
+        <div className="w-full bg-[var(--color-surface-2)] rounded-xl p-3.5 border border-[var(--color-border)] text-left space-y-2 shadow-sm">
+          
+          <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5">
+            <span className="text-[11px] font-sans text-[var(--color-muted)]">Passenger</span>
+            <span className="text-[12px] font-sans font-bold text-[var(--color-foreground)] truncate max-w-[65%]">{s.tx.name}</span>
+          </div>
+
+          {/* WALLET DEBITED SUMMARY ROW */}
+          {s.tx.wallet_deduction_amount && (
+            <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5 text-[11px] font-mono text-[var(--color-accent-amber)] font-bold">
+              <span>Wallet Ded. (Bal: ₦{fmt((s.tx as any).wallet_balance_after || 0)})</span>
+              <span className="text-[var(--color-error)]">-₦{fmt(s.tx.wallet_deduction_amount)}</span>
+            </div>
+          )}
+
+          <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5">
+            <span className="text-[11px] font-sans text-[var(--color-muted)]">Weight Breakdown</span>
+            <span className="text-[12px] font-mono font-bold text-[var(--color-foreground)]">
+              {s.kgs}kg total · <span className="text-[var(--color-accent-amber)]">{s.exc}kg excess</span>
+            </span>
+          </div>
+
+          <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5">
+            <span className="text-[11px] font-sans text-[var(--color-muted)]">Payment Method</span>
+            <span className="text-[12px] font-mono font-semibold text-[var(--color-foreground)]">
+              {s.tx.mode} {s.tx.bank ? `· ${s.tx.bank}` : ''}
+            </span>
+          </div>
+
+          <div className="flex justify-between pt-0.5">
+            <span className="text-[11px] font-sans text-[var(--color-muted)]">Amount Paid</span>
+            <span className="text-[15px] font-mono font-extrabold text-[var(--color-accent-cobalt)]">
+              ₦{fmt(s.tx.amount)}
+            </span>
+          </div>
+        </div>
+
+        {/* Primary Reset CTA Button */}
+        <button
+          onClick={handleReset}
+          className="w-full py-3 bg-[var(--color-accent-amber)] text-[#0f172a] font-bold text-[13px] font-mono rounded-xl cursor-pointer flex justify-center items-center gap-2 hover:bg-opacity-95 shadow-md transition-all"
         >
-          <div className="flex justify-center animate-pulse">
-            <CheckCircle size={32} className="text-[var(--color-accent-cobalt)] mb-3" />
-          </div>
-          <div className="text-[10px] font-mono text-[var(--color-accent-cobalt)] uppercase tracking-widest mb-1">COMMIT SUCCESS</div>
-          <div className="text-[14px] font-bold font-mono text-[var(--color-accent-cobalt)] mb-4 uppercase" style={{ fontFamily: 'JetBrains Mono' }}>
-            REF: {s.tx.id}
-          </div>
-
-          <div className="bg-white p-2 rounded max-w-max mb-4 shadow-md">
-            <QRCode id={s.tx.id} size={150} />
-          </div>
-
-          <div className="text-[12px] font-sans text-[var(--color-light-muted)] mb-3">{s.tx.name}</div>
-
-          <div className="w-full bg-[var(--color-obsidian)] rounded p-3 mb-4 text-left border border-[var(--color-border)]">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-[10px] font-mono text-[var(--color-muted)]">Total Weight</span>
-              <span className="text-[12px] font-mono text-[var(--color-foreground)]">{s.kgs} kg</span>
-            </div>
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-[10px] font-mono text-[var(--color-muted)]">Free Allowance</span>
-              <span className="text-[12px] font-mono text-[var(--color-success)]">– {freeAllowance} kg</span>
-            </div>
-            <div className="flex justify-between items-center pb-2 border-b border-[var(--color-border)]">
-              <span className="text-[10px] font-mono text-[var(--color-accent-cobalt)]">Excess Baggage</span>
-              <span className="text-[12px] font-bold font-mono text-[var(--color-accent-cobalt)]">{s.exc} kg</span>
-            </div>
-
-            <div className="flex justify-between items-end mt-3">
-              <div>
-                <div className="text-[20px] font-bold font-mono text-[var(--color-accent-cobalt)]" style={{ fontFamily: 'JetBrains Mono' }}>{fmt(s.tx.amount)}</div>
-              </div>
-              <div className="text-right">
-                <div className="text-[9px] font-mono text-[var(--color-muted)]">{s.tx.mode}</div>
-                <div className="text-[9px] font-mono text-[var(--color-muted)]">{s.tx.time}</div>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={handleReset}
-            className="w-full py-3 mb-2 bg-[var(--color-surface-1)] text-[var(--color-foreground)] text-[11px] font-mono rounded cursor-pointer flex justify-center items-center gap-2 border border-[var(--color-border)] hover:bg-[var(--color-surface-2)]"
-          >
-            <Plus size={14} /> NEXT PASSENGER
-          </button>
+          <Plus size={16} /> LOG NEXT PASSENGER BAGGAGE
+        </button>
 
           <div className="grid grid-cols-2 gap-2 mb-2">
             <button
@@ -463,7 +516,6 @@ export const ExcessBaggageForm = ({
             </button>
           </div>
         </div>
-      </div>
     );
   }
 

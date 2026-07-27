@@ -20,10 +20,20 @@ export const Modal: React.FC<ModalProps> = ({
   children,
   backdropClassName = 'bg-black/80 backdrop-blur-md',
   containerClassName = 'w-full max-w-lg bg-[var(--color-surface-card)] rounded-2xl border border-[var(--color-border)] shadow-2xl overflow-hidden h-auto max-h-[85vh] flex flex-col',
-  overlayZIndex = 'z-50',
+  overlayZIndex = 'z-[99999]',
 }) => {
   const [isRendered, setIsRendered] = useState(isOpen);
   const [isClosing, setIsClosing] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -48,7 +58,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   return (
     <div
-      className={`fixed inset-0 ${overlayZIndex} flex items-center justify-center p-4 ${backdropClassName} ${
+      className={`fixed inset-0 w-screen h-screen ${overlayZIndex} flex items-center justify-center p-4 ${backdropClassName} ${
         isClosing ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'
       }`}
       onClick={(e) => {

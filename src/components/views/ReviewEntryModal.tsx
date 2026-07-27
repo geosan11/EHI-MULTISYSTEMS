@@ -26,6 +26,14 @@ export const ReviewEntryModal: React.FC<ReviewEntryModalProps> = ({
     if (!isSubmitting) firedRef.current = false;
   }, [isSubmitting]);
 
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
+
   const handleClose = (action: () => void) => {
     if (isClosing || isSubmitting) return;
     setIsClosing(true);
@@ -42,7 +50,7 @@ export const ReviewEntryModal: React.FC<ReviewEntryModalProps> = ({
 
   return (
     <div
-      className={`fixed inset-0 bg-black/65 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 sm:p-4 select-none ${
+      className={`fixed inset-0 w-screen h-screen bg-black/75 backdrop-blur-md z-[999999] flex items-center justify-center p-3 sm:p-4 select-none ${
         isClosing ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'
       }`}
       onClick={(e) => {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useEnterToNextField } from "../../lib/useEnterToNextField";
 import { User, Transaction, Expense } from "../../lib/types";
-import { fmt, uid, tnow, generatePaymentNarration, getHubCode, upperOnChange, isStandalonePWA } from "../../lib/helpers";
+import { fmt, uid, tnow, generatePaymentNarration, getHubCode, upperOnChange, isStandalonePWA, generatePickupPin } from "../../lib/helpers";
 import { chargeWalletForSale } from "../../lib/walletPayment";
 import { matchWallet } from "../../lib/customerIdentity";
 import { WalletRemainderSelector } from "../WalletRemainderSelector";
@@ -11,7 +11,7 @@ import { useExpenseCategories } from "../../lib/expenseCategories";
 import { useBanks } from "../../lib/banks";
 import {  MIN_PACKAGE_AMOUNT , CARGO_ROUTES } from "../../lib/constants";
 import { getNextTag } from "../../lib/tagPool";
-import { Plus, CheckCircle, Loader2, ClipboardList, BarChart2, Printer, MessageSquare, Bluetooth } from "lucide-react";
+import { Plus, CheckCircle, Loader2, ClipboardList, BarChart2, Printer, MessageSquare, Bluetooth, Copy } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { sendReceiptWhatsApp, buildPackageWhatsApp } from "../../lib/notifications";
 import { useToast } from "../../lib/ToastContext";
@@ -22,6 +22,7 @@ import { CustomerWallet } from "../../lib/types";
 import { ReviewEntryModal } from "./ReviewEntryModal";
 import { TerminalSwitch, usePersistedTerminal } from "../TerminalSwitch";
 import { DepartmentSalesAnalysisModal } from "../DepartmentSalesAnalysis";
+import { QRCode } from "../QRCode";
 
 export const PackageForm = ({
   user: propUser,
@@ -254,7 +255,8 @@ export const PackageForm = ({
       // it was silently lost the moment this session ended, and any later
       // reprint from the ledger always showed a blank phone.
       consigneePhone: phone.trim() || undefined,
-    };
+      pickupPin: generatePickupPin(),
+    } as any;
 
     // Wallet payment — AUTO-SPLIT. Wallet covers what it can; any remainder is
     // collected by the chosen Cash/Transfer/POS method and recorded as the
@@ -460,37 +462,121 @@ export const PackageForm = ({
       <div className="grid grid-cols-1 gap-6 md:grid-cols-[1fr_280px]">
         <div className="space-y-6">
           {successTx ? (
-            <div className="bg-[rgba(59,130,246,0.05)] border border-[rgba(59,130,246,0.2)] rounded p-6 md:p-8 flex flex-col animate-in fade-in zoom-in-95 duration-200">
-              <div className="flex justify-center">
-                <CheckCircle size={32} className="text-[var(--color-accent-cobalt)] mb-3" />
-              </div>
-              <div className="text-[11px] font-mono text-[var(--color-accent-cobalt)] uppercase tracking-widest mb-1 text-center">ENTRY RECORDED</div>
-              <div className="text-[14px] font-bold font-mono text-[var(--color-accent-cobalt)] mb-4 uppercase text-center">REF: {successTx.id}</div>
-
-              <div className="bg-[var(--color-obsidian)] rounded p-3 mb-4 space-y-2 border border-[var(--color-border)]">
-                <div className="flex justify-between border-b border-[var(--color-border)] pb-1">
-                  <span className="text-[10px] font-mono text-[var(--color-muted)]">Customer</span>
-                  <span className="text-[11px] font-mono text-[var(--color-foreground)]">{successTx.name}</span>
+            <div className="p-4 space-y-4 max-w-md mx-auto w-full select-none bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-2xl shadow-xl animate-in fade-in zoom-in-95 duration-200">
+              
+              {/* Compact Header banner */}
+              <div className="bg-[rgba(16,185,129,0.05)] border border-[var(--color-success)] rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-3 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <CheckCircle
+                    size={18}
+                    className="text-[var(--color-success)] shrink-0"
+                  />
+                  <span className="text-[13px] font-bold text-[var(--color-success)] tracking-wide">
+                    Package Saved Successfully!
+                  </span>
                 </div>
-                <div className="flex justify-between border-b border-[var(--color-border)] pb-1">
-                  <span className="text-[10px] font-mono text-[var(--color-muted)]">Destination / Type</span>
-                  <span className="text-[11px] font-mono text-[var(--color-foreground)]">{successTx.detail}</span>
-                </div>
-                <div className="flex justify-between border-b border-[var(--color-border)] pb-1">
-                  <span className="text-[10px] font-mono text-[var(--color-muted)]">Amount</span>
-                  <span className="text-[12px] font-bold font-mono text-[var(--color-accent-cobalt)]">{fmt(successTx.amount)}</span>
-                </div>
-                <div className="flex justify-between pt-1">
-                  <span className="text-[10px] font-mono text-[var(--color-muted)]">Payment</span>
-                  <span className="text-[11px] font-mono text-[var(--color-foreground)]">{successTx.mode} {successTx.bank && `(${successTx.bank})`}</span>
-                </div>
+                <span className="text-[10px] font-mono text-[var(--color-muted)] truncate max-w-[130px]">
+                  REF: {successTx.id.slice(0, 10)}...
+                </span>
               </div>
 
-              <button onClick={handleReset} className="w-full py-3 mb-2 bg-[var(--color-surface-1)] text-[var(--color-foreground)] text-[11px] font-bold font-mono rounded cursor-pointer flex justify-center items-center gap-2 border border-[var(--color-border)] hover:bg-[var(--color-surface-2)]">
-                <Plus size={14} /> NEW ENTRY
+              {/* QR Code + Pickup PIN Side-by-Side row */}
+              <div className="flex gap-3 items-stretch">
+                {/* QR Code Container */}
+                <div className="flex items-center justify-center p-2 bg-white rounded-xl border border-[var(--color-border)] shrink-0 shadow-sm">
+                  <QRCode id={successTx.id} size={72} />
+                </div>
+                
+                {/* Pickup PIN or Reference details */}
+                {(successTx as any).pickupPin ? (
+                  <div className="flex-1 border border-[var(--color-accent-amber)] rounded-xl bg-[rgba(251,191,36,0.05)] flex flex-col justify-center px-3.5 py-2 shadow-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[9.5px] font-mono font-bold text-[var(--color-accent-amber)] uppercase tracking-wider">
+                        Pickup PIN
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText((successTx as any).pickupPin);
+                          showToast({ message: "Pickup PIN copied!", type: "success" });
+                        }}
+                        className="text-[var(--color-accent-amber)] hover:text-white transition-colors cursor-pointer p-0.5"
+                        title="Copy PIN"
+                      >
+                        <Copy size={12} />
+                      </button>
+                    </div>
+                    <div className="text-[22px] font-mono font-extrabold text-[var(--color-foreground)] tracking-widest mt-0.5">
+                      {(successTx as any).pickupPin}
+                    </div>
+                    <p className="text-[9.5px] text-[var(--color-muted)] leading-tight mt-0.5">
+                      Share this PIN with consignee for pickup verification.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col justify-center border border-[var(--color-border)] rounded-xl bg-[var(--color-surface-2)] px-3.5 py-2 shadow-sm">
+                    <span className="text-[9.5px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Tracking Reference</span>
+                    <span className="text-[12px] font-mono font-semibold text-[var(--color-foreground)] truncate mt-0.5">{successTx.id}</span>
+                    <p className="text-[9.5px] text-[var(--color-muted)] leading-tight mt-0.5">
+                      Scannable tracking QR code generated for package tags.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Details Card */}
+              <div className="w-full bg-[var(--color-surface-2)] rounded-xl p-3.5 border border-[var(--color-border)] text-left space-y-2 shadow-sm">
+                
+                <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5">
+                  <span className="text-[11px] font-sans text-[var(--color-muted)]">Customer / Consignee</span>
+                  <span className="text-[12px] font-sans font-bold text-[var(--color-foreground)] truncate max-w-[65%]">{successTx.name}</span>
+                </div>
+
+                {/* WALLET DEBITED SUMMARY ROW */}
+                {successTx.wallet_deduction_amount && (
+                  <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5 text-[11px] font-mono text-[var(--color-accent-amber)] font-bold">
+                    <span>Wallet Ded. (Bal: ₦{fmt((successTx as any).wallet_balance_after || 0)})</span>
+                    <span className="text-[var(--color-error)]">-₦{fmt(successTx.wallet_deduction_amount)}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5">
+                  <span className="text-[11px] font-sans text-[var(--color-muted)]">Tracking Ref / Tag</span>
+                  <span className="text-[12px] font-mono font-bold text-[var(--color-accent-amber)]">{successTx.id}</span>
+                </div>
+
+                <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5">
+                  <span className="text-[11px] font-sans text-[var(--color-muted)]">Destination / Content</span>
+                  <span className="text-[12px] font-sans font-bold text-[var(--color-foreground)] truncate max-w-[65%]">
+                    {successTx.detail}
+                  </span>
+                </div>
+
+                <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5">
+                  <span className="text-[11px] font-sans text-[var(--color-muted)]">Payment Method</span>
+                  <span className="text-[12px] font-mono font-semibold text-[var(--color-foreground)]">
+                    {successTx.mode} {successTx.bank ? `· ${successTx.bank}` : ''}
+                  </span>
+                </div>
+
+                <div className="flex justify-between pt-0.5">
+                  <span className="text-[11px] font-sans text-[var(--color-muted)]">Amount Paid</span>
+                  <span className="text-[15px] font-mono font-extrabold text-[var(--color-accent-cobalt)]">
+                    ₦{fmt(successTx.amount)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Primary Reset CTA Button */}
+              <button
+                onClick={handleReset}
+                className="w-full py-3 bg-[var(--color-accent-amber)] text-[#0f172a] font-bold text-[13px] font-mono rounded-xl cursor-pointer flex justify-center items-center gap-2 hover:bg-opacity-95 shadow-md transition-all"
+              >
+                <Plus size={16} /> LOG ANOTHER PACKAGE ENTRY
               </button>
 
-              <div className="grid grid-cols-2 gap-2 mb-2">
+              {/* Action Buttons Grid: Thermal Print & PDF */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
                 <button
                   onClick={() => {
                     import('../../lib/escpos').then(async ({ printViaBluetooth }) => {
@@ -520,10 +606,10 @@ export const PackageForm = ({
                       showToast({ message: err?.message || 'Bluetooth print failed. Ensure the printer is paired and powered on.', type: 'error' });
                     });
                   }}
-                  className="py-2.5 bg-[var(--color-accent-cobalt)] text-white text-[11px] font-bold font-mono rounded cursor-pointer flex flex-col justify-center items-center leading-none hover:bg-opacity-95 border-none"
+                  className="py-2.5 bg-[var(--color-accent-cobalt)] text-white text-[11px] font-bold font-mono rounded-xl cursor-pointer flex items-center justify-center gap-1.5 hover:bg-opacity-95 border-none shadow-sm"
                 >
-                  <Bluetooth size={14} className="mb-0.5" />
-                  <span>PRINT POS (80mm)</span>
+                  <Bluetooth size={14} />
+                  <span>POS (80mm)</span>
                 </button>
 
                 <button
@@ -555,65 +641,67 @@ export const PackageForm = ({
                       showToast({ message: err?.message || 'Bluetooth print failed. Ensure the printer is paired and powered on.', type: 'error' });
                     });
                   }}
-                  className="py-2.5 bg-[var(--color-accent-cobalt)] bg-opacity-80 text-white text-[11px] font-bold font-mono rounded cursor-pointer flex flex-col justify-center items-center leading-none hover:bg-opacity-95 border-none"
+                  className="py-2.5 bg-[var(--color-surface-2)] text-[var(--color-foreground)] text-[11px] font-bold font-mono rounded-xl cursor-pointer flex items-center justify-center gap-1.5 hover:bg-[var(--color-surface-3)] border border-[var(--color-border)]"
                 >
-                  <Bluetooth size={14} className="mb-0.5" />
-                  <span>PRINT POS (58mm)</span>
+                  <Bluetooth size={14} />
+                  <span>POS (58mm)</span>
                 </button>
               </div>
 
-              <button
-                onClick={() => {
-                  import('./PackageReceipt').then(m => m.downloadPackageReceipt({
-                    entryRef: successTx.id,
-                    date: `${new Date().toLocaleDateString("en-GB")} ${tnow()}`,
-                    agentName: user.name,
-                    customerName: successTx.name,
-                    phone: phone || undefined,
-                    destination,
-                    contentType,
-                    pieces: successTx.pieces,
-                    kg: successTx.kg,
-                    contents: successTx.contents,
-                    amount: successTx.amount,
-                    paymentMode: successTx.mode,
-                    paymentNarration: successTx.paymentNarration,
-                    bankName: bank || undefined,
-                  }));
-                }}
-                className="w-full py-3 bg-transparent border border-[rgba(59,130,246,0.3)] rounded-lg cursor-pointer text-[11px] font-bold font-mono text-[var(--color-accent-cobalt)] flex items-center justify-center gap-2"
-              >
-                <Printer size={14} /> PRINT RECEIPT (PDF)
-              </button>
-
-              <button
-                onClick={async () => {
-                  const preOpenedWindow = isStandalonePWA() ? null : window.open('', '_blank');
-                  showToast({ message: 'Generating tag PDF…', type: 'info' });
-                  try {
-                    const { printPackageTagPDF } = await import('./PackageTagPDF');
-                    await printPackageTagPDF({
-                      id: successTx.id,
-                      name: successTx.name,
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    import('./PackageReceipt').then(m => m.downloadPackageReceipt({
+                      entryRef: successTx.id,
+                      date: `${new Date().toLocaleDateString("en-GB")} ${tnow()}`,
+                      agentName: user.name,
+                      customerName: successTx.name,
+                      phone: phone || undefined,
                       destination,
                       contentType,
                       pieces: successTx.pieces,
                       kg: successTx.kg,
                       contents: successTx.contents,
-                      hubName: user?.hub || "EHI Station",
-                      date: `${new Date().toLocaleDateString("en-GB")} ${tnow()}`,
-                    }, preOpenedWindow);
-                  } catch (err) {
-                    console.error('Failed to open tag PDF', err);
-                    preOpenedWindow?.close();
-                    showToast({ message: 'Failed to open tag PDF', type: 'error' });
-                  }
-                }}
-                className="w-full mt-2 py-3 bg-transparent border border-[rgba(59,130,246,0.3)] rounded-lg cursor-pointer text-[11px] font-bold font-mono text-[var(--color-accent-cobalt)] flex items-center justify-center gap-2 hover:bg-[rgba(59,130,246,0.05)]"
-                title="Fixed 100mm x 80mm label -- for thermal label printers or browser print"
-              >
-                <Printer size={14} /> PRINT TAG (PDF)
-              </button>
+                      amount: successTx.amount,
+                      paymentMode: successTx.mode,
+                      paymentNarration: successTx.paymentNarration,
+                      bankName: bank || undefined,
+                    }));
+                  }}
+                  className="py-2.5 bg-transparent border border-[var(--color-border-strong)] rounded-xl cursor-pointer text-[11px] font-bold font-mono text-[var(--color-foreground)] flex items-center justify-center gap-1.5 hover:bg-[var(--color-surface-2)] transition-colors"
+                >
+                  <Printer size={14} /> RECEIPT PDF
+                </button>
+
+                <button
+                  onClick={async () => {
+                    const preOpenedWindow = isStandalonePWA() ? null : window.open('', '_blank');
+                    showToast({ message: 'Generating tag PDF…', type: 'info' });
+                    try {
+                      const { printPackageTagPDF } = await import('./PackageTagPDF');
+                      await printPackageTagPDF({
+                        id: successTx.id,
+                        name: successTx.name,
+                        destination,
+                        contentType,
+                        pieces: successTx.pieces,
+                        kg: successTx.kg,
+                        contents: successTx.contents,
+                        hubName: user?.hub || "EHI Station",
+                        date: `${new Date().toLocaleDateString("en-GB")} ${tnow()}`,
+                      }, preOpenedWindow);
+                    } catch (err) {
+                      console.error('Failed to open tag PDF', err);
+                      preOpenedWindow?.close();
+                      showToast({ message: 'Failed to open tag PDF', type: 'error' });
+                    }
+                  }}
+                  className="py-2.5 bg-transparent border border-[var(--color-border-strong)] rounded-xl cursor-pointer text-[11px] font-bold font-mono text-[var(--color-foreground)] flex items-center justify-center gap-1.5 hover:bg-[var(--color-surface-2)] transition-colors"
+                  title="Fixed 100mm x 80mm label -- for thermal label printers or browser print"
+                >
+                  <Printer size={14} /> TAG PDF
+                </button>
+              </div>
             </div>
           ) : (
             <div className="space-y-4 bg-[rgba(255,255,255,0.02)] p-4 md:mx-0 md:rounded-xl md:border border-y border-[var(--color-border)]">

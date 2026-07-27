@@ -6,13 +6,13 @@ import { useAirlines } from "../../lib/airlines";
 import { useHubs } from "../../lib/hubRoutes";
 import { useExpenseCategories } from "../../lib/expenseCategories";
 import { useBanks } from "../../lib/banks";
-import { fmt, uid, tnow, getHubCode, upperOnChange, roundMoney } from "../../lib/helpers";
+import { fmt, uid, tnow, getHubCode, upperOnChange, roundMoney, generatePickupPin } from "../../lib/helpers";
 import { chargeWalletForSale } from "../../lib/walletPayment";
 import { matchWallet } from "../../lib/customerIdentity";
 import { WalletRemainderSelector } from "../WalletRemainderSelector";
 import { getNextTag } from "../../lib/tagPool";
 import { DepartmentSalesAnalysisModal } from "../DepartmentSalesAnalysis";
-import { Plus, CheckCircle, Loader2, ClipboardList, MessageSquare, Printer, Minus, TrendingDown, BarChart2, Bluetooth } from "lucide-react";
+import { Plus, CheckCircle, Loader2, ClipboardList, MessageSquare, Printer, Minus, TrendingDown, BarChart2, Bluetooth, Copy } from "lucide-react";
 import { motion } from "motion/react";
 import { supabase } from "../../lib/supabase";
 
@@ -27,6 +27,7 @@ import { EmptyState } from "./EmptyState";
 import { CustomerWalletPicker } from "../CustomerWalletPicker";
 import { CustomerWallet } from "../../lib/types";
 import { ReviewEntryModal } from "./ReviewEntryModal";
+import { QRCode } from "../QRCode";
 
 export const MarketingWorkspace = ({
   user: propUser,
@@ -415,8 +416,8 @@ export const MarketingWorkspace = ({
       // it was silently lost the moment this session ended, and any later
       // reprint from the ledger always showed a blank phone.
       consigneePhone: phone.trim() || undefined,
-      // TODO: capture client_type at entry
-    };
+      pickupPin: generatePickupPin(),
+    } as any;
 
     // Wallet payment — AUTO-SPLIT. Wallet covers what it can; any remainder is
     // collected by the chosen Cash/Transfer/POS method and recorded as the
@@ -570,80 +571,117 @@ export const MarketingWorkspace = ({
         {/* Left Column - Forms */}
         <div className="space-y-6">
           {successTx ? (
-            <div className="bg-[rgba(16,185,129,0.05)] border border-[rgba(16,185,129,0.2)] rounded p-6 md:p-8 flex flex-col animate-in fade-in zoom-in-95 duration-200">
-              <div className="flex justify-center">
-                <CheckCircle
-                  size={32}
-                  className="text-[var(--color-success)] mb-3"
-                />
-              </div>
-              <div className="text-[11px] font-mono text-[var(--color-success)] uppercase tracking-widest mb-1 text-center">
-                ENTRY RECORDED
-              </div>
-              <div
-                className="text-[14px] font-bold font-mono text-[var(--color-success)] mb-4 uppercase text-center"
-                style={{ fontFamily: "JetBrains Mono" }}
-              >
-                REF: {successTx.id}
+            <div className="p-4 space-y-4 max-w-md mx-auto w-full select-none bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-2xl shadow-xl animate-in fade-in zoom-in-95 duration-200">
+              
+              {/* Compact Header banner */}
+              <div className="bg-[rgba(16,185,129,0.05)] border border-[var(--color-success)] rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-3 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <CheckCircle
+                    size={18}
+                    className="text-[var(--color-success)] shrink-0"
+                  />
+                  <span className="text-[13px] font-bold text-[var(--color-success)] tracking-wide">
+                    Marketing Consignment Saved!
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono text-[var(--color-muted)] truncate max-w-[130px]">
+                  REF: {successTx.id.slice(0, 10)}...
+                </span>
               </div>
 
-              <div className="bg-[var(--color-obsidian)] rounded p-3 mb-4 space-y-2 border border-[var(--color-border)]">
-                <div className="flex justify-between border-b border-[var(--color-border)] pb-1">
-                  <span className="text-[10px] font-mono text-[var(--color-muted)]">Tag Ref</span>
-                  <span className="text-[11px] font-mono text-[var(--color-success)] font-bold">
-                    {successTx.awb_tag_number}
-                  </span>
+              {/* QR Code + Pickup PIN Side-by-Side row */}
+              <div className="flex gap-3 items-stretch">
+                {/* QR Code Container */}
+                <div className="flex items-center justify-center p-2 bg-white rounded-xl border border-[var(--color-border)] shrink-0 shadow-sm">
+                  <QRCode id={successTx.id} size={72} />
                 </div>
-                {successTx.airline && (
-                  <div className="flex justify-between border-b border-[var(--color-border)] pb-1">
-                    <span className="text-[10px] font-mono text-[var(--color-muted)]">Airline</span>
-                    <span className="text-[11px] font-mono text-[var(--color-foreground)]">
-                      {successTx.airline}
-                    </span>
+                
+                {/* Pickup PIN or Reference details */}
+                {(successTx as any).pickupPin ? (
+                  <div className="flex-1 border border-[var(--color-accent-amber)] rounded-xl bg-[rgba(251,191,36,0.05)] flex flex-col justify-center px-3.5 py-2 shadow-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[9.5px] font-mono font-bold text-[var(--color-accent-amber)] uppercase tracking-wider">
+                        Pickup PIN
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText((successTx as any).pickupPin);
+                          showToast({ message: "Pickup PIN copied!", type: "success" });
+                        }}
+                        className="text-[var(--color-accent-amber)] hover:text-white transition-colors cursor-pointer p-0.5"
+                        title="Copy PIN"
+                      >
+                        <Copy size={12} />
+                      </button>
+                    </div>
+                    <div className="text-[22px] font-mono font-extrabold text-[var(--color-foreground)] tracking-widest mt-0.5">
+                      {(successTx as any).pickupPin}
+                    </div>
+                    <p className="text-[9.5px] text-[var(--color-muted)] leading-tight mt-0.5">
+                      Share this PIN with customer for pickup verification.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col justify-center border border-[var(--color-border)] rounded-xl bg-[var(--color-surface-2)] px-3.5 py-2 shadow-sm">
+                    <span className="text-[9.5px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Tag Ref</span>
+                    <span className="text-[12px] font-mono font-semibold text-[var(--color-foreground)] truncate mt-0.5">{successTx.awb_tag_number || successTx.id}</span>
+                    <p className="text-[9.5px] text-[var(--color-muted)] leading-tight mt-0.5">
+                      Scannable barcode tag generated for routing.
+                    </p>
                   </div>
                 )}
-                <div className="flex justify-between border-b border-[var(--color-border)] pb-1">
-                  <span className="text-[10px] font-mono text-[var(--color-muted)]">
-                    Customer
-                  </span>
-                  <span className="text-[11px] font-mono text-[var(--color-foreground)]">
-                    {successTx.name}
-                  </span>
+              </div>
+
+              {/* Details Card */}
+              <div className="w-full bg-[var(--color-surface-2)] rounded-xl p-3.5 border border-[var(--color-border)] text-left space-y-2 shadow-sm">
+                
+                <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5">
+                  <span className="text-[11px] font-sans text-[var(--color-muted)]">Customer</span>
+                  <span className="text-[12px] font-sans font-bold text-[var(--color-foreground)] truncate max-w-[65%]">{successTx.name}</span>
                 </div>
-                <div className="flex justify-between border-b border-[var(--color-border)] pb-1">
-                  <span className="text-[10px] font-mono text-[var(--color-muted)]">
-                    Route / Bags
-                  </span>
-                  <span className="text-[11px] font-mono text-[var(--color-foreground)]">
+
+                {/* WALLET DEBITED SUMMARY ROW */}
+                {successTx.wallet_deduction_amount && (
+                  <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5 text-[11px] font-mono text-[var(--color-accent-amber)] font-bold">
+                    <span>Wallet Ded. (Bal: ₦{fmt((successTx as any).wallet_balance_after || 0)})</span>
+                    <span className="text-[var(--color-error)]">-₦{fmt(successTx.wallet_deduction_amount)}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5">
+                  <span className="text-[11px] font-sans text-[var(--color-muted)]">Tag Ref / Airline</span>
+                  <span className="text-[12px] font-mono font-bold text-[var(--color-accent-amber)]">{successTx.awb_tag_number} {successTx.airline && `(${successTx.airline})`}</span>
+                </div>
+
+                <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5">
+                  <span className="text-[11px] font-sans text-[var(--color-muted)]">Route / Bags</span>
+                  <span className="text-[12px] font-sans font-bold text-[var(--color-foreground)] truncate max-w-[65%]">
                     {successTx.detail}
                   </span>
                 </div>
-                <div className="flex justify-between border-b border-[var(--color-border)] pb-1">
-                  <span className="text-[10px] font-mono text-[var(--color-muted)]">
-                    Amount
-                  </span>
-                  <span
-                    className="text-[12px] font-bold font-mono text-[var(--color-success)]"
-                    style={{ fontFamily: "JetBrains Mono" }}
-                  >
-                    {fmt(successTx.amount)}
+
+                <div className="flex justify-between border-b border-[var(--color-border)] pb-1.5">
+                  <span className="text-[11px] font-sans text-[var(--color-muted)]">Payment Method</span>
+                  <span className="text-[12px] font-mono font-semibold text-[var(--color-foreground)]">
+                    {successTx.mode} {successTx.bank ? `· ${successTx.bank}` : ''}
                   </span>
                 </div>
-                <div className="flex justify-between pt-1">
-                  <span className="text-[10px] font-mono text-[var(--color-muted)]">
-                    Payment
-                  </span>
-                  <span className="text-[11px] font-mono text-[var(--color-foreground)]">
-                    {successTx.mode} {successTx.bank && `(${successTx.bank})`}
+
+                <div className="flex justify-between pt-0.5">
+                  <span className="text-[11px] font-sans text-[var(--color-muted)]">Amount Paid</span>
+                  <span className="text-[15px] font-mono font-extrabold text-[var(--color-success)]">
+                    ₦{fmt(successTx.amount)}
                   </span>
                 </div>
               </div>
 
+              {/* Primary Reset CTA Button */}
               <button
                 onClick={handleReset}
-                className="w-full py-3 mb-2 bg-[var(--color-surface-1)] text-[var(--color-foreground)] text-[11px] font-bold font-mono rounded cursor-pointer flex justify-center items-center gap-2 border border-[var(--color-border)] hover:bg-[var(--color-surface-2)]"
+                className="w-full py-3 bg-[var(--color-accent-amber)] text-[#0f172a] font-bold text-[13px] font-mono rounded-xl cursor-pointer flex justify-center items-center gap-2 hover:bg-opacity-95 shadow-md transition-all"
               >
-                <Plus size={14} /> NEW ENTRY
+                <Plus size={16} /> LOG ANOTHER MARKETING ENTRY
               </button>
 
               <div className="grid grid-cols-2 gap-2 mb-2">
