@@ -202,74 +202,71 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                 </div>
               </div>
 
-              {/* Remember Me — 3D Glass Toggle */}
+              {/* Remember Me — Frosted Glass Lens 3D Toggle */}
               <div className="flex items-center justify-between px-0.5 pt-0.5">
                 <label className="flex items-center gap-3 cursor-pointer select-none" onClick={() => setRememberMe(v => !v)}>
                   {/* Glass pill track */}
                   <div
-                    className="relative w-11 h-5 rounded-full transition-all duration-300 flex items-center"
+                    className="relative w-12 h-6 rounded-full transition-all duration-300 flex items-center px-1"
                     style={{
                       background: rememberMe
-                        ? 'linear-gradient(135deg, rgba(251,191,36,0.18) 0%, rgba(251,191,36,0.08) 100%)'
-                        : 'rgba(255,255,255,0.06)',
-                      border: rememberMe ? '1px solid rgba(251,191,36,0.35)' : '1px solid rgba(255,255,255,0.12)',
-                      boxShadow: rememberMe
-                        ? 'inset 0 2px 6px rgba(0,0,0,0.4), inset 0 -1px 2px rgba(251,191,36,0.12)'
-                        : 'inset 0 2px 6px rgba(0,0,0,0.4)',
+                        ? 'linear-gradient(135deg, rgba(34,197,94,0.12) 0%, rgba(251,191,36,0.08) 100%)'
+                        : 'rgba(255,255,255,0.05)',
+                      border: rememberMe ? '1px solid rgba(34,197,94,0.30)' : '1px solid rgba(255,255,255,0.12)',
+                      boxShadow: 'inset 0 2px 5px rgba(0,0,0,0.5), inset 0 -1px 2px rgba(255,255,255,0.08)',
                     }}
                   >
                     {/* Track label text */}
                     <span
-                      className="absolute text-[6.5px] font-bold tracking-widest uppercase transition-all duration-300 pointer-events-none"
+                      className="absolute text-[7px] font-extrabold tracking-widest uppercase transition-all duration-300 pointer-events-none"
                       style={{
-                        right: rememberMe ? 'auto' : '4px',
-                        left: rememberMe ? '6px' : 'auto',
-                        color: rememberMe ? 'rgba(251,191,36,0.7)' : 'rgba(255,255,255,0.25)',
+                        right: rememberMe ? 'auto' : '6px',
+                        left: rememberMe ? '8px' : 'auto',
+                        color: rememberMe ? 'rgba(34,197,94,0.85)' : 'rgba(255,255,255,0.3)',
                       }}
                     >
                       {rememberMe ? 'ON' : 'OFF'}
                     </span>
 
-                    {/* 3D Glass Orb Knob */}
+                    {/* Frosted Glass Lens Knob with Glowing Core */}
                     <div
-                      className="absolute w-6 h-6 rounded-full transition-all duration-300"
+                      className="absolute w-7 h-7 rounded-full transition-all duration-300 backdrop-blur-md flex items-center justify-center"
                       style={{
-                        left: rememberMe ? 'calc(100% - 22px)' : '-2px',
-                        background: rememberMe
-                          ? 'radial-gradient(circle at 38% 32%, rgba(255,230,100,0.95) 0%, rgba(251,191,36,0.90) 45%, rgba(200,140,10,0.95) 100%)'
-                          : 'radial-gradient(circle at 38% 32%, rgba(255,255,255,0.55) 0%, rgba(200,210,225,0.45) 50%, rgba(140,155,175,0.55) 100%)',
+                        left: rememberMe ? 'calc(100% - 26px)' : '-2px',
+                        background: 'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.15) 60%, rgba(200,200,200,0.25) 100%)',
                         boxShadow: rememberMe
-                          ? '0 4px 12px rgba(251,191,36,0.55), 0 2px 4px rgba(0,0,0,0.4), inset 0 -3px 5px rgba(160,100,0,0.4), inset 0 2px 4px rgba(255,240,150,0.6)'
-                          : '0 4px 10px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.3), inset 0 -2px 4px rgba(0,0,0,0.25), inset 0 2px 4px rgba(255,255,255,0.4)',
-                        border: rememberMe
-                          ? '1px solid rgba(255,210,60,0.5)'
-                          : '1px solid rgba(255,255,255,0.25)',
+                          ? '0 6px 16px rgba(34,197,94,0.45), 0 2px 6px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.4)'
+                          : '0 4px 12px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.3)',
+                        border: '1px solid rgba(255,255,255,0.5)',
                       }}
                     >
-                      {/* Top specular reflection */}
+                      {/* Internal Radiant Glowing Core */}
                       <div
-                        className="absolute rounded-full pointer-events-none"
+                        className="w-4 h-4 rounded-full transition-all duration-300"
                         style={{
-                          top: '18%', left: '22%',
-                          width: '40%', height: '22%',
-                          background: 'radial-gradient(ellipse, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0) 100%)',
-                          filter: 'blur(0.5px)',
+                          background: rememberMe
+                            ? 'radial-gradient(circle at 40% 35%, #86efac 0%, #22c55e 50%, #15803d 100%)'
+                            : 'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.6) 0%, rgba(160,175,200,0.4) 60%, rgba(100,115,140,0.5) 100%)',
+                          boxShadow: rememberMe
+                            ? '0 0 12px #22c55e, inset 0 1px 2px rgba(255,255,255,0.7)'
+                            : 'inset 0 1px 2px rgba(255,255,255,0.5)',
                         }}
                       />
-                      {/* Bottom shadow rim */}
+
+                      {/* Top Specular Lens Highlight */}
                       <div
                         className="absolute rounded-full pointer-events-none"
                         style={{
-                          bottom: '12%', left: '20%',
-                          width: '60%', height: '18%',
-                          background: 'radial-gradient(ellipse, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 100%)',
-                          filter: 'blur(1px)',
+                          top: '12%', left: '18%',
+                          width: '45%', height: '25%',
+                          background: 'radial-gradient(ellipse, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 100%)',
+                          filter: 'blur(0.4px)',
                         }}
                       />
                     </div>
                   </div>
 
-                  <span className="text-[12px] font-sans font-semibold text-white/70">Remember me</span>
+                  <span className="text-[12px] font-sans font-semibold text-white/75">Remember me</span>
                 </label>
               </div>
 

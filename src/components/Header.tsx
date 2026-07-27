@@ -102,42 +102,42 @@ export const Header = ({
             </div>
           </div>
 
-          {/* Theme toggle — 3D glass orb */}
+          {/* Theme toggle — Frosted Glass Lens Orb */}
           <button
             onClick={onToggleTheme}
             className="group relative"
             title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             style={{
-              width: 34, height: 34,
-              borderRadius: 'var(--radius-sm)',
-              background: theme === 'dark'
-                ? 'radial-gradient(circle at 38% 30%, rgba(80,90,115,0.9) 0%, rgba(40,48,70,0.95) 55%, rgba(20,26,45,1) 100%)'
-                : 'radial-gradient(circle at 38% 30%, rgba(230,235,245,0.95) 0%, rgba(195,205,220,0.90) 55%, rgba(155,168,190,0.95) 100%)',
-              border: theme === 'dark' ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,255,255,0.7)',
+              width: 36, height: 36,
+              borderRadius: 'var(--radius-full)',
+              background: 'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.06) 60%, rgba(100,110,130,0.15) 100%)',
+              border: '1px solid rgba(255,255,255,0.35)',
               boxShadow: theme === 'dark'
-                ? '0 4px 10px rgba(0,0,0,0.55), 0 1px 3px rgba(0,0,0,0.4), inset 0 -2px 4px rgba(0,0,0,0.4), inset 0 1px 3px rgba(255,255,255,0.12)'
-                : '0 4px 10px rgba(0,0,0,0.18), 0 1px 3px rgba(0,0,0,0.12), inset 0 -2px 4px rgba(0,0,0,0.10), inset 0 1px 3px rgba(255,255,255,0.80)',
+                ? '0 4px 12px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.2)'
+                : '0 4px 12px rgba(0,0,0,0.12), inset 0 0 0 1px rgba(255,255,255,0.6)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', transition: 'all 0.2s ease', overflow: 'hidden', position: 'relative',
+              cursor: 'pointer', transition: 'all 0.2s ease', position: 'relative', overflow: 'hidden',
+              backdropFilter: 'blur(8px)',
             }}
           >
-            {/* Top specular reflection */}
+            {/* Radiant Glowing Inner Core */}
             <div style={{
-              position: 'absolute', top: '10%', left: '15%',
-              width: '55%', height: '28%',
-              background: 'radial-gradient(ellipse, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 100%)',
-              borderRadius: '50%', filter: 'blur(1px)', pointerEvents: 'none',
+              position: 'absolute', width: 22, height: 22, borderRadius: '50%',
+              background: theme === 'dark'
+                ? 'radial-gradient(circle at 40% 35%, #fde68a 0%, #fbbf24 60%, #b45309 100%)'
+                : 'radial-gradient(circle at 40% 35%, #60a5fa 0%, #3b82f6 60%, #1d4ed8 100%)',
+              boxShadow: theme === 'dark' ? '0 0 10px rgba(251,191,36,0.6)' : '0 0 10px rgba(59,130,246,0.6)',
             }} />
-            {/* Bottom shadow rim */}
+            {/* Top specular lens highlight */}
             <div style={{
-              position: 'absolute', bottom: '8%', left: '15%',
-              width: '70%', height: '18%',
-              background: 'radial-gradient(ellipse, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0) 100%)',
-              borderRadius: '50%', filter: 'blur(2px)', pointerEvents: 'none',
+              position: 'absolute', top: '10%', left: '18%',
+              width: '50%', height: '26%',
+              background: 'radial-gradient(ellipse, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0) 100%)',
+              borderRadius: '50%', filter: 'blur(0.4px)', pointerEvents: 'none',
             }} />
             {theme === 'dark'
-              ? <Sun size={16} strokeWidth={1.5} style={{ color: 'var(--color-muted)', position: 'relative', zIndex: 1 }} className="group-hover:text-[var(--color-accent-amber)] transition-colors duration-200" />
-              : <Moon size={16} strokeWidth={1.5} style={{ color: '#4a5568', position: 'relative', zIndex: 1 }} className="group-hover:text-[var(--color-accent-amber)] transition-colors duration-200" />
+              ? <Sun size={15} strokeWidth={2} style={{ color: '#451a03', position: 'relative', zIndex: 1 }} />
+              : <Moon size={15} strokeWidth={2} style={{ color: '#ffffff', position: 'relative', zIndex: 1 }} />
             }
           </button>
 
@@ -155,76 +155,75 @@ export const Header = ({
             </button>
           )}
 
-          {/* Wifi — 3D glass orb */}
+          {/* Wifi — Frosted Glass Lens Orb */}
           <button
             onClick={onToggleWifi}
             className="group relative"
             style={{
-              width: 34, height: 34,
-              borderRadius: 'var(--radius-sm)',
-              background: isOffline
-                ? 'radial-gradient(circle at 38% 30%, rgba(239,68,68,0.35) 0%, rgba(185,28,28,0.50) 55%, rgba(127,18,18,0.65) 100%)'
-                : 'radial-gradient(circle at 38% 30%, rgba(80,90,115,0.9) 0%, rgba(40,48,70,0.95) 55%, rgba(20,26,45,1) 100%)',
-              border: isOffline ? '1px solid rgba(239,68,68,0.40)' : '1px solid rgba(255,255,255,0.12)',
+              width: 36, height: 36,
+              borderRadius: 'var(--radius-full)',
+              background: 'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.06) 60%, rgba(100,110,130,0.15) 100%)',
+              border: isOffline ? '1px solid rgba(239,68,68,0.5)' : '1px solid rgba(255,255,255,0.35)',
               boxShadow: isOffline
-                ? '0 4px 12px rgba(239,68,68,0.30), 0 1px 3px rgba(0,0,0,0.4), inset 0 -2px 4px rgba(0,0,0,0.35), inset 0 1px 3px rgba(255,120,120,0.20)'
-                : '0 4px 10px rgba(0,0,0,0.55), 0 1px 3px rgba(0,0,0,0.4), inset 0 -2px 4px rgba(0,0,0,0.4), inset 0 1px 3px rgba(255,255,255,0.12)',
+                ? '0 4px 12px rgba(239,68,68,0.4), inset 0 0 0 1px rgba(255,255,255,0.2)'
+                : '0 4px 12px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.2)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', overflow: 'hidden', position: 'relative',
+              cursor: 'pointer', transition: 'all 0.2s ease', position: 'relative', overflow: 'hidden',
+              backdropFilter: 'blur(8px)',
             }}
           >
-            {/* Top specular reflection */}
+            {/* Inner Glowing Core */}
             <div style={{
-              position: 'absolute', top: '10%', left: '15%',
-              width: '55%', height: '28%',
-              background: 'radial-gradient(ellipse, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 100%)',
-              borderRadius: '50%', filter: 'blur(1px)', pointerEvents: 'none',
+              position: 'absolute', width: 22, height: 22, borderRadius: '50%',
+              background: isOffline
+                ? 'radial-gradient(circle at 40% 35%, #fca5a5 0%, #ef4444 60%, #991b1b 100%)'
+                : 'radial-gradient(circle at 40% 35%, #86efac 0%, #22c55e 60%, #15803d 100%)',
+              boxShadow: isOffline ? '0 0 10px rgba(239,68,68,0.6)' : '0 0 10px rgba(34,197,94,0.6)',
             }} />
-            {/* Bottom shadow rim */}
+            {/* Top specular lens highlight */}
             <div style={{
-              position: 'absolute', bottom: '8%', left: '15%',
-              width: '70%', height: '18%',
-              background: 'radial-gradient(ellipse, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0) 100%)',
-              borderRadius: '50%', filter: 'blur(2px)', pointerEvents: 'none',
+              position: 'absolute', top: '10%', left: '18%',
+              width: '50%', height: '26%',
+              background: 'radial-gradient(ellipse, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0) 100%)',
+              borderRadius: '50%', filter: 'blur(0.4px)', pointerEvents: 'none',
             }} />
             {isOffline
-              ? <WifiOff size={16} strokeWidth={1.5} style={{ color: 'rgba(252,165,165,0.9)', position: 'relative', zIndex: 1 }} />
-              : <Wifi size={16} strokeWidth={1.5} style={{ color: 'var(--color-muted)', position: 'relative', zIndex: 1 }} className="group-hover:text-[var(--color-accent-amber)] transition-colors duration-200" />
+              ? <WifiOff size={14} strokeWidth={2.5} style={{ color: '#ffffff', position: 'relative', zIndex: 1 }} />
+              : <Wifi size={14} strokeWidth={2.5} style={{ color: '#052e16', position: 'relative', zIndex: 1 }} />
             }
           </button>
 
-          {/* Avatar — 3D glass amber orb */}
+          {/* Avatar — Frosted Amber Glass Lens Orb */}
           <div className="relative">
             <button
               onClick={() => setShowDropdown(!showDropdown)}
               style={{
-                width: 36, height: 36,
+                width: 38, height: 38,
                 borderRadius: 'var(--radius-full)',
-                background: 'radial-gradient(circle at 38% 30%, #fde68a 0%, #fbbf24 45%, #b45309 100%)',
-                border: showDropdown ? '1px solid rgba(253,230,138,0.7)' : '1px solid rgba(253,230,138,0.35)',
+                background: 'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.3) 0%, rgba(251,191,36,0.15) 60%, rgba(180,83,9,0.25) 100%)',
+                border: showDropdown ? '1px solid rgba(253,230,138,0.8)' : '1px solid rgba(255,255,255,0.4)',
                 boxShadow: showDropdown
-                  ? '0 0 0 3px rgba(251,191,36,0.25), 0 4px 14px rgba(251,191,36,0.50), inset 0 -3px 5px rgba(120,60,0,0.45), inset 0 2px 4px rgba(255,240,160,0.65)'
-                  : '0 4px 12px rgba(251,191,36,0.40), 0 2px 4px rgba(0,0,0,0.35), inset 0 -3px 5px rgba(120,60,0,0.40), inset 0 2px 4px rgba(255,240,160,0.60)',
+                  ? '0 0 0 3px rgba(251,191,36,0.3), 0 6px 16px rgba(251,191,36,0.5)'
+                  : '0 4px 12px rgba(251,191,36,0.4), inset 0 0 0 1px rgba(255,255,255,0.3)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', transition: 'all 0.2s ease',
-                position: 'relative', overflow: 'hidden',
+                cursor: 'pointer', transition: 'all 0.2s ease', position: 'relative', overflow: 'hidden',
+                backdropFilter: 'blur(8px)',
               }}
             >
-              {/* Top specular highlight */}
+              {/* Inner Amber Glowing Core */}
+              <div style={{
+                position: 'absolute', width: 26, height: 26, borderRadius: '50%',
+                background: 'radial-gradient(circle at 40% 35%, #fde68a 0%, #fbbf24 60%, #b45309 100%)',
+                boxShadow: '0 0 12px rgba(251,191,36,0.7)',
+              }} />
+              {/* Top specular lens highlight */}
               <div style={{
                 position: 'absolute', top: '10%', left: '18%',
                 width: '50%', height: '26%',
-                background: 'radial-gradient(ellipse, rgba(255,255,255,0.70) 0%, rgba(255,255,255,0) 100%)',
-                borderRadius: '50%', filter: 'blur(0.5px)', pointerEvents: 'none',
+                background: 'radial-gradient(ellipse, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 100%)',
+                borderRadius: '50%', filter: 'blur(0.4px)', pointerEvents: 'none',
               }} />
-              {/* Bottom shadow rim */}
-              <div style={{
-                position: 'absolute', bottom: '10%', left: '18%',
-                width: '65%', height: '16%',
-                background: 'radial-gradient(ellipse, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 100%)',
-                borderRadius: '50%', filter: 'blur(1.5px)', pointerEvents: 'none',
-              }} />
-              <span style={{ fontSize: 13, fontWeight: 800, color: '#431407', position: 'relative', zIndex: 1 }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: '#451a03', position: 'relative', zIndex: 1 }}>
                 {user.name.charAt(0).toUpperCase()}
               </span>
             </button>
