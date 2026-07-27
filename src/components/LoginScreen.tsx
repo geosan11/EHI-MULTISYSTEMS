@@ -107,10 +107,10 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
         <div className="lg:grid lg:grid-cols-12 lg:gap-6 lg:items-center">
 
           {/* Left Column (Desktop Only Inner Gradient Card) */}
-          <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-7 rounded-[22px] bg-gradient-to-br from-[#000b58] via-[#003161] to-[#006a67] border border-white/10 text-white min-h-[470px] shadow-lg relative overflow-hidden">
+          <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-7 rounded-[22px] bg-gradient-to-br from-[#10375c] via-[#eb8317] to-[#f3c623] border border-white/10 text-white min-h-[470px] shadow-lg relative overflow-hidden">
             {/* Soft Ambient Inner Glow */}
             <div className="absolute -top-12 -left-12 w-48 h-48 rounded-full bg-white/10 filter blur-[40px] pointer-events-none" />
-            <div className="absolute -bottom-12 -right-12 w-48 h-48 rounded-full bg-[#fff4b7]/5 filter blur-[40px] pointer-events-none" />
+            <div className="absolute -bottom-12 -right-12 w-48 h-48 rounded-full bg-[#f3c623]/5 filter blur-[40px] pointer-events-none" />
 
             <div className="relative z-10 p-3 rounded-2xl bg-white/10 border border-white/15 w-fit shadow-md backdrop-blur-md">
               <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 150, height: 'auto', objectFit: 'contain' }} />
@@ -118,7 +118,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
 
             <div className="relative z-10 space-y-4 pt-12">
               <div>
-                <span className="inline-block text-[9px] uppercase font-extrabold tracking-widest text-[#fff4b7] bg-white/10 border border-white/20 px-2 py-0.5 rounded-full shadow-sm mb-2.5">
+                <span className="inline-block text-[9px] uppercase font-extrabold tracking-widest text-[#f3c623] bg-white/10 border border-white/20 px-2 py-0.5 rounded-full shadow-sm mb-2.5">
                   OPERATIONS HUB
                 </span>
                 <h2 className="text-[21px] font-extrabold text-white tracking-tight leading-snug">
@@ -132,11 +132,11 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
               {/* Status checklist */}
               <div className="space-y-2.5 pt-2">
                 <div className="flex items-center gap-2 text-white/95">
-                  <ShieldCheck size={16} className="text-[#fff4b7] shrink-0" />
+                  <ShieldCheck size={16} className="text-[#f3c623] shrink-0" />
                   <span className="text-[11px] font-semibold font-sans">End-to-End Encrypted DB Sync</span>
                 </div>
                 <div className="flex items-center gap-2 text-white/95">
-                  <Plane size={16} className="text-[#fff4b7] shrink-0" />
+                  <Plane size={16} className="text-[#f3c623] shrink-0" />
                   <span className="text-[11px] font-semibold font-sans">Multi-Station Hub Network</span>
                 </div>
               </div>
