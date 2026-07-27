@@ -148,7 +148,7 @@
 
 :root,
 :root.light {
-  --color-obsidian: #f1f5f9;          /* Slate White — light background */
+  --color-obsidian: #f8fafc;          /* Light slate background */
   --color-surface-1: #ffffff;
   --color-surface-2: #f1f5f9;
   --color-surface-3: #e2e8f0;
@@ -156,13 +156,13 @@
   --color-surface-card-glass: rgba(255, 255, 255, 0.88);
   --color-nav-bg: #ffffff;
   --color-nav-glass: rgba(255, 255, 255, 0.92);
-  --color-background: #f1f5f9;
+  --color-background: #f8fafc;
   --color-input-bg: #ffffff;
   --color-input-text: #0f172a;
 
   --color-foreground: #0f172a;        /* Near-black for high contrast on light */
-  --color-accent-amber: #d97706;      /* Darker amber for contrast on white bg */
-  --color-warning: #ea580c;           /* Orange warning */
+  --color-accent-amber: #f59e0b;      /* Warm Golden Amber */
+  --color-warning: #f59e0b;           /* Warm Amber Warning */
   --color-error: #dc2626;
   --color-accent-cobalt: #2563eb;
   --color-success: #16a34a;
@@ -170,7 +170,7 @@
   --color-navy: #1e293b;
   --color-navy-deep: #0f172a;
 
-  --glow-amber: rgba(217, 119, 6, 0.15);
+  --glow-amber: rgba(245, 158, 11, 0.18);
   --glow-cobalt: rgba(37, 99, 235, 0.15);
   --glow-success: rgba(22, 163, 74, 0.15);
   --glow-error: rgba(220, 38, 38, 0.15);

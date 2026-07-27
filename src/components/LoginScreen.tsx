@@ -354,47 +354,26 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
             </div>
           </div>
 
-          {/* Right Column (Desktop 3D Logistics Artwork Panel - Embedded Inner Card) */}
-          <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-5 rounded-[18px] bg-[#090a0f] border border-white/12 text-white min-h-[380px] shadow-[0_8px_32px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.08)] relative overflow-hidden">
+          {/* Right Column (Desktop 3D Logistics Artwork Panel - Simple & Minimal) */}
+          <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-5 rounded-[18px] bg-[#090a0f] border border-white/12 text-white min-h-[360px] shadow-[0_8px_32px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.08)] relative overflow-hidden">
             
             {/* 3D Logistics Background Artwork (Truck, Plane, Globe) */}
             <div
               className="absolute inset-0 bg-cover bg-center opacity-90 pointer-events-none"
               style={{ backgroundImage: `url(${loginArt})` }}
             />
-            {/* Vignette Overlay for Crisp Contrast */}
-            <div className="absolute inset-0 bg-gradient-to-b from-slate-950/85 via-black/30 to-slate-950/90 pointer-events-none" />
+            {/* Soft Gradient Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-black/20 to-slate-950/85 pointer-events-none" />
 
-            {/* Top Section: EHI Logo First + Content Under It */}
-            <div className="relative z-10 space-y-3.5">
-              {/* EHI Logo First (Crisp Frosted Glass Badge) */}
-              <div className="w-fit p-2.5 px-3.5 rounded-2xl bg-white/95 backdrop-blur-xl border border-white/50 shadow-xl flex items-center justify-center">
-                <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 110, height: 'auto', objectFit: 'contain' }} />
-              </div>
-
-              {/* Little Content Directly Under the Logo */}
-              <div className="space-y-2 pt-0.5">
-                <div className="flex items-center gap-2">
-                  <span className="inline-block text-[8.5px] uppercase font-extrabold tracking-widest text-[#fbbf24] bg-black/70 border border-[#fbbf24]/30 px-2.5 py-0.5 rounded-full backdrop-blur-md shadow-md">
-                    PORTAL V2.0
-                  </span>
-                </div>
-
-                <div className="space-y-2 pt-1">
-                  <div className="flex items-center gap-2.5 text-white/90 bg-slate-950/75 border border-white/15 rounded-xl p-2.5 backdrop-blur-md shadow-lg">
-                    <ShieldCheck size={13} className="text-[#fbbf24] shrink-0" />
-                    <span className="text-[10.5px] font-bold font-sans tracking-wide">Encrypted DB Synchronization</span>
-                  </div>
-                  <div className="flex items-center gap-2.5 text-white/90 bg-slate-950/75 border border-white/15 rounded-xl p-2.5 backdrop-blur-md shadow-lg">
-                    <Plane size={13} className="text-[#fbbf24] shrink-0" />
-                    <span className="text-[10.5px] font-bold font-sans tracking-wide">Multi-Station Aviation Network</span>
-                  </div>
-                </div>
+            {/* Top Logo Container */}
+            <div className="relative z-10">
+              <div className="w-fit p-3 px-4 rounded-2xl bg-white/95 backdrop-blur-xl border border-white/50 shadow-xl flex items-center justify-center">
+                <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 120, height: 'auto', objectFit: 'contain' }} />
               </div>
             </div>
 
-            {/* Bottom Footer Credit */}
-            <div className="relative z-10 pt-3 border-t border-white/15 flex items-center justify-between text-[9.5px] font-mono text-white/80">
+            {/* Bottom Minimal Brand Tag */}
+            <div className="relative z-10 pt-3 border-t border-white/15 flex items-center justify-between text-[10px] font-sans text-white/80">
               <span className="font-semibold">EHI Multisystems Nigeria Ltd</span>
               <span className="text-[#fbbf24] font-bold">Logistics & Aviation</span>
             </div>
