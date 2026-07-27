@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { AlertTriangle, HelpCircle } from 'lucide-react';
 
 export interface ConfirmOptions {
@@ -22,17 +23,33 @@ export const ConfirmDialog = ({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) => {
+  const [isClosing, setIsClosing] = useState(false);
   const isDanger = tone === 'danger';
   const Icon = isDanger ? AlertTriangle : HelpCircle;
 
+  const handleAction = (callback: () => void) => {
+    if (isClosing) return;
+    setIsClosing(true);
+    setTimeout(() => {
+      callback();
+    }, 200);
+  };
+
   return (
     <div
-      className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-4 animate-in fade-in duration-150"
+      className={`fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-4 ${
+        isClosing ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'
+      }`}
       role="alertdialog"
       aria-modal="true"
       aria-label={title || 'Confirm'}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleAction(onCancel);
+      }}
     >
-      <div className="w-full max-w-sm bg-[var(--color-surface-1)] rounded-xl border border-[var(--color-border-strong)] shadow-2xl overflow-hidden">
+      <div className={`w-full max-w-sm bg-[var(--color-surface-1)] rounded-xl border border-[var(--color-border-strong)] shadow-2xl overflow-hidden ${
+        isClosing ? 'animate-modal-slide-out' : 'animate-modal-slide-in'
+      }`}>
         <div className="p-5 flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <Icon size={18} className={isDanger ? 'text-[var(--color-error)]' : 'text-[var(--color-accent-amber)]'} />
@@ -44,14 +61,14 @@ export const ConfirmDialog = ({
         </div>
         <div className="flex border-t border-[var(--color-border)]">
           <button
-            onClick={onCancel}
+            onClick={() => handleAction(onCancel)}
             aria-label={cancelLabel}
             className="flex-1 h-12 text-[13px] font-bold font-mono text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] transition-colors border-none bg-transparent cursor-pointer border-r border-[var(--color-border)]"
           >
             {cancelLabel}
           </button>
           <button
-            onClick={onConfirm}
+            onClick={() => handleAction(onConfirm)}
             aria-label={confirmLabel}
             className={
               isDanger

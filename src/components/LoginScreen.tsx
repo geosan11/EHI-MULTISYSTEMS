@@ -17,10 +17,20 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
   const [isLoading, setIsLoading] = useState(false);
   const [connStatus, setConnStatus] = useState<ConnStatus>('checking');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [isClosingReset, setIsClosingReset] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetSent, setResetSent] = useState(false);
   const [resetSending, setResetSending] = useState(false);
   const [resetError, setResetError] = useState('');
+
+  const closeForgotPasswordModal = () => {
+    if (isClosingReset) return;
+    setIsClosingReset(true);
+    setTimeout(() => {
+      setShowForgotPassword(false);
+      setIsClosingReset(false);
+    }, 200);
+  };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -385,8 +395,17 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
 
       {/* Forgot Password Modal */}
       {showForgotPassword && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
-          <div className="bg-slate-950/90 border border-white/20 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl backdrop-blur-2xl">
+        <div
+          className={`fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 ${
+            isClosingReset ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'
+          }`}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeForgotPasswordModal();
+          }}
+        >
+          <div className={`bg-slate-950/90 border border-white/20 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl backdrop-blur-2xl ${
+            isClosingReset ? 'animate-modal-slide-out' : 'animate-modal-slide-in'
+          }`}>
             <div className="p-5 border-b border-white/10 bg-white/5">
               <div className="text-[16px] font-bold text-white">Reset Password</div>
               <div className="text-[12px] text-white/70 mt-0.5">We'll email you a secure link to set a new password.</div>
@@ -399,7 +418,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                     Check {resetEmail} for a password reset link. It may take a minute to arrive.
                   </p>
                   <button
-                    onClick={() => setShowForgotPassword(false)}
+                    onClick={closeForgotPasswordModal}
                     className="w-full h-11 bg-amber-500 hover:bg-amber-400 text-slate-950 text-[13px] font-bold rounded-xl mt-2 transition-colors cursor-pointer"
                   >
                     Done
@@ -424,7 +443,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                   <div className="flex gap-3">
                     <button
                       type="button"
-                      onClick={() => setShowForgotPassword(false)}
+                      onClick={closeForgotPasswordModal}
                       className="flex-1 h-11 border border-white/20 text-white/80 text-[13px] font-bold rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
                     >
                       Cancel

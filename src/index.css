@@ -846,9 +846,64 @@ input[type="date"] {
   will-change: transform, opacity;
 }
 
+/* ─── Modal / Popup Slide Up & Down Animations ────────────────────────────── */
+@keyframes modal-backdrop-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-backdrop-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes modal-slide-up-in {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modal-slide-down-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(32px) scale(0.96);
+  }
+}
+
+.animate-modal-backdrop-in {
+  animation: modal-backdrop-fade-in 0.2s ease-out forwards;
+}
+
+.animate-modal-backdrop-out {
+  animation: modal-backdrop-fade-out 0.2s ease-in forwards;
+}
+
+.animate-modal-slide-in {
+  animation: modal-slide-up-in 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.animate-modal-slide-out {
+  animation: modal-slide-down-out 0.2s cubic-bezier(0.4, 0, 1, 1) forwards;
+  will-change: transform, opacity;
+}
+
 /* Honour system reduced-motion preference */
 @media (prefers-reduced-motion: reduce) {
-  .page-transition {
-    animation: none;
+  .page-transition,
+  .animate-modal-backdrop-in,
+  .animate-modal-backdrop-out,
+  .animate-modal-slide-in,
+  .animate-modal-slide-out {
+    animation: none !important;
   }
 }

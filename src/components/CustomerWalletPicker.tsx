@@ -19,7 +19,17 @@ export const CustomerWalletPicker: React.FC<CustomerWalletPickerProps> = ({
   currentCustomerName = '',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [searchTerm, setSearchTerm] = useState(currentCustomerName);
+
+  const closeModal = () => {
+    if (isClosing) return;
+    setIsClosing(true);
+    setTimeout(() => {
+      setIsOpen(false);
+      setIsClosing(false);
+    }, 200);
+  };
 
   const filtered = wallets.filter(
     (w) =>
@@ -99,8 +109,17 @@ export const CustomerWalletPicker: React.FC<CustomerWalletPickerProps> = ({
 
       {/* Wallet Search Modal / Dropdown Overlay */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className="w-full max-w-md bg-[var(--color-surface-1)] border border-[var(--color-border-strong)] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+        <div
+          className={`fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 ${
+            isClosing ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'
+          }`}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeModal();
+          }}
+        >
+          <div className={`w-full max-w-md bg-[var(--color-surface-1)] border border-[var(--color-border-strong)] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] ${
+            isClosing ? 'animate-modal-slide-out' : 'animate-modal-slide-in'
+          }`}>
             {/* Modal Header */}
             <div className="p-4 bg-[var(--color-surface-2)] border-b border-[var(--color-border)] flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -111,7 +130,7 @@ export const CustomerWalletPicker: React.FC<CustomerWalletPickerProps> = ({
               </div>
               <button
                 type="button"
-                onClick={() => setIsOpen(false)}
+                onClick={closeModal}
                 className="p-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)] rounded-lg cursor-pointer"
               >
                 <X size={18} />

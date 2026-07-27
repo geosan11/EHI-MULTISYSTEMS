@@ -165,18 +165,27 @@ export const DepartmentSalesAnalysisView = ({ data, deptLabel, routeLabel }: { d
 // Analysis", without needing access to the Reports screen itself (which
 // stays admin/accountant-gated for its other, cross-department reports).
 // Fullscreen on mobile, matching ReviewEntryModal's convention.
-export const DepartmentSalesAnalysisModal = ({ user, deptType, deptLabel, routeLabel, onClose }: {
+export const DepartmentSalesAnalysisModal = ({ user, deptType, deptLabel, routeLabel = 'Route', onClose }: {
   user: User;
   deptType: DepartmentType;
   deptLabel: string;
-  routeLabel: string;
+  routeLabel?: string;
   onClose: () => void;
 }) => {
   const [preset, setPreset] = useState('month');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
   const [txs, setTxs] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isClosing, setIsClosing] = useState(false);
+
+  const handleClose = () => {
+    if (isClosing) return;
+    setIsClosing(true);
+    setTimeout(() => {
+      onClose();
+    }, 200);
+  };
 
   const dateRange = useMemo(() => computeReportDateRange(preset, customFrom, customTo), [preset, customFrom, customTo]);
 
@@ -193,15 +202,24 @@ export const DepartmentSalesAnalysisModal = ({ user, deptType, deptLabel, routeL
   const analysis = useMemo(() => computeDepartmentSalesAnalysis(txs, deptType), [txs, deptType]);
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center sm:p-4">
-      <div className="bg-[var(--color-obsidian)] border-0 sm:border border-[var(--color-border)] rounded-none sm:rounded-xl w-full h-full sm:h-auto sm:max-w-lg sm:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+    <div
+      className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center sm:p-4 ${
+        isClosing ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'
+      }`}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleClose();
+      }}
+    >
+      <div className={`bg-[var(--color-obsidian)] border-0 sm:border border-[var(--color-border)] rounded-none sm:rounded-xl w-full h-full sm:h-auto sm:max-w-lg sm:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col ${
+        isClosing ? 'animate-modal-slide-out' : 'animate-modal-slide-in'
+      }`}>
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b border-[var(--color-border)] bg-[var(--color-surface-card)] shrink-0">
           <div className="flex items-center gap-2">
             <BarChart2 size={16} className="text-[var(--color-accent-amber)]" />
             <h3 className="text-[14px] font-bold font-sans text-[var(--color-foreground)] tracking-wide">{deptLabel} Sales Analysis</h3>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-[var(--color-surface-2)] rounded text-[var(--color-muted)] transition-colors">
+          <button onClick={handleClose} className="p-1 hover:bg-[var(--color-surface-2)] rounded text-[var(--color-muted)] transition-colors cursor-pointer">
             <X size={16} />
           </button>
         </div>
