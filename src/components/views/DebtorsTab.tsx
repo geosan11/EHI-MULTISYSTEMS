@@ -223,6 +223,7 @@ export const DebtorsTab = ({
       }
 
       // Optimistically update the original transaction in global state
+      let updatedTx: Transaction | null = null;
       if (onUpdateTx) {
         const stillOwed = result.remainingBalance ?? remaining;
         const fullyPaid = result.fullyPaid ?? (stillOwed <= 0);
@@ -232,7 +233,7 @@ export const DebtorsTab = ({
           by: user?.name || 'Unknown',
           at: new Date().toISOString()
         };
-        const updatedTx: Transaction = {
+        updatedTx = {
           ...debt,
           amountPaid: result.newAmountPaid ?? ((debt.amountPaid || 0) + cappedPaid),
           paymentHistory: [...(debt.paymentHistory || []), historyEntry],
@@ -246,6 +247,21 @@ export const DebtorsTab = ({
           } : {})
         };
         onUpdateTx(updatedTx);
+      }
+      // handleUpdateTx's setTransactions(prev => prev.map(...)) in
+      // EHIApp.tsx is a no-op for any debt whose id isn't already in the
+      // `transactions` prop -- true for most aged debts, since this
+      // screen's whole reason for a separate `fetchedDebts` fetch (see the
+      // effect above) is that they fall outside the app's default 7-day
+      // globalDateRange window. Without this, the payment succeeds in the
+      // database but this screen keeps showing the debt as still owed
+      // until a full page reload re-runs that mount-once fetch. Updating
+      // fetchedDebts directly here guarantees `debts` (and therefore
+      // `visibleDebts`) recomputes and drops/adjusts this debt immediately,
+      // regardless of whether EHIApp's own transactions array had it.
+      if (updatedTx) {
+        const finalTx = updatedTx;
+        setFetchedDebts(prev => prev.map(d => d.id === id ? { ...d, ...finalTx } : d));
       }
 
       // 2. Emit a visible debt-clearance shadow transaction so today's
