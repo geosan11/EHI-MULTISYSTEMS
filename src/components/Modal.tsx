@@ -1,4 +1,5 @@
 import React, { useState, useEffect, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 interface ModalProps {
   isOpen: boolean;
@@ -56,7 +57,16 @@ export const Modal: React.FC<ModalProps> = ({
 
   if (!isRendered) return null;
 
-  return (
+  // Rendered via a portal directly into document.body -- not nested inside
+  // whatever page/tab wrapper happens to render this component. A modal
+  // nested in the normal component tree inherits any ancestor's CSS
+  // (transform/filter/will-change all silently turn an ancestor into a
+  // containing block for this modal's own `position: fixed`, breaking its
+  // positioning) -- exactly what happened with .page-transition. Portaling
+  // to body makes this immune to that regardless of what CSS any future
+  // page wrapper adds. Matches the pattern already used correctly elsewhere
+  // in this codebase (HtmlPrintReceipt.tsx / HtmlPrintWaybill.tsx).
+  return createPortal(
     <div
       className={`fixed inset-0 w-screen h-screen ${overlayZIndex} flex items-center justify-center p-4 ${backdropClassName} ${
         isClosing ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'
@@ -72,6 +82,7 @@ export const Modal: React.FC<ModalProps> = ({
       >
         {typeof children === 'function' ? children(handleClose) : children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

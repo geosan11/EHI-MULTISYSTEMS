@@ -835,8 +835,17 @@ input[type="date"] {
 }
 
 .page-transition {
-  animation: page-slide-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
-  will-change: transform, opacity, filter;
+  /* animation-fill-mode changed from "both" to "backwards": the entry
+     animation still plays identically, but the element no longer keeps a
+     non-"none" transform/filter applied forever after it finishes. A
+     lingering transform or filter (even an identity one like
+     translateY(0) or blur(0px)) makes this div a CSS containing block for
+     every `position: fixed` descendant, which breaks every modal rendered
+     inside any tab (it centers inside this div's full scrollable height
+     instead of the viewport, appearing to open at the bottom of the
+     page). will-change is removed for the same reason -- it forces the
+     same containing-block behavior even with no transform ever applied. */
+  animation: page-slide-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
 /* ─── Spring-Physics Modal / Popup Animations ───────────────────────────── */
@@ -903,8 +912,15 @@ input[type="date"] {
 }
 
 .animate-modal-slide-in {
-  animation: modal-slide-up-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  will-change: transform, opacity, filter;
+  /* Same containing-block hazard as .page-transition above. "backwards"
+     (not "both"/"forwards") is deliberate: "forwards" is exactly what
+     retains the end-of-animation transform/filter permanently, which is
+     the behavior being removed. The keyframe's end state (translateY(0)
+     scale(1), blur(0px)) is visually identical to no transform/filter at
+     all, so dropping the retention changes nothing on screen -- it only
+     removes the risk of this modal breaking position:fixed for anything
+     nested inside it. */
+  animation: modal-slide-up-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
 .animate-modal-slide-out {
