@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Transaction, User, Expense } from "../../lib/types";
-import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDateTime } from "../../lib/helpers";
+import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDateTime, normalizeAirlineName } from "../../lib/helpers";
 import { applyWalletTransaction, processRetrieval, unretrieveEntry, approveRetrieval, RetrievalEntryType } from "../../lib/wallet";
 import { clearDebt, DebtEntryType } from "../../lib/debt";
 import { confirmPayment, PaymentEntryType } from "../../lib/paymentConfirmation";
@@ -610,6 +610,32 @@ export const TransactionLedger = ({
 
     return true;
   }), [entries, typeFilter, modeFilter, terminalFilter, timeFilter, timeStart, timeEnd, searchQuery, shiftFilter, shiftBoundary, vjFlightFilter, vjDestFilter]);
+
+  // Per-airline weight/pieces/revenue roll-up for whatever's currently in
+  // filteredEntries -- recomputes with every filter change so it always
+  // matches what's actually on screen (e.g. just today's Cargo, or just one
+  // airline's baggage). Only cargo/baggage carry a meaningful airline+kg
+  // pairing; marketing/package entries and expenses are excluded rather than
+  // silently lumped into a fake "Unknown" bucket.
+  const airlineManifestSummary = useMemo(() => {
+    const byAirline = new Map<string, { airline: string; entries: number; kg: number; pieces: number; amount: number }>();
+    filteredEntries.forEach((e) => {
+      if (e.source !== 'transaction') return;
+      if (e.type !== 'cargo' && e.type !== 'baggage') return;
+      const raw = e.raw as any;
+      if (!raw?.airline) return;
+      const key = normalizeAirlineName(raw.airline);
+      const kg = Number(raw.totalKg ?? raw.excessKg ?? raw.kg ?? 0) || 0;
+      const pieces = Number(raw.pieces ?? 1) || 0;
+      const existing = byAirline.get(key) || { airline: key, entries: 0, kg: 0, pieces: 0, amount: 0 };
+      existing.entries += 1;
+      existing.kg += kg;
+      existing.pieces += pieces;
+      existing.amount += Number(e.amount || 0);
+      byAirline.set(key, existing);
+    });
+    return Array.from(byAirline.values()).sort((a, b) => b.kg - a.kg);
+  }, [filteredEntries]);
 
   // Terminal filter chip only shows for Lagos-hub users or once a GAT row
   // has actually shown up -- other states never see an irrelevant filter.
@@ -1965,6 +1991,24 @@ export const TransactionLedger = ({
               <span>80mm</span>
             </button>
 
+            {airlineManifestSummary.length > 0 && (
+              <button
+                title="Download per-airline manifest CSV (tag number, content, kg, route, amount — grouped and ordered by airline)"
+                onClick={() => {
+                  import('../../lib/helpers').then(({ downloadAirlineManifestCSV }) => {
+                    const txs = filteredEntries
+                      .filter(e => e.source === 'transaction')
+                      .map(e => e.raw as Transaction);
+                    downloadAirlineManifestCSV(txs, user.hub || 'EHI Hub');
+                  });
+                }}
+                className="h-8 px-2 flex items-center gap-1.5 bg-[rgba(59,130,246,0.12)] border border-[rgba(59,130,246,0.3)] rounded-lg text-[var(--color-accent-cobalt)] hover:bg-[var(--color-accent-cobalt)] hover:text-white font-mono text-[10px] font-bold transition-colors cursor-pointer"
+              >
+                <Plane size={13} />
+                <span>Airline CSV</span>
+              </button>
+            )}
+
             {(user.role === 'super_admin' || user.role === 'admin' || user.role === 'accountant' || user.role === 'auditor') && (
               <button
                 title={showPrintHistory ? 'Close Print Logs' : 'Print Logs'}
@@ -2182,6 +2226,32 @@ export const TransactionLedger = ({
                 })}
               </div>
             </div>
+
+            {/* ── Airline Weight Manifest Summary ──────────────────────
+                Read-only roll-up of whatever's currently filtered above --
+                not the manually-entered cargo_weight_manifests tool
+                (that's a separate feature, unchanged). */}
+            {airlineManifestSummary.length > 0 && (
+              <div className="px-4 py-2.5 border-b border-[var(--color-border)] shrink-0 bg-[var(--color-surface-1)] overflow-x-auto">
+                <div className="flex items-center gap-2 flex-nowrap min-w-max">
+                  <span className="text-[9px] font-mono font-bold text-[var(--color-muted)] uppercase tracking-wider shrink-0">
+                    Airline Weight Manifest:
+                  </span>
+                  {airlineManifestSummary.map((a) => (
+                    <div
+                      key={a.airline}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--color-surface-card)] border border-[var(--color-border)] shrink-0"
+                      title={`${a.entries} entries`}
+                    >
+                      <span className="text-[10px] font-bold font-mono text-[var(--color-foreground)]">{a.airline}</span>
+                      <span className="text-[9px] font-mono text-[var(--color-accent-cobalt)]">{a.kg.toFixed(0)}KG</span>
+                      <span className="text-[9px] font-mono text-[var(--color-muted)]">{a.pieces}PC</span>
+                      <span className="text-[9px] font-mono text-[var(--color-success)] font-bold">₦{fmt(a.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* ── Filter Strip ─────────────────────────────────── */}
             <div className="px-4 py-3 border-b border-[var(--color-border)] space-y-2.5 shrink-0 bg-[var(--color-surface-card)]">

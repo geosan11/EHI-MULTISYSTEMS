@@ -403,6 +403,88 @@ export function downloadDailyCSV(
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// ── PER-AIRLINE MANIFEST CSV DOWNLOAD ─────────────────────────
+// A separate, narrower export from downloadDailyCSV above -- meant to be
+// handed to (or checked against) an airline's own manifest for a
+// route/flight: just tag number, content, kg, route, and amount collected,
+// grouped by airline and listed in chronological order within each group.
+export function downloadAirlineManifestCSV(
+  transactions: any[],
+  hubName: string
+): void {
+  const today = new Date().toISOString().slice(0, 10);
+  const generatedLabel = new Date().toLocaleDateString('en-NG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  // Only cargo/baggage entries carry a meaningful airline+route+kg pairing.
+  const relevant = transactions.filter(t => (t.type === 'cargo' || t.type === 'baggage') && t.airline);
+
+  // Group by normalized airline name (this app's own established grouping
+  // convention -- see normalizeAirlineName's own callers), then sort each
+  // group chronologically (oldest first) so it reads like a real manifest
+  // in the order goods actually came in, not database insert order.
+  const byAirline = new Map<string, any[]>();
+  relevant.forEach(t => {
+    const key = normalizeAirlineName(t.airline);
+    if (!byAirline.has(key)) byAirline.set(key, []);
+    byAirline.get(key)!.push(t);
+  });
+  const airlineNames = Array.from(byAirline.keys()).sort();
+
+  const esc = (v: string) => `"${String(sanitizeSpreadsheetCell(v)).replace(/"/g, '""')}"`;
+  const headers = ['Airline', 'Tag Number', 'Content', 'KG', 'Route', 'Amount'];
+  const lines: string[] = [
+    esc(`EHI Multisystems Nigeria Ltd — Airline Manifest`),
+    esc(`Hub: ${hubName} | Generated: ${generatedLabel}`),
+    '',
+    headers.map(esc).join(','),
+  ];
+
+  let grandKg = 0;
+  let grandAmount = 0;
+
+  airlineNames.forEach(airline => {
+    const group = byAirline.get(airline)!.sort((a, b) => {
+      const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return ta - tb;
+    });
+    let airlineKg = 0;
+    let airlineAmount = 0;
+    group.forEach(t => {
+      const kg = Number(t.totalKg ?? t.excessKg ?? t.kg ?? 0) || 0;
+      const content = t.type === 'baggage' ? 'Excess Baggage' : (t.contentType || '');
+      const route = t.route || t.destination || '';
+      airlineKg += kg;
+      airlineAmount += Number(t.amount || 0);
+      lines.push([
+        esc(airline),
+        esc(t.awb_tag_number || t.id || ''),
+        esc(content),
+        esc(String(kg)),
+        esc(route),
+        esc(String(t.amount || 0)),
+      ].join(','));
+    });
+    lines.push([esc(`${airline} SUBTOTAL`), esc(''), esc(''), esc(String(airlineKg)), esc(''), esc(String(airlineAmount))].join(','));
+    lines.push('');
+    grandKg += airlineKg;
+    grandAmount += airlineAmount;
+  });
+
+  lines.push([esc('GRAND TOTAL'), esc(''), esc(''), esc(String(grandKg)), esc(''), esc(String(grandAmount))].join(','));
+
+  const csv = lines.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `EHI_Airline_Manifest_${hubName.replace(/\s+/g,'_')}_${today}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 // ── AIRLINE NAME NORMALIZATION ────────────────────────────────
 // Cargo entries and commission config keys have historically used both short
 // and long airline names ("Green Africa" vs "Green Africa Airways"). This
