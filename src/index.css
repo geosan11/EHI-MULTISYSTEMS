@@ -89,18 +89,18 @@
   --color-input-text: #f4f6ff;
 
   /* ColorHunt Palette Accents */
-  --color-accent-amber: #f3c623;      /* Golden Honey / Amber Yellow */
-  --color-warning: #eb8317;           /* Orange Flame */
+  --color-accent-amber: #f3c623;      /* Golden Honey / Amber Yellow — Brand primary */
+  --color-warning: #eb8317;           /* Orange Flame — warnings only */
   --color-error: #bf092f;             /* Crimson Red */
   --color-accent-cobalt: #10375c;     /* Prussian Cobalt Blue */
-  --color-success: #f3c623;           /* Success matches Golden Honey */
+  --color-success: #22c55e;           /* Operational Green — cleared/confirmed states */
   --color-purple: #8b5cf6;
   --color-navy: #10375c;
   --color-navy-deep: #081d33;
 
   --glow-amber: rgba(243, 198, 35, 0.22); /* Golden Honey glow */
   --glow-cobalt: rgba(16, 55, 92, 0.22);    /* Prussian Cobalt Blue glow */
-  --glow-success: rgba(243, 198, 35, 0.22);
+  --glow-success: rgba(34, 197, 94, 0.22);  /* Green success glow */
   --glow-error: rgba(191, 9, 47, 0.22);     /* Crimson Red glow */
 
   --color-foreground: #f8fafc;
@@ -123,7 +123,7 @@
     0 0 0 1px rgba(255, 255, 255, 0.1);
   --shadow-amber: 0 4px 16px rgba(243, 198, 35, 0.35); /* Golden Honey shadow */
   --shadow-cobalt: 0 4px 16px rgba(16, 55, 92, 0.35);
-  --shadow-success: 0 4px 16px rgba(243, 198, 35, 0.35);
+  --shadow-success: 0 4px 16px rgba(34, 197, 94, 0.30);  /* Green success shadow */
   --shadow-modal:
     0 20px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08);
 
@@ -162,17 +162,17 @@
 
   --color-foreground: #10375c;        /* High-contrast Prussian Cobalt typography */
   --color-accent-amber: #eb8317;      /* Orange brand accent in light mode */
-  --color-warning: #d97706;
+  --color-warning: #d97706;           /* Amber warning — warnings only */
   --color-error: #bf092f;
   --color-accent-cobalt: #10375c;     /* Cobalt Blue */
-  --color-success: #eb8317;
+  --color-success: #16a34a;           /* Operational Green — cleared/confirmed states */
   --color-purple: #7c3aed;
   --color-navy: #10375c;
   --color-navy-deep: #081d33;
 
   --glow-amber: rgba(235, 131, 23, 0.18);   /* Orange glow */
   --glow-cobalt: rgba(16, 55, 92, 0.18);     /* Cobalt glow */
-  --glow-success: rgba(235, 131, 23, 0.18);
+  --glow-success: rgba(22, 163, 74, 0.18);   /* Green success glow */
   --glow-error: rgba(191, 9, 47, 0.18);     /* Crimson Red glow */
 
   --color-foreground: #111827;
@@ -193,7 +193,7 @@
     0 0 0 1px rgba(0, 0, 0, 0.07);
   --shadow-amber: 0 4px 14px rgba(235, 131, 23, 0.28);
   --shadow-cobalt: 0 4px 14px rgba(16, 55, 92, 0.28);
-  --shadow-success: 0 4px 14px rgba(235, 131, 23, 0.28);
+  --shadow-success: 0 4px 14px rgba(22, 163, 74, 0.25);  /* Green success shadow */
   --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.08);
 
   --radius-xs: 4px;

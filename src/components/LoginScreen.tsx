@@ -107,42 +107,54 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
         <div className="lg:grid lg:grid-cols-12 lg:gap-6 lg:items-center">
 
           {/* Left Column (Desktop Only Inner Gradient Card) */}
-          <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-7 rounded-[22px] bg-gradient-to-br from-[#10375c] via-[#eb8317] to-[#f3c623] border border-white/10 text-white min-h-[470px] shadow-lg relative overflow-hidden">
-            {/* Soft Ambient Inner Glow */}
-            <div className="absolute -top-12 -left-12 w-48 h-48 rounded-full bg-white/10 filter blur-[40px] pointer-events-none" />
-            <div className="absolute -bottom-12 -right-12 w-48 h-48 rounded-full bg-[#f3c623]/5 filter blur-[40px] pointer-events-none" />
+          <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-7 rounded-[22px] bg-[#0a1e35] border border-[#f3c623]/20 text-white min-h-[470px] shadow-[0_8px_32px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.06)] relative overflow-hidden">
+            {/* Subtle ambient glows — amber top-left, cobalt bottom-right */}
+            <div className="absolute -top-16 -left-16 w-56 h-56 rounded-full bg-[#f3c623]/10 filter blur-[50px] pointer-events-none" />
+            <div className="absolute -bottom-16 -right-16 w-56 h-56 rounded-full bg-[#10375c]/60 filter blur-[50px] pointer-events-none" />
+            {/* Subtle amber top border line accent */}
+            <div className="absolute top-0 left-8 right-8 h-[1px] bg-gradient-to-r from-transparent via-[#f3c623]/40 to-transparent pointer-events-none" />
 
-            <div className="relative z-10 p-3 rounded-2xl bg-white/10 border border-white/15 w-fit shadow-md backdrop-blur-md">
+            <div className="relative z-10 p-3 rounded-2xl bg-white/5 border border-white/10 w-fit shadow-md backdrop-blur-md">
               <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 150, height: 'auto', objectFit: 'contain' }} />
             </div>
 
             <div className="relative z-10 space-y-4 pt-12">
               <div>
-                <span className="inline-block text-[9px] uppercase font-extrabold tracking-widest text-[#f3c623] bg-white/10 border border-white/20 px-2 py-0.5 rounded-full shadow-sm mb-2.5">
+                <span className="inline-block text-[9px] uppercase font-extrabold tracking-widest text-[#f3c623] bg-[#f3c623]/10 border border-[#f3c623]/25 px-2 py-0.5 rounded-full shadow-sm mb-2.5">
                   OPERATIONS HUB
                 </span>
                 <h2 className="text-[21px] font-extrabold text-white tracking-tight leading-snug">
                   Logistics & Aviation Operations Portal
                 </h2>
-                <p className="text-[11.5px] text-white/80 mt-1.5 font-sans leading-relaxed">
+                <p className="text-[11.5px] text-white/60 mt-1.5 font-sans leading-relaxed">
                   Centralized hub management, cargo manifests, passenger baggage accounting, and live station ledgers.
                 </p>
               </div>
 
               {/* Status checklist */}
               <div className="space-y-2.5 pt-2">
-                <div className="flex items-center gap-2 text-white/95">
-                  <ShieldCheck size={16} className="text-[#f3c623] shrink-0" />
+                <div className="flex items-center gap-2.5 text-white/90">
+                  <div className="w-5 h-5 rounded-full bg-[#f3c623]/15 border border-[#f3c623]/30 flex items-center justify-center shrink-0">
+                    <ShieldCheck size={11} className="text-[#f3c623]" />
+                  </div>
                   <span className="text-[11px] font-semibold font-sans">End-to-End Encrypted DB Sync</span>
                 </div>
-                <div className="flex items-center gap-2 text-white/95">
-                  <Plane size={16} className="text-[#f3c623] shrink-0" />
+                <div className="flex items-center gap-2.5 text-white/90">
+                  <div className="w-5 h-5 rounded-full bg-[#f3c623]/15 border border-[#f3c623]/30 flex items-center justify-center shrink-0">
+                    <Plane size={11} className="text-[#f3c623]" />
+                  </div>
                   <span className="text-[11px] font-semibold font-sans">Multi-Station Hub Network</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-white/90">
+                  <div className="w-5 h-5 rounded-full bg-[#22c55e]/15 border border-[#22c55e]/30 flex items-center justify-center shrink-0">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#22c55e]" />
+                  </div>
+                  <span className="text-[11px] font-semibold font-sans">All Systems Operational</span>
                 </div>
               </div>
             </div>
 
-            <div className="relative z-10 text-[9px] font-mono text-white/50 pt-6">
+            <div className="relative z-10 text-[9px] font-mono text-white/35 pt-6">
               EHI Multisystems Ltd · Portal v2.0
             </div>
           </div>
