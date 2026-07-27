@@ -2211,6 +2211,19 @@ export const TransactionLedger = ({
                             start: new Date(Date.now() - 5 * 365 * 86400000).toISOString().split('T')[0],
                             end: new Date().toISOString().split('T')[0],
                           });
+                        } else if (scope === 'current' && dateRange && onDateRangeChange) {
+                          // "All Time" widens the shared globalDateRange to 5
+                          // years so there's older data to show -- without
+                          // this branch, switching back to "Current Shift"
+                          // left that 5-year window in place forever (it's
+                          // shared with the Tower/Analytics dashboard too),
+                          // so every later fetch stayed far wider than
+                          // "current shift" implies until someone noticed
+                          // and manually retyped both date inputs.
+                          onDateRangeChange({
+                            start: new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0],
+                            end: new Date().toISOString().split('T')[0],
+                          });
                         }
                       }}
                       className={`h-7 px-3.5 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer flex-1 sm:flex-initial text-center ${

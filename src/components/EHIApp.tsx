@@ -344,6 +344,25 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         if (fetchEpochRef.current !== myEpoch) return;
         setTodayShifts(shifts);
 
+        // Each department query above caps at 5000 rows -- fine for the
+        // default 7-day window, but "All Time" (a 5-year window) can
+        // legitimately exceed that in any one table. Rather than silently
+        // showing (and letting someone export/print) an incomplete "All
+        // Time" data set with no indication anything was cut off, warn once
+        // per fetch when any table came back at exactly the cap.
+        const cappedTables: string[] = [];
+        if ((cargoRes.data?.length || 0) >= 5000) cappedTables.push('Cargo');
+        if ((baggageRes.data?.length || 0) >= 5000) cappedTables.push('Excess Baggage');
+        if ((mktRes.data?.length || 0) >= 5000) cappedTables.push('Marketing');
+        if ((packageRes.data?.length || 0) >= 5000) cappedTables.push('Package Desk');
+        if ((expRes.data?.length || 0) >= 5000) cappedTables.push('Expenses');
+        if (cappedTables.length > 0) {
+          showToast({
+            message: `Showing only the most recent 5,000 records for: ${cappedTables.join(', ')}. Narrow your date range to see everything in this window.`,
+            type: 'warning',
+          });
+        }
+
         const profileLookup: Record<string, string> = {};
         if (profilesRes.data) {
           profilesRes.data.forEach(p => {
