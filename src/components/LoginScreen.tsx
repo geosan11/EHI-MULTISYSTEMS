@@ -271,13 +271,13 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                       style={{
                         left: rememberMe ? 'calc(100% - 26px)' : '-2px',
                         background: rememberMe
-                          ? 'radial-gradient(circle at 38% 32%, #f59e0b 0%, #d97706 50%, #92400e 100%)'
+                          ? 'radial-gradient(circle at 38% 32%, rgba(255,230,100,0.95) 0%, rgba(251,191,36,0.90) 45%, rgba(200,140,10,0.95) 100%)'
                           : 'radial-gradient(circle at 38% 32%, rgba(255,255,255,0.55) 0%, rgba(200,210,225,0.45) 50%, rgba(140,155,175,0.55) 100%)',
                         boxShadow: rememberMe
-                          ? '0 4px 14px rgba(217,119,6,0.60), 0 2px 4px rgba(0,0,0,0.4), inset 0 -3px 5px rgba(100,40,0,0.50), inset 0 2px 4px rgba(254,215,170,0.65)'
+                          ? '0 4px 14px rgba(251,191,36,0.55), 0 2px 4px rgba(0,0,0,0.4), inset 0 -3px 5px rgba(160,100,0,0.4), inset 0 2px 4px rgba(255,240,150,0.6)'
                           : '0 4px 10px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.3), inset 0 -2px 4px rgba(0,0,0,0.25), inset 0 2px 4px rgba(255,255,255,0.4)',
                         border: rememberMe
-                          ? '1px solid rgba(251,191,36,0.6)'
+                          ? '1px solid rgba(255,210,60,0.5)'
                           : '1px solid rgba(255,255,255,0.25)',
                       }}
                     >
@@ -330,9 +330,9 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                 disabled={isLoading || connStatus === 'unconfigured'}
                 className="relative w-full h-12 rounded-xl overflow-hidden transition-all duration-150 transform active:scale-[0.97] active:translate-y-[1px] disabled:opacity-50 mt-3 cursor-pointer group"
                 style={{
-                  background: 'linear-gradient(160deg, #f59e0b 0%, #d97706 45%, #b45309 100%)',
-                  boxShadow: '0 1px 0 rgba(255,255,255,0.30) inset, 0 -3px 0 rgba(0,0,0,0.35) inset, 0 6px 20px rgba(217,119,6,0.45), 0 2px 6px rgba(0,0,0,0.4)',
-                  border: '1px solid rgba(251,191,36,0.45)',
+                  background: 'linear-gradient(160deg, #fde68a 0%, #fbbf24 35%, #d97706 100%)',
+                  boxShadow: '0 1px 0 rgba(255,255,255,0.25) inset, 0 -3px 0 rgba(0,0,0,0.35) inset, 0 6px 20px rgba(251,191,36,0.45), 0 2px 6px rgba(0,0,0,0.4)',
+                  border: '1px solid rgba(253,230,138,0.4)',
                 }}
               >
                 {/* Top glass sheen */}

@@ -193,18 +193,18 @@ export const Header = ({
             }
           </button>
 
-          {/* Avatar — 3D glass dark amber orb */}
+          {/* Avatar — 3D glass amber orb */}
           <div className="relative">
             <button
               onClick={() => setShowDropdown(!showDropdown)}
               style={{
                 width: 36, height: 36,
                 borderRadius: 'var(--radius-full)',
-                background: 'radial-gradient(circle at 38% 30%, #f59e0b 0%, #d97706 50%, #92400e 100%)',
-                border: showDropdown ? '1px solid rgba(251,191,36,0.7)' : '1px solid rgba(217,119,6,0.45)',
+                background: 'radial-gradient(circle at 38% 30%, #fde68a 0%, #fbbf24 45%, #b45309 100%)',
+                border: showDropdown ? '1px solid rgba(253,230,138,0.7)' : '1px solid rgba(253,230,138,0.35)',
                 boxShadow: showDropdown
-                  ? '0 0 0 3px rgba(217,119,6,0.25), 0 4px 14px rgba(217,119,6,0.50), inset 0 -3px 5px rgba(100,40,0,0.55), inset 0 2px 4px rgba(254,215,170,0.65)'
-                  : '0 4px 12px rgba(217,119,6,0.45), 0 2px 4px rgba(0,0,0,0.4), inset 0 -3px 5px rgba(100,40,0,0.50), inset 0 2px 4px rgba(254,215,170,0.60)',
+                  ? '0 0 0 3px rgba(251,191,36,0.25), 0 4px 14px rgba(251,191,36,0.50), inset 0 -3px 5px rgba(120,60,0,0.45), inset 0 2px 4px rgba(255,240,160,0.65)'
+                  : '0 4px 12px rgba(251,191,36,0.40), 0 2px 4px rgba(0,0,0,0.35), inset 0 -3px 5px rgba(120,60,0,0.40), inset 0 2px 4px rgba(255,240,160,0.60)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer', transition: 'all 0.2s ease',
                 position: 'relative', overflow: 'hidden',
