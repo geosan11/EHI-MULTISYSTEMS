@@ -47,7 +47,7 @@ export const ConfirmDialog = ({
         if (e.target === e.currentTarget) handleAction(onCancel);
       }}
     >
-      <div className={`w-full max-w-sm bg-[var(--color-surface-1)] rounded-xl border border-[var(--color-border-strong)] shadow-2xl overflow-hidden ${
+      <div className={`w-full max-w-sm bg-[var(--color-surface-1)] rounded-xl border border-[var(--color-border-strong)] shadow-2xl overflow-hidden h-auto max-h-[85vh] ${
         isClosing ? 'animate-modal-slide-out' : 'animate-modal-slide-in'
       }`}>
         <div className="p-5 flex flex-col gap-3">

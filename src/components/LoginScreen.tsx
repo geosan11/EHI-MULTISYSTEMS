@@ -414,7 +414,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
             if (e.target === e.currentTarget) closeForgotPasswordModal();
           }}
         >
-          <div className={`bg-slate-950/90 border border-white/20 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl backdrop-blur-2xl ${
+          <div className={`bg-slate-950/90 border border-white/20 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl backdrop-blur-2xl h-auto max-h-[85vh] ${
             isClosingReset ? 'animate-modal-slide-out' : 'animate-modal-slide-in'
           }`}>
             <div className="p-5 border-b border-white/10 bg-white/5">

@@ -19,7 +19,7 @@ export const Modal: React.FC<ModalProps> = ({
   onClose,
   children,
   backdropClassName = 'bg-black/80 backdrop-blur-md',
-  containerClassName = 'w-full max-w-lg bg-[var(--color-surface-card)] rounded-2xl border border-[var(--color-border)] shadow-2xl overflow-hidden',
+  containerClassName = 'w-full max-w-lg bg-[var(--color-surface-card)] rounded-2xl border border-[var(--color-border)] shadow-2xl overflow-hidden h-auto max-h-[85vh] flex flex-col',
   overlayZIndex = 'z-50',
 }) => {
   const [isRendered, setIsRendered] = useState(isOpen);
