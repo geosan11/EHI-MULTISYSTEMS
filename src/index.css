@@ -161,8 +161,8 @@
   --color-input-text: #0f172a;
 
   --color-foreground: #0f172a;        /* Near-black for high contrast on light */
-  --color-accent-amber: #f59e0b;      /* Warm Golden Amber */
-  --color-warning: #f59e0b;           /* Warm Amber Warning */
+  --color-accent-amber: #fbbf24;      /* Amber Yellow */
+  --color-warning: #fbbf24;           /* Amber Yellow Warning */
   --color-error: #dc2626;
   --color-accent-cobalt: #2563eb;
   --color-success: #16a34a;
@@ -170,7 +170,7 @@
   --color-navy: #1e293b;
   --color-navy-deep: #0f172a;
 
-  --glow-amber: rgba(245, 158, 11, 0.18);
+  --glow-amber: rgba(251, 191, 36, 0.22);
   --glow-cobalt: rgba(37, 99, 235, 0.15);
   --glow-success: rgba(22, 163, 74, 0.15);
   --glow-error: rgba(220, 38, 38, 0.15);

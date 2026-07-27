@@ -263,7 +263,7 @@ export const SideNav = ({
                 alignItems: "center",
                 gap: isExpanded ? 12 : 0,
                 padding: "11px 14px",
-                background: isActive ? "rgba(245, 158, 11, 0.1)" : "transparent",
+                background: isActive ? "var(--glow-amber)" : "transparent",
                 border: "none",
                 borderLeft: isActive
                   ? `3px solid var(--color-accent-amber)`
