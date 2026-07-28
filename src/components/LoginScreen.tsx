@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { UserProfile, signIn } from '../lib/auth';
 import ehiLogo from '../assets/branding/ehi-logo.png';
 import loginBg from '../assets/branding/login-bg.jpg';
@@ -384,7 +385,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
       </div>
 
       {/* Forgot Password Modal */}
-      {showForgotPassword && (
+      {showForgotPassword && createPortal(
         <div
           className={`fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 ${
             isClosingReset ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'
@@ -450,7 +451,8 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Shield, Download, Search, Loader } from 'lucide-react';
 import { BackButton } from '../BackButton';
 import { supabase } from '../../lib/supabase';
@@ -244,7 +245,7 @@ export const AuditLog = ({ onBack, user }: { onBack: () => void; user?: User }) 
         </div>
       )}
 
-      {selectedEntry && (
+      {selectedEntry && createPortal(
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="ehi-card max-w-sm w-full">
             <div className="p-4 border-b border-[var(--color-border)] flex justify-between items-center">
@@ -268,7 +269,8 @@ export const AuditLog = ({ onBack, user }: { onBack: () => void; user?: User }) 
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useEnterToNextField } from "../../lib/useEnterToNextField";
 import { User, Transaction, Expense } from "../../lib/types";
 import {  PRICING , CARGO_ROUTES } from "../../lib/constants";
@@ -379,6 +380,11 @@ export const MarketingWorkspace = ({
     if (!isValid || submitting) return;
 
     setSubmitting(true);
+    // See CargoForm.tsx's handleRetailSubmit for why this is wrapped: an
+    // unhandled exception must still release `submitting`, or the Review
+    // modal (which now stays open through submission) gets stuck open with
+    // no way out but a page reload.
+    try {
 
     let details = [];
     if (bb > 0) details.push(`${bb}BB`);
@@ -486,6 +492,10 @@ export const MarketingWorkspace = ({
           bank: (mode === "Transfer" || mode === "TransferCash" || mode === "POS") ? bank : undefined,
         }),
       });
+    }
+    } catch (err: any) {
+      setSubmitting(false);
+      showToast({ message: `Unexpected error: ${err?.message || 'please try again'}`, type: 'error' });
     }
   };
 
@@ -1080,7 +1090,6 @@ export const MarketingWorkspace = ({
                       { label: 'Payment Mode', value: mode === 'Debt' ? `Debt (${debtorName})` : mode }
                     ]}
                     onConfirm={() => {
-                      setShowMarketingReview(false);
                       handleAddEntry();
                     }}
                     onCancel={() => setShowMarketingReview(false)}
@@ -1318,7 +1327,7 @@ export const MarketingWorkspace = ({
         </aside>
       </div>
 
-      {showCloseModal && (
+      {showCloseModal && createPortal(
         <div
           style={{
             position: "fixed",
@@ -1470,7 +1479,8 @@ export const MarketingWorkspace = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {showSalesAnalysis && (

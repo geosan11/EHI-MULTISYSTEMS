@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useEnterToNextField } from "../../lib/useEnterToNextField";
 import { User, Transaction, Expense } from "../../lib/types";
 import { fmt, uid, tnow, generatePaymentNarration, getHubCode, upperOnChange, isStandalonePWA, generatePickupPin } from "../../lib/helpers";
@@ -227,6 +228,11 @@ export const PackageForm = ({
     }
     if (!isValid || submitting) return;
     setSubmitting(true);
+    // See CargoForm.tsx's handleRetailSubmit for why this is wrapped: an
+    // unhandled exception must still release `submitting`, or the Review
+    // modal (which now stays open through submission) gets stuck open with
+    // no way out but a page reload.
+    try {
 
     const tx: Transaction = {
       id: trackingRef,
@@ -321,6 +327,10 @@ export const PackageForm = ({
           paymentNarration: (mode === "Transfer" || mode === "POS") ? narrationCode : undefined,
         }),
       });
+    }
+    } catch (err: any) {
+      setSubmitting(false);
+      showToast({ message: `Unexpected error: ${err?.message || 'please try again'}`, type: 'error' });
     }
   };
 
@@ -908,7 +918,6 @@ export const PackageForm = ({
                       ...(userHubCode === 'LOS' && !forcedTerminal ? [{ label: 'Terminal', value: terminal }] : []),
                     ]}
                     onConfirm={() => {
-                      setShowPackageReview(false);
                       handleAddEntry();
                     }}
                     onCancel={() => setShowPackageReview(false)}
@@ -1043,7 +1052,7 @@ export const PackageForm = ({
         </aside>
       </div>
 
-      {showCloseModal && (
+      {showCloseModal && createPortal(
         <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 16 }}>
           <div style={{ background: "var(--color-obsidian)", width: "100%", maxWidth: 480, maxHeight: "90vh", borderRadius: 16, border: "1px solid var(--color-surface-2)", padding: "24px 24px 0 24px", position: "relative", display: "flex", flexDirection: "column" }}>
             <button onClick={() => setShowCloseModal(false)} aria-label="Close" style={{ position: "absolute", top: 16, right: 16, color: "var(--color-muted)" }}>×</button>
@@ -1110,7 +1119,8 @@ export const PackageForm = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {showSalesAnalysis && (

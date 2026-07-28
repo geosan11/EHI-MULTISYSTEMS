@@ -1,4 +1,5 @@
 import { useState, useEffect, lazy, Suspense, useRef, useCallback, memo, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { User, TabView, Transaction, Expense, ExcessBaggageAirline, CustomerWallet, HubShift, ShiftDepartment } from '../lib/types';
 import { processSyncQueue, writeWithOfflineSupport, cleanupOldQueue, getUnsyncedLocalTransactions } from '../lib/sync';
@@ -2031,7 +2032,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       </div>
 
       {/* Per-stream view-only ledger overlay */}
-      {streamLedger && (
+      {streamLedger && createPortal(
         <div className="fixed inset-0 z-50 flex flex-col bg-[var(--color-obsidian)]">
           <TransactionLedger
             user={user}
@@ -2051,7 +2052,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             shiftLabel={streamLedgerDepartment && streamLedgerDepartment !== 'all' ? STREAM_LEDGER_DEPT_LABEL[streamLedgerDepartment] : undefined}
             customerWallets={customerWallets}
           />
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

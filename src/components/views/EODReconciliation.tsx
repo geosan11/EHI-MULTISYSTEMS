@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { User, Transaction, Expense } from '../../lib/types';
 import { fmt, tnow, getShiftBoundary, formatShiftLabel, lagosBusinessDate } from '../../lib/helpers';
 import { Check, AlertTriangle, Printer, Lock, ChevronRight } from 'lucide-react';
@@ -661,7 +662,7 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
         <button onClick={() => setStep(3)} className="w-full mt-2 h-10 text-[var(--color-muted)] text-[11px] font-bold font-mono underline hover:text-[var(--color-foreground)]">GO BACK</button>
       </div>
 
-      {showLockConfirm && (
+      {showLockConfirm && createPortal(
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="ehi-card max-w-xs w-full p-5 space-y-4">
             <div className="flex items-center gap-3">
@@ -693,7 +694,8 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

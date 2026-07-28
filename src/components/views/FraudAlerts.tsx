@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ShieldAlert, CheckCircle, RefreshCcw, Eye, AlertOctagon, Loader } from 'lucide-react';
 import { BackButton } from '../BackButton';
 import { fmt } from '../../lib/helpers';
@@ -574,7 +575,7 @@ export const FraudAlerts = ({
       </div>
 
       {/* Evaluation Log Modals */}
-      {selectedAlert && (
+      {selectedAlert && createPortal(
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-55">
           <div className="ehi-card max-w-sm w-full overflow-hidden shadow-2xl">
             <div className="p-4 border-b border-[var(--color-border)] flex justify-between items-center bg-[var(--color-surface-2)]">
@@ -618,7 +619,8 @@ export const FraudAlerts = ({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       </div>

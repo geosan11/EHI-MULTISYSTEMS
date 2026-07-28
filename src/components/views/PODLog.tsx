@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { fetchProofOfDeliveryRecords } from '../../lib/sync';
 import { ProofOfDelivery, User } from '../../lib/types';
 import { ShieldCheck, MapPin, Search, Calendar, ChevronRight, RefreshCw, X } from 'lucide-react';
@@ -115,7 +116,7 @@ export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => 
       </div>
 
       {/* Modal */}
-      {selectedPod && (
+      {selectedPod && createPortal(
         <div className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-start p-4 overflow-y-auto">
           <div className="w-full max-w-lg bg-[var(--color-surface-1)] rounded-xl border border-[var(--color-border-strong)] relative flex flex-col overflow-hidden mb-10 shadow-2xl">
             {/* Modal Header */}
@@ -237,7 +238,8 @@ export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => 
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       </div>{/* end ehi-page-body */}
     </div>

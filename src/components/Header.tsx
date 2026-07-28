@@ -1,6 +1,7 @@
 import { Wifi, WifiOff, LogOut, Sun, Moon, ChevronDown, RefreshCw } from 'lucide-react';
 import { User } from '../lib/types';
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Theme } from '../lib/useTheme';
 import { getHubCode } from '../lib/helpers';
@@ -237,7 +238,21 @@ export const Header = ({
 
             {showDropdown && (
               <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowDropdown(false)} />
+                {/* Invisible full-viewport click-outside-to-close catcher --
+                    portaled to document.body so it always covers the TRUE
+                    viewport regardless of any ancestor CSS (transform/
+                    filter/will-change) that would otherwise make some
+                    ancestor a containing block for this position:fixed div,
+                    silently shrinking it to that ancestor's own bounds and
+                    breaking click-outside detection with no visual sign
+                    anything's wrong. The visible dropdown menu below is
+                    left as-is -- it's position:absolute, anchored to its
+                    own position:relative parent, which this bug class
+                    doesn't affect. */}
+                {createPortal(
+                  <div className="fixed inset-0 z-10" onClick={() => setShowDropdown(false)} />,
+                  document.body
+                )}
                 <div
                   style={{
                     position: 'absolute', right: 0, top: 42, width: 200,

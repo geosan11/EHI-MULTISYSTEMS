@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, Fuel, Truck, Wrench, Loader } from 'lucide-react';
 import { BackButton } from '../BackButton';
 import { fmt } from '../../lib/helpers';
@@ -252,7 +253,7 @@ export const Fleet = ({ onBack, user }: { onBack: () => void; user?: User }) => 
       )}
 
       {/* Add Vehicle Modal */}
-      {showAddVehicle && (
+      {showAddVehicle && createPortal(
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="ehi-card max-w-sm w-full">
             <div className="p-4 border-b border-[var(--color-border)] flex justify-between items-center">
@@ -300,11 +301,12 @@ export const Fleet = ({ onBack, user }: { onBack: () => void; user?: User }) => 
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Add Fuel Modal */}
-      {showAddFuel && (
+      {showAddFuel && createPortal(
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="ehi-card max-w-sm w-full">
             <div className="p-4 border-b border-[var(--color-border)] flex justify-between items-center">
@@ -341,7 +343,8 @@ export const Fleet = ({ onBack, user }: { onBack: () => void; user?: User }) => 
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       </div>
     </div>

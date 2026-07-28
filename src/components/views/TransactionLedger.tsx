@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Transaction, User, Expense } from "../../lib/types";
 import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDateTime, normalizeAirlineName } from "../../lib/helpers";
@@ -2962,8 +2963,8 @@ export const TransactionLedger = ({
 
       {/* Detail Popup Overlay */}
       </>)}
-      {viewingDetail && (
-        <div 
+      {viewingDetail && createPortal(
+        <div
           className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center animate-in fade-in"
           onClick={() => setViewingDetail(null)}
         >
@@ -3292,11 +3293,12 @@ export const TransactionLedger = ({
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Edit Modal Dialog */}
-      {editingTx && (
+      {editingTx && createPortal(
         <div className="fixed inset-0 z-[60] bg-black/65 backdrop-blur-sm flex items-center justify-center p-4 select-none animate-in fade-in" onClick={() => setEditingTx(null)}>
           <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-2xl w-full max-w-md max-h-[85vh] sm:max-h-[90vh] shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="p-4 border-b border-[var(--color-border)] flex justify-between items-center bg-[var(--color-surface-card)] shrink-0">
@@ -3794,7 +3796,8 @@ export const TransactionLedger = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* QR Code Modal Dialog */}
@@ -3812,7 +3815,7 @@ export const TransactionLedger = ({
       {clearDebtEntry && (() => {
         const tx = clearDebtEntry.raw as Transaction;
         const remaining = tx.amount - (tx.amountPaid || 0) - ((tx.raw as any)?.retrieved_amount || 0);
-        return (
+        return createPortal(
           <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => !clearingDebt && setClearDebtEntry(null)}>
             <div className="bg-[var(--color-obsidian)] border border-[var(--color-border)] rounded-xl w-full max-w-sm shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
               <div className="p-4 border-b border-[var(--color-border)] bg-[var(--color-surface-card)] flex items-center justify-between">
@@ -3869,11 +3872,12 @@ export const TransactionLedger = ({
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         );
       })()}
 
-      {viewingQrTx && (
+      {viewingQrTx && createPortal(
         <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in" onClick={() => setViewingQrTx(null)}>
           <div className="bg-[var(--color-surface-card)] border border-[var(--color-surface-2)] rounded-xl w-full max-w-sm shadow-xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="p-4 border-b border-[var(--color-border)] flex justify-between items-center bg-[var(--color-surface-card)]">
@@ -3901,7 +3905,8 @@ export const TransactionLedger = ({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       </div>
       <LiveCreditFeed

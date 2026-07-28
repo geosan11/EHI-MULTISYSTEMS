@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Transaction, User } from '../../lib/types';
 import { fmt, tnow } from '../../lib/helpers';
 import { ChevronDown, ChevronUp, Printer, Plus, HandCoins } from 'lucide-react';
@@ -347,7 +348,7 @@ export const DebtorsTab = ({
   return (
     <div className="space-y-6 pb-24">
       
-      {statementPrint && (
+      {statementPrint && createPortal(
         <div className="fixed inset-0 z-50 bg-[var(--color-obsidian)] flex flex-col p-4 overflow-y-auto">
           <div className="flex justify-between items-center mb-6">
             <button onClick={() => setStatementPrint(null)} className="flex items-center space-x-2 bg-[var(--color-surface-1)] border border-[var(--color-border-strong)] px-4 py-2 rounded-lg text-[13px] font-sans font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-2)] transition-colors">
@@ -428,7 +429,8 @@ export const DebtorsTab = ({
               Payment is due within 30 days of service date. Please remit payment to EHI Multisystems accounts.
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* SUMMARY HEADER */}
