@@ -1,6 +1,17 @@
 import { supabase } from './supabase';
+import { Transaction } from './types';
 
 export type DebtEntryType = 'cargo' | 'baggage' | 'marketing' | 'package';
+
+// Table each DebtEntryType is persisted in -- mirrors TransactionLedger.tsx's
+// local RETRIEVAL_TABLE_NAME, shared here so audit-log writers for debt
+// collection don't need their own copy.
+export const DEBT_TABLE_NAME: Record<DebtEntryType, string> = {
+  cargo: 'cargo_entries',
+  baggage: 'manifests',
+  marketing: 'marketing_entries',
+  package: 'package_entries',
+};
 
 export interface ClearDebtResult {
   ok: boolean;
@@ -71,4 +82,180 @@ export async function clearDebt(params: {
     remainingBalance: Number(row?.remaining_balance ?? 0),
     fullyPaid: !!row?.fully_paid,
   };
+}
+
+// ============================================================
+// Shared debt-collection / retrieval event data layer
+// ============================================================
+// Every clear_*_debt RPC above already appends a {amount, mode, by, at}
+// entry to the entry's own `payment_history` column atomically, alongside
+// the amount_paid update -- that data has always been there. Until now,
+// the only way EOD reconciliation/Analytics/Reports/etc. could tell "a
+// debt was collected against today" was by scanning for a separate
+// synthetic `is_debt_clearance` shadow row that DebtorsTab.tsx/
+// TransactionLedger.tsx used to create for every clearance (one new DB row
+// per payment, on top of the real entry) -- the confusing "double entry"
+// staff and accountants see in the ledger. The primitives below let every
+// consumer read collection/retrieval events straight out of the ORIGINAL
+// entry instead, so no new row ever needs to exist for this purpose again.
+
+const MODE_COLUMN: Record<DebtEntryType, string> = {
+  cargo: 'receipt_mode',
+  baggage: 'payment_mode',
+  marketing: 'payment_mode',
+  package: 'payment_mode',
+};
+
+// One entry per payment_history event actually collected, joined back to
+// the source sale for context a bare {amount,mode,by,at} tuple doesn't
+// carry on its own (type, hub, what was being paid for).
+export interface PaymentHistoryEvent {
+  amount: number;
+  mode: string;
+  by: string;
+  at: string;
+  sourceTxId: string;
+  sourceTxType: DebtEntryType;
+  sourceTxName: string;
+  sourceDetail: string;
+  sourceHubId?: string;
+  sourceHub?: string;
+}
+
+// Every entry that could still contribute a debt-collection or retrieval
+// event to a downstream financial total: currently in Debt mode (more
+// payment_history may follow), already retrieved (full or partial), or
+// itself a historical debt-clearance shadow row (needed both to keep
+// rendering historical shadow rows correctly and to compute
+// buildShadowRowExclusionCounts below). Unbounded / state-wide on purpose,
+// generalizing DebtorsTab.tsx's own dedicated fetch (see its comment on
+// why a debt/payment logged outside the app's default date window would
+// otherwise silently vanish from these totals) -- RLS's sibling_hub_ids()
+// policy scopes results correctly per caller, so no manual hub_id filter
+// is applied here.
+export async function fetchAllDebtAndRetrievalEntries(): Promise<Transaction[]> {
+  const filterFor = (modeCol: string) =>
+    `${modeCol}.eq.Debt,retrieved.eq.true,retrieved_amount.gt.0,is_debt_clearance.eq.true`;
+
+  const [cargoRes, baggageRes, marketingRes, packageRes] = await Promise.all([
+    supabase.from('cargo_entries').select('*').or(filterFor(MODE_COLUMN.cargo)).order('created_at', { ascending: false }).limit(1000),
+    supabase.from('manifests').select('*').or(filterFor(MODE_COLUMN.baggage)).order('created_at', { ascending: false }).limit(1000),
+    supabase.from('marketing_entries').select('*').or(filterFor(MODE_COLUMN.marketing)).order('created_at', { ascending: false }).limit(1000),
+    supabase.from('package_entries').select('*').or(filterFor(MODE_COLUMN.package)).order('created_at', { ascending: false }).limit(1000),
+  ]);
+
+  const mapped: Transaction[] = [];
+
+  (cargoRes.data || []).forEach((r: any) => mapped.push({
+    id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo',
+    detail: r.is_debt_clearance ? 'DEBT CLEARANCE' : `${r.airline || ''} · ${r.awb_tag_number || ''}`,
+    amount: r.amount || 0, amountPaid: r.amount_paid || 0, paymentHistory: r.payment_history || [],
+    mode: r.receipt_mode || 'Debt', pieces: r.total_pcs ?? undefined, kg: r.total_kg ?? undefined,
+    time: r.created_at, created_at: r.created_at, type: 'cargo', awb_tag_number: r.awb_tag_number, status: r.status || 'Intake',
+    airline: r.airline, hub_id: r.hub_id, hub: r.hub, clientType: r.client_type, corporate_client_id: r.corporate_client_id,
+    consigneePhone: r.consignee_phone, is_debt_clearance: r.is_debt_clearance || undefined, related_tx_id: r.related_tx_id || undefined,
+    retrieved: r.retrieved ?? undefined, retrievedAt: r.retrieved_at ?? undefined, retrievedBy: r.retrieved_by ?? undefined,
+    raw: r,
+  } as Transaction));
+
+  (baggageRes.data || []).forEach((r: any) => mapped.push({
+    id: r.transaction_id || r.id, name: r.passenger_name || 'Passenger',
+    detail: r.is_debt_clearance ? 'DEBT CLEARANCE' : `${r.flight_no || ''}`,
+    amount: r.amount || 0, amountPaid: r.amount_paid || 0, paymentHistory: r.payment_history || [],
+    mode: r.payment_mode || 'Debt', pieces: r.total_pcs ?? undefined, kg: r.excess_kg ?? undefined, totalKg: r.total_kg ?? undefined,
+    time: r.created_at, created_at: r.created_at, type: 'baggage', status: r.status || 'Intake',
+    hub_id: r.hub_id, hub: r.hub, clientType: r.client_type, consigneePhone: r.passenger_phone,
+    is_debt_clearance: r.is_debt_clearance || undefined, related_tx_id: r.related_tx_id || undefined,
+    retrieved: r.retrieved ?? undefined, retrievedAt: r.retrieved_at ?? undefined, retrievedBy: r.retrieved_by ?? undefined,
+    raw: r,
+  } as Transaction));
+
+  (marketingRes.data || []).forEach((r: any) => mapped.push({
+    id: r.entry_ref || r.id, name: r.customer_name || 'Customer',
+    detail: r.is_debt_clearance ? 'DEBT CLEARANCE' : `${r.route || ''} · ${r.qty_big_bag || 0}BB ${r.qty_med_bag || 0}MB ${r.qty_small_bag || 0}SB`,
+    // marketing_entries' naming inversion: `amount_paid` holds the real sale
+    // total, `debt_amount_paid` tracks running debt repayment -- see
+    // clear_marketing_debt's own comment. Matches DebtorsTab.tsx/
+    // EHIApp.tsx's identical mapping.
+    amount: r.amount_paid || 0, amountPaid: r.debt_amount_paid || 0, paymentHistory: r.payment_history || [],
+    mode: r.payment_mode || 'Debt',
+    time: r.created_at, created_at: r.created_at, type: 'marketing', status: r.status || 'Intake',
+    hub_id: r.hub_id, hub: r.hub, clientType: r.client_type, consigneePhone: r.customer_phone,
+    is_debt_clearance: r.is_debt_clearance || undefined, related_tx_id: r.related_tx_id || undefined,
+    retrieved: r.retrieved ?? undefined, retrievedAt: r.retrieved_at ?? undefined, retrievedBy: r.retrieved_by ?? undefined,
+    raw: r,
+  } as Transaction));
+
+  (packageRes.data || []).forEach((r: any) => mapped.push({
+    id: r.entry_ref || r.id, name: r.customer_name || 'Customer',
+    detail: r.is_debt_clearance ? 'DEBT CLEARANCE' : `${r.destination || ''}`,
+    amount: r.amount || 0, amountPaid: r.amount_paid || 0, paymentHistory: r.payment_history || [],
+    mode: r.payment_mode || 'Debt', pieces: r.total_pcs ?? undefined, kg: r.total_kg ?? undefined,
+    time: r.created_at, created_at: r.created_at, type: 'package', status: r.status || 'Intake',
+    hub_id: r.hub_id, hub: r.hub, consigneePhone: r.customer_phone,
+    is_debt_clearance: r.is_debt_clearance || undefined, related_tx_id: r.related_tx_id || undefined,
+    retrieved: r.retrieved ?? undefined, retrievedAt: r.retrieved_at ?? undefined, retrievedBy: r.retrieved_by ?? undefined,
+    raw: r,
+  } as Transaction));
+
+  return mapped;
+}
+
+// Every historical debt clearance wrote BOTH a shadow row (is_debt_clearance
+// = true, related_tx_id -> the original entry) AND a payment_history entry
+// on the original, in the same request -- they've coexisted since the
+// clearance feature was built. Naively summing "all shadow rows" plus "all
+// payment_history entries" would therefore double-count every payment that
+// ever happened. Since payment_history is append-only and each historical
+// clearance wrote its shadow row and its payment_history entry
+// synchronously in the same call, the first K entries in a given entry's
+// payment_history array are exactly the ones already represented by a
+// shadow row (K = however many shadow rows reference that entry) --
+// skipping them in extractPaymentHistoryEvents below is sufficient to
+// avoid double counting, with no coordinated deploy-timestamp cutover
+// required: it's correct before, during, and permanently after
+// shadow-row creation is removed.
+export function buildShadowRowExclusionCounts(entries: Transaction[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  entries.forEach(t => {
+    if (t.is_debt_clearance && t.related_tx_id) {
+      counts.set(t.related_tx_id, (counts.get(t.related_tx_id) || 0) + 1);
+    }
+  });
+  return counts;
+}
+
+// Flattens every entry's payment_history into individually dated,
+// source-tagged events, dropping the leading entries already accounted for
+// by a historical shadow row (see buildShadowRowExclusionCounts above).
+export function extractPaymentHistoryEvents(
+  entries: Transaction[],
+  exclusionCounts: Map<string, number>
+): PaymentHistoryEvent[] {
+  const events: PaymentHistoryEvent[] = [];
+  entries.forEach(t => {
+    const history = t.paymentHistory || [];
+    if (!history.length) return;
+    const skip = exclusionCounts.get(t.id) || 0;
+    history.slice(skip).forEach(p => {
+      events.push({
+        amount: p.amount, mode: p.mode, by: p.by, at: p.at,
+        sourceTxId: t.id, sourceTxType: t.type as DebtEntryType,
+        sourceTxName: t.name, sourceDetail: t.detail,
+        sourceHubId: t.hub_id, sourceHub: t.hub,
+      });
+    });
+  });
+  return events;
+}
+
+export function sumPaymentHistoryByMode(events: PaymentHistoryEvent[]): { cash: number; transfer: number; pos: number; other: number } {
+  return events.reduce((acc, e) => {
+    const mode = (e.mode || '').toLowerCase();
+    if (mode === 'cash') acc.cash += e.amount;
+    else if (mode === 'transfer') acc.transfer += e.amount;
+    else if (mode === 'pos') acc.pos += e.amount;
+    else acc.other += e.amount;
+    return acc;
+  }, { cash: 0, transfer: 0, pos: 0, other: 0 });
 }

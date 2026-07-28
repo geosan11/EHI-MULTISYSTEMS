@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { Transaction, User } from './types';
+import { PaymentHistoryEvent } from './debt';
 
 export type DepartmentType = 'cargo' | 'baggage' | 'marketing' | 'package';
 
@@ -34,7 +35,11 @@ export interface DepartmentSalesAnalysis {
 // aliases route to its destination in the fetch mapping below; baggage
 // only ever sets destination -- the fallback covers all four without
 // branching per type.
-export function computeDepartmentSalesAnalysis(txs: Transaction[], deptType: DepartmentType): DepartmentSalesAnalysis {
+export function computeDepartmentSalesAnalysis(
+  txs: Transaction[],
+  deptType: DepartmentType,
+  paymentHistoryEvents: PaymentHistoryEvent[] = []
+): DepartmentSalesAnalysis {
   const deptTxs = txs.filter(t => t.type === deptType);
 
   const map: Record<string, {
@@ -87,6 +92,23 @@ export function computeDepartmentSalesAnalysis(txs: Transaction[], deptType: Dep
     }
     const routeKey = (t.route || (t as any).destination || '').toString().trim();
     if (routeKey) map[agent].routeCounts[routeKey] = (map[agent].routeCounts[routeKey] || 0) + 1;
+  });
+
+  // Debt-collection events (payment_history-derived -- see src/lib/debt.ts)
+  // are the going-forward replacement for iterating DC- shadow entries
+  // above: same "collected"/per-mode contribution, none of the entries/
+  // revenue bump (a collection is a payment against an already-counted
+  // sale, not a second one), attributed to whoever actually collected it
+  // (event.by) rather than the original entry's agent.
+  paymentHistoryEvents.filter(e => e.sourceTxType === deptType).forEach(e => {
+    const agent = (e.by || 'Unknown Agent').trim();
+    if (!map[agent]) map[agent] = { entries: 0, revenue: 0, collected: 0, owed: 0, cash: 0, transfer: 0, transferCash: 0, pos: 0, wallet: 0, other: 0, routeCounts: {} };
+    map[agent].collected += e.amount;
+    const mode = (e.mode || '').toLowerCase();
+    if (mode === 'cash') map[agent].cash += e.amount;
+    else if (mode === 'transfer') map[agent].transfer += e.amount;
+    else if (mode === 'pos') map[agent].pos += e.amount;
+    else map[agent].other += e.amount;
   });
 
   const agents: DepartmentAgentRow[] = Object.entries(map)

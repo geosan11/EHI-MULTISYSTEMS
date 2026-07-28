@@ -10,6 +10,7 @@ import { BankReconciliation } from './BankReconciliation';
 import { PaymentValidation } from './PaymentValidation';
 import { useToast } from '../../lib/ToastContext';
 import { B2BSalesTab } from './B2BSalesTab';
+import { fetchAllDebtAndRetrievalEntries, buildShadowRowExclusionCounts, extractPaymentHistoryEvents, sumPaymentHistoryByMode } from '../../lib/debt';
 
 export interface AccountingConsoleProps {
   user: User;
@@ -21,11 +22,9 @@ export interface AccountingConsoleProps {
   onUpdateTx?: (id: string, update: Partial<Transaction>) => void;
   onOpenBankRecon: () => void;
   onFullUpdateTx?: (tx: Transaction) => void;
-  /** Used by DebtorsTab to emit a debt-clearance shadow transaction into the ledger */
-  onAddTx?: (tx: Transaction) => void;
 }
 
-export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddExpense, onUpdateExpense, onUpdateTx, onOpenBankRecon, onFullUpdateTx, onAddTx }: AccountingConsoleProps) => {
+export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddExpense, onUpdateExpense, onUpdateTx, onOpenBankRecon, onFullUpdateTx }: AccountingConsoleProps) => {
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<'Summary' | 'Cash Register' | 'Credit Sales' | 'B2B Sales' | 'Expenses' | 'Remittances' | 'Payment Validation'>(() => {
     return (sessionStorage.getItem('ehi_accounting_tab') as any) || 'Summary';
@@ -43,7 +42,7 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
     return transactions.filter(t => t.mode === 'Transfer' && !t.paymentConfirmed).length;
   }, [transactions]);
 
-  const { filteredTx, filteredExp } = useMemo(() => {
+  const periodMatches = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekAgo = new Date(today);
@@ -51,9 +50,7 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
     const monthAgo = new Date(today);
     monthAgo.setMonth(monthAgo.getMonth() - 1);
 
-    const fTx = transactions.filter(t => {
-      let d = new Date();
-      if (t.created_at) d = new Date(t.created_at);
+    return (d: Date): boolean => {
       if (period === 'Today') return d >= today;
       if (period === 'This Week') return d >= weekAgo;
       if (period === 'This Month') return d >= monthAgo;
@@ -64,29 +61,42 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
         return d >= start && d <= end;
       }
       return true;
-    });
+    };
+  }, [period, customStart, customEnd]);
 
-    const fExp = expenses.filter(e => {
-      const d = e.created_at ? new Date(e.created_at) : today;
-      if (period === 'Today') return d >= today;
-      if (period === 'This Week') return d >= weekAgo;
-      if (period === 'This Month') return d >= monthAgo;
-      if (period === 'Custom') {
-        const start = new Date(customStart);
-        const end = new Date(customEnd);
-        end.setHours(23, 59, 59, 999);
-        return d >= start && d <= end;
-      }
-      return true;
-    });
-
+  const { filteredTx, filteredExp } = useMemo(() => {
+    const fTx = transactions.filter(t => periodMatches(t.created_at ? new Date(t.created_at) : new Date()));
+    const fExp = expenses.filter(e => periodMatches(e.created_at ? new Date(e.created_at) : new Date()));
     return { filteredTx: fTx, filteredExp: fExp };
-  }, [transactions, expenses, period, customStart, customEnd]);
+  }, [transactions, expenses, periodMatches]);
 
-  const cargoTx = filteredTx.filter(t => t.type === 'cargo');
-  const vjTx = filteredTx.filter(t => t.type === 'baggage');
-  const mktgTx = filteredTx.filter(t => t.type === 'marketing');
-  const pkgTx = filteredTx.filter(t => t.type === 'package');
+  // Debt-bearing/retrieved entries, unbounded by the `transactions` prop's
+  // own date window -- feeds the payment_history-derived collection events
+  // below. See src/lib/debt.ts.
+  const [debtBearingEntries, setDebtBearingEntries] = useState<Transaction[]>([]);
+  useEffect(() => {
+    let active = true;
+    fetchAllDebtAndRetrievalEntries().then(entries => { if (active) setDebtBearingEntries(entries); }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  // Debt-collection events (payment_history-derived) inside the selected
+  // period -- the going-forward replacement for a debt-clearance shadow
+  // row's contribution to this screen's revenue/cash totals below.
+  const periodCollectionEvents = useMemo(() => {
+    const exclusionCounts = buildShadowRowExclusionCounts(debtBearingEntries);
+    return extractPaymentHistoryEvents(debtBearingEntries, exclusionCounts).filter(e => periodMatches(new Date(e.at)));
+  }, [debtBearingEntries, periodMatches]);
+  const collectionByMode = useMemo(() => sumPaymentHistoryByMode(periodCollectionEvents), [periodCollectionEvents]);
+
+  // !t.is_debt_clearance: a cleared debt's historical shadow row is a
+  // PAYMENT against a sale already counted once via the original Debt-mode
+  // entry, not a second sale -- without this guard, every cleared debt
+  // double-counted here (original amount + shadow row's collected amount).
+  const cargoTx = filteredTx.filter(t => t.type === 'cargo' && !t.is_debt_clearance);
+  const vjTx = filteredTx.filter(t => t.type === 'baggage' && !t.is_debt_clearance);
+  const mktgTx = filteredTx.filter(t => t.type === 'marketing' && !t.is_debt_clearance);
+  const pkgTx = filteredTx.filter(t => t.type === 'package' && !t.is_debt_clearance);
 
   const cargoTotal = cargoTx.reduce((sum, t) => sum + t.amount, 0);
   const vjTotal = vjTx.reduce((sum, t) => sum + t.amount, 0);
@@ -101,9 +111,12 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
   const pendingExpTotal = filteredExp.filter(e => e.status === 'pending').reduce((sum, e) => sum + e.amount, 0);
   const netRevenue = grandRevenue - totalExpenses;
 
-  const cashTotal = filteredTx.reduce((sum, t) => sum + (t.mode === 'Cash' ? t.amount : 0), 0);
-  const transferTotal = filteredTx.reduce((sum, t) => sum + (t.mode === 'Transfer' ? t.amount : 0), 0);
-  const posTotal = filteredTx.reduce((sum, t) => sum + (t.mode === 'POS' ? t.amount : 0), 0);
+  // Historical shadow rows (still present in filteredTx, unconditional --
+  // correct forever for old data) plus payment_history-derived collections
+  // (going forward, now that clearing a debt no longer creates a row here).
+  const cashTotal = filteredTx.reduce((sum, t) => sum + (t.mode === 'Cash' ? t.amount : 0), 0) + collectionByMode.cash;
+  const transferTotal = filteredTx.reduce((sum, t) => sum + (t.mode === 'Transfer' ? t.amount : 0), 0) + collectionByMode.transfer;
+  const posTotal = filteredTx.reduce((sum, t) => sum + (t.mode === 'POS' ? t.amount : 0), 0) + collectionByMode.pos;
   const debtTotal = filteredTx.reduce((sum, t) => sum + (t.mode === 'Debt' ? t.amount : 0), 0);
   const modeSum = cashTotal + transferTotal + posTotal + debtTotal;
 
@@ -585,7 +598,6 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
               onFullUpdateTx(tx);
             }
           }}
-          onAddTx={onAddTx}
         />
       )}
       {activeTab === 'B2B Sales' && (

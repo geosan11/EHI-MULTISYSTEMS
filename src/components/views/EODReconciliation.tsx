@@ -7,6 +7,7 @@ import { BackButton } from '../BackButton';
 import { LoadingState } from './LoadingState';
 import { supabase, writeAuditLog } from '../../lib/supabase';
 import { useToast } from '../../lib/ToastContext';
+import { fetchAllDebtAndRetrievalEntries, buildShadowRowExclusionCounts, extractPaymentHistoryEvents, sumPaymentHistoryByMode } from '../../lib/debt';
 
 interface Props {
   user: User;
@@ -45,6 +46,19 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // Debt-bearing/retrieved entries, unbounded by the `transactions` prop's
+  // date window -- a debt logged days ago but paid off today needs its
+  // payment_history event counted in TODAY's cash reconciliation even
+  // though the original entry's own created_at is outside todaysTx below.
+  // See src/lib/debt.ts's own comment for why this can't double-count
+  // against historical debt-clearance shadow rows.
+  const [debtBearingEntries, setDebtBearingEntries] = useState<Transaction[]>([]);
+  useEffect(() => {
+    let active = true;
+    fetchAllDebtAndRetrievalEntries().then(entries => { if (active) setDebtBearingEntries(entries); }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+
   // ── Shift boundary (replaces the old midnight hardcode) ───────────────────
   // hub.shift_start_hour is loaded from Supabase via the user object when
   // available; falls back to 18 (6 PM) which matches the Nigerian domestic
@@ -78,9 +92,23 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
     });
   }, [expenses, shiftBoundary, user.hub_id]);
 
+  // Debt-collection events (from payment_history, not shadow rows) that
+  // landed inside today's shift window and this hub -- the going-forward
+  // replacement for scanning is_debt_clearance rows. See src/lib/debt.ts.
+  const todaysCollectionEvents = useMemo(() => {
+    const exclusionCounts = buildShadowRowExclusionCounts(debtBearingEntries);
+    const { start, end } = shiftBoundary;
+    return extractPaymentHistoryEvents(debtBearingEntries, exclusionCounts).filter(e => {
+      if (user.hub_id && e.sourceHubId && e.sourceHubId !== user.hub_id) return false;
+      const d = new Date(e.at);
+      return d >= start && d < end;
+    });
+  }, [debtBearingEntries, shiftBoundary, user.hub_id]);
+
   // ── System Totals ──────────────────────────────────────────────────────────
   const expectedTotals = useMemo(() => {
-    // Split debt-clearance shadow entries from real new sales
+    // Split debt-clearance shadow entries from real new sales -- still
+    // correct forever for historical shadow rows, which keep existing.
     const newSalesTx = todaysTx.filter(t => !t.is_debt_clearance);
     const debtClearTx = todaysTx.filter(t => t.is_debt_clearance === true);
 
@@ -95,8 +123,11 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
     const packageTotal = packageTx.reduce((s, t) => s + t.amount, 0);
     const grossNewSalesTotal = cargoTotal + mktgTotal + vjTotal + packageTotal;
 
-    // Collections: prior-debt payments received today
-    const debtClearedTotal = debtClearTx.reduce((s, t) => s + t.amount, 0);
+    // Collections: prior-debt payments received today -- historical shadow
+    // rows (unconditional, as before) plus new-style payment_history events
+    // (going forward, now that clearing a debt no longer creates a row here).
+    const debtClearedTotal = debtClearTx.reduce((s, t) => s + t.amount, 0)
+      + todaysCollectionEvents.reduce((s, e) => s + e.amount, 0);
 
     // Combined gross (for backward compat with existing eod_records fields)
     const grossTotal = grossNewSalesTotal + debtClearedTotal;
@@ -104,9 +135,10 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
     // Payment channels (all transactions including debt-clearance,
     // supporting split payments where wallet_deduction_amount handles partial credit)
     const walletTotal   = todaysTx.reduce((s, t) => s + (t.wallet_deduction_amount || (t.mode === 'Wallet' ? t.amount : 0)), 0);
-    const cashTotal     = todaysTx.reduce((s, t) => s + (t.mode === 'Cash' ? Math.max(0, t.amount - (t.wallet_deduction_amount || 0)) : 0), 0);
-    const transferTotal = todaysTx.reduce((s, t) => s + (t.mode === 'Transfer' ? Math.max(0, t.amount - (t.wallet_deduction_amount || 0)) : 0), 0);
-    const posTotal      = todaysTx.reduce((s, t) => s + (t.mode === 'POS' ? Math.max(0, t.amount - (t.wallet_deduction_amount || 0)) : 0), 0);
+    const collectionByMode = sumPaymentHistoryByMode(todaysCollectionEvents);
+    const cashTotal     = todaysTx.reduce((s, t) => s + (t.mode === 'Cash' ? Math.max(0, t.amount - (t.wallet_deduction_amount || 0)) : 0), 0) + collectionByMode.cash;
+    const transferTotal = todaysTx.reduce((s, t) => s + (t.mode === 'Transfer' ? Math.max(0, t.amount - (t.wallet_deduction_amount || 0)) : 0), 0) + collectionByMode.transfer;
+    const posTotal      = todaysTx.reduce((s, t) => s + (t.mode === 'POS' ? Math.max(0, t.amount - (t.wallet_deduction_amount || 0)) : 0), 0) + collectionByMode.pos;
     const debtTotal     = newSalesTx.reduce((s, t) => s + (t.mode === 'Debt' ? Math.max(0, t.amount - (t.wallet_deduction_amount || 0)) : 0), 0);
 
     const expensesTotal = todaysExp.filter(e => !e.mode || e.mode === 'Cash').reduce((s, e) => s + e.amount, 0);
@@ -123,7 +155,7 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
       cargoCount: cargoTx.length, mktgCount: mktgTx.length,
       vjCount: vjTx.length, packageCount: packageTx.length,
     };
-  }, [todaysTx, todaysExp]);
+  }, [todaysTx, todaysExp, todaysCollectionEvents]);
 
   // Actual Counted -- kept as raw strings (not number | '') so the input
   // stays uncontrolled-in-spirit while typing: a controlled value fed
