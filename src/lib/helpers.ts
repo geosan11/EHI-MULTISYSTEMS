@@ -596,10 +596,25 @@ export function autoFitWorksheetColumns(ws: XLSX.WorkSheet): void {
   const ref = ws['!ref'];
   if (!ref) return;
   const range = XLSX.utils.decode_range(ref);
+  const totalCols = range.e.c - range.s.c + 1;
+
+  // Title/date/summary rows above the real header only populate column A --
+  // measuring width from row 0 lets that one long string skew column A's
+  // width across the whole sheet. Skip ahead to the first row where every
+  // column is actually populated (the real header row) before measuring.
+  let startRow = range.s.r;
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    let populated = 0;
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      if (ws[XLSX.utils.encode_cell({ r, c })]) populated++;
+    }
+    if (populated === totalCols) { startRow = r; break; }
+  }
+
   const cols: { wch: number }[] = [];
   for (let c = range.s.c; c <= range.e.c; c++) {
     let maxLen = 8;
-    for (let r = range.s.r; r <= range.e.r; r++) {
+    for (let r = startRow; r <= range.e.r; r++) {
       const cell = ws[XLSX.utils.encode_cell({ r, c })];
       if (!cell) continue;
       const text = cell.w ?? String(cell.v ?? '');
