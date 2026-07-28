@@ -5,7 +5,8 @@ import { BackButton } from '../BackButton';
 import { supabase } from '../../lib/supabase';
 import { User } from '../../lib/types';
 import { EmptyState } from './EmptyState';
-import { sanitizeSpreadsheetCell } from '../../lib/helpers';
+import { sanitizeSpreadsheetAoA, autoFitWorksheetColumns } from '../../lib/helpers';
+import * as XLSX from 'xlsx';
 
 interface AuditLogEntry {
   id: string;
@@ -123,27 +124,22 @@ export const AuditLog = ({ onBack, user }: { onBack: () => void; user?: User }) 
     return matchesAction && matchesSearch;
   });
 
-  const handleExportCSV = () => {
+  const handleExportExcel = () => {
     if (filtered.length === 0) return;
-    // sanitizeSpreadsheetCell (same helper the ledger's own CSV exports use)
-    // guards user_name/description/old-new values against being opened as a
-    // live formula in Excel/Sheets -- these are all free text ultimately
-    // traceable back to something someone typed.
-    const esc = (v: string) => `"${String(sanitizeSpreadsheetCell(v ?? '')).replace(/"/g, '""')}"`;
     const headers = ['Timestamp', 'User', 'Hub', 'Action', 'Table', 'Record ID', 'Description', 'Old Values', 'New Values'];
     const rows = filtered.map(l => [
-      esc(l.timestamp), esc(l.userName), esc(l.hub),
-      esc(l.action), esc(l.tableName), esc(l.recordId), esc(l.description),
-      esc(l.oldValues || ''), esc(l.newValues || ''),
+      l.timestamp, l.userName, l.hub, l.action, l.tableName, l.recordId, l.description,
+      l.oldValues || '', l.newValues || '',
     ]);
-    const csv = [headers.map(esc).join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ehi_audit_log_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // sanitizeSpreadsheetAoA (same helper the ledger's own exports use) guards
+    // user_name/description/old-new values against being opened as a live
+    // formula in Excel/Sheets -- these are all free text ultimately traceable
+    // back to something someone typed.
+    const ws = XLSX.utils.aoa_to_sheet(sanitizeSpreadsheetAoA([headers, ...rows]));
+    autoFitWorksheetColumns(ws);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Audit Log');
+    XLSX.writeFile(wb, `ehi_audit_log_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   const actionColor = (action: string) => {
@@ -174,8 +170,8 @@ export const AuditLog = ({ onBack, user }: { onBack: () => void; user?: User }) 
           <h2 className="text-[14px] font-bold">Platform Audit Log</h2>
           <p className="text-[10px] font-mono text-[var(--color-muted)]">{filtered.length} entries</p>
         </div>
-        <button onClick={handleExportCSV} disabled={filtered.length === 0} className="flex items-center gap-1.5 bg-[var(--color-surface-card)] border border-[var(--color-border)] text-[11px] font-mono px-3 py-1.5 rounded hover:border-[var(--color-success)] transition-colors disabled:opacity-40">
-          <Download size={12} /> Export CSV
+        <button onClick={handleExportExcel} disabled={filtered.length === 0} className="flex items-center gap-1.5 bg-[var(--color-surface-card)] border border-[var(--color-border)] text-[11px] font-mono px-3 py-1.5 rounded hover:border-[var(--color-success)] transition-colors disabled:opacity-40">
+          <Download size={12} /> Export Excel
         </button>
       </div>
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Transaction, User } from '../../lib/types';
-import { fmt, sanitizeSpreadsheetCell } from '../../lib/helpers';
+import { fmt, sanitizeSpreadsheetAoA, autoFitWorksheetColumns } from '../../lib/helpers';
+import * as XLSX from 'xlsx';
 import { supabase } from '../../lib/supabase';
 import { Search, FileDown, Briefcase, Scale, DollarSign, AlertCircle } from 'lucide-react';
 import { useToast } from '../../lib/ToastContext';
@@ -88,7 +89,7 @@ export const B2BSalesTab = ({ transactions, user }: B2BSalesTabProps) => {
     };
   }, [filteredB2BTx]);
 
-  const handleExportCSV = () => {
+  const handleExportExcel = () => {
     if (filteredB2BTx.length === 0) {
       showToast({ message: 'No B2B sales data available to download.', type: 'warning' });
       return;
@@ -99,39 +100,33 @@ export const B2BSalesTab = ({ transactions, user }: B2BSalesTabProps) => {
       const cName = t.corporate_client_id ? (clientNameMap.get(t.corporate_client_id) || t.name) : t.name;
       const outstanding = Math.max(0, t.amount - (t.mode === 'Debt' ? (t.amountPaid || 0) : t.amount));
       const paid = t.mode === 'Debt' ? (t.amountPaid || 0) : t.amount;
-      // Quoting alone does not neutralize a formula -- Excel still evaluates
-      // a quoted CSV field starting with =/+/-/@ (e.g. a client name entered
-      // as =HYPERLINK("http://evil.com","x")). sanitizeSpreadsheetCell
-      // prefixes those with a leading apostrophe first, same as every other
-      // export screen (Reports.tsx/AirlinePerformance.tsx/Analytics.tsx/
-      // ExpensesTab.tsx) already does for their XLSX exports.
-      const safeName = sanitizeSpreadsheetCell(cName || '') as string;
       return [
         t.id,
         t.created_at ? new Date(t.created_at).toLocaleDateString('en-GB') : (t.time || ''),
-        `"${safeName.replace(/"/g, '""')}"`,
+        cName || '',
         t.awb_tag_number || '',
         t.airline || '',
         t.route || '',
-        String(t.pieces || 0),
-        String(t.kg || 0),
-        String(t.amount || 0),
-        String(paid),
-        String(outstanding),
+        t.pieces || 0,
+        t.kg || 0,
+        t.amount || 0,
+        paid,
+        outstanding,
         t.mode || '',
         t.status || ''
       ];
     });
 
-    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `EHI_B2B_Sales_Ledger_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast({ message: 'CSV export downloaded successfully.', type: 'success' });
+    // sanitizeSpreadsheetAoA guards free-text cells (client name, in
+    // particular) against being opened as a live formula in Excel/Sheets,
+    // same as every other export screen (Reports.tsx/AirlinePerformance.tsx/
+    // Analytics.tsx/ExpensesTab.tsx) already does.
+    const ws = XLSX.utils.aoa_to_sheet(sanitizeSpreadsheetAoA([headers, ...rows]));
+    autoFitWorksheetColumns(ws);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'B2B Sales');
+    XLSX.writeFile(wb, `EHI_B2B_Sales_Ledger_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    showToast({ message: 'Excel export downloaded successfully.', type: 'success' });
   };
 
   return (
@@ -208,7 +203,7 @@ export const B2BSalesTab = ({ transactions, user }: B2BSalesTabProps) => {
         </div>
 
         <button
-          onClick={handleExportCSV}
+          onClick={handleExportExcel}
           className="bg-[var(--color-accent-amber)] hover:bg-amber-600 text-black px-4 py-2 rounded-lg text-[12px] font-bold font-sans flex items-center justify-center space-x-1.5 transition-colors shrink-0"
         >
           <FileDown size={14} />

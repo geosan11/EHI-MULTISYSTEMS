@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { User, Transaction } from '../../lib/types';
-import { fmt, tnow, getShiftBoundary, normalizeAirlineName, sanitizeSpreadsheetRows } from '../../lib/helpers';
+import { fmt, tnow, getShiftBoundary, normalizeAirlineName, sanitizeSpreadsheetRows, autoFitWorksheetColumns } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
 import { BackButton } from '../BackButton';
 import { useAirlines } from '../../lib/airlines';
@@ -271,6 +271,7 @@ export const AirlinePerformance = ({ user, onBack }: AirlinePerformanceProps) =>
     }));
 
     const ws = XLSX.utils.json_to_sheet(sanitizeSpreadsheetRows(rows));
+    autoFitWorksheetColumns(ws);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Airline Performance');
     XLSX.writeFile(wb, `EHI_Airline_Sales_Weight_${startDateTime.slice(0, 10)}_to_${endDateTime.slice(0, 10)}.xlsx`);
