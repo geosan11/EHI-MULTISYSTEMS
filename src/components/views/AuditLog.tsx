@@ -4,6 +4,7 @@ import { BackButton } from '../BackButton';
 import { supabase } from '../../lib/supabase';
 import { User } from '../../lib/types';
 import { EmptyState } from './EmptyState';
+import { sanitizeSpreadsheetCell } from '../../lib/helpers';
 
 interface AuditLogEntry {
   id: string;
@@ -13,6 +14,7 @@ interface AuditLogEntry {
   tableName: string;
   recordId: string;
   timestamp: string;
+  timestampIso: string;
   description: string;
   hub: string;
   oldValues?: string;
@@ -27,6 +29,10 @@ export const AuditLog = ({ onBack, user }: { onBack: () => void; user?: User }) 
   const [filterAction, setFilterAction] = useState('all');
   const [searchText, setSearchText] = useState('');
 
+  const PAGE_SIZE = 200;
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   const fetchLogs = async () => {
     setLoading(true);
     try {
@@ -34,7 +40,7 @@ export const AuditLog = ({ onBack, user }: { onBack: () => void; user?: User }) 
         .from('audit_log')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(200);
+        .limit(PAGE_SIZE);
 
       if (data && !error) {
         setLogs(data.map((r: any) => ({
@@ -45,17 +51,57 @@ export const AuditLog = ({ onBack, user }: { onBack: () => void; user?: User }) 
           tableName: r.table_name || '',
           recordId: r.record_id || '',
           timestamp: new Date(r.created_at).toLocaleString('en-NG'),
+          timestampIso: r.created_at,
           description: r.description,
           hub: r.hub || '',
           oldValues: r.old_values ? JSON.stringify(r.old_values, null, 2) : undefined,
           newValues: r.new_values ? JSON.stringify(r.new_values, null, 2) : undefined,
         })));
+        setHasMore(data.length === PAGE_SIZE);
       }
     } catch (err) {
       console.error('Failed to fetch audit log:', err);
       setFetchError(true);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // The log was hard-capped at 200 rows total with no way to see anything
+  // older -- for any moderately active hub that's just a few hours of
+  // activity, making "who did what" invisible beyond the very recent past.
+  // Loads the next page strictly older than the oldest entry currently
+  // shown, so this composes correctly regardless of how many pages have
+  // already been loaded.
+  const loadMore = async () => {
+    if (logs.length === 0 || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const oldestIso = logs[logs.length - 1]?.timestampIso;
+      let query = supabase.from('audit_log').select('*').order('created_at', { ascending: false }).limit(PAGE_SIZE);
+      if (oldestIso) query = query.lt('created_at', oldestIso);
+      const { data, error } = await query;
+      if (data && !error) {
+        setLogs(prev => [...prev, ...data.map((r: any) => ({
+          id: r.id,
+          userId: r.user_id || '',
+          userName: r.user_name,
+          action: r.action,
+          tableName: r.table_name || '',
+          recordId: r.record_id || '',
+          timestamp: new Date(r.created_at).toLocaleString('en-NG'),
+          timestampIso: r.created_at,
+          description: r.description,
+          hub: r.hub || '',
+          oldValues: r.old_values ? JSON.stringify(r.old_values, null, 2) : undefined,
+          newValues: r.new_values ? JSON.stringify(r.new_values, null, 2) : undefined,
+        }))]);
+        setHasMore(data.length === PAGE_SIZE);
+      }
+    } catch (err) {
+      console.error('Failed to load more audit log entries:', err);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -78,12 +124,18 @@ export const AuditLog = ({ onBack, user }: { onBack: () => void; user?: User }) 
 
   const handleExportCSV = () => {
     if (filtered.length === 0) return;
-    const headers = ['Timestamp', 'User', 'Hub', 'Action', 'Table', 'Record ID', 'Description'];
+    // sanitizeSpreadsheetCell (same helper the ledger's own CSV exports use)
+    // guards user_name/description/old-new values against being opened as a
+    // live formula in Excel/Sheets -- these are all free text ultimately
+    // traceable back to something someone typed.
+    const esc = (v: string) => `"${String(sanitizeSpreadsheetCell(v ?? '')).replace(/"/g, '""')}"`;
+    const headers = ['Timestamp', 'User', 'Hub', 'Action', 'Table', 'Record ID', 'Description', 'Old Values', 'New Values'];
     const rows = filtered.map(l => [
-      `"${l.timestamp}"`, `"${l.userName}"`, `"${l.hub}"`,
-      `"${l.action}"`, `"${l.tableName}"`, `"${l.recordId}"`, `"${l.description}"`
+      esc(l.timestamp), esc(l.userName), esc(l.hub),
+      esc(l.action), esc(l.tableName), esc(l.recordId), esc(l.description),
+      esc(l.oldValues || ''), esc(l.newValues || ''),
     ]);
-    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const csv = [headers.map(esc).join(','), ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -180,6 +232,15 @@ export const AuditLog = ({ onBack, user }: { onBack: () => void; user?: User }) 
               </div>
             </div>
           ))}
+          {hasMore && (
+            <button
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="w-full py-2.5 text-[11px] font-mono text-[var(--color-muted)] border border-dashed border-[var(--color-border)] rounded-lg hover:border-[var(--color-accent-amber)] hover:text-[var(--color-accent-amber)] transition-colors disabled:opacity-40"
+            >
+              {loadingMore ? 'Loading older entries...' : 'Load older entries'}
+            </button>
+          )}
         </div>
       )}
 
@@ -199,8 +260,11 @@ export const AuditLog = ({ onBack, user }: { onBack: () => void; user?: User }) 
               </div>
               <div><p className="ehi-label">Description</p><p className="text-[var(--color-muted)]">{selectedEntry.description}</p></div>
               <div><p className="ehi-label">Timestamp</p><p className="font-mono text-[11px]">{selectedEntry.timestamp}</p></div>
+              {selectedEntry.oldValues && (
+                <div><p className="ehi-label">Before</p><pre className="text-[9px] bg-[var(--color-surface-2)] p-2 rounded overflow-auto max-h-24 text-[var(--color-muted)]">{selectedEntry.oldValues}</pre></div>
+              )}
               {selectedEntry.newValues && (
-                <div><p className="ehi-label">Changes</p><pre className="text-[9px] bg-[var(--color-surface-2)] p-2 rounded overflow-auto max-h-24 text-[var(--color-muted)]">{selectedEntry.newValues}</pre></div>
+                <div><p className="ehi-label">{selectedEntry.oldValues ? 'After' : 'Changes'}</p><pre className="text-[9px] bg-[var(--color-surface-2)] p-2 rounded overflow-auto max-h-24 text-[var(--color-muted)]">{selectedEntry.newValues}</pre></div>
               )}
             </div>
           </div>
