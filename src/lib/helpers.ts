@@ -591,15 +591,36 @@ export function sanitizeSpreadsheetAoA(rows: unknown[][]): unknown[][] {
  * exports set it either. Reads back from the worksheet itself rather than
  * the source rows, so it works the same whether the sheet was built via
  * aoa_to_sheet or json_to_sheet. Call after the sheet is built, before
- * book_append_sheet. */
+ * book_append_sheet.
+ *
+ * Several callers (downloadDailyExcel/downloadAirlineManifestExcel/
+ * Reports.tsx) prepend a free-text title/date line that only occupies
+ * column A -- e.g. "EHI Multisystems Nigeria Ltd — Airline Manifest" (47
+ * chars) vs. the real Airline column data ("United Nigeria", ~14-23 chars).
+ * Measuring from row 1 would let that one sentence blow column A out to
+ * ~2x what its actual tabular content needs. To avoid that, width
+ * measurement starts from the first row that populates every column in
+ * range (the real header row), not row 1 -- title/date rows only ever
+ * populate column A, so they fall before that point and are excluded. */
 export function autoFitWorksheetColumns(ws: XLSX.WorkSheet): void {
   const ref = ws['!ref'];
   if (!ref) return;
   const range = XLSX.utils.decode_range(ref);
+  const totalCols = range.e.c - range.s.c + 1;
+
+  let startRow = range.s.r;
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    let populated = 0;
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      if (ws[XLSX.utils.encode_cell({ r, c })]) populated++;
+    }
+    if (populated === totalCols) { startRow = r; break; }
+  }
+
   const cols: { wch: number }[] = [];
   for (let c = range.s.c; c <= range.e.c; c++) {
     let maxLen = 8;
-    for (let r = range.s.r; r <= range.e.r; r++) {
+    for (let r = startRow; r <= range.e.r; r++) {
       const cell = ws[XLSX.utils.encode_cell({ r, c })];
       if (!cell) continue;
       const text = cell.w ?? String(cell.v ?? '');
