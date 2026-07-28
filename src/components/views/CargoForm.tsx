@@ -1856,7 +1856,7 @@ export const CargoForm = ({
     <div
       ref={formRootRef}
       className="pb-24"
-      style={{ width: "100%", boxSizing: "border-box", transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}
+      style={{ width: "100%", boxSizing: "border-box" }}
     >
       {/* SECTION SELECTOR / HUB MODE NAVIGATION */}
       <div className="px-4 pt-4">

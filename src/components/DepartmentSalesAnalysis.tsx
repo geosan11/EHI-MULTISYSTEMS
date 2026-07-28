@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { User, Transaction } from '../lib/types';
 import { fmt } from '../lib/helpers';
 import { Calendar, Loader2, X, BarChart2 } from 'lucide-react';
@@ -201,7 +202,11 @@ export const DepartmentSalesAnalysisModal = ({ user, deptType, deptLabel, routeL
 
   const analysis = useMemo(() => computeDepartmentSalesAnalysis(txs, deptType), [txs, deptType]);
 
-  return (
+  // Portaled to document.body -- see Modal.tsx / ReviewEntryModal.tsx for
+  // why: this is mounted from CargoForm.tsx among other forms, and any
+  // ancestor there that sets transform/filter/will-change/perspective
+  // silently becomes a containing block for this modal's `position: fixed`.
+  return createPortal(
     <div
       className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center sm:p-4 ${
         isClosing ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'
@@ -264,6 +269,7 @@ export const DepartmentSalesAnalysisModal = ({ user, deptType, deptLabel, routeL
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

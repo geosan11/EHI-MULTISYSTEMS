@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CustomerWallet } from '../lib/types';
 import { fmt } from '../lib/helpers';
 import { Search, Wallet, Plus, Check, UserCheck, X } from 'lucide-react';
@@ -38,6 +39,7 @@ export const CustomerWalletPicker: React.FC<CustomerWalletPickerProps> = ({
   );
 
   return (
+    <>
     <div className="relative w-full">
       {selectedWallet ? (
         <div className="p-3 bg-[rgba(245,158,11,0.08)] border border-[var(--color-accent-amber)] rounded-xl flex items-center justify-between gap-3">
@@ -106,9 +108,16 @@ export const CustomerWalletPicker: React.FC<CustomerWalletPickerProps> = ({
           )}
         </div>
       )}
+    </div>
 
-      {/* Wallet Search Modal / Dropdown Overlay */}
-      {isOpen && (
+    {/* Wallet Search Modal / Dropdown Overlay -- portaled to document.body
+        (only this overlay, not the always-visible selector above, which
+        must stay in normal layout flow). Same containing-block hazard as
+        Modal.tsx / ReviewEntryModal.tsx: any ancestor of wherever this
+        picker is embedded (CargoForm.tsx, PackageForm.tsx, etc.) that sets
+        transform/filter/will-change/perspective would otherwise break its
+        centering. */}
+    {isOpen && createPortal(
         <div
           className={`fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 ${
             isClosing ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'
@@ -228,8 +237,9 @@ export const CustomerWalletPicker: React.FC<CustomerWalletPickerProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 };

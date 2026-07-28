@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Scale, Package, Wallet, CheckCircle2 } from 'lucide-react';
 import { fmt } from '../../lib/helpers';
 
@@ -83,7 +84,11 @@ export const PartialRetrievalModal: React.FC<PartialRetrievalModalProps> = ({ en
     });
   };
 
-  return (
+  // Portaled to document.body -- see Modal.tsx / ReviewEntryModal.tsx for
+  // why: any ancestor (TransactionLedger.tsx's own tree, or any future
+  // wrapper) that sets transform/filter/will-change/perspective silently
+  // becomes a containing block for this modal's `position: fixed`.
+  return createPortal(
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
       <div className="bg-[var(--color-obsidian)] border border-[var(--color-border)] rounded-xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-[var(--color-border)] bg-[var(--color-surface-card)]">
@@ -169,6 +174,7 @@ export const PartialRetrievalModal: React.FC<PartialRetrievalModalProps> = ({ en
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

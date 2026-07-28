@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle2, X } from 'lucide-react';
 import { fmt } from '../../lib/helpers';
 
@@ -48,7 +49,14 @@ export const ReviewEntryModal: React.FC<ReviewEntryModalProps> = ({
     onConfirm();
   };
 
-  return (
+  // Portaled directly into document.body -- not nested inside whatever
+  // page/tab/form wrapper happens to render this component. Any ancestor
+  // that sets transform/filter/will-change/perspective silently turns
+  // itself into a CSS containing block for this modal's own
+  // `position: fixed`, breaking its centering (this already happened twice:
+  // once via EHIApp.tsx's .page-transition, once via CargoForm.tsx's own
+  // root wrapper). Matches Modal.tsx's own fix for the same class of bug.
+  return createPortal(
     <div
       className={`fixed inset-0 w-screen h-screen bg-black/75 backdrop-blur-md z-[999999] flex items-center justify-center p-3 sm:p-4 select-none ${
         isClosing ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'
@@ -113,6 +121,7 @@ export const ReviewEntryModal: React.FC<ReviewEntryModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
