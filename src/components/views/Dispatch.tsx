@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { db } from '../../lib/db';
 import { DriverTrip, TripPing } from '../../lib/types';
 import { MapPin, Navigation, X, Truck, Phone } from 'lucide-react';
@@ -134,7 +135,7 @@ export const Dispatch = ({ onBack }: { onBack: () => void }) => {
         )}
       </div>
 
-      {selectedTrip && (
+      {selectedTrip && createPortal(
         <div className="fixed inset-0 z-50 bg-black/90 flex flex-col p-4 md:p-8">
           <div className="w-full h-full max-w-5xl mx-auto bg-[var(--color-surface-1)] rounded-xl border border-[var(--color-border-strong)] flex flex-col overflow-hidden shadow-2xl relative">
             <div className="p-4 border-b border-[var(--color-border)] bg-[rgba(0,0,0,0.4)] flex justify-between items-center">
@@ -206,7 +207,8 @@ export const Dispatch = ({ onBack }: { onBack: () => void }) => {
               <div><span className="text-[var(--color-muted)]">Pings logged:</span> <span className="text-[var(--color-accent-amber)] font-bold">{selectedTrip.pings.length}</span></div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       </div>{/* end ehi-page-body */}
     </div>

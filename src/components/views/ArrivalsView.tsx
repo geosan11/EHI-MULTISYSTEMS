@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { User } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
 import { Package, CheckCircle, RefreshCw, Loader, History } from 'lucide-react';
@@ -275,7 +276,7 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
   };
 
   if (activePodCapture) {
-    return (
+    return createPortal(
       <div className="fixed inset-0 z-[150] bg-[var(--color-bg)] flex flex-col">
         <ProofOfDeliveryForm
           awbNumber={activePodCapture.ref}
@@ -284,7 +285,8 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
           onComplete={handlePodComplete}
           onCancel={() => setActivePodCapture(null)}
         />
-      </div>
+      </div>,
+      document.body
     );
   }
 
@@ -462,7 +464,7 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
       </div>
 
       {/* PIN modal */}
-      {pinModalOpen && selectedCargo && (
+      {pinModalOpen && selectedCargo && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-[var(--color-obsidian)] border border-[var(--color-border)] rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
             <div className="p-5 border-b border-[var(--color-border)] bg-[var(--color-surface-card)]">
@@ -514,7 +516,8 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

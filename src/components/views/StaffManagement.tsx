@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Plus, RefreshCw, Search, Edit2, UserX, UserCheck,
   MapPin, Phone, Mail, Loader, AlertTriangle, Check, Eye, EyeOff, Shield, Upload, Printer
@@ -397,7 +398,7 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
       </div>
 
       {/* CREATE STAFF MODAL */}
-      {showCreate && (
+      {showCreate && createPortal(
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4">
           <div className="ehi-card w-full max-w-sm rounded-2xl overflow-hidden">
             <div className="p-4 border-b border-[var(--color-border)] flex justify-between items-center bg-[var(--color-surface-card)]">
@@ -476,11 +477,12 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* EDIT STAFF MODAL */}
-      {editingStaff && (
+      {editingStaff && createPortal(
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4">
           <div className="ehi-card w-full max-w-sm rounded-2xl overflow-hidden">
             <div className="p-4 border-b border-[var(--color-border)] flex justify-between items-center bg-[var(--color-surface-card)]">
@@ -748,10 +750,11 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {credModal && (
+      {credModal && createPortal(
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl p-6 max-w-sm w-full">
             <div className="text-[13px] font-bold mb-4 text-[var(--color-foreground)]">New Staff Credentials — Share Once</div>
@@ -769,7 +772,8 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
               Done — I've shared the credentials
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

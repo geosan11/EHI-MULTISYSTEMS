@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Papa from 'papaparse';
 import { X, Upload, Download, CheckCircle2, XCircle, Loader, AlertTriangle } from 'lucide-react';
 import { createStaffAccountsBulk, BulkStaffRow, BulkStaffResult } from '../../lib/auth';
@@ -109,7 +110,7 @@ export const BulkStaffImport = ({ hubCodes, onClose, onImported }: Props) => {
   const successResults = results.filter(r => r.success);
   const failedResults = results.filter(r => !r.success);
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 bg-[rgba(0,0,0,0.6)] flex items-center justify-center p-4">
       <div className="ehi-card w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-lg">
         <div className="flex items-center justify-between p-5 border-b border-[var(--color-border)]">
@@ -294,6 +295,7 @@ export const BulkStaffImport = ({ hubCodes, onClose, onImported }: Props) => {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

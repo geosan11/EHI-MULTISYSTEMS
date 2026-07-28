@@ -1,5 +1,6 @@
 import { CARGO_ROUTES } from "../../lib/constants";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Transaction, User, Expense, CustomerWallet } from "../../lib/types";
 import { fmt, roundMoney, tnow, generatePickupPin, normalizeAirlineName, getHubCode, upperOnChange, isStandalonePWA } from "../../lib/helpers";
 import { chargeWalletForSale } from "../../lib/walletPayment";
@@ -1303,6 +1304,15 @@ export const CargoForm = ({
   const handleRetailSubmit = async () => {
     if (!isRetailFormValid || submitting) return;
     setSubmitting(true);
+    // Everything below is wrapped in try/catch -- previously an unexpected
+    // throw here (e.g. getNextTag/isTagAlreadyDelivered/chargeWalletForSale
+    // rejecting instead of resolving) would leave `submitting` stuck true
+    // forever. Harmless before, since ReviewEntryModal used to close
+    // immediately regardless of outcome -- but now that it stays open
+    // through submission (Confirm/Cancel both disabled while isSubmitting),
+    // an unhandled exception would leave the modal permanently stuck open
+    // with no way out but a page reload.
+    try {
 
     // New custom airline typed into "Other" -- add it to pricing_config
     // (visible to Airline Commissions, Hub Cargo Rates, Airline Ledger,
@@ -1491,6 +1501,10 @@ export const CargoForm = ({
           pin: pickupPin,
         }),
       });
+    }
+    } catch (err: any) {
+      setSubmitting(false);
+      showToast({ message: `Unexpected error: ${err?.message || 'please try again'}`, type: 'error' });
     }
   };
 
@@ -2425,7 +2439,7 @@ export const CargoForm = ({
                     // in the GAT print queue at all).
                     ...(userHubCode === 'LOS' && !forcedTerminal ? [{ label: 'Terminal', value: terminal }] : []),
                   ]}
-                  onConfirm={() => { setShowRetailReview(false); handleRetailSubmit(); }}
+                  onConfirm={() => { handleRetailSubmit(); }}
                   onCancel={() => setShowRetailReview(false)}
                   confirmText="Log Cargo Entry"
                   isSubmitting={submitting}
@@ -3182,7 +3196,7 @@ export const CargoForm = ({
         </div>
       )}
 
-      {showCloseModal && (
+      {showCloseModal && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center sm:p-4">
           <div className="bg-[var(--color-obsidian)] border-0 sm:border border-[var(--color-border)] rounded-none sm:rounded-xl w-full h-full sm:h-auto sm:max-w-lg sm:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
             {/* Header */}
@@ -3286,7 +3300,8 @@ export const CargoForm = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
 

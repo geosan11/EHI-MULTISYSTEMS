@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, HelpCircle } from 'lucide-react';
 
 export interface ConfirmOptions {
@@ -35,7 +36,7 @@ export const ConfirmDialog = ({
     }, 200);
   };
 
-  return (
+  return createPortal(
     <div
       className={`fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-4 ${
         isClosing ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'
@@ -80,6 +81,7 @@ export const ConfirmDialog = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

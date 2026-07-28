@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Html5Qrcode } from 'html5-qrcode';
 import { QrCode, RefreshCw, Package, Plane, ArrowDown, ArrowUp, List, CheckCircle, Bell } from 'lucide-react';
 import { User, ScanMode, ScanValidationResult, BatchScanItem, ScanResultType, ProofOfDelivery, TrackingEvent } from '../../lib/types';
@@ -1016,7 +1017,7 @@ export const Scanner = ({
   }
 
   if (activePodCapture) {
-    return (
+    return createPortal(
       <div className="fixed inset-0 z-[150] bg-[var(--color-bg)] flex flex-col">
         <ProofOfDeliveryForm
           awbNumber={activePodCapture.ref}
@@ -1025,7 +1026,8 @@ export const Scanner = ({
           onComplete={handlePodComplete}
           onCancel={() => setActivePodCapture(null)}
         />
-      </div>
+      </div>,
+      document.body
     );
   }
 
@@ -1522,7 +1524,7 @@ export const Scanner = ({
       </div>
 
       {/* --- PIN MODAL FOR DELIVERY --- */}
-      {pendingDelivery && (
+      {pendingDelivery && createPortal(
         <div style={{
           position: 'fixed', inset: 0, zIndex: 100,
           background: 'rgba(11,15,25,0.8)',
@@ -1574,17 +1576,20 @@ export const Scanner = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* --- SCAN RESULT POPUP --- */}
       {/* Backdrop for WRONG_DESTINATION — requires manual dismiss */}
-      {popup.visible && popup.type === 'WRONG_DESTINATION' && (
+      {popup.visible && popup.type === 'WRONG_DESTINATION' && createPortal(
         <div
           style={{ position: 'fixed', inset: 0, zIndex: 49, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(3px)' }}
           onClick={dismissAlert}
-        />
+        />,
+        document.body
       )}
+      {createPortal(
       <div
         style={{
           position: 'fixed',
@@ -1772,7 +1777,9 @@ export const Scanner = ({
             </div>
           );
         })()}
-      </div>
+      </div>,
+      document.body
+      )}
     </div>
   );
 };

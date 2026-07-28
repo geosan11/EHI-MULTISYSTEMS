@@ -127,6 +127,11 @@ export const ExcessBaggageForm = ({
     if (!isValid || submitting) return;
 
     setSubmitting(true);
+    // See CargoForm.tsx's handleRetailSubmit for why this is wrapped: an
+    // unhandled exception must still release `submitting`, or the Review
+    // modal (which now stays open through submission) gets stuck open with
+    // no way out but a page reload.
+    try {
 
     const resolvedTag = pendingTag;
     if (!resolvedTag) {
@@ -225,6 +230,10 @@ export const ExcessBaggageForm = ({
           mode,
         }, freeAllowance, ratePerKg),
       });
+    }
+    } catch (err: any) {
+      setSubmitting(false);
+      showToast({ message: `Unexpected error: ${err?.message || 'please try again'}`, type: 'error' });
     }
   };
 
@@ -814,7 +823,7 @@ export const ExcessBaggageForm = ({
                   { label: 'Amount', value: totalAmount },
                   { label: 'Payment Mode', value: mode },
                 ]}
-                onConfirm={() => { setShowBaggageReview(false); handleSubmit(); }}
+                onConfirm={() => { handleSubmit(); }}
                 onCancel={() => setShowBaggageReview(false)}
                 confirmText="Commit Transaction"
                 isSubmitting={submitting}

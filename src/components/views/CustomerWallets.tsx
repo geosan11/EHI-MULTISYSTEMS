@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { User } from '../../lib/types';
 import { fmt, tnow } from '../../lib/helpers';
 import { supabase, writeAuditLog } from '../../lib/supabase';
@@ -989,7 +990,7 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
       )}
 
       {/* Modal: Top-Up / Create Wallet */}
-      {showTopUpModal && (
+      {showTopUpModal && createPortal(
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl space-y-4 p-5">
             <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-3">
@@ -1112,11 +1113,12 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal: History */}
-      {showHistoryModal && selectedWallet && (
+      {showHistoryModal && selectedWallet && createPortal(
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl space-y-4 p-5 max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-3 shrink-0">
@@ -1205,14 +1207,15 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal: Request Cash Payout */}
       {payoutWalletId && (() => {
         const wallet = wallets.find((w) => w.id === payoutWalletId);
         if (!wallet) return null;
-        return (
+        return createPortal(
           <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl space-y-4 p-5">
               <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-3">
@@ -1277,7 +1280,8 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
                 <HandCoins size={14} /> {savingPayout ? 'Requesting...' : 'Request Cash Payout'}
               </button>
             </div>
-          </div>
+          </div>,
+          document.body
         );
       })()}
     </div>
