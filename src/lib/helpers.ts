@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx';
 import { PRICING, CARGO_ROUTES } from './constants.js';
 import { Transaction, PaymentMode } from './types.js';
 import type { ChangeEvent } from 'react';
@@ -200,12 +201,12 @@ export function txDisplayDateTime(createdAt?: string, timeStr?: string): string 
   return `${dateStr} ${timeStr || tnow()}`;
 }
 
-// ── DAILY ENTRIES CSV DOWNLOAD ────────────────────────────────
+// ── DAILY ENTRIES EXCEL DOWNLOAD ───────────────────────────────
 // `transactions` is expected to already be scoped to whatever date range /
 // filters the caller applied (e.g. TransactionLedger's `filteredEntries`) --
 // this function must not re-filter it, or a caller-selected date range would
 // silently get discarded and replaced with "today only".
-export function downloadDailyCSV(
+export function downloadDailyExcel(
   streamType: 'cargo' | 'baggage' | 'marketing' | 'package' | 'mixed',
   transactions: any[],
   hubName: string
@@ -366,12 +367,6 @@ export function downloadDailyCSV(
     ]);
   }
 
-  // Escape CSV values -- sanitizeSpreadsheetCell (already used by
-  // Reports.tsx/AirlinePerformance.tsx's XLSX exports) is applied FIRST so a
-  // customer/consignee name or remark starting with =, +, -, or @ can't be
-  // opened by Excel/Sheets as a live formula.
-  const esc = (v: string) => `"${String(sanitizeSpreadsheetCell(v)).replace(/"/g, '""')}"`;
-
   const streamLabel = streamType === 'cargo' ? 'Cargo'
     : streamType === 'baggage' ? 'Excess Baggage'
     : streamType === 'marketing' ? 'Marketing'
@@ -382,33 +377,28 @@ export function downloadDailyCSV(
   const totalAmount = transactions.reduce((s, t) => s + (t.amount || 0), 0);
   const summaryRow = `Total Entries: ${transactions.length} | Total Revenue: NGN ${totalAmount.toLocaleString('en-NG')}`;
 
-  const csvLines = [
-    esc(titleRow),
-    esc(dateRow),
-    esc(summaryRow),
-    '',
-    headers.map(esc).join(','),
-    ...rows.map(r => r.map(esc).join(',')),
+  const aoa = [
+    [titleRow],
+    [dateRow],
+    [summaryRow],
+    [],
+    headers,
+    ...rows,
   ];
 
-  const csv = csvLines.join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `EHI_${streamType}_${hubName.replace(/\s+/g,'_')}_${today}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const ws = XLSX.utils.aoa_to_sheet(sanitizeSpreadsheetAoA(aoa));
+  autoFitWorksheetColumns(ws);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, streamLabel.slice(0, 31));
+  XLSX.writeFile(wb, `EHI_${streamType}_${hubName.replace(/\s+/g,'_')}_${today}.xlsx`);
 }
 
-// ── PER-AIRLINE MANIFEST CSV DOWNLOAD ─────────────────────────
-// A separate, narrower export from downloadDailyCSV above -- meant to be
+// ── PER-AIRLINE MANIFEST EXCEL DOWNLOAD ───────────────────────
+// A separate, narrower export from downloadDailyExcel above -- meant to be
 // handed to (or checked against) an airline's own manifest for a
 // route/flight: just tag number, content, kg, route, and amount collected,
 // grouped by airline and listed in chronological order within each group.
-export function downloadAirlineManifestCSV(
+export function downloadAirlineManifestExcel(
   transactions: any[],
   hubName: string
 ): void {
@@ -430,13 +420,12 @@ export function downloadAirlineManifestCSV(
   });
   const airlineNames = Array.from(byAirline.keys()).sort();
 
-  const esc = (v: string) => `"${String(sanitizeSpreadsheetCell(v)).replace(/"/g, '""')}"`;
   const headers = ['Airline', 'Tag Number', 'Content', 'KG', 'Route', 'Amount'];
-  const lines: string[] = [
-    esc(`EHI Multisystems Nigeria Ltd — Airline Manifest`),
-    esc(`Hub: ${hubName} | Generated: ${generatedLabel}`),
-    '',
-    headers.map(esc).join(','),
+  const aoa: unknown[][] = [
+    [`EHI Multisystems Nigeria Ltd — Airline Manifest`],
+    [`Hub: ${hubName} | Generated: ${generatedLabel}`],
+    [],
+    headers,
   ];
 
   let grandKg = 0;
@@ -454,35 +443,24 @@ export function downloadAirlineManifestCSV(
       const kg = Number(t.totalKg ?? t.excessKg ?? t.kg ?? 0) || 0;
       const content = t.type === 'baggage' ? 'Excess Baggage' : (t.contentType || '');
       const route = t.route || t.destination || '';
+      const amount = Number(t.amount || 0);
       airlineKg += kg;
-      airlineAmount += Number(t.amount || 0);
-      lines.push([
-        esc(airline),
-        esc(t.awb_tag_number || t.id || ''),
-        esc(content),
-        esc(String(kg)),
-        esc(route),
-        esc(String(t.amount || 0)),
-      ].join(','));
+      airlineAmount += amount;
+      aoa.push([airline, t.awb_tag_number || t.id || '', content, kg, route, amount]);
     });
-    lines.push([esc(`${airline} SUBTOTAL`), esc(''), esc(''), esc(String(airlineKg)), esc(''), esc(String(airlineAmount))].join(','));
-    lines.push('');
+    aoa.push([`${airline} SUBTOTAL`, '', '', airlineKg, '', airlineAmount]);
+    aoa.push([]);
     grandKg += airlineKg;
     grandAmount += airlineAmount;
   });
 
-  lines.push([esc('GRAND TOTAL'), esc(''), esc(''), esc(String(grandKg)), esc(''), esc(String(grandAmount))].join(','));
+  aoa.push(['GRAND TOTAL', '', '', grandKg, '', grandAmount]);
 
-  const csv = lines.join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `EHI_Airline_Manifest_${hubName.replace(/\s+/g,'_')}_${today}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const ws = XLSX.utils.aoa_to_sheet(sanitizeSpreadsheetAoA(aoa));
+  autoFitWorksheetColumns(ws);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Manifest');
+  XLSX.writeFile(wb, `EHI_Airline_Manifest_${hubName.replace(/\s+/g,'_')}_${today}.xlsx`);
 }
 
 // ── AIRLINE NAME NORMALIZATION ────────────────────────────────
@@ -605,6 +583,31 @@ export function sanitizeSpreadsheetRows<T extends Record<string, unknown>>(rows:
  * XLSX.utils.aoa_to_sheet expects). */
 export function sanitizeSpreadsheetAoA(rows: unknown[][]): unknown[][] {
   return rows.map(row => row.map(cell => sanitizeSpreadsheetCell(cell)));
+}
+
+/** Sets each column's width to fit its widest cell (header included), so
+ * exported .xlsx files open readable instead of at Excel's generic default
+ * width -- plain CSV can't carry this at all, and none of the app's XLSX
+ * exports set it either. Reads back from the worksheet itself rather than
+ * the source rows, so it works the same whether the sheet was built via
+ * aoa_to_sheet or json_to_sheet. Call after the sheet is built, before
+ * book_append_sheet. */
+export function autoFitWorksheetColumns(ws: XLSX.WorkSheet): void {
+  const ref = ws['!ref'];
+  if (!ref) return;
+  const range = XLSX.utils.decode_range(ref);
+  const cols: { wch: number }[] = [];
+  for (let c = range.s.c; c <= range.e.c; c++) {
+    let maxLen = 8;
+    for (let r = range.s.r; r <= range.e.r; r++) {
+      const cell = ws[XLSX.utils.encode_cell({ r, c })];
+      if (!cell) continue;
+      const text = cell.w ?? String(cell.v ?? '');
+      if (text.length > maxLen) maxLen = text.length;
+    }
+    cols.push({ wch: Math.min(maxLen + 2, 60) });
+  }
+  ws['!cols'] = cols;
 }
 
 // Formats a shift boundary as a human-readable label for display

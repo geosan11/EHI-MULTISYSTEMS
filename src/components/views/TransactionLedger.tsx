@@ -1950,7 +1950,7 @@ export const TransactionLedger = ({
 
             {/* Download */}
             <button
-              title={defaultTypeFilter === 'baggage' ? 'Download PDF' : 'Download CSV'}
+              title={defaultTypeFilter === 'baggage' ? 'Download PDF' : 'Download Excel'}
               onClick={() => {
                 if (defaultTypeFilter === 'baggage') {
                   import('./ExcessBaggageLedgerPDF').then(({ downloadBaggageLedgerPDF }) => {
@@ -1969,11 +1969,11 @@ export const TransactionLedger = ({
                     });
                   });
                 } else {
-                  import('../../lib/helpers').then(({ downloadDailyCSV }) => {
+                  import('../../lib/helpers').then(({ downloadDailyExcel }) => {
                     const txs = filteredEntries
                       .filter(e => e.source === 'transaction')
                       .map(e => e.raw as Transaction);
-                    downloadDailyCSV(defaultTypeFilter || 'mixed', txs, user.hub || 'EHI Hub');
+                    downloadDailyExcel(defaultTypeFilter || 'mixed', txs, user.hub || 'EHI Hub');
                   });
                 }
               }}
@@ -1993,19 +1993,19 @@ export const TransactionLedger = ({
 
             {airlineManifestSummary.length > 0 && (
               <button
-                title="Download per-airline manifest CSV (tag number, content, kg, route, amount — grouped and ordered by airline)"
+                title="Download per-airline manifest Excel file (tag number, content, kg, route, amount — grouped and ordered by airline)"
                 onClick={() => {
-                  import('../../lib/helpers').then(({ downloadAirlineManifestCSV }) => {
+                  import('../../lib/helpers').then(({ downloadAirlineManifestExcel }) => {
                     const txs = filteredEntries
                       .filter(e => e.source === 'transaction')
                       .map(e => e.raw as Transaction);
-                    downloadAirlineManifestCSV(txs, user.hub || 'EHI Hub');
+                    downloadAirlineManifestExcel(txs, user.hub || 'EHI Hub');
                   });
                 }}
                 className="h-8 px-2 flex items-center gap-1.5 bg-[rgba(59,130,246,0.12)] border border-[rgba(59,130,246,0.3)] rounded-lg text-[var(--color-accent-cobalt)] hover:bg-[var(--color-accent-cobalt)] hover:text-white font-mono text-[10px] font-bold transition-colors cursor-pointer"
               >
                 <Plane size={13} />
-                <span>Airline CSV</span>
+                <span>Airline Excel</span>
               </button>
             )}
 

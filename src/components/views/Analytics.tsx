@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { User, Transaction, Expense } from '../../lib/types';
-import { fmt, getShiftBoundary, normalizeAirlineName, sanitizeSpreadsheetRows } from '../../lib/helpers';
+import { fmt, getShiftBoundary, normalizeAirlineName, sanitizeSpreadsheetRows, autoFitWorksheetColumns } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
 import { AnimatedNumber } from '../ui/AnimatedNumber';
 import { useToast } from '../../lib/ToastContext';
@@ -532,6 +532,9 @@ export const Analytics = ({
       const wsSummary = XLSX.utils.json_to_sheet(sanitizeSpreadsheetRows(summaryRows));
       const wsClients = XLSX.utils.json_to_sheet(sanitizeSpreadsheetRows(clientRows));
       const wsEntries = XLSX.utils.json_to_sheet(sanitizeSpreadsheetRows(entryRows));
+      autoFitWorksheetColumns(wsSummary);
+      autoFitWorksheetColumns(wsClients);
+      autoFitWorksheetColumns(wsEntries);
 
       XLSX.utils.book_append_sheet(wb, wsSummary, 'Sales Summary');
       XLSX.utils.book_append_sheet(wb, wsClients, 'Top Clients & Pareto');
