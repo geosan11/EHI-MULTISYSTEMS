@@ -189,7 +189,7 @@ export const Dispatch = ({ onBack }: { onBack: () => void }) => {
                     <Popup>
                       <div className="text-[12px] font-bold">{selectedTrip.driverName}</div>
                       <div className="text-[10px] text-gray-500">{selectedTrip.vehiclePlate}</div>
-                      <div className="text-[10px] text-gray-500 mt-1">Last ping: {new Date(selectedTrip.pings[selectedTrip.pings.length-1]?.timestamp || '').toLocaleTimeString()}</div>
+                      <div className="text-[10px] text-gray-500 mt-1">Last ping: {new Date(selectedTrip.pings[selectedTrip.pings.length-1]?.timestamp || '').toLocaleDateString()} {new Date(selectedTrip.pings[selectedTrip.pings.length-1]?.timestamp || '').toLocaleTimeString()}</div>
                     </Popup>
                   </Marker>
                 </MapContainer>

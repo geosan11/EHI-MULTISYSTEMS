@@ -485,7 +485,7 @@ export const Scanner = ({
               result: result.type,
               mode: mode,
               destination: result.cargo?.destination,
-              time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+              time: `${new Date().toLocaleDateString('en-NG', { day: '2-digit', month: 'short' })} ${new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}`,
               kg: result.cargo?.kg,
             }, ...prev];
           });
@@ -517,7 +517,7 @@ export const Scanner = ({
             ref: code,
             name: result.cargo?.name || code,
             result: result.type,
-            time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+            time: `${new Date().toLocaleDateString('en-NG', { day: '2-digit', month: 'short' })} ${new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}`,
           }, ...prev]);
         }
       }
@@ -716,7 +716,7 @@ export const Scanner = ({
           result: resultData.type,
           mode: 'DELIVER',
           destination: resultData.cargo?.destination,
-          time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+          time: `${new Date().toLocaleDateString('en-NG', { day: '2-digit', month: 'short' })} ${new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}`,
           kg: resultData.cargo?.kg,
         }, ...prev];
       });
@@ -747,7 +747,7 @@ export const Scanner = ({
         ref: ref,
         name: resultData.cargo?.name || ref,
         result: resultData.type,
-        time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })
+        time: `${new Date().toLocaleDateString('en-NG', { day: '2-digit', month: 'short' })} ${new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}`
       }, ...prev].slice(0, 50));
     }
 
