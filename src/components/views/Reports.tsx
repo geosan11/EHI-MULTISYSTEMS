@@ -6,6 +6,7 @@ import { Calendar, FileText, Download, Printer, ChevronRight, Filter, Loader2 } 
 import { BackButton } from '../BackButton';
 import { DepartmentSalesAnalysisView } from '../DepartmentSalesAnalysis';
 import { DepartmentSalesAnalysis, computeDepartmentSalesAnalysis, computeReportDateRange } from '../../lib/salesAnalysis';
+import { fetchAllDebtAndRetrievalEntries, buildShadowRowExclusionCounts, extractPaymentHistoryEvents, sumPaymentHistoryByMode } from '../../lib/debt';
 import * as XLSX from 'xlsx';
 
 const REPORT_TYPES = [
@@ -234,6 +235,30 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
     return fetchedTx;
   }, [fetchedTx]);
 
+  // Debt-bearing/retrieved entries, unbounded by dateRange -- a debt
+  // logged outside the report's window but paid off inside it still needs
+  // its payment_history event counted here. See src/lib/debt.ts.
+  const [debtBearingEntries, setDebtBearingEntries] = useState<Transaction[]>([]);
+  useEffect(() => {
+    let active = true;
+    fetchAllDebtAndRetrievalEntries().then(entries => { if (active) setDebtBearingEntries(entries); }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  // Debt-collection events (payment_history-derived) inside this report's
+  // date range + hub scope -- the going-forward replacement for scanning
+  // DC- shadow rows (see isDebtClearanceTx below), now that clearing a
+  // debt no longer creates one.
+  const periodCollectionEvents = useMemo(() => {
+    const exclusionCounts = buildShadowRowExclusionCounts(debtBearingEntries);
+    const isAdmin = ['super_admin', 'admin', 'accountant', 'auditor'].includes(user.role);
+    return extractPaymentHistoryEvents(debtBearingEntries, exclusionCounts).filter(e => {
+      if (!isAdmin && user.hub_id && e.sourceHubId && e.sourceHubId !== user.hub_id) return false;
+      const at = new Date(e.at);
+      return at >= dateRange.from && at <= dateRange.to;
+    });
+  }, [debtBearingEntries, dateRange, user]);
+
   // Debt-clearance shadow entries (DebtorsTab.tsx/TransactionLedger.tsx's
   // "DC-..." ids, inserted as real rows in the same table as the original
   // sale so today's cash reconciliation can see where the money came from)
@@ -265,6 +290,13 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
     const cargo     = nonClearanceTx.filter(t => t.type === 'cargo');
     const marketing = nonClearanceTx.filter(t => t.type === 'marketing');
     const vj        = nonClearanceTx.filter(t => t.type === 'baggage');
+    // Payment-history-derived collections (see periodCollectionEvents
+    // above) are this file's own fetchedTx not carrying `is_debt_clearance`/
+    // payment_history at all (its select() lists explicit columns, neither
+    // included) -- going forward, a debt payment no longer shows up as its
+    // own Cash/Transfer/POS-mode row in filteredTx here, so it must be
+    // added on top rather than relied on to already be present.
+    const collectionByMode = sumPaymentHistoryByMode(periodCollectionEvents);
     return {
       streams: [
         { name: 'Air Cargo',          count: cargo.length,     amount: cargo.reduce((s,t) => s+t.amount, 0) },
@@ -272,14 +304,14 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
         { name: 'Excess Baggage',     count: vj.length,        amount: vj.reduce((s,t) => s+t.amount, 0) },
       ],
       modes: [
-        { name: 'Cash',     amount: filteredTx.filter(t => t.mode === 'Cash').reduce((s,t) => s+t.amount, 0) },
-        { name: 'Transfer', amount: filteredTx.filter(t => t.mode === 'Transfer').reduce((s,t) => s+t.amount, 0) },
-        { name: 'POS',      amount: filteredTx.filter(t => t.mode === 'POS').reduce((s,t) => s+t.amount, 0) },
+        { name: 'Cash',     amount: filteredTx.filter(t => t.mode === 'Cash').reduce((s,t) => s+t.amount, 0) + collectionByMode.cash },
+        { name: 'Transfer', amount: filteredTx.filter(t => t.mode === 'Transfer').reduce((s,t) => s+t.amount, 0) + collectionByMode.transfer },
+        { name: 'POS',      amount: filteredTx.filter(t => t.mode === 'POS').reduce((s,t) => s+t.amount, 0) + collectionByMode.pos },
         { name: 'Credit (Debt)', amount: filteredTx.filter(t => t.mode === 'Debt').reduce((s,t) => s+t.amount, 0) },
       ],
       total: nonClearanceTx.reduce((s,t) => s+t.amount, 0),
     };
-  }, [filteredTx, nonClearanceTx]);
+  }, [filteredTx, nonClearanceTx, periodCollectionEvents]);
 
   const routeReport = useMemo(() => {
     const map: Record<string, { revenue: number; count: number; cargo: number; mktg: number }> = {};
@@ -367,8 +399,21 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
         map[agent].owed += Math.max(0, remaining);
       }
     });
+
+    // Debt-collection events (payment_history-derived) -- the going-forward
+    // replacement for a DC- shadow row's "collected" contribution above,
+    // now that clearing a debt no longer creates one. Attributed to
+    // whoever actually collected it (event.by), not the original agent;
+    // deliberately does NOT bump entries/revenue/per-type, same reasoning
+    // as the isDebtClearanceTx guard above -- a collection isn't a sale.
+    periodCollectionEvents.forEach(e => {
+      const agent = (e.by || 'Unknown Agent').trim();
+      if (!map[agent]) map[agent] = { entries: 0, revenue: 0, collected: 0, owed: 0, cargo: 0, mktg: 0, vj: 0, pkg: 0 };
+      map[agent].collected += e.amount;
+    });
+
     return Object.entries(map).map(([role, d]) => ({ role, ...d })).sort((a, b) => b.revenue - a.revenue).slice(0, 20);
-  }, [filteredTx]);
+  }, [filteredTx, periodCollectionEvents]);
 
   // Layer 1 -- collective totals across every agent, shown before the
   // per-agent breakdown so whoever's reading gets the big picture first.
@@ -379,10 +424,10 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
     owed: acc.owed + s.owed,
   }), { entries: 0, revenue: 0, collected: 0, owed: 0 }), [staffReport]);
 
-  const cargoSalesAnalysis = useMemo(() => computeDepartmentSalesAnalysis(filteredTx, 'cargo'), [filteredTx]);
-  const marketingSalesAnalysis = useMemo(() => computeDepartmentSalesAnalysis(filteredTx, 'marketing'), [filteredTx]);
-  const baggageSalesAnalysis = useMemo(() => computeDepartmentSalesAnalysis(filteredTx, 'baggage'), [filteredTx]);
-  const packageSalesAnalysis = useMemo(() => computeDepartmentSalesAnalysis(filteredTx, 'package'), [filteredTx]);
+  const cargoSalesAnalysis = useMemo(() => computeDepartmentSalesAnalysis(filteredTx, 'cargo', periodCollectionEvents), [filteredTx, periodCollectionEvents]);
+  const marketingSalesAnalysis = useMemo(() => computeDepartmentSalesAnalysis(filteredTx, 'marketing', periodCollectionEvents), [filteredTx, periodCollectionEvents]);
+  const baggageSalesAnalysis = useMemo(() => computeDepartmentSalesAnalysis(filteredTx, 'baggage', periodCollectionEvents), [filteredTx, periodCollectionEvents]);
+  const packageSalesAnalysis = useMemo(() => computeDepartmentSalesAnalysis(filteredTx, 'package', periodCollectionEvents), [filteredTx, periodCollectionEvents]);
 
   const hubReport = useMemo(() => {
     const byHub: Record<string, { revenue: number; entries: number }> = {};

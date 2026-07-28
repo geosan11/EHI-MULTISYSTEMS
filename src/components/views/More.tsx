@@ -28,6 +28,7 @@ import { SizeTierRates } from './SizeTierRates';
 import { RatesList } from './RatesList';
 import { CustomerWallets } from './CustomerWallets';
 import { GatPrintQueue } from './GatPrintQueue';
+import { DebtCollectionRetrievalLog } from './DebtCollectionRetrievalLog';
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -66,6 +67,7 @@ import {
   SparkleIcon,
   ScalesIcon,
   PrinterIcon,
+  HandCoinsIcon,
 } from '@phosphor-icons/react';
 import { ChevronRight } from 'lucide-react';
 
@@ -106,6 +108,7 @@ const MORE_SUB_ROUTES = {
   support: 'support',
   staff: 'staff',
   customerWallets: 'customer-wallets',
+  debtCollectionLog: 'debt-collection-log',
 } as const;
 type MoreSubKey = keyof typeof MORE_SUB_ROUTES;
 
@@ -138,7 +141,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
   }
 
   if (activeSub === 'accounting') {
-    return wrapSub('accounting', <AccountingConsole user={user} transactions={transactions} expenses={expenses} onBack={closeSub} onAddExpense={onAddExpense} onUpdateExpense={onUpdateExpense} onOpenBankRecon={() => openSub('bankRecon')} onFullUpdateTx={onFullUpdateTx} onAddTx={onAddTx} />);
+    return wrapSub('accounting', <AccountingConsole user={user} transactions={transactions} expenses={expenses} onBack={closeSub} onAddExpense={onAddExpense} onUpdateExpense={onUpdateExpense} onOpenBankRecon={() => openSub('bankRecon')} onFullUpdateTx={onFullUpdateTx} />);
   }
 
   if (activeSub === 'reports') {
@@ -211,6 +214,10 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
 
   if (activeSub === 'podLog') {
     return wrapSub('podLog', <PODLog user={user} onBack={closeSub} />);
+  }
+
+  if (activeSub === 'debtCollectionLog') {
+    return wrapSub('debtCollectionLog', <DebtCollectionRetrievalLog user={user} transactions={transactions} onBack={closeSub} />);
   }
 
   if (activeSub === 'dispatch') {
@@ -373,6 +380,14 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
             title="Transaction Ledger"
             subtitle={`${transactions.length} entries — view, search and export`}
             onClick={() => openSub('ledger')}
+          />
+        )}
+        {canAccessTab(user, 'More:DebtCollectionLog', excessBaggageAirlines) && (
+          <MenuItem
+            icon={HandCoinsIcon}
+            title="Debt Collection & Retrieval Log"
+            subtitle="Every debt payment and cargo retrieval, one line each"
+            onClick={() => openSub('debtCollectionLog')}
           />
         )}
         {canAccessTab(user, 'More:GatPrintQueue', excessBaggageAirlines) && (

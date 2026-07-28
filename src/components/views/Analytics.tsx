@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { User, Transaction, Expense } from '../../lib/types';
 import { fmt, getShiftBoundary, normalizeAirlineName, sanitizeSpreadsheetRows } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
+import { fetchAllDebtAndRetrievalEntries, buildShadowRowExclusionCounts, extractPaymentHistoryEvents } from '../../lib/debt';
 import { AnimatedNumber } from '../ui/AnimatedNumber';
 import { useToast } from '../../lib/ToastContext';
 import { 
@@ -183,8 +184,11 @@ export const Analytics = ({
     return transactions.filter(t => t.hub_id === selectedHub);
   }, [transactions, selectedHub]);
 
-  // Date/Time Filtered Transactions
-  const periodFilteredTxs = useMemo(() => {
+  // Same period-window test periodFilteredTxs applies to each transaction's
+  // created_at -- extracted so debt-collection events (dated by their own
+  // payment_history `at`, not any transaction's created_at) can be checked
+  // against the exact same window below.
+  const periodMatches = useCallback((d: Date): boolean => {
     const now = new Date();
     // Same source EODReconciliation.tsx uses -- if this hub's
     // shift_start_hour is ever configured away from the 18:00 default,
@@ -192,37 +196,71 @@ export const Analytics = ({
     // reconciles against, not a silently different one.
     const shiftBoundary = getShiftBoundary((user as any).shift_start_hour ?? 18);
 
+    if (period === 'shift') {
+      return d >= shiftBoundary.start && d <= shiftBoundary.end;
+    }
+    if (period === 'today') {
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+      return d >= todayStart;
+    }
+    if (period === '7days') {
+      const weekAgo = new Date(now.getTime() - 7 * 86400000);
+      return d >= weekAgo;
+    }
+    if (period === 'month') {
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+      return d >= monthStart;
+    }
+    if (period === 'custom') {
+      const start = new Date(customStart);
+      const end = new Date(customEnd);
+      return d >= start && d <= end;
+    }
+    return true;
+  }, [period, customStart, customEnd, user]);
+
+  // Date/Time Filtered Transactions
+  const periodFilteredTxs = useMemo(() => {
     return hubFilteredTxs.filter(t => {
       const txDate = t.created_at ? new Date(t.created_at) : new Date();
-
-      if (period === 'shift') {
-        return txDate >= shiftBoundary.start && txDate <= shiftBoundary.end;
-      }
-      if (period === 'today') {
-        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-        return txDate >= todayStart;
-      }
-      if (period === '7days') {
-        const weekAgo = new Date(now.getTime() - 7 * 86400000);
-        return txDate >= weekAgo;
-      }
-      if (period === 'month') {
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
-        return txDate >= monthStart;
-      }
-      if (period === 'custom') {
-        const start = new Date(customStart);
-        const end = new Date(customEnd);
-        return txDate >= start && txDate <= end;
-      }
-      return true;
+      return periodMatches(txDate);
     }).filter(t => {
       if (!searchQuery) return true;
       const q = searchQuery.toLowerCase();
       const text = `${t.id} ${t.name} ${t.detail} ${t.mode} ${t.airline || ''} ${t.route || ''} ${t.awb_tag_number || ''}`.toLowerCase();
       return text.includes(q);
     });
-  }, [hubFilteredTxs, period, customStart, customEnd, searchQuery, user]);
+  }, [hubFilteredTxs, periodMatches, searchQuery]);
+
+  // Debt-bearing/retrieved entries, unbounded by the `transactions` prop's
+  // own date window -- see src/lib/debt.ts. Feeds the payment_history-
+  // derived "liquid revenue" events below, replacing the old
+  // is_debt_clearance shadow-row scan for collections made after this
+  // view's data no longer includes new shadow rows.
+  const [debtBearingEntries, setDebtBearingEntries] = useState<Transaction[]>([]);
+  useEffect(() => {
+    let active = true;
+    fetchAllDebtAndRetrievalEntries().then(entries => { if (active) setDebtBearingEntries(entries); }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  // Debt-collection events (payment_history-derived) that fall inside the
+  // current period + hub selection, packaged as pseudo-transactions so
+  // `metrics` below can fold them into validLiquidTxs through its existing
+  // reduce logic without a parallel set of formulas.
+  const periodCollectionPseudoTxs = useMemo((): Transaction[] => {
+    const exclusionCounts = buildShadowRowExclusionCounts(debtBearingEntries);
+    return extractPaymentHistoryEvents(debtBearingEntries, exclusionCounts)
+      .filter(e => (selectedHub === 'all' || e.sourceHubId === selectedHub) && periodMatches(new Date(e.at)))
+      .map(e => ({
+        id: `PH-${e.sourceTxId}-${e.at}`,
+        name: e.sourceTxName, detail: e.sourceDetail,
+        amount: e.amount, mode: e.mode, type: e.sourceTxType,
+        time: e.at, created_at: e.at, status: 'Intake',
+        hub_id: e.sourceHubId, hub: e.sourceHub,
+        is_debt_clearance: true,
+      } as Transaction));
+  }, [debtBearingEntries, selectedHub, periodMatches]);
 
   // Core Cargo & Revenue Metrics
   const metrics = useMemo(() => {
@@ -254,7 +292,13 @@ export const Analytics = ({
     // its is_debt_clearance shadow entry. EODReconciliation.tsx already
     // keeps these two strictly separate (newSalesTx excludes
     // is_debt_clearance entirely) -- this mirrors that.
-    const validLiquidTxs = periodFilteredTxs.filter(t => (t.mode !== 'Debt' && t.mode !== 'Debt Paid' && !t.retrieved) || t.is_debt_clearance);
+    // periodCollectionPseudoTxs (payment_history-derived, see above) is
+    // concatenated in rather than filtered from periodFilteredTxs -- these
+    // events aren't real rows in periodFilteredTxs at all going forward
+    // (no shadow row gets created for them), so they must be added
+    // explicitly to keep counting as liquid revenue/collected cash.
+    const validLiquidTxs = periodFilteredTxs.filter(t => (t.mode !== 'Debt' && t.mode !== 'Debt Paid' && !t.retrieved) || t.is_debt_clearance)
+      .concat(periodCollectionPseudoTxs);
 
     const totalRevenue = validLiquidTxs.reduce((sum, t) => sum + t.amount, 0); // Pure liquid
     const cargoRevenue = validLiquidTxs.filter(t => t.type === 'cargo').reduce((sum, t) => sum + t.amount, 0);
@@ -340,7 +384,7 @@ export const Analytics = ({
       collectionEfficiency,
       airlinePayables
     };
-  }, [periodFilteredTxs, airlineCommissions]);
+  }, [periodFilteredTxs, airlineCommissions, periodCollectionPseudoTxs]);
 
   // Client Pareto 80/20 Analysis
   const clientParetoData = useMemo(() => {

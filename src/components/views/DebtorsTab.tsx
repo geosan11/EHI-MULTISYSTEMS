@@ -1,30 +1,28 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Transaction, User } from '../../lib/types';
-import { fmt, tnow } from '../../lib/helpers';
+import { fmt } from '../../lib/helpers';
 import { ChevronDown, ChevronUp, Printer, Plus, HandCoins } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '../../lib/ToastContext';
-import { clearDebt } from '../../lib/debt';
-import { supabase } from '../../lib/supabase';
+import { clearDebt, DEBT_TABLE_NAME, DebtEntryType } from '../../lib/debt';
+import { supabase, writeAuditLog } from '../../lib/supabase';
 import { useHubNames } from '../../lib/hubRoutes';
 
 export const DebtorsTab = ({
   transactions = [],
   user,
   onUpdateTx,
-  onAddTx,
 }: {
   transactions?: Transaction[];
   user?: User;
   onUpdateTx?: (tx: Transaction) => void;
-  onAddTx?: (tx: Transaction) => void;
 }) => {
   const { showToast } = useToast();
-  // hub_id -> name, for the debt-clearance shadow entry's `hub` display
-  // field below -- (debt as any).hub is unreliable (see useHubNames'
-  // own comment), so this is the only way to reliably show the debt's
-  // REAL hub name rather than falling through to the clearing user's own.
+  // hub_id -> name, for the DEBT_COLLECTION audit log's `hub` field below --
+  // (debt as any).hub is unreliable (see useHubNames' own comment), so this
+  // is the only way to reliably show the debt's REAL hub name rather than
+  // falling through to the clearing user's own.
   const hubNames = useHubNames();
   const [filter, setFilter] = useState<'All' | 'Corporate' | 'Individual'>('All');
   const [sort, setSort] = useState<'Highest Amount' | 'Oldest First' | 'Newest First' | 'Alphabetical'>('Highest Amount');
@@ -185,8 +183,7 @@ export const DebtorsTab = ({
     // app), so a double-click/fast-tap could fire two clearDebt() calls
     // for one physical payment; each independently passed the RPC's own
     // "doesn't exceed remaining" guard for a PARTIAL payment (only a full
-    // payoff gets caught by that), double-deducting the debt and
-    // double-emitting the shadow ledger record below.
+    // payoff gets caught by that), double-deducting the debt.
     if (submittingPaymentId) return;
     const debt = debts.find(d => d.id === id);
     if (!debt) return;
@@ -265,80 +262,36 @@ export const DebtorsTab = ({
         setFetchedDebts(prev => prev.map(d => d.id === id ? { ...d, ...finalTx } : d));
       }
 
-      // 2. Emit a visible debt-clearance shadow transaction so today's
-      //    ledger and EOD show this collection separately from new sales.
-      //    Without this, the cash arrives in the till but the system cannot
-      //    explain it — staff write "unexplained excess" in every variance
-      //    reason. The shadow entry carries the full context the accountant needs.
-      if (onAddTx) {
-        const shadowTx: Transaction = {
-          id: `DC-${Date.now()}-${id.slice(-6)}`,
-          name: debt.name,
-          // Kept short and un-delimited on purpose -- EHIApp.tsx's
-          // handleAddTx positionally parses a cargo/marketing entry's
-          // `detail` (airline · awb · pcs · kg · route · content) as a
-          // fallback for its structured columns, and cargo_entries doesn't
-          // persist `detail` verbatim at all (it's rebuilt from those
-          // columns on every fetch) -- a multi-segment summary here either
-          // got discarded on refresh or, worse, corrupted route/awb/content
-          // with fragments of this text. The full breakdown goes in
-          // `remarks` instead, which genuinely round-trips.
-          detail: 'DEBT CLEARANCE',
-          remarks: `${(debt as any).awb_tag_number ? `AWB: ${(debt as any).awb_tag_number} · ` : ''}Orig: ${fmt(debt.amount)} · Paid: ${fmt(cappedPaid)} · Bal: ${fmt(remaining)} · Age: ${debt.ageInDays}d`,
-          amount: cappedPaid,
-          mode: paymentMode,
-          // Never set before -- EHIApp.tsx's handleAddTx falls back to
-          // parsing this shadow entry's own `detail` string for cargo
-          // (yielding the literal "DEBT CLEARANCE" as the airline) or to a
-          // hardcoded 'ValueJet' for baggage when tx.airline is undefined,
-          // polluting AirlinePerformance/Analytics airline groupings with
-          // fake or misattributed revenue for every cleared debt. This is
-          // real money collected for the original airline/route, so it
-          // should count there, not toward a bogus bucket.
-          airline: (debt as any).airline,
-          bank: paymentMode === 'Transfer' ? paymentBank : undefined,
-          time: tnow(),
-          created_at: new Date().toISOString(),
-          // Was hardcoded 'cargo' regardless of the debt's real type -- the
-          // RPC call above already uses (debt as any).type correctly (it
-          // routes to the matching clear_*_debt function), but this shadow
-          // receipt didn't, so clearing a baggage/marketing/package debt
-          // wrote its receipt into cargo_entries instead: parsed through
-          // cargo's own detail-string format (garbled airline/route/awb),
-          // and invisible under any type filter except "Cargo"/"All Types".
-          type: (debt as any).type || 'cargo',
-          status: 'Intake',
-          is_debt_clearance: true,
-          related_tx_id: id,
-          clientType: (debt as any).clientType || 'Individual',
-          enteredByName: user?.name || 'Unknown',
-          // The original debt's own hub, not the clearing user's -- a
-          // super_admin (or any hub-unrestricted role) clearing a debt on
-          // behalf of a branch has their own hub_id, which is often a
-          // different hub (or none at all). Stamping that instead of the
-          // debt's real hub silently hid the clearance record from that
-          // branch's own agents (RLS scopes them to their own hub_id), even
-          // though the super_admin could always see it fine.
-          // `hub` (the display name) must match `hub_id` for the same
-          // reason. FIXED AGAIN: (debt as any).hub alone doesn't actually
-          // fix this -- fetchInitial never selects/maps the DB `hub` text
-          // column for ANY of the 4 department types (only hub_id), so
-          // debt.hub is undefined for the vast majority of debts by the
-          // time this runs, silently falling straight through to
-          // user?.hub (the clearing user's own hub) exactly like before.
-          // hubNames resolves the debt's real hub_id to its real name
-          // instead of trusting that unreliable field.
-          hub_id: (debt as any).hub_id || user?.hub_id,
-          hub: hubNames[(debt as any).hub_id] || (debt as any).hub || user?.hub,
-        };
-        onAddTx(shadowTx);
-      }
+      // 2. Record this collection in the audit trail. Previously this spot
+      //    inserted a visible "DC-..." shadow transaction into the same
+      //    department table as the original sale, so today's ledger/EOD
+      //    could see where the cash came from -- but that meant one
+      //    physical payment showed as two rows in the ledger (the original
+      //    sale, now "Debt Paid", plus a synthetic second "sale"), which is
+      //    exactly the double-entry confusion staff/accountants flagged.
+      //    EOD/Analytics/Reports/AccountingConsole now derive "collected
+      //    today" straight from the payment_history entry just appended to
+      //    the ORIGINAL entry above (see src/lib/debt.ts), so no second row
+      //    is needed here -- the Debt Collection & Retrieval Log view reads
+      //    the same payment_history for its own display. hubNames resolves
+      //    the debt's real hub_id to its real name (debt.hub is unreliable
+      //    -- see the historical comment this replaced) so a super_admin
+      //    clearing a sibling branch's debt still attributes it correctly.
+      writeAuditLog({
+        user_id: user?.id, user_name: user?.name || 'Unknown', action: 'DEBT_COLLECTION',
+        table_name: DEBT_TABLE_NAME[(debt as any).type as DebtEntryType], record_id: id,
+        description: `₦${fmt(cappedPaid)} collected against ${debt.name}'s debt via ${paymentMode}${remaining > 0 ? ` (₦${fmt(remaining)} still owed)` : ' (fully cleared)'}`,
+        hub: hubNames[(debt as any).hub_id] || (debt as any).hub || user?.hub,
+        hub_id: (debt as any).hub_id || user?.hub_id,
+        old_values: { amount_paid: debt.amountPaid || 0 },
+        new_values: { amount_paid: result.newAmountPaid, mode: paymentMode, amount: cappedPaid },
+      }).catch(() => {});
 
       setShowPaymentForm(null);
       setPaymentAmount('');
       showToast({ message: `₦${cappedPaid.toLocaleString()} recorded. ${remaining > 0 ? `Balance: ${fmt(remaining)}` : 'Debt fully cleared.'}`, type: 'success' });
     } finally {
-      // Guarantees the lock releases even if clearDebt()/onAddTx() throws
+      // Guarantees the lock releases even if clearDebt() throws
       // unexpectedly -- without this, an unhandled exception left the
       // Confirm button permanently disabled for this debtor until reload.
       setSubmittingPaymentId(null);

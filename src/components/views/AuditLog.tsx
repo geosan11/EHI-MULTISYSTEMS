@@ -156,6 +156,7 @@ export const AuditLog = ({ onBack, user }: { onBack: () => void; user?: User }) 
       case 'RETRIEVAL': return 'text-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.1)]';
       case 'UNRETRIEVE': return 'text-[var(--color-error)] bg-[rgba(239,68,68,0.1)]';
       case 'RETRIEVAL_APPROVE': return 'text-[var(--color-success)] bg-[rgba(16,185,129,0.1)]';
+      case 'DEBT_COLLECTION': return 'text-[var(--color-success)] bg-[rgba(16,185,129,0.1)]';
       default: return 'text-[var(--color-muted)] bg-[var(--color-surface-2)]';
     }
   };
@@ -195,6 +196,7 @@ export const AuditLog = ({ onBack, user }: { onBack: () => void; user?: User }) 
           <option value="RETRIEVAL">Retrieval</option>
           <option value="UNRETRIEVE">Unretrieve</option>
           <option value="RETRIEVAL_APPROVE">Retrieval Approved</option>
+          <option value="DEBT_COLLECTION">Debt Collection</option>
         </select>
       </div>
 

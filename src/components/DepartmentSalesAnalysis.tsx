@@ -10,6 +10,7 @@ import {
   computeReportDateRange,
   fetchDepartmentSalesTransactions,
 } from '../lib/salesAnalysis';
+import { fetchAllDebtAndRetrievalEntries, buildShadowRowExclusionCounts, extractPaymentHistoryEvents } from '../lib/debt';
 
 const PRESETS = [
   { id: 'today',     label: 'Today' },
@@ -200,7 +201,28 @@ export const DepartmentSalesAnalysisModal = ({ user, deptType, deptLabel, routeL
     return () => { isMounted = false; };
   }, [deptType, user, dateRange]);
 
-  const analysis = useMemo(() => computeDepartmentSalesAnalysis(txs, deptType), [txs, deptType]);
+  // Debt-bearing/retrieved entries, unbounded by dateRange -- feeds the
+  // payment_history-derived "collected" events below. See src/lib/debt.ts
+  // and Reports.tsx's identical fetch for the cross-department version.
+  const [debtBearingEntries, setDebtBearingEntries] = useState<Transaction[]>([]);
+  useEffect(() => {
+    let active = true;
+    fetchAllDebtAndRetrievalEntries().then(entries => { if (active) setDebtBearingEntries(entries); }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  const periodCollectionEvents = useMemo(() => {
+    const exclusionCounts = buildShadowRowExclusionCounts(debtBearingEntries);
+    const isAdmin = ['super_admin', 'admin', 'accountant', 'auditor'].includes(user.role);
+    return extractPaymentHistoryEvents(debtBearingEntries, exclusionCounts).filter(e => {
+      if (e.sourceTxType !== deptType) return false;
+      if (!isAdmin && user.hub_id && e.sourceHubId && e.sourceHubId !== user.hub_id) return false;
+      const at = new Date(e.at);
+      return at >= dateRange.from && at <= dateRange.to;
+    });
+  }, [debtBearingEntries, deptType, dateRange, user]);
+
+  const analysis = useMemo(() => computeDepartmentSalesAnalysis(txs, deptType, periodCollectionEvents), [txs, deptType, periodCollectionEvents]);
 
   // Portaled to document.body -- see Modal.tsx / ReviewEntryModal.tsx for
   // why: this is mounted from CargoForm.tsx among other forms, and any

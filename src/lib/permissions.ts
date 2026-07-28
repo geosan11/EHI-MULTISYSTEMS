@@ -56,6 +56,11 @@ export const STATIC_VIEWS: ViewDef[] = [
   // making all of it individually overridable for people who do have one.
   { id: 'More:EODClose', label: 'EOD Daily Close', roles: MORE_TAB_ROLES, category: 'Daily Operations' },
   { id: 'More:TransactionLedger', label: 'Transaction Ledger', roles: MORE_TAB_ROLES, category: 'Daily Operations' },
+  // Same role list as the ledger itself -- the double-entry confusion this
+  // screen exists to resolve was reported by front-line department agents
+  // clearing debts from TransactionLedger.tsx/DebtorsTab.tsx, not just
+  // accountants reviewing later, so it isn't restricted to Finance roles.
+  { id: 'More:DebtCollectionLog', label: 'Debt Collection & Retrieval Log', roles: MORE_TAB_ROLES, category: 'Daily Operations' },
   // GAT has no printers -- same role list as the ledger itself (MORE_TAB_ROLES)
   // since any Lagos-hub agent who can see the ledger needs to be able to
   // batch-print for GAT at MMA2.

@@ -2039,7 +2039,6 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             transactions={filteredLedgerTransactions}
             onBack={handleCloseLedger}
             onUpdateTx={handleUpdateTx}
-            onAddTx={handleAddTx}
             defaultTypeFilter={streamLedger.streams.length === 1 ? streamLedger.streams[0] : null}
             defaultTerminalFilter={streamLedger.terminal}
             viewOnly={user.role !== 'super_admin' && !user.can_print_ledger}

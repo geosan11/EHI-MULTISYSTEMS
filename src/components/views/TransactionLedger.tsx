@@ -81,7 +81,6 @@ export const TransactionLedger = ({
   expenses = [],
   onBack,
   onUpdateTx,
-  onAddTx,
   defaultTypeFilter,
   defaultTerminalFilter,
   viewOnly = false,
@@ -99,11 +98,6 @@ export const TransactionLedger = ({
   expenses?: Expense[];
   onBack: () => void;
   onUpdateTx: (tx: Transaction) => void;
-  // Optional -- only needed for handleClearDebt's shadow debt-clearance
-  // record (see its own comment). The one existing call site in
-  // EHIApp.tsx passes handleAddTx; a caller that omits it just doesn't
-  // get an EOD-visible shadow entry for debts cleared from this screen.
-  onAddTx?: (tx: Transaction) => void;
   customerWallets?: CustomerWallet[];
   defaultTypeFilter?: 'cargo' | 'baggage' | 'marketing' | 'package' | null;
   // Seeds the terminal filter chip -- used by the GAT tab's History button,
@@ -1459,51 +1453,29 @@ export const TransactionLedger = ({
         showToast({ message: `Payment recorded, but ₦${fmt(stillOwed)} still remains on this debt -- check with the server before assuming it's fully cleared.`, type: 'warning' });
       }
 
-      // Same shadow-clearance record DebtorsTab.tsx's handleRecordPayment
-      // emits, and for the same reason: without a NEW, dated entry, this
-      // collection has no created_at of its own -- EODReconciliation.tsx's
-      // todaysTx filters strictly by created_at, so a debt logged on one day
-      // and cleared here on a later day was invisible to that later day's
-      // cash reconciliation even though the cash was physically collected
-      // then. Carries the real airline (see DebtorsTab's own shadowTx
-      // comment on why an unset one corrupts airline reports) and the
-      // debt's own hub_id, not the clearing user's.
-      if (onAddTx) {
-        // Kept short and un-delimited on purpose -- EHIApp.tsx's handleAddTx
-        // positionally parses a cargo/marketing entry's `detail` (airline ·
-        // awb · pcs · kg · route · content) as a fallback for its structured
-        // columns, and cargo_entries doesn't persist `detail` verbatim at all
-        // (it's rebuilt from those columns on every fetch) -- a multi-segment
-        // summary here either got discarded on refresh or, worse, corrupted
-        // route/awb/content with fragments of this text. The full breakdown
-        // goes in `remarks` instead, which genuinely round-trips.
-        onAddTx({
-          id: `DC-${Date.now()}-${tx.id.slice(-6)}`,
-          name: tx.name,
-          detail: 'DEBT CLEARANCE',
-          remarks: `${(tx as any).awb_tag_number ? `AWB: ${(tx as any).awb_tag_number} · ` : ''}Orig: ${fmt(tx.amount)} · Paid: ${fmt(remaining)} · Bal: ₦${fmt(stillOwed)}`,
-          amount: remaining,
-          mode: clearDebtMode,
-          bank: clearDebtMode === 'Transfer' ? clearDebtBank : undefined,
-          time: tnow(),
-          created_at: new Date().toISOString(),
-          type: tx.type,
-          status: 'Intake',
-          is_debt_clearance: true,
-          related_tx_id: tx.id,
-          clientType: tx.clientType || 'Individual',
-          airline: (tx as any).airline,
-          enteredByName: user.name || 'Unknown',
-          hub_id: tx.hub_id,
-          // FIXED AGAIN: tx.hub alone doesn't actually fix the hub_id/hub
-          // mismatch this was meant to close -- fetchInitial never selects
-          // the DB `hub` text column for any of the 4 department types
-          // (only hub_id), so tx.hub is undefined for the vast majority of
-          // debts by the time this runs. hubNames resolves the real
-          // hub_id to its real name instead of trusting that field.
-          hub: hubNames[tx.hub_id || ''] || tx.hub,
-        } as Transaction);
-      }
+      // Record this collection in the audit trail. Previously this spot
+      // inserted a visible "DC-..." shadow transaction into the same
+      // department table as the original sale, so today's ledger/EOD could
+      // see where the cash came from -- but that meant one physical payment
+      // showed as two rows in the ledger (the original sale, now "Debt
+      // Paid", plus a synthetic second "sale"), which is exactly the
+      // double-entry confusion staff/accountants flagged. EOD/Analytics/
+      // Reports/AccountingConsole now derive "collected today" straight
+      // from the payment_history entry just appended to the ORIGINAL entry
+      // above (see src/lib/debt.ts), so no second row is needed here -- the
+      // Debt Collection & Retrieval Log view reads the same payment_history
+      // for its own display. hubNames resolves the debt's real hub_id to
+      // its real name (tx.hub is unreliable -- see the historical comment
+      // this replaced) so a super_admin clearing a sibling branch's debt
+      // still attributes it correctly.
+      writeAuditLog({
+        user_id: user.id, user_name: user.name || 'Unknown', action: 'DEBT_COLLECTION',
+        table_name: RETRIEVAL_TABLE_NAME[tx.type as RetrievalEntryType], record_id: tx.id,
+        description: `₦${fmt(remaining)} collected against ${tx.name}'s debt via ${clearDebtMode}${stillOwed > 0 ? ` (₦${fmt(stillOwed)} still owed)` : ' (fully cleared)'}`,
+        hub: hubNames[tx.hub_id || ''] || tx.hub, hub_id: tx.hub_id,
+        old_values: { amount_paid: tx.amountPaid || 0 },
+        new_values: { amount_paid: result.newAmountPaid, mode: clearDebtMode, amount: remaining },
+      }).catch(() => {});
 
       if (fullyPaid) {
         showToast({ message: 'Debt cleared successfully', type: 'success' });
