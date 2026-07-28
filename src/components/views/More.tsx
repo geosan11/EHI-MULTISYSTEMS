@@ -217,7 +217,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
   }
 
   if (activeSub === 'debtCollectionLog') {
-    return wrapSub('debtCollectionLog', <DebtCollectionRetrievalLog user={user} transactions={transactions} onBack={closeSub} />);
+    return wrapSub('debtCollectionLog', <DebtCollectionRetrievalLog transactions={transactions} onBack={closeSub} />);
   }
 
   if (activeSub === 'dispatch') {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Transaction, User } from '../../lib/types';
+import { Transaction } from '../../lib/types';
 import { fmt } from '../../lib/helpers';
 import { fetchAllDebtAndRetrievalEntries, buildShadowRowExclusionCounts, extractPaymentHistoryEvents, PaymentHistoryEvent } from '../../lib/debt';
 import { HandCoins, PackageCheck, Search, X, Calendar } from 'lucide-react';
@@ -49,7 +49,7 @@ const quantitySummary = (source: Transaction | undefined): string => {
 
 type Tab = 'Collections' | 'Retrievals';
 
-export const DebtCollectionRetrievalLog = ({ user, transactions, onBack }: { user: User; transactions: Transaction[]; onBack: () => void }) => {
+export const DebtCollectionRetrievalLog = ({ transactions, onBack }: { transactions: Transaction[]; onBack: () => void }) => {
   const [tab, setTab] = useState<Tab>('Collections');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEvent, setSelectedEvent] = useState<PaymentHistoryEvent | null>(null);
