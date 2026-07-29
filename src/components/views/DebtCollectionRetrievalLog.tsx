@@ -197,10 +197,10 @@ export const DebtCollectionRetrievalLog = ({ transactions, onBack }: { transacti
                         <HandCoins size={18} />
                       </div>
                       <div className="min-w-0 flex flex-col items-start gap-1">
-                        <div className="text-[12px] font-bold text-[var(--color-foreground)] font-mono truncate max-w-[220px]">
+                        <div className="text-[12px] font-bold text-[var(--color-foreground)] font-mono">
                           Debt collection — {e.sourceTxName}
                         </div>
-                        <div className="text-[10px] text-[var(--color-light-muted)] truncate max-w-[220px]">
+                        <div className="text-[10px] text-[var(--color-light-muted)]">
                           {qty ? `${qty} · ` : ''}{e.sourceDetail}
                         </div>
                         <div className="text-[9px] font-mono text-[var(--color-muted)] flex items-center gap-1.5 mt-0.5">
@@ -235,10 +235,10 @@ export const DebtCollectionRetrievalLog = ({ transactions, onBack }: { transacti
                       <PackageCheck size={18} />
                     </div>
                     <div className="min-w-0 flex flex-col items-start gap-1">
-                      <div className="text-[12px] font-bold text-[var(--color-foreground)] font-mono truncate max-w-[220px]">
+                      <div className="text-[12px] font-bold text-[var(--color-foreground)] font-mono">
                         {t.name}
                       </div>
-                      <div className="text-[10px] text-[var(--color-light-muted)] truncate max-w-[220px]">
+                      <div className="text-[10px] text-[var(--color-light-muted)]">
                         {raw?.retrieved_pieces || 0} pcs / {raw?.retrieved_kg || 0} kg of {t.pieces ?? '?'} pcs / {t.kg ?? '?'} kg
                       </div>
                       <div className="text-[9px] font-mono text-[var(--color-muted)] flex items-center gap-1.5 mt-0.5">
