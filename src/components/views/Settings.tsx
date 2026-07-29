@@ -14,33 +14,7 @@ import { reinitSupabase, getConnectionMode, testSupabaseConnection, supabase, wr
 import { getConfiguredPrinter, setConfiguredPrinter, listPrinters } from '../../lib/qzPrint';
 import { useToast } from '../../lib/ToastContext';
 import { useAirlines } from '../../lib/airlines';
-
-const GlassToggle = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => {
-  return (
-    <button
-      type="button"
-      onClick={onChange}
-      role="switch"
-      aria-checked={checked}
-      className={`relative w-[52px] h-[28px] rounded-full p-0.5 transition-all duration-300 ease-in-out cursor-pointer outline-none ${
-        checked
-          ? 'bg-gradient-to-r from-amber-400/20 to-amber-500/30 border border-amber-400/40 shadow-[0_0_12px_rgba(252,191,73,0.25)]'
-          : 'bg-white/5 border border-white/10 shadow-inner'
-      }`}
-    >
-      {checked && (
-        <span className="absolute inset-0 rounded-full bg-amber-400/5 blur-[4px] animate-pulse" />
-      )}
-      <span
-        className={`block w-[22px] h-[22px] rounded-full transition-all duration-300 ease-in-out shadow-md border ${
-          checked
-            ? 'translate-x-[24px] bg-gradient-to-br from-amber-300 to-amber-500 border-amber-300/80 shadow-[0_2px_6px_rgba(252,191,73,0.4)]'
-            : 'translate-x-0 bg-gradient-to-br from-slate-200 to-slate-400 border-white/20'
-        }`}
-      />
-    </button>
-  );
-};
+import { GlassToggle } from '../ui/GlassToggle';
 
 
 export const Settings = ({

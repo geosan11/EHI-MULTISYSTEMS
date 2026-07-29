@@ -319,7 +319,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
   }) => (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 py-3.5 border-b border-[var(--color-border)] transition-colors text-left ${
+      className={`w-full flex items-center gap-3 py-3.5 px-3.5 transition-colors text-left ${
         disabled
           ? 'opacity-40 cursor-not-allowed'
           : 'hover:bg-[var(--color-surface-1)] cursor-pointer group'
@@ -339,7 +339,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
   );
 
   const SectionLabel = ({ label }: { label: string }) => (
-    <div className="text-[9px] font-mono text-[var(--color-muted)] tracking-[0.12em] uppercase pt-4 pb-1.5 px-1">
+    <div className="text-[9px] font-mono text-[var(--color-muted)] tracking-[0.12em] uppercase pt-5 pb-2 px-1">
       ▸ {label}
     </div>
   );
@@ -349,7 +349,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
 
       {/* Daily Operations */}
       <SectionLabel label="Daily Operations" />
-      <div>
+      <div className="ehi-card divide-y divide-[var(--color-border)] overflow-hidden">
         {canAccessTab(user, 'Incoming', excessBaggageAirlines) && (
           <MenuItem
             icon={SealCheckIcon}
@@ -419,7 +419,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
 
       {/* Finance */}
       <SectionLabel label="Finance" />
-      <div>
+      <div className="ehi-card divide-y divide-[var(--color-border)] overflow-hidden">
         <MenuItem
           icon={ListBulletsIcon}
           title="Rates Directory"
@@ -499,7 +499,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
 
       {/* Intelligence */}
       <SectionLabel label="Intelligence" />
-      <div>
+      <div className="ehi-card divide-y divide-[var(--color-border)] overflow-hidden">
         <MenuItem
           icon={BrainIcon}
           title={
@@ -538,7 +538,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
 
       {/* Fleet & Logistics */}
       <SectionLabel label="Fleet & Logistics" />
-      <div>
+      <div className="ehi-card divide-y divide-[var(--color-border)] overflow-hidden">
         <MenuItem
           icon={TruckIcon}
           title="Fleet Management"
@@ -564,7 +564,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
 
       {/* Data */}
       <SectionLabel label="Data & Records" />
-      <div>
+      <div className="ehi-card divide-y divide-[var(--color-border)] overflow-hidden">
         <MenuItem
           icon={BookOpenIcon}
           title="Airline Balance Ledger"
@@ -590,7 +590,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
 
       {/* Administration */}
       <SectionLabel label="Administration" />
-      <div>
+      <div className="ehi-card divide-y divide-[var(--color-border)] overflow-hidden">
         <MenuItem
           icon={AirplaneIcon}
           title="Airline Logos"
@@ -686,7 +686,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
 
       {/* Support & Account */}
       <SectionLabel label="Support & Account" />
-      <div>
+      <div className="ehi-card divide-y divide-[var(--color-border)] overflow-hidden">
         {canAccessTab(user, 'More:StaffManagement', excessBaggageAirlines) && (
           <MenuItem
             icon={UsersIcon}
@@ -703,18 +703,18 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
             onClick={() => openSub('support')}
           />
         )}
-
-        <button
-          onClick={onLogout}
-          className="w-full mt-2 flex items-center gap-3 py-3.5 cursor-pointer group text-left"
-        >
-          <SignOutIcon size={18} weight="regular" className="text-[var(--color-error)] shrink-0" />
-          <div className="text-left flex-1">
-            <div className="text-[13px] font-bold font-sans text-[var(--color-error)]">Sign Out</div>
-            <div className="text-[10px] font-mono text-[var(--color-muted)] opacity-80">{user.name} &middot; {user.hub}</div>
-          </div>
-        </button>
       </div>
+
+      <button
+        onClick={onLogout}
+        className="ehi-card w-full mt-3 flex items-center gap-3 py-3.5 px-3.5 cursor-pointer group text-left hover:bg-[var(--color-surface-1)] transition-colors"
+      >
+        <SignOutIcon size={18} weight="regular" className="text-[var(--color-error)] shrink-0" />
+        <div className="text-left flex-1">
+          <div className="text-[13px] font-bold font-sans text-[var(--color-error)]">Sign Out</div>
+          <div className="text-[10px] font-mono text-[var(--color-muted)] opacity-80">{user.name} &middot; {user.hub}</div>
+        </div>
+      </button>
 
     </div>
   );

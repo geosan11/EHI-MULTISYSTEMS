@@ -10,6 +10,7 @@ import { supabase, writeAuditLog } from '../../lib/supabase';
 import { createStaffAccount, updateStaffProfile } from '../../lib/auth';
 import { BulkStaffImport } from './BulkStaffImport';
 import { getAllViewDefs, getRoleDefaultTabs, groupViewDefs } from '../../lib/permissions';
+import { GlassToggle } from '../ui/GlassToggle';
 
 interface StaffMember {
   id: string;
@@ -703,19 +704,18 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
                             {group.views.map(v => {
                               const checked = editingStaff.view_overrides?.includes(v.id) ?? false;
                               return (
-                                <label key={v.id} className="flex items-center gap-1.5 text-[10px] text-[var(--color-foreground)] bg-[var(--color-surface-2)] rounded px-2 py-1.5 cursor-pointer">
-                                  <input
-                                    type="checkbox"
+                                <label key={v.id} className="flex items-center justify-between gap-1.5 text-[10px] text-[var(--color-foreground)] bg-[var(--color-surface-2)] rounded px-2 py-1.5 cursor-pointer">
+                                  <span className="truncate">{v.label}</span>
+                                  <GlassToggle
+                                    size="sm"
                                     checked={checked}
-                                    onChange={e => setEditingStaff(s => {
+                                    onChange={() => setEditingStaff(s => {
                                       if (!s) return null;
                                       const current = s.view_overrides || [];
-                                      const next = e.target.checked ? [...current, v.id] : current.filter(id => id !== v.id);
+                                      const next = !checked ? [...current, v.id] : current.filter(id => id !== v.id);
                                       return { ...s, view_overrides: next };
                                     })}
-                                    className="shrink-0"
                                   />
-                                  <span className="truncate">{v.label}</span>
                                 </label>
                               );
                             })}

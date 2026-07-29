@@ -176,7 +176,7 @@ export const OfficeWorkReconciliation = ({ user, onBack }: { user: User; onBack:
               {candidates.map(c => {
                 const noRate = c.correctedAmount == null;
                 return (
-                  <div key={c.entry_ref} className={`rounded-lg border p-3 ${noRate ? 'border-[var(--color-border)] opacity-70' : selected.has(c.entry_ref) ? 'border-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.06)]' : 'border-[var(--color-border)] bg-[var(--color-surface-1)]'}`}>
+                  <div key={c.entry_ref} className={`rounded-lg border p-3 ${noRate ? 'border-[var(--color-border)] opacity-70' : selected.has(c.entry_ref) ? 'border-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.06)]' : 'border-[var(--color-border)] bg-[var(--color-surface-1)]'}`} style={{ boxShadow: 'var(--shadow-sm)' }}>
                     <div className="flex items-start gap-3">
                       <input type="checkbox" disabled={noRate} checked={selected.has(c.entry_ref)} onChange={() => toggle(c.entry_ref)} className="mt-1" />
                       <div className="flex-1 min-w-0">

@@ -942,6 +942,7 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
             <div
               key={wallet.id}
               className="p-3.5 bg-[var(--color-surface-card)] rounded-xl border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] transition-colors flex items-center justify-between gap-3"
+              style={{ boxShadow: 'var(--shadow-card)' }}
             >
               <div className="space-y-1 min-w-0 flex-1">
                 <div className="flex items-center gap-2">
@@ -1032,7 +1033,7 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
       {/* Modal: Top-Up / Create Wallet */}
       {showTopUpModal && createPortal(
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl space-y-4 p-5">
+          <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-2xl w-full max-w-md overflow-hidden space-y-4 p-5" style={{ boxShadow: 'var(--shadow-modal)' }}>
             <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-3">
               <div className="flex items-center gap-2">
                 <Wallet size={18} className="text-[var(--color-accent-amber)]" />
@@ -1175,7 +1176,7 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
       {/* Modal: History */}
       {showHistoryModal && selectedWallet && createPortal(
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl space-y-4 p-5 max-h-[85vh] flex flex-col">
+          <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-2xl w-full max-w-lg overflow-hidden space-y-4 p-5 max-h-[85vh] flex flex-col" style={{ boxShadow: 'var(--shadow-modal)' }}>
             <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-3 shrink-0">
               <div>
                 <span className="text-[13px] font-mono font-bold text-[var(--color-foreground)] uppercase block">
@@ -1272,7 +1273,7 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
         if (!wallet) return null;
         return createPortal(
           <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl space-y-4 p-5">
+            <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-2xl w-full max-w-sm overflow-hidden space-y-4 p-5" style={{ boxShadow: 'var(--shadow-modal)' }}>
               <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-3">
                 <div>
                   <span className="text-[13px] font-mono font-bold text-[var(--color-foreground)] uppercase block">
