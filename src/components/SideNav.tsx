@@ -114,14 +114,14 @@ export const SideNav = ({
       style={{
         display: "flex",
         flexDirection: "column",
-        width: isExpanded ? 220 : 76,
-        margin: "12px 0 12px 12px",
+        width: isExpanded ? 220 : 72,
+        margin: "10px 0 10px 10px",
         background: "var(--color-surface-card)",
         border: "1px solid var(--color-border)",
         borderRadius: "var(--radius-2xl)",
         boxShadow: "var(--shadow-dropdown)",
         flexShrink: 0,
-        height: "calc(var(--app-height) - 24px)",
+        height: "calc(var(--app-height) - 20px)",
         overflowY: "auto",
         overflowX: "hidden",
         transition: "width 0.3s cubic-bezier(0.2, 0, 0, 1)",
@@ -130,23 +130,24 @@ export const SideNav = ({
       {/* Brand */}
       <div
         style={{
-          padding: isExpanded ? "18px 12px 14px" : "18px 0 14px",
+          padding: isExpanded ? "12px 12px 8px" : "12px 0 8px",
           display: "flex",
           flexDirection: "column",
           alignItems: isExpanded ? "flex-start" : "center",
           transition: "all 0.3s cubic-bezier(0.2, 0, 0, 1)",
+          flexShrink: 0,
         }}
       >
         <div
-          className={`flex items-center cursor-pointer hover:opacity-80 transition-opacity ${isExpanded ? "gap-3" : "justify-center w-full"}`}
-          style={{ minHeight: 48 }}
+          className={`flex items-center cursor-pointer hover:opacity-80 transition-opacity ${isExpanded ? "gap-2.5" : "justify-center w-full"}`}
+          style={{ minHeight: 36 }}
           onClick={handleToggleExpand}
         >
           <div
             style={{
-              width: 46,
-              height: 46,
-              borderRadius: 12,
+              width: 36,
+              height: 36,
+              borderRadius: 10,
               background: "rgba(245,158,11,0.12)",
               border: "1px solid rgba(245,158,11,0.25)",
               boxShadow: "0 2px 10px rgba(245,158,11,0.15)",
@@ -159,7 +160,7 @@ export const SideNav = ({
             <img
               src={ehiLogo}
               alt="EHI"
-              style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 10 }}
+              style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 8 }}
               onError={(e) => {
                 // Falls back to the original text treatment if the file is
                 // missing or fails to load, rather than showing a broken image icon
@@ -186,7 +187,7 @@ export const SideNav = ({
             <div
               style={{
                 fontFamily: "'JetBrains Mono', monospace",
-                fontSize: 15,
+                fontSize: 13,
                 fontWeight: 900,
                 color: "var(--color-foreground, #F1F5F9)",
                 letterSpacing: "0.03em",
@@ -197,13 +198,13 @@ export const SideNav = ({
             </div>
             <div
               style={{
-                fontSize: 9,
+                fontSize: 8,
                 fontWeight: 700,
                 fontFamily: "monospace",
                 color: "var(--color-accent-amber)",
-                letterSpacing: "0.12em",
+                letterSpacing: "0.1em",
                 textTransform: "uppercase",
-                marginTop: 3,
+                marginTop: 2,
               }}
             >
               Logistics Platform
@@ -214,7 +215,7 @@ export const SideNav = ({
         <div
           className="ehi-sidebar-brand"
           style={{
-            marginTop: 12,
+            marginTop: 6,
             opacity: isExpanded ? 1 : 0,
             height: isExpanded ? "auto" : 0,
             overflow: "hidden",
@@ -225,7 +226,7 @@ export const SideNav = ({
         >
           <div
             style={{
-              fontSize: 11,
+              fontSize: 10.5,
               fontWeight: 600,
               color: "var(--color-foreground, #F1F5F9)",
             }}
@@ -234,12 +235,12 @@ export const SideNav = ({
           </div>
           <div
             style={{
-              fontSize: 9,
+              fontSize: 8.5,
               fontFamily: "monospace",
               color: "var(--color-accent-amber)",
               textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              marginTop: 2,
+              letterSpacing: "0.05em",
+              marginTop: 1,
             }}
           >
             {user.hub}
@@ -247,7 +248,7 @@ export const SideNav = ({
         </div>
       </div>
 
-      <nav style={{ flex: 1, padding: "6px 10px", display: "flex", flexDirection: "column", gap: 4 }}>
+      <nav style={{ flex: 1, padding: "4px 8px", display: "flex", flexDirection: "column", gap: 2, minHeight: 0 }}>
         {visibleTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = currentTab === tab.id;
@@ -262,11 +263,11 @@ export const SideNav = ({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: isExpanded ? "flex-start" : "center",
-                gap: isExpanded ? 12 : 0,
-                padding: isExpanded ? "8px 10px" : "8px",
+                gap: isExpanded ? 10 : 0,
+                padding: isExpanded ? "5px 8px" : "5px",
                 background: isActive ? "transparent" : "transparent",
                 border: "none",
-                borderRadius: "var(--radius-lg)",
+                borderRadius: "var(--radius-md)",
                 cursor: "pointer",
                 transition: "background-color 0.15s ease",
                 textAlign: "left",
@@ -276,9 +277,9 @@ export const SideNav = ({
             >
               <div
                 style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: "var(--radius-md)",
+                  width: 30,
+                  height: 30,
+                  borderRadius: "var(--radius-sm)",
                   display: "flex",
                   justifyContent: "center",
                   alignItems: "center",
@@ -289,7 +290,7 @@ export const SideNav = ({
                 }}
               >
                 <Icon
-                  size={18}
+                  size={16}
                   weight={isActive ? "fill" : "regular"}
                   style={{ flexShrink: 0, transition: "all 0.15s ease" }}
                   className={
@@ -314,7 +315,7 @@ export const SideNav = ({
                 <span
                   className={`${isActive ? "text-[var(--color-foreground)]" : "text-[var(--color-muted)] group-hover:text-[var(--color-foreground)]"} transition-colors`}
                   style={{
-                    fontSize: 13,
+                    fontSize: 12.5,
                     fontWeight: isActive ? 700 : 500,
                   }}
                 >
@@ -328,11 +329,12 @@ export const SideNav = ({
 
       <div
         style={{
-          padding: "10px",
+          padding: "6px 8px",
           borderTop: "1px solid var(--color-border)",
           display: "flex",
           flexDirection: "column",
-          gap: "4px",
+          gap: "2px",
+          flexShrink: 0,
         }}
       >
         <button
@@ -340,26 +342,26 @@ export const SideNav = ({
           className="group hover:bg-[var(--color-surface-2)] transition-colors"
           style={{
             width: "100%",
-            padding: isExpanded ? "9px 10px" : "9px",
+            padding: isExpanded ? "6px 8px" : "6px",
             justifyContent: isExpanded ? "flex-start" : "center",
             background: "transparent",
             border: "none",
             display: "flex",
             alignItems: "center",
-            gap: isExpanded ? 12 : 0,
+            gap: isExpanded ? 10 : 0,
             cursor: "pointer",
-            borderRadius: "var(--radius-lg)",
+            borderRadius: "var(--radius-md)",
           }}
         >
           {theme === "dark" ? (
             <SunIcon
-              size={18}
+              size={16}
               weight="regular"
               className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-transform duration-300 group-hover:rotate-45 active:scale-90"
             />
           ) : (
             <MoonIcon
-              size={18}
+              size={16}
               weight="regular"
               className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-transform duration-300 group-hover:-rotate-12 active:scale-90"
             />
@@ -378,7 +380,7 @@ export const SideNav = ({
           >
             <span
               className="text-left text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors"
-              style={{ fontSize: 12 }}
+              style={{ fontSize: 11.5 }}
             >
               {theme === "dark" ? "Light Mode" : "Dark Mode"}
             </span>
@@ -390,19 +392,19 @@ export const SideNav = ({
           className="group hover:bg-[var(--color-surface-2)] transition-colors"
           style={{
             width: "100%",
-            padding: isExpanded ? "9px 10px" : "9px",
+            padding: isExpanded ? "6px 8px" : "6px",
             justifyContent: isExpanded ? "flex-start" : "center",
             background: "transparent",
             border: "none",
             display: "flex",
             alignItems: "center",
-            gap: isExpanded ? 12 : 0,
+            gap: isExpanded ? 10 : 0,
             cursor: "pointer",
-            borderRadius: "var(--radius-lg)",
+            borderRadius: "var(--radius-md)",
           }}
         >
           <SignOutIcon
-            size={18}
+            size={16}
             weight="regular"
             className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors"
           />
@@ -420,7 +422,7 @@ export const SideNav = ({
           >
             <span
               className="text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors"
-              style={{ fontSize: 12 }}
+              style={{ fontSize: 11.5 }}
             >
               Sign Out
             </span>
