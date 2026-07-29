@@ -5,7 +5,7 @@ import ehiLogo from '../assets/branding/ehi-logo.png';
 import loginBg from '../assets/branding/login-bg.jpg';
 import loginArt from '../assets/branding/ehi_login_art.jpg';
 import { getConnectionMode, testSupabaseConnection, supabase } from '../lib/supabase';
-import { User, Eye, EyeOff, Check, Loader2, AlertCircle, ShieldCheck, Plane, Building2 } from 'lucide-react';
+import { User, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
 
 type ConnStatus = 'checking' | 'live' | 'offline' | 'unconfigured';
 
@@ -111,19 +111,19 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
         backgroundImage: `url(${loginBg})`,
       }}
     >
-      {/* Dark Ambient Glass Overlay */}
-      <div className="absolute inset-0 bg-slate-950/65 backdrop-blur-[6px] pointer-events-none" />
+      {/* Ambient Glass Overlay (theme-aware) */}
+      <div className="absolute inset-0 backdrop-blur-[6px] pointer-events-none" style={{ background: 'var(--color-overlay)' }} />
 
       {/* Main Container: Sleek desktop split card styled like the mockup */}
-      <div className="relative z-10 w-full max-w-[380px] lg:max-w-3xl bg-[#12141a]/92 backdrop-blur-2xl border border-white/10 rounded-[24px] p-4 lg:p-5 shadow-[0_30px_90px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.06)]">
-        
-        {/* Top-left window control dots bar */}
-        <div className="flex items-center gap-1.5 mb-3 px-1">
-          <div className="w-2.5 h-2.5 rounded-full bg-white/20 hover:bg-white/40 transition-colors" />
-          <div className="w-2.5 h-2.5 rounded-full bg-white/20 hover:bg-white/40 transition-colors" />
-          <div className="w-2.5 h-2.5 rounded-full bg-white/20 hover:bg-white/40 transition-colors" />
-        </div>
-
+      <div
+        className="relative z-10 w-full max-w-[380px] lg:max-w-3xl backdrop-blur-2xl p-4 lg:p-5"
+        style={{
+          background: 'var(--color-surface-card-glass)',
+          border: '1px solid var(--color-border-strong)',
+          borderRadius: 'var(--radius-2xl)',
+          boxShadow: 'var(--shadow-modal)',
+        }}
+      >
         <div className="lg:grid lg:grid-cols-12 lg:gap-6 lg:items-center">
 
           {/* Left Column (Authentication Form) */}
@@ -132,12 +132,15 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
             {/* Header Branding */}
             <div className="text-left mb-5 flex flex-col items-start w-full">
               {/* Mobile Logo Display */}
-              <div className="mb-3.5 p-2 rounded-xl bg-slate-900/80 border border-white/15 backdrop-blur-md shadow-lg lg:hidden">
+              <div
+                className="mb-3.5 p-2 rounded-xl backdrop-blur-md shadow-lg lg:hidden"
+                style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}
+              >
                 <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 130, height: 'auto', objectFit: 'contain' }} />
               </div>
 
-              <h1 className="text-2xl sm:text-[28px] font-extrabold font-sans text-white tracking-tight">Sign in</h1>
-              <p className="text-[12px] font-sans text-white/60 mt-1">Enter your credentials to access your portal</p>
+              <h1 className="text-2xl sm:text-[28px] font-extrabold font-sans tracking-tight" style={{ color: 'var(--color-foreground)' }}>Sign in</h1>
+              <p className="text-[12px] font-sans mt-1" style={{ color: 'var(--color-muted)' }}>Enter your credentials to access your portal</p>
 
               {/* Connection Status Badge */}
               <div
@@ -158,7 +161,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
             <form onSubmit={handleSubmit} className="w-full space-y-4">
               {/* Email / Username Input */}
               <div className="w-full">
-                <label htmlFor="login-email" className="block text-[11px] font-sans font-bold text-white/70 mb-1.5 ml-0.5 uppercase tracking-wider">
+                <label htmlFor="login-email" className="block text-[11px] font-sans font-bold mb-1.5 ml-0.5 uppercase tracking-wider" style={{ color: 'var(--color-muted)' }}>
                   Your email or username
                 </label>
                 <div className="relative">
@@ -170,23 +173,31 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="name@company.com"
                     autoComplete="email"
-                    className="w-full h-11 px-3.5 pr-10 rounded-xl bg-[#1a1d26] text-white placeholder-white/25 border border-white/10 focus:border-[var(--color-accent-amber)] focus:bg-[#1f2330] focus:outline-none transition-all text-sm font-sans font-medium shadow-inner"
+                    className="w-full h-11 px-3.5 pr-10 rounded-[var(--radius-md)] focus:outline-none transition-all text-sm font-sans font-medium shadow-inner"
+                    style={{
+                      background: 'var(--color-input-bg)',
+                      color: 'var(--color-input-text)',
+                      border: '1.5px solid var(--color-border)',
+                    }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-accent-amber)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--glow-amber)'; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.boxShadow = 'none'; }}
                     required
                   />
-                  <User size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/35 pointer-events-none" />
+                  <User size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--color-muted)' }} />
                 </div>
               </div>
 
               {/* Password Input with inline Forgot password link */}
               <div className="w-full">
                 <div className="flex items-center justify-between mb-1.5 ml-0.5">
-                  <label htmlFor="login-password" className="block text-[11px] font-sans font-bold text-white/70 uppercase tracking-wider">
+                  <label htmlFor="login-password" className="block text-[11px] font-sans font-bold uppercase tracking-wider" style={{ color: 'var(--color-muted)' }}>
                     Password
                   </label>
                   <button
                     type="button"
                     onClick={() => { setShowForgotPassword(true); setResetEmail(email); setResetSent(false); setResetError(''); }}
-                    className="text-[11px] font-sans text-white/50 hover:text-[var(--color-accent-amber)] transition-colors cursor-pointer"
+                    className="text-[11px] font-sans hover:text-[var(--color-accent-amber)] transition-colors cursor-pointer"
+                    style={{ color: 'var(--color-muted)' }}
                   >
                     Forget password?
                   </button>
@@ -200,13 +211,23 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••••••"
                     autoComplete="current-password"
-                    className="w-full h-11 px-3.5 pr-10 rounded-xl bg-[#1a1d26] text-white placeholder-white/25 border border-white/10 focus:border-[var(--color-accent-amber)] focus:bg-[#1f2330] focus:outline-none transition-all text-sm font-sans font-medium shadow-inner"
+                    className="w-full h-11 px-3.5 pr-10 rounded-[var(--radius-md)] focus:outline-none transition-all text-sm font-sans font-medium shadow-inner"
+                    style={{
+                      background: 'var(--color-input-bg)',
+                      color: 'var(--color-input-text)',
+                      border: '1.5px solid var(--color-border)',
+                    }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-accent-amber)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--glow-amber)'; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.boxShadow = 'none'; }}
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/35 hover:text-white transition-colors cursor-pointer p-1"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors cursor-pointer p-1"
+                    style={{ color: 'var(--color-muted)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-foreground)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-muted)'; }}
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -222,9 +243,9 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                     style={{
                       background: rememberMe
                         ? 'linear-gradient(135deg, rgba(34,197,94,0.12) 0%, rgba(251,191,36,0.08) 100%)'
-                        : 'rgba(255,255,255,0.05)',
-                      border: rememberMe ? '1px solid rgba(34,197,94,0.30)' : '1px solid rgba(255,255,255,0.12)',
-                      boxShadow: 'inset 0 2px 5px rgba(0,0,0,0.5), inset 0 -1px 2px rgba(255,255,255,0.08)',
+                        : 'var(--color-surface-2)',
+                      border: rememberMe ? '1px solid rgba(34,197,94,0.30)' : '1px solid var(--color-border-strong)',
+                      boxShadow: 'var(--shadow-xs)',
                     }}
                   >
                     {/* Track label text */}
@@ -233,7 +254,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                       style={{
                         right: rememberMe ? 'auto' : '6px',
                         left: rememberMe ? '8px' : 'auto',
-                        color: rememberMe ? 'rgba(34,197,94,0.85)' : 'rgba(255,255,255,0.3)',
+                        color: rememberMe ? 'rgba(34,197,94,0.85)' : 'var(--color-muted)',
                       }}
                     >
                       {rememberMe ? 'ON' : 'OFF'}
@@ -244,11 +265,11 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                       className="absolute w-7 h-7 rounded-full transition-all duration-300 backdrop-blur-md flex items-center justify-center"
                       style={{
                         left: rememberMe ? 'calc(100% - 26px)' : '-2px',
-                        background: 'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.15) 60%, rgba(200,200,200,0.25) 100%)',
+                        background: 'var(--color-surface-card)',
                         boxShadow: rememberMe
-                          ? '0 6px 16px rgba(34,197,94,0.45), 0 2px 6px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.4)'
-                          : '0 4px 12px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.3)',
-                        border: '1px solid rgba(255,255,255,0.5)',
+                          ? '0 6px 16px rgba(34,197,94,0.45), var(--shadow-sm)'
+                          : 'var(--shadow-sm)',
+                        border: '1px solid var(--color-border-strong)',
                       }}
                     >
                       {/* Internal Radiant Glowing Core */}
@@ -277,7 +298,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                     </div>
                   </div>
 
-                  <span className="text-[12px] font-sans font-semibold text-white/75">Remember me</span>
+                  <span className="text-[12px] font-sans font-semibold" style={{ color: 'var(--color-foreground)' }}>Remember me</span>
                 </label>
               </div>
 
@@ -336,12 +357,13 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
 
               {/* Signup Link */}
               <div className="text-center pt-1">
-                <span className="text-[11.5px] font-sans text-white/50">
+                <span className="text-[11.5px] font-sans" style={{ color: 'var(--color-muted)' }}>
                   Don't have an account?{' '}
                   <button
                     type="button"
                     onClick={() => { setShowForgotPassword(true); setResetEmail(email); setResetSent(false); setResetError(''); }}
-                    className="font-bold text-white hover:text-[var(--color-accent-amber)] transition-colors cursor-pointer"
+                    className="font-bold hover:text-[var(--color-accent-amber)] transition-colors cursor-pointer"
+                    style={{ color: 'var(--color-foreground)' }}
                   >
                     Signup
                   </button>
@@ -350,8 +372,8 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
             </form>
 
             {/* Footer Credit (Mobile only) */}
-            <div className="mt-4 text-center text-[9.5px] font-sans text-white/40 font-medium lg:hidden">
-              Created by <span className="italic font-semibold text-white/60">EHI Multisystems Nigeria Ltd</span>
+            <div className="mt-4 text-center text-[9.5px] font-sans font-medium lg:hidden" style={{ color: 'var(--color-muted)' }}>
+              Created by <span className="italic font-semibold" style={{ color: 'var(--color-foreground)' }}>EHI Multisystems Nigeria Ltd</span>
             </div>
           </div>
 
@@ -394,18 +416,21 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
             if (e.target === e.currentTarget) closeForgotPasswordModal();
           }}
         >
-          <div className={`bg-slate-950/90 border border-white/20 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl backdrop-blur-2xl h-auto max-h-[85vh] ${
-            isClosingReset ? 'animate-modal-slide-out' : 'animate-modal-slide-in'
-          }`}>
-            <div className="p-5 border-b border-white/10 bg-white/5">
-              <div className="text-[16px] font-bold text-white">Reset Password</div>
-              <div className="text-[12px] text-white/70 mt-0.5">We'll email you a secure link to set a new password.</div>
+          <div
+            className={`rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl backdrop-blur-2xl h-auto max-h-[85vh] ${
+              isClosingReset ? 'animate-modal-slide-out' : 'animate-modal-slide-in'
+            }`}
+            style={{ background: 'var(--color-surface-card-glass)', border: '1px solid var(--color-border-strong)' }}
+          >
+            <div className="p-5" style={{ borderBottom: '1px solid var(--color-border)' }}>
+              <div className="text-[16px] font-bold" style={{ color: 'var(--color-foreground)' }}>Reset Password</div>
+              <div className="text-[12px] mt-0.5" style={{ color: 'var(--color-muted)' }}>We'll email you a secure link to set a new password.</div>
             </div>
             <div className="p-5">
               {resetSent ? (
                 <div className="text-center py-4 space-y-3">
-                  <div className="text-[14px] text-amber-400 font-sans font-bold">Reset link sent ✓</div>
-                  <p className="text-[12px] text-white/80 font-sans leading-relaxed">
+                  <div className="text-[14px] text-amber-500 font-sans font-bold">Reset link sent ✓</div>
+                  <p className="text-[12px] font-sans leading-relaxed" style={{ color: 'var(--color-foreground)' }}>
                     Check {resetEmail} for a password reset link. It may take a minute to arrive.
                   </p>
                   <button
@@ -426,16 +451,20 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                     placeholder="you@ehimultisystems.com"
                     autoComplete="email"
                     autoFocus
-                    className="w-full h-12 px-4 text-sm rounded-xl bg-white/10 text-white placeholder-white/50 border border-white/20 focus:outline-none focus:border-amber-400"
+                    className="w-full h-12 px-4 text-sm rounded-[var(--radius-md)] focus:outline-none transition-all"
+                    style={{ background: 'var(--color-input-bg)', color: 'var(--color-input-text)', border: '1px solid var(--color-border)' }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-accent-amber)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--glow-amber)'; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.boxShadow = 'none'; }}
                   />
                   {resetError && (
-                    <p className="text-[12px] text-red-400 font-sans font-medium">{resetError}</p>
+                    <p className="text-[12px] text-red-500 font-sans font-medium">{resetError}</p>
                   )}
                   <div className="flex gap-3">
                     <button
                       type="button"
                       onClick={closeForgotPasswordModal}
-                      className="flex-1 h-11 border border-white/20 text-white/80 text-[13px] font-bold rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
+                      className="flex-1 h-11 text-[13px] font-bold rounded-xl transition-colors cursor-pointer"
+                      style={{ border: '1px solid var(--color-border-strong)', color: 'var(--color-foreground)' }}
                     >
                       Cancel
                     </button>
