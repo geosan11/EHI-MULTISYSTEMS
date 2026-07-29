@@ -186,16 +186,16 @@ export async function syncLagosRates(): Promise<{ success: boolean; count: numbe
 
       for (const targetHubId of info.allLagosHubIds) {
         if (targetHubId === masterHubId) continue;
-        const existingTargetRows = flatRates.filter(r => r.hub_id === targetHubId);
         for (const row of masterRows) {
-          const exists = existingTargetRows.some(e =>
-            e.content_type_id === row.content_type_id &&
-            e.airline === row.airline &&
-            e.route_name === row.route_name &&
-            e.min_kg === row.min_kg
-          );
-          if (!exists) {
-            const { error } = await supabase.from('flat_tier_rates').insert({
+          // upsert, not insert: two staff sessions loading the app around the
+          // same time both snapshot flatRates before either has synced, so a
+          // plain existence-check-then-insert races -- the second session's
+          // insert of a row the first session just created 409s. onConflict
+          // matches flat_tier_rates' UNIQUE(hub_id, content_type_id, airline,
+          // route_name, min_kg) constraint, same fix already applied to
+          // hub_airline_route_rates/hub_route_rates above.
+          const { error } = await supabase.from('flat_tier_rates').upsert(
+            {
               hub_id: targetHubId,
               content_type_id: row.content_type_id,
               airline: row.airline,
@@ -203,9 +203,10 @@ export async function syncLagosRates(): Promise<{ success: boolean; count: numbe
               min_kg: row.min_kg,
               max_kg: row.max_kg,
               flat_amount: row.flat_amount,
-            });
-            if (!error) syncCount++;
-          }
+            },
+            { onConflict: 'hub_id,content_type_id,airline,route_name,min_kg' }
+          );
+          if (!error) syncCount++;
         }
       }
     }
@@ -222,16 +223,12 @@ export async function syncLagosRates(): Promise<{ success: boolean; count: numbe
 
       for (const targetHubId of info.allLagosHubIds) {
         if (targetHubId === masterHubId) continue;
-        const existingTargetRows = sizeRates.filter(r => r.hub_id === targetHubId);
         for (const row of masterRows) {
-          const exists = existingTargetRows.some(e =>
-            e.content_type_id === row.content_type_id &&
-            e.airline === row.airline &&
-            e.route_name === row.route_name &&
-            e.min_inches === row.min_inches
-          );
-          if (!exists) {
-            const { error } = await supabase.from('size_tier_rates').insert({
+          // Same race fix as flat_tier_rates above -- onConflict matches
+          // size_tier_rates' UNIQUE(hub_id, content_type_id, airline,
+          // route_name, min_inches) constraint.
+          const { error } = await supabase.from('size_tier_rates').upsert(
+            {
               hub_id: targetHubId,
               content_type_id: row.content_type_id,
               airline: row.airline,
@@ -239,9 +236,10 @@ export async function syncLagosRates(): Promise<{ success: boolean; count: numbe
               min_inches: row.min_inches,
               max_inches: row.max_inches,
               flat_amount: row.flat_amount,
-            });
-            if (!error) syncCount++;
-          }
+            },
+            { onConflict: 'hub_id,content_type_id,airline,route_name,min_inches' }
+          );
+          if (!error) syncCount++;
         }
       }
     }
