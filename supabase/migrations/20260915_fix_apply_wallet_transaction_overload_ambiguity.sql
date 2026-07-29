@@ -1,0 +1,34 @@
+-- =============================================================
+-- Fix: apply_wallet_transaction() overload ambiguity -- every retrieval/
+-- refund wallet credit was failing with "function public.apply_wallet_
+-- transaction(uuid, unknown, numeric, text, uuid, text, text) is not
+-- unique" (surfaced in the UI as "Failed to complete retrieval deposit").
+--
+-- Root cause: 20260914_wallet_topup_payment_mode.sql added a new trailing
+-- p_payment_mode parameter via CREATE OR REPLACE, on the (incorrect)
+-- assumption that this was the same safe pattern used to add p_department
+-- earlier. It isn't -- CREATE OR REPLACE only replaces a function whose
+-- parameter list matches EXACTLY; adding a parameter changes the
+-- signature, so it created a NEW 9-parameter overload sitting alongside
+-- the existing 8-parameter one from
+-- 20260912_wallet_and_audit_integrity_hardening.sql instead of replacing
+-- it. This is the exact same mistake 20260903_security_and_bugfix_pass.sql
+-- already had to clean up once, for the original 7- -> 8-parameter change.
+--
+-- Every internal caller (process_*_retrieval() in
+-- 20260913_retrieval_reversal_and_wallet_matching_parity.sql and earlier
+-- migrations) calls apply_wallet_transaction() positionally with 7-8
+-- arguments and never passes p_payment_mode (it's only meaningful for
+-- 'top_up'). With both the 8- and 9-parameter overloads now in the
+-- catalog, Postgres can't pick one -- both match via default-parameter
+-- filling -- so every retrieval/refund/deduction call fails ambiguously.
+--
+-- Fix: drop the stale 7- and 8-parameter overloads (IF EXISTS, so this is
+-- safe to run whether or not the 20260903 cleanup already applied to this
+-- database), leaving only the current 9-parameter version defined in
+-- 20260914_wallet_topup_payment_mode.sql as the single, unambiguous
+-- apply_wallet_transaction().
+-- =============================================================
+
+DROP FUNCTION IF EXISTS public.apply_wallet_transaction(uuid, text, numeric, text, uuid, text, text);
+DROP FUNCTION IF EXISTS public.apply_wallet_transaction(uuid, text, numeric, text, uuid, text, text, text);
