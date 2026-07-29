@@ -144,6 +144,32 @@ export async function fetchAndApplyServerConfig(): Promise<boolean> {
   }
 }
 
+// ── PAGINATED FETCH-ALL ───────────────────────────────────
+// Fetches every row a query would match, transparently paging past
+// PostgREST's implicit per-request row cap (commonly 1000) -- a query with
+// no .range()/.limit() of its own, or one capped at exactly that limit,
+// silently drops older rows (query ordered descending) or newer ones
+// (ascending) the moment a table crosses that cap, with no error surfaced
+// anywhere. `buildPage(from, to)` should be the caller's own query
+// (select/filters/order already applied) with `.range(from, to)` as the
+// last call, e.g. `(from, to) => supabase.from('t').select('*').eq(...).range(from, to)`.
+export async function fetchAllRows<T>(
+  buildPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>,
+  pageSize = 1000,
+): Promise<T[]> {
+  const all: T[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await buildPage(from, from + pageSize - 1);
+    if (error) throw error;
+    const rows = data || [];
+    all.push(...rows);
+    if (rows.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
+
 // ── AUDIT LOG WRITER ─────────────────────────────────────
 // Call this from any action that should appear in the audit trail
 export async function writeAuditLog(entry: {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, Transaction, Expense } from '../../lib/types';
-import { fmt } from '../../lib/helpers';
+import { fmt, parseLocalDateBoundary } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
 import { Box, Plane, TrendingUp, Package, Lock, Unlock, AlertCircle, FileDown } from 'lucide-react';
 import { BackButton } from '../BackButton';
@@ -22,9 +22,11 @@ export interface AccountingConsoleProps {
   onUpdateTx?: (id: string, update: Partial<Transaction>) => void;
   onOpenBankRecon: () => void;
   onFullUpdateTx?: (tx: Transaction) => void;
+  dateRange?: { start: string; end: string };
+  onDateRangeChange?: (range: { start: string; end: string }) => void;
 }
 
-export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddExpense, onUpdateExpense, onUpdateTx, onOpenBankRecon, onFullUpdateTx }: AccountingConsoleProps) => {
+export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddExpense, onUpdateExpense, onUpdateTx, onOpenBankRecon, onFullUpdateTx, dateRange, onDateRangeChange }: AccountingConsoleProps) => {
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<'Summary' | 'Cash Register' | 'Credit Sales' | 'B2B Sales' | 'Expenses' | 'Remittances' | 'Payment Validation'>(() => {
     return (sessionStorage.getItem('ehi_accounting_tab') as any) || 'Summary';
@@ -37,6 +39,47 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
   const [period, setPeriod] = useState<'Today' | 'This Week' | 'This Month' | 'Custom'>('Today');
   const [customStart, setCustomStart] = useState(new Date().toISOString().split('T')[0]);
   const [customEnd, setCustomEnd] = useState(new Date().toISOString().split('T')[0]);
+
+  // `transactions` is fetched ONCE by EHIApp.tsx bounded by the shared
+  // globalDateRange (default: last 7 days) -- this screen has no fetch of
+  // its own, so picking "This Month"/"Custom" here used to silently filter
+  // whatever partial window happened to already be loaded, with no
+  // indication anything outside it was missing. Mirrors TransactionLedger.
+  // tsx's "All Time" pattern: only ever WIDENS the shared range to cover
+  // what's needed, never narrows it back down, so switching back to
+  // "Today" here doesn't fight another open tab that deliberately widened
+  // it (e.g. Ledger's "All Time").
+  useEffect(() => {
+    if (!onDateRangeChange || !dateRange) return;
+    let neededStart: string | null = null;
+    let neededEnd: string | null = null;
+    if (period === 'This Month') {
+      const monthAgo = new Date();
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+      neededStart = monthAgo.toISOString().split('T')[0];
+      neededEnd = new Date().toISOString().split('T')[0];
+    } else if (period === 'Custom') {
+      neededStart = customStart;
+      neededEnd = customEnd;
+    }
+    if (neededStart === null || neededEnd === null) return;
+    const start = neededStart < dateRange.start ? neededStart : dateRange.start;
+    const end = neededEnd > dateRange.end ? neededEnd : dateRange.end;
+    if (start !== dateRange.start || end !== dateRange.end) {
+      onDateRangeChange({ start, end });
+    }
+  }, [period, customStart, customEnd, dateRange, onDateRangeChange]);
+
+  // Only meaningful when this screen can't widen the fetch itself (no
+  // onDateRangeChange wired up) -- turns "silently wrong" into "visibly
+  // incomplete" instead.
+  const showIncompleteWindowBanner = !onDateRangeChange && dateRange != null &&
+    (period === 'This Month' || period === 'Custom') &&
+    (period === 'Custom' ? customStart < dateRange.start || customEnd > dateRange.end : (() => {
+      const monthAgo = new Date();
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+      return monthAgo.toISOString().split('T')[0] < dateRange.start;
+    })());
 
   const unconfirmedCount = useMemo(() => {
     return transactions.filter(t => t.mode === 'Transfer' && !t.paymentConfirmed).length;
@@ -55,9 +98,12 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
       if (period === 'This Week') return d >= weekAgo;
       if (period === 'This Month') return d >= monthAgo;
       if (period === 'Custom') {
-        const start = new Date(customStart);
-        const end = new Date(customEnd);
-        end.setHours(23, 59, 59, 999);
+        // parseLocalDateBoundary, not `new Date(customStart)` -- a bare
+        // "YYYY-MM-DD" string parses as UTC midnight per the JS spec, not
+        // local midnight, which silently excluded the first ~hour of the
+        // selected start day's local transactions.
+        const start = parseLocalDateBoundary(customStart);
+        const end = parseLocalDateBoundary(customEnd, true);
         return d >= start && d <= end;
       }
       return true;
@@ -329,6 +375,12 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
                 onChange={e => setCustomEnd(e.target.value)}
                 className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-lg px-3 py-1.5 text-[12px] font-sans text-[var(--color-foreground)] focus:outline-none"
               />
+            </div>
+          )}
+          {showIncompleteWindowBanner && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[rgba(245,158,11,0.08)] border border-[var(--color-accent-amber)] text-[11px] font-sans text-[var(--color-accent-amber)]">
+              <AlertCircle size={14} />
+              Data only loaded from {dateRange?.start} onward — this period may be showing an incomplete total.
             </div>
           )}
 

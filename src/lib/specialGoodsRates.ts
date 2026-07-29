@@ -105,11 +105,14 @@ export function resolveSpecialGoodsRate(
     return false;
   };
 
+  // max_kg is exclusive (see minimumCharges.ts's resolveMinimumCharge for
+  // the full rationale) -- "1-13kg"/"13-45kg" entered as adjacent brackets
+  // means 13kg belongs to the second one, not both.
   const scoped = rows.filter(r =>
     r.content_type_name.trim().toLowerCase() === normCt &&
     normalizeAirlineName(r.airline).toLowerCase() === normAir &&
     kg >= r.min_kg &&
-    (r.max_kg == null || kg <= r.max_kg)
+    (r.max_kg == null || kg < r.max_kg)
   );
 
   const pick = (hubOk: boolean, routeOk: boolean) => scoped.find(r =>

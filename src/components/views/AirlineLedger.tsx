@@ -8,7 +8,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { BackButton } from '../BackButton';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllRows } from '../../lib/supabase';
 import { User } from '../../lib/types';
 import { fmt } from '../../lib/helpers';
 import { useToast } from '../../lib/ToastContext';
@@ -115,33 +115,51 @@ export const AirlineLedger = ({ user, onBack }: { user: User; onBack: () => void
   const loadEntries = async (airline: string) => {
     const myGen = ++loadEntriesGenRef.current;
     setLoading(true);
-    const { data } = await supabase
-      .from('airline_ledger_entries')
-      .select('*')
-      .eq('airline', airline)
-      .order('entry_date', { ascending: true })
-      .order('created_at', { ascending: true });
-    if (loadEntriesGenRef.current !== myGen) return;
-    setEntries((data as LedgerEntry[]) || []);
-    setLoading(false);
+    try {
+      // Paginated -- neither query here had any row cap at all, relying
+      // entirely on PostgREST's implicit default (commonly 1000). Once an
+      // airline's ledger passed that, the oldest entries (ascending order)
+      // silently fell off, so the running balance/Net figure quietly
+      // stopped reflecting the true cumulative total with no error.
+      const data = await fetchAllRows<LedgerEntry>((from, to) =>
+        supabase
+          .from('airline_ledger_entries')
+          .select('*')
+          .eq('airline', airline)
+          .order('entry_date', { ascending: true })
+          .order('created_at', { ascending: true })
+          .range(from, to)
+      );
+      if (loadEntriesGenRef.current !== myGen) return;
+      setEntries(data);
+    } catch (error: any) {
+      if (loadEntriesGenRef.current !== myGen) return;
+      showToast({ message: `Failed to load ${airline}'s ledger: ${error.message}`, type: 'error' });
+      setEntries([]);
+    } finally {
+      if (loadEntriesGenRef.current === myGen) setLoading(false);
+    }
   };
 
   const loadAllBalances = async (airlineList: string[]) => {
     const results: Record<string, number> = {};
     await Promise.all(
       airlineList.map(async (airline) => {
-        const { data } = await supabase
-          .from('airline_ledger_entries')
-          .select('entry_type, amount')
-          .eq('airline', airline);
-        if (data && data.length > 0) {
+        try {
+          const data = await fetchAllRows<{ entry_type: EntryType; amount: number }>((from, to) =>
+            supabase
+              .from('airline_ledger_entries')
+              .select('entry_type, amount')
+              .eq('airline', airline)
+              .range(from, to)
+          );
           let bal = 0;
-          (data as { entry_type: EntryType; amount: number }[]).forEach((e) => {
+          data.forEach((e) => {
             if (e.entry_type === 'Credit') bal += e.amount;
             else bal -= e.amount;
           });
           results[airline] = bal;
-        } else {
+        } catch {
           results[airline] = 0;
         }
       })

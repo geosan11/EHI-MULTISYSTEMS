@@ -199,6 +199,25 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     syncLagosRates();
   }, []);
 
+  // Restores the excess-baggage-airline rate fetch that commit c00b62d
+  // ("mirror and sync all price... configurations") accidentally deleted
+  // in favor of syncLagosRates() -- which mirrors hub/special-goods/flat/
+  // size rates but never touches excess_baggage_airlines. Without this,
+  // setExcessBaggageAirlines was called nowhere in the app: every device
+  // was permanently stuck on whatever it had cached in localStorage at
+  // the time of that regression (or an empty array on a fresh install),
+  // so an admin editing a rate in ExcessBaggageAirlines.tsx never actually
+  // changed what any ticketing form charged.
+  useEffect(() => {
+    supabase.from('excess_baggage_airlines').select('*').eq('active', true).order('created_at', { ascending: true })
+      .then(({ data, error }) => {
+        if (data && !error) {
+          setExcessBaggageAirlines(data);
+          localStorage.setItem('ehi_excess_baggage_airlines', JSON.stringify(data));
+        }
+      });
+  }, []);
+
   const { theme, toggle } = useTheme();
   const { showToast } = useToast();
 

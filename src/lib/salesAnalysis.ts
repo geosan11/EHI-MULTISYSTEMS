@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { Transaction, User } from './types';
 import { PaymentHistoryEvent } from './debt';
+import { parseLocalDateBoundary } from './helpers';
 
 export type DepartmentType = 'cargo' | 'baggage' | 'marketing' | 'package';
 
@@ -170,8 +171,12 @@ export function computeReportDateRange(preset: string, customFrom: string, custo
                        to = new Date(now.getFullYear(), now.getMonth(), 1); break;
     case 'quarter':    from = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1); to = now; break;
     case 'ytd':        from = new Date(now.getFullYear(), 0, 1);                    to = now; break;
-    case 'custom':     from = customFrom ? new Date(customFrom) : today;
-                       to = customTo ? new Date(customTo) : now; break;
+    // parseLocalDateBoundary, not `new Date(customFrom)` -- a bare
+    // "YYYY-MM-DD" string parses as UTC midnight per the JS spec, not
+    // local midnight, which silently excluded the first ~hour of the
+    // selected start day's local entries.
+    case 'custom':     from = customFrom ? parseLocalDateBoundary(customFrom) : today;
+                       to = customTo ? parseLocalDateBoundary(customTo, true) : now; break;
     default:           from = today; to = now;
   }
   return { from, to };

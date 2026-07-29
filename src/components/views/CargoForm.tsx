@@ -7,7 +7,7 @@ import { chargeWalletForSale } from "../../lib/walletPayment";
 import { matchWallet } from "../../lib/customerIdentity";
 import { WalletRemainderSelector } from "../WalletRemainderSelector";
 import { useHubRoutes, useValidatedRouteSelection, useHubs } from "../../lib/hubRoutes";
-import { useAirlines, addAirlineIfMissing } from "../../lib/airlines";
+import { useAirlines, useAirlineCommissions, addAirlineIfMissing } from "../../lib/airlines";
 import { useContentTypes } from "../../lib/contentTypes";
 import { useSpecialGoodsRates, resolveSpecialGoodsRate } from "../../lib/specialGoodsRates";
 import { getEquivalentHubIds } from "../../lib/lagosHubSync";
@@ -501,6 +501,7 @@ export const CargoForm = ({
   }, [kg, sizeInches, isSizeTierContent, route, actualContentType, actualAirline, specialGoodsRates, minimumCharges, flatTierRates, sizeTierRates, standardRates, hubRouteRates, hubAirlineRouteRates]);
 
   const availableAirlines = useAirlines();
+  const airlineCommissions = useAirlineCommissions();
 
   useEffect(() => {
     if (availableAirlines.length > 0 && !availableAirlines.includes(airline)) {
@@ -1131,16 +1132,13 @@ export const CargoForm = ({
     }
 
     // Lock in the commission rate at entry time (see retail submit path for why).
-    let gateWeighCommissionRate = 0;
-    try {
-      const rawCommissions = localStorage.getItem("ehi_airline_commissions");
-      if (rawCommissions && selectedIntake.airline) {
-        const parsed = JSON.parse(rawCommissions) as Record<string, number>;
-        gateWeighCommissionRate = parsed[normalizeAirlineName(selectedIntake.airline)] ?? parsed[selectedIntake.airline] ?? 0;
-      }
-    } catch (e) {
-      // Ignore -- gateWeighCommissionRate stays 0
-    }
+    // Reads the reactive useAirlineCommissions() state already in scope
+    // (live-fetched on mount) instead of re-reading localStorage directly --
+    // a slow/offline fetch could otherwise book this at a stale or
+    // default-0% rate that's permanently baked in.
+    const gateWeighCommissionRate = selectedIntake.airline
+      ? (airlineCommissions[normalizeAirlineName(selectedIntake.airline)] ?? airlineCommissions[selectedIntake.airline] ?? 0)
+      : 0;
 
     // Build central ledger transaction record (Debt contract)
     const finalTxDetail = `${selectedIntake.airline} · ${gateResolvedId} · ${selectedIntake.pieces || 1}pcs · ${weightNum}kg · ${selectedIntake.route} · ${selectedIntake.contentType || selectedIntake.content_type || 'General Goods'}`;
@@ -1331,16 +1329,10 @@ export const CargoForm = ({
 
     // Lock in the commission rate at entry time so a later change to
     // pricing_config can't silently rewrite historical airline payables.
-    let commissionRate = 0;
-    try {
-      const rawCommissions = localStorage.getItem("ehi_airline_commissions");
-      if (rawCommissions) {
-        const parsed = JSON.parse(rawCommissions) as Record<string, number>;
-        commissionRate = parsed[normalizeAirlineName(actualAirline)] ?? parsed[actualAirline] ?? 0;
-      }
-    } catch (e) {
-      // Ignore -- commissionRate stays 0
-    }
+    // Reads the reactive useAirlineCommissions() state already in scope
+    // instead of re-reading localStorage directly (see gate-weigh path
+    // above for why).
+    const commissionRate = airlineCommissions[normalizeAirlineName(actualAirline)] ?? airlineCommissions[actualAirline] ?? 0;
 
     // AWB is EHI-{HUBCODE}-{6-digit per-hub sequence}, e.g. EHI-LOS-001042.
     // The number was already allocated on mount/reset (see fetchAwbPreview
@@ -2261,7 +2253,14 @@ export const CargoForm = ({
                     value={effectiveAmount}
                     onChange={(e) => setAmount(e.target.value)}
                     onBlur={() => {
-                      if (parsedAmount < minAmount) {
+                      // Same flat/size-tier exemption as isRetailFormValid below --
+                      // minAmount is computed purely from the generic per-kg/
+                      // minimum-charge cascade with no content-type awareness, so
+                      // it can land higher than a deliberately-configured flat/
+                      // size-tier bracket price. Without this exemption, tabbing
+                      // off the field after a correct flat/size-tier auto-fill
+                      // silently overwrote it with the higher generic floor.
+                      if (!(priceOverrideInfo?.type === 'size' || priceOverrideInfo?.type === 'flat') && parsedAmount < minAmount) {
                         setAmount(minAmount.toString());
                       }
                     }}

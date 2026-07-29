@@ -46,12 +46,35 @@ export const KgTierEditor = ({
 
   const sorted = [...tiers].sort((a, b) => a.min_kg - b.min_kg);
 
+  // Resolvers (resolveMinimumCharge/resolveSpecialGoodsRate/resolveFlatTier/
+  // resolveSizeTier) treat [min, max) as half-open -- two brackets overlap
+  // iff aMin < bEnd && bMin < aEnd. Naturally-typed adjacent brackets like
+  // "0-5" / "5-10" do NOT overlap under that rule (5 belongs to the second
+  // one only), so this only fires for a genuine double-booked range.
+  const rangesOverlap = (aMin: number, aMax: number | null, bMin: number, bMax: number | null): boolean => {
+    const aEnd = aMax ?? Infinity;
+    const bEnd = bMax ?? Infinity;
+    return aMin < bEnd && bMin < aEnd;
+  };
+
+  const confirmOverlap = async (excludeId: string | null, min: number, max: number | null): Promise<boolean> => {
+    const overlapping = tiers.find(t => t.id !== excludeId && rangesOverlap(min, max, t.min_kg, t.max_kg));
+    if (!overlapping) return true;
+    return confirm({
+      title: 'Overlapping bracket?',
+      message: `This ${min}-${max ?? '& up'} ${unitLabel} bracket overlaps the existing ${overlapping.min_kg}-${overlapping.max_kg ?? '& up'} ${unitLabel} bracket. Whichever bracket has the lower MIN always wins for a shipment in the overlap -- save anyway?`,
+      confirmLabel: 'Save Anyway',
+      tone: 'danger',
+    });
+  };
+
   const handleAdd = async () => {
     const min_kg = parseFloat(newMin);
     const max_kg = newMax.trim() === '' ? null : parseFloat(newMax);
     const price = parseFloat(newPrice);
     if (isNaN(min_kg) || min_kg < 0 || isNaN(price)) return;
     if (max_kg != null && (isNaN(max_kg) || max_kg < min_kg)) return;
+    if (!(await confirmOverlap(null, min_kg, max_kg))) return;
     setAdding(true);
     await onAdd({ min_kg, max_kg, price });
     setAdding(false);
@@ -116,7 +139,15 @@ export const KgTierEditor = ({
                   type="number"
                   defaultValue={t.min_kg}
                   key={`min-${t.id}-${t.min_kg}`}
-                  onBlur={(e) => e.target.value !== '' && onUpdateField(t.id, 'min_kg', parseFloat(e.target.value))}
+                  onBlur={async (e) => {
+                    if (e.target.value === '') return;
+                    const value = parseFloat(e.target.value);
+                    if (await confirmOverlap(t.id, value, t.max_kg)) {
+                      onUpdateField(t.id, 'min_kg', value);
+                    } else {
+                      e.target.value = String(t.min_kg);
+                    }
+                  }}
                   className="w-full ehi-input font-mono"
                 />
               </div>
@@ -128,7 +159,14 @@ export const KgTierEditor = ({
                   defaultValue={t.max_kg ?? ''}
                   key={`max-${t.id}-${t.max_kg}`}
                   placeholder="& up"
-                  onBlur={(e) => onUpdateField(t.id, 'max_kg', e.target.value === '' ? null : parseFloat(e.target.value))}
+                  onBlur={async (e) => {
+                    const value = e.target.value === '' ? null : parseFloat(e.target.value);
+                    if (await confirmOverlap(t.id, t.min_kg, value)) {
+                      onUpdateField(t.id, 'max_kg', value);
+                    } else {
+                      e.target.value = t.max_kg != null ? String(t.max_kg) : '';
+                    }
+                  }}
                   className="w-full ehi-input font-mono"
                 />
               </div>

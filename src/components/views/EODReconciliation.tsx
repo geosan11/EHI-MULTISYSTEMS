@@ -67,6 +67,41 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
   const shiftBoundary = useMemo(() => getShiftBoundary(shiftHour), [shiftHour]);
   const shiftLabel = useMemo(() => formatShiftLabel(shiftBoundary.start, shiftBoundary.end), [shiftBoundary]);
 
+  // Wallet top-ups collected THIS shift -- a top-up only ever produces a
+  // wallet_transactions row (never a Transaction), so without this it's
+  // invisible to the cash/transfer/pos math below despite being real
+  // physical cash/transfer/POS collected today. Fetched directly by shift
+  // window (unlike debtBearingEntries above, this doesn't need to look
+  // further back than today).
+  const [todaysTopUps, setTodaysTopUps] = useState<{ amount: number; payment_mode: string | null }[]>([]);
+  useEffect(() => {
+    let active = true;
+    const { start, end } = shiftBoundary;
+    supabase
+      .from('wallet_transactions')
+      .select('amount, payment_mode, hub_id')
+      .eq('type', 'top_up')
+      .gte('created_at', start.toISOString())
+      .lt('created_at', end.toISOString())
+      .then(({ data }) => {
+        if (!active) return;
+        const rows = (data || []).filter((r: any) => !user.hub_id || !r.hub_id || r.hub_id === user.hub_id);
+        setTodaysTopUps(rows);
+      });
+    return () => { active = false; };
+  }, [shiftBoundary, user.hub_id]);
+
+  const topUpByMode = useMemo(() => {
+    return todaysTopUps.reduce((acc, t) => {
+      const amt = t.amount || 0;
+      if (t.payment_mode === 'Cash') acc.cash += amt;
+      else if (t.payment_mode === 'Transfer') acc.transfer += amt;
+      else if (t.payment_mode === 'POS') acc.pos += amt;
+      else acc.unspecified += amt;
+      return acc;
+    }, { cash: 0, transfer: 0, pos: 0, unspecified: 0 });
+  }, [todaysTopUps]);
+
   // Filter to transactions inside the current operational shift
   const todaysTx = useMemo(() => {
     const { start, end } = shiftBoundary;
@@ -105,6 +140,25 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
     });
   }, [debtBearingEntries, shiftBoundary, user.hub_id]);
 
+  // Collections that count toward "Collections (Prior Debt Recovered)" / the
+  // combined Gross Total must exclude any payment against a debt that was
+  // ALSO created within today's shift -- that sale's full value is already
+  // counted once in grossNewSalesTotal below (accrual, via newSalesTx), so
+  // counting its same-shift payoff again here would double it (a same-shift
+  // create-then-clear debt was showing up TWICE in Combined Gross). A debt
+  // opened in an earlier shift and paid off today is the only case that's
+  // genuinely new cash recovered today, not new revenue. Payment-channel
+  // totals (cashTotal/transferTotal/posTotal/collectionByMode below)
+  // deliberately do NOT apply this filter -- that cash physically landed in
+  // the till today either way, regardless of when the debt originated.
+  const priorDebtCollectionEvents = useMemo(() => {
+    const { start, end } = shiftBoundary;
+    return todaysCollectionEvents.filter(e => {
+      const sourceCreated = e.sourceCreatedAt ? new Date(e.sourceCreatedAt) : null;
+      return !sourceCreated || sourceCreated < start || sourceCreated >= end;
+    });
+  }, [todaysCollectionEvents, shiftBoundary]);
+
   // ── System Totals ──────────────────────────────────────────────────────────
   const expectedTotals = useMemo(() => {
     // Split debt-clearance shadow entries from real new sales -- still
@@ -124,10 +178,13 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
     const grossNewSalesTotal = cargoTotal + mktgTotal + vjTotal + packageTotal;
 
     // Collections: prior-debt payments received today -- historical shadow
-    // rows (unconditional, as before) plus new-style payment_history events
-    // (going forward, now that clearing a debt no longer creates a row here).
+    // rows (unconditional, as before) plus new-style payment_history events,
+    // excluding any whose underlying debt was also created this same shift
+    // (see priorDebtCollectionEvents above -- that sale is already counted
+    // once in grossNewSalesTotal, so its same-shift payoff isn't a second,
+    // separate collection).
     const debtClearedTotal = debtClearTx.reduce((s, t) => s + t.amount, 0)
-      + todaysCollectionEvents.reduce((s, e) => s + e.amount, 0);
+      + priorDebtCollectionEvents.reduce((s, e) => s + e.amount, 0);
 
     // Combined gross (for backward compat with existing eod_records fields)
     const grossTotal = grossNewSalesTotal + debtClearedTotal;
@@ -136,10 +193,14 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
     // supporting split payments where wallet_deduction_amount handles partial credit)
     const walletTotal   = todaysTx.reduce((s, t) => s + (t.wallet_deduction_amount || (t.mode === 'Wallet' ? t.amount : 0)), 0);
     const collectionByMode = sumPaymentHistoryByMode(todaysCollectionEvents);
-    const cashTotal     = todaysTx.reduce((s, t) => s + (t.mode === 'Cash' ? Math.max(0, t.amount - (t.wallet_deduction_amount || 0)) : 0), 0) + collectionByMode.cash;
-    const transferTotal = todaysTx.reduce((s, t) => s + (t.mode === 'Transfer' ? Math.max(0, t.amount - (t.wallet_deduction_amount || 0)) : 0), 0) + collectionByMode.transfer;
-    const posTotal      = todaysTx.reduce((s, t) => s + (t.mode === 'POS' ? Math.max(0, t.amount - (t.wallet_deduction_amount || 0)) : 0), 0) + collectionByMode.pos;
+    // + topUpByMode.* -- a real wallet top-up is physical cash/transfer/POS
+    // that landed in the till today just like any sale, but until now had
+    // no line anywhere in this math (see topUpByMode's own comment above).
+    const cashTotal     = todaysTx.reduce((s, t) => s + (t.mode === 'Cash' ? Math.max(0, t.amount - (t.wallet_deduction_amount || 0)) : 0), 0) + collectionByMode.cash + topUpByMode.cash;
+    const transferTotal = todaysTx.reduce((s, t) => s + (t.mode === 'Transfer' ? Math.max(0, t.amount - (t.wallet_deduction_amount || 0)) : 0), 0) + collectionByMode.transfer + topUpByMode.transfer;
+    const posTotal      = todaysTx.reduce((s, t) => s + (t.mode === 'POS' ? Math.max(0, t.amount - (t.wallet_deduction_amount || 0)) : 0), 0) + collectionByMode.pos + topUpByMode.pos;
     const debtTotal     = newSalesTx.reduce((s, t) => s + (t.mode === 'Debt' ? Math.max(0, t.amount - (t.wallet_deduction_amount || 0)) : 0), 0);
+    const topUpsTotal   = topUpByMode.cash + topUpByMode.transfer + topUpByMode.pos + topUpByMode.unspecified;
 
     const expensesTotal = todaysExp.filter(e => !e.mode || e.mode === 'Cash').reduce((s, e) => s + e.amount, 0);
 
@@ -151,11 +212,12 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
       cargoTotal, mktgTotal, vjTotal, packageTotal,
       grossNewSalesTotal, debtClearedTotal, grossTotal,
       cashTotal, transferTotal, posTotal, debtTotal, walletTotal,
+      topUpsTotal,
       expensesTotal, netExpectedCash,
       cargoCount: cargoTx.length, mktgCount: mktgTx.length,
       vjCount: vjTx.length, packageCount: packageTx.length,
     };
-  }, [todaysTx, todaysExp, todaysCollectionEvents]);
+  }, [todaysTx, todaysExp, todaysCollectionEvents, priorDebtCollectionEvents, topUpByMode]);
 
   // Actual Counted -- kept as raw strings (not number | '') so the input
   // stays uncontrolled-in-spirit while typing: a controlled value fed
@@ -431,6 +493,19 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
               <div className="text-[10px] font-mono text-[var(--color-muted)] mt-0.5">Revenue earned; cash held from prior top-up</div>
             </div>
             <span className="text-[14px] font-bold font-mono text-[var(--color-accent-amber)]">{fmt(expectedTotals.walletTotal)}</span>
+          </div>
+        )}
+
+        {/* Wallet top-ups — real cash/transfer/POS in the till today, but
+            not a sale, so it's already folded into cashTotal/transferTotal/
+            posTotal below without being counted as revenue here. */}
+        {expectedTotals.topUpsTotal > 0 && (
+          <div className="p-3 border-b border-[var(--color-border)] flex justify-between items-center opacity-70">
+            <div>
+              <span className="text-[11px] font-mono text-[var(--color-accent-amber)]">Wallet Top-Ups (not revenue)</span>
+              <div className="text-[10px] font-mono text-[var(--color-muted)] mt-0.5">Cash/Transfer/POS collected for future spending — already counted in the channel totals below</div>
+            </div>
+            <span className="text-[14px] font-bold font-mono text-[var(--color-accent-amber)]">{fmt(expectedTotals.topUpsTotal)}</span>
           </div>
         )}
 

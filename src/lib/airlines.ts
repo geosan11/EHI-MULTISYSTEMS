@@ -71,6 +71,38 @@ export function useAirlines(opts: AirlinesOptions = {}): string[] {
   return airlines;
 }
 
+function getCachedAirlineCommissions(): Record<string, number> {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(AIRLINES_CACHE_KEY) || 'null');
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+  } catch {
+    // ignore -- treated the same as an empty cache
+  }
+  return {};
+}
+
+// The commission-percentage map itself (useAirlines above only exposes the
+// airline NAMES, not their rates) -- same cached/fallback-then-live pattern,
+// so a caller reading this on mount gets the last-known rates immediately
+// and the fresh Supabase values the moment that fetch resolves, instead of
+// each call site re-reading localStorage directly and never refreshing
+// once mounted (which could book a transaction against a stale or
+// default-0% commission rate if the caller renders before this key was
+// ever written, e.g. a slow/offline first load on a fresh device).
+export function useAirlineCommissions(): Record<string, number> {
+  const [commissions, setCommissions] = useState<Record<string, number>>(() => getCachedAirlineCommissions());
+  useEffect(() => {
+    let cancelled = false;
+    supabase.from('pricing_config').select('config_value').eq('config_key', 'airline_commissions').single()
+      .then(({ data, error }) => {
+        if (cancelled || error || !data?.config_value) return;
+        setCommissions(data.config_value as Record<string, number>);
+      });
+    return () => { cancelled = true; };
+  }, []);
+  return commissions;
+}
+
 // Adds a new airline to pricing_config.airline_commissions if it isn't
 // already present, with a default commission rate -- centralizes the
 // "typed a new airline into an 'Other' field" upsert that CargoForm.tsx

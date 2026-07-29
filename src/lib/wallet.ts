@@ -25,6 +25,11 @@ export async function applyWalletTransaction(params: {
   cargoEntryId?: string;
   description?: string;
   loggedBy: string;
+  // How a 'top_up' was physically collected -- meaningful for top_up only,
+  // ignored server-side for every other type. Lets EODReconciliation.tsx
+  // fold real cash/transfer/POS top-ups into its expected-cash math instead
+  // of that cash being invisible to the day's reconciliation.
+  paymentMode?: 'Cash' | 'Transfer' | 'POS';
 }): Promise<WalletTxnResult> {
   const { data, error } = await supabase.rpc('apply_wallet_transaction', {
     p_wallet_id: params.walletId,
@@ -34,6 +39,7 @@ export async function applyWalletTransaction(params: {
     p_cargo_entry_id: params.cargoEntryId ?? null,
     p_description: params.description ?? null,
     p_logged_by: params.loggedBy,
+    p_payment_mode: params.paymentMode ?? null,
   });
 
   if (error) {
@@ -126,13 +132,19 @@ const UNRETRIEVE_RPC_BY_TYPE: Record<RetrievalEntryType, { name: string; idParam
 export interface UnretrieveResult {
   ok: boolean;
   reversedAmount?: number;
+  walletReversed?: number;
   error?: string;
 }
 
 // Reverses a mistaken retrieval's bookkeeping on the entry itself
-// (retrieved_pieces/kg/amount/retrieved/status back to never-retrieved).
-// Deliberately does NOT touch any wallet balance -- see the migration's
-// own comment on why that's a separate, deliberate action instead.
+// (retrieved_pieces/kg/amount/retrieved/status back to never-retrieved) AND
+// claws back, via an equal-and-opposite wallet deduction, any wallet credit
+// that retrieval paid out (supabase/migrations/20260913_retrieval_reversal_
+// and_wallet_matching_parity.sql) -- both happen atomically in the one RPC
+// call, so the entry is never reset while an already-paid-out credit is
+// left dangling. If the customer already spent that credit elsewhere, the
+// RPC raises an "Insufficient wallet balance" error and leaves the entry
+// untouched instead of silently reopening a double-credit hole.
 export async function unretrieveEntry(type: RetrievalEntryType, params: {
   entryRef: string;
   loggedBy: string;
@@ -146,7 +158,8 @@ export async function unretrieveEntry(type: RetrievalEntryType, params: {
     p_logged_by: params.loggedBy,
   });
   if (error) return { ok: false, error: error.message };
-  return { ok: true, reversedAmount: Number(data) };
+  const row = Array.isArray(data) ? data[0] : data;
+  return { ok: true, reversedAmount: Number(row?.reversed_amount ?? 0), walletReversed: Number(row?.wallet_reversed ?? 0) };
 }
 
 const APPROVE_RETRIEVAL_RPC_BY_TYPE: Record<RetrievalEntryType, { name: string; idParam: string }> = {

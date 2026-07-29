@@ -233,6 +233,17 @@ export const ContentTypes = ({ onBack, onManageRates }: { onBack: () => void; on
                       </button>
                     )}
                   </div>
+                  {[t.is_special_goods, t.is_flat_tier, t.is_size_tier].filter(Boolean).length > 1 && (
+                    // CargoForm.tsx's autoAmount silently prioritizes
+                    // size tier > flat tier > special-goods/per-kg for any
+                    // one content type -- not a double-charge, but with more
+                    // than one flag set here, whichever bracket an admin
+                    // configures for a LOWER-priority flag is silently
+                    // ignored with no indication anything's wrong.
+                    <div className="ml-11 px-2.5 py-1.5 rounded-lg bg-[rgba(245,158,11,0.08)] border border-[rgba(245,158,11,0.25)] text-[10px] font-mono text-[var(--color-accent-amber)] leading-relaxed">
+                      Multiple pricing modes flagged -- only {t.is_size_tier ? 'Size Tier' : t.is_flat_tier ? 'Flat Tier' : 'Special Goods'} rates actually apply to "{t.name}" (size beats flat beats special-goods/per-kg); the others are configured but silently ignored.
+                    </div>
+                  )}
                 </div>
               ))}
               {types.length === 0 && (

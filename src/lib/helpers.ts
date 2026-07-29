@@ -550,6 +550,22 @@ export function lagosBusinessDate(d: Date = new Date()): string {
   }).format(d);
 }
 
+/**
+ * The reverse direction: parses a bare "YYYY-MM-DD" string (e.g. from a
+ * date-picker) as browser-LOCAL midnight (or end-of-day), not UTC midnight.
+ * `new Date("2026-07-28")` is UTC midnight per the JS spec -- appending a
+ * literal time (`"...T00:00:00"`) makes the same constructor use local
+ * time instead, which is what a client-side date-range filter almost
+ * always wants (the picker's date and the browser's clock are the same
+ * timezone). CorporateBilling.tsx already uses this exact convention
+ * inline; pulled out here so every other bare-date-string parse can match
+ * it instead of silently reverting to `new Date(str)` and dropping the
+ * first ~hour of the selected start day's local transactions.
+ */
+export function parseLocalDateBoundary(dateStr: string, endOfDay = false): Date {
+  return new Date(dateStr + (endOfDay ? 'T23:59:59.999' : 'T00:00:00'));
+}
+
 // ── SPREADSHEET FORMULA-INJECTION SANITIZATION ────────────────
 /**
  * Neutralizes spreadsheet formula injection. Excel (and most spreadsheet

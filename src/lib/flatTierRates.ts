@@ -54,9 +54,11 @@ export function useFlatTierRates(): FlatTierRate[] {
 }
 
 // Returns the FLAT total for this content type + airline + route + hub whose
-// [min_kg, max_kg] bracket contains kg (max_kg null = open top). This total is
-// the whole price — callers use it instead of, not on top of, the per-kg
-// cascade and minimum charge.
+// [min_kg, max_kg) bracket contains kg (max_kg null = open top, otherwise
+// exclusive -- "1-13kg"/"13-45kg" entered as adjacent brackets means 13kg
+// belongs to the second one, not both). This total is the whole price —
+// callers use it instead of, not on top of, the per-kg cascade and minimum
+// charge.
 export function resolveFlatTier(
   rows: FlatTierRate[], contentTypeName: string, airline: string, route: string, kg: number, hubId?: string | null, equivalentHubIds?: string[] | null,
 ): number | null {
@@ -74,7 +76,7 @@ export function resolveFlatTier(
     r.content_type_name.trim().toLowerCase() === normCt &&
     normalizeAirlineName(r.airline).toLowerCase() === normAir &&
     kg >= r.min_kg &&
-    (r.max_kg == null || kg <= r.max_kg)
+    (r.max_kg == null || kg < r.max_kg)
   );
 
   const pick = (hubOk: boolean, routeOk: boolean) => scoped.find(r =>

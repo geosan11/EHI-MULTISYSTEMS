@@ -108,6 +108,11 @@ export const CustomerWallets = ({
   );
   const [formSourceRef, setFormSourceRef] = useState(initialRef || '');
   const [formNote, setFormNote] = useState('');
+  // How this top-up was physically collected -- previously not captured at
+  // all, so a real cash top-up was invisible to EODReconciliation.tsx's
+  // expected-cash math (it only ever produced a wallet_transactions row,
+  // never a Transaction the EOD screen's cash/transfer/pos totals scan).
+  const [formPaymentMode, setFormPaymentMode] = useState<'Cash' | 'Transfer' | 'POS'>('Cash');
   const [savingTopUp, setSavingTopUp] = useState(false);
 
   const [tableMissing, setTableMissing] = useState(false);
@@ -234,6 +239,26 @@ export const CustomerWallets = ({
     fetchWallets();
   }, [fetchWallets]);
 
+  // "Total Customer Credit Liability" must mean the same thing everywhere
+  // it's shown -- LiveCreditFeed.tsx (fed by EHIApp.tsx's own unfiltered
+  // wallet fetch) always sums active + archived balances. This screen used
+  // to compute its own KPI from `wallets`, which is only ever the CURRENTLY
+  // SELECTED tab's filtered list -- switching to the Archived tab silently
+  // changed what the same label meant, and (worse) a wallet archived while
+  // holding a real balance vanished from the Active tab's total even though
+  // EHI still owed that money. Fetched independently of walletView so it
+  // can't be affected by which tab is open.
+  const [totalLiability, setTotalLiability] = useState(0);
+  const fetchTotalLiability = useCallback(async () => {
+    const { data, error } = await supabase.from('customer_wallets').select('balance');
+    if (!error && data) {
+      setTotalLiability(data.reduce((acc, w: any) => acc + (w.balance || 0), 0));
+    }
+  }, []);
+  useEffect(() => {
+    fetchTotalLiability();
+  }, [fetchTotalLiability]);
+
   // Live balance updates -- without this, a wallet spent down to zero (or
   // partially deducted) from a DIFFERENT screen (Cargo/VJ/Marketing/Package
   // retrieval) never reflects here until this screen is revisited/re-
@@ -245,6 +270,7 @@ export const CustomerWallets = ({
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_transactions' }, payload => {
         const walletId = (payload.new as any)?.wallet_id || (payload.old as any)?.wallet_id;
         if (!walletId) return;
+        fetchTotalLiability();
         supabase.from('customer_wallets').select('*').eq('id', walletId).single()
           .then(async ({ data }) => {
             if (!data) return;
@@ -262,15 +288,13 @@ export const CustomerWallets = ({
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [walletView, showToast]);
+  }, [walletView, showToast, fetchTotalLiability]);
 
   const filteredWallets = wallets.filter(
     (w) =>
       w.customer_name.toLowerCase().includes(search.toLowerCase()) ||
       (w.customer_phone && w.customer_phone.includes(search))
   );
-
-  const totalLiability = wallets.reduce((acc, w) => acc + (w.balance || 0), 0);
 
   const handleOpenHistory = async (wallet: CustomerWallet) => {
     setSelectedWallet(wallet);
@@ -319,10 +343,24 @@ export const CustomerWallets = ({
       return;
     }
 
-    const balanceWarning = wallet.balance > 0 ? ` It still has a remaining balance of ₦${fmt(wallet.balance)}.` : '';
+    // Hard block, not just a warning -- archiving used to be allowed with a
+    // positive balance (only a soft warning in the confirm message below),
+    // which let a wallet's real balance silently vanish from the Active
+    // tab's "Total Customer Credit Liability" the instant it was archived,
+    // even though EHI still owed that money to the customer. Zero the
+    // balance out first (Cash Payout, or a manual adjustment) so the
+    // liability is actually resolved, not just hidden from view.
+    if (wallet.balance > 0) {
+      showToast({
+        message: `Cannot archive ${wallet.customer_name}'s wallet -- it still has a ₦${fmt(wallet.balance)} balance. Pay it out (Cash Payout) or otherwise resolve it to ₦0 first.`,
+        type: 'error',
+      });
+      return;
+    }
+
     const ok = await confirm({
       title: 'Archive wallet?',
-      message: `${wallet.customer_name}'s wallet has transaction history, so it can't be permanently deleted.${balanceWarning} Archiving will hide it from this list but keep its full balance and history intact.`,
+      message: `${wallet.customer_name}'s wallet has transaction history, so it can't be permanently deleted. Archiving will hide it from this list but keep its full balance and history intact.`,
       confirmLabel: 'Archive',
       tone: 'danger',
     });
@@ -476,6 +514,7 @@ export const CustomerWallets = ({
         cargoRef: formSourceRef.trim() || undefined,
         description: formNote.trim() || `Top-up via ${formSourceType.replace('_', ' ')}`,
         loggedBy: user.name,
+        paymentMode: formPaymentMode,
       });
 
       if (!result.ok) {
@@ -498,6 +537,7 @@ export const CustomerWallets = ({
       setFormAmount('');
       setFormSourceRef('');
       setFormNote('');
+      setFormPaymentMode('Cash');
       fetchWallets();
     } catch (err: any) {
       console.error('Wallet top up error:', err);
@@ -1080,6 +1120,21 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
                     className="w-full h-10 px-3 text-[11px] font-mono rounded-xl bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wider mb-1">
+                  Collected Via *
+                </label>
+                <select
+                  value={formPaymentMode}
+                  onChange={(e: any) => setFormPaymentMode(e.target.value)}
+                  className="w-full h-10 px-2 text-[11px] font-mono rounded-xl bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                >
+                  <option value="Cash">Cash</option>
+                  <option value="Transfer">Transfer</option>
+                  <option value="POS">POS</option>
+                </select>
               </div>
 
               <div>

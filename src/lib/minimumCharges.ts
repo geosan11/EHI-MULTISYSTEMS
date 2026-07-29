@@ -59,9 +59,13 @@ export function useMinimumCharges(): MinimumCharge[] {
   return rows;
 }
 
-// Finds the tier row matching this airline + route whose [min_kg, max_kg]
-// bracket contains kg (max_kg null = open-ended top tier). Shared by
-// CargoForm.tsx's floor logic and the read-only rates list.
+// Finds the tier row matching this airline + route whose [min_kg, max_kg)
+// bracket contains kg (max_kg null = open-ended top tier; max_kg itself is
+// exclusive -- "1-13kg" and "13-45kg" entered as adjacent brackets means
+// 13kg belongs to the SECOND bracket, not both, so a shipment weighing
+// exactly the boundary doesn't deterministically fall into the cheaper
+// lower tier). Shared by CargoForm.tsx's floor logic and the read-only
+// rates list.
 export function resolveMinimumCharge(rows: MinimumCharge[], airline: string, route: string, kg: number): number | null {
   const normAir = normalizeAirlineName(airline).toLowerCase();
   const normRoute = cleanRoute(route);
@@ -70,7 +74,7 @@ export function resolveMinimumCharge(rows: MinimumCharge[], airline: string, rou
     normalizeAirlineName(r.airline).toLowerCase() === normAir &&
     cleanRoute(r.route_name) === normRoute &&
     kg >= r.min_kg &&
-    (r.max_kg == null || kg <= r.max_kg)
+    (r.max_kg == null || kg < r.max_kg)
   );
   return match ? match.minimum_amount : null;
 }

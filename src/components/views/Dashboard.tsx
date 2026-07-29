@@ -185,13 +185,20 @@ export const Dashboard = ({
     const cargoTx   = useMemo(() => todaysTx.filter(t => t.type === "cargo"),     [todaysTx]);
     const mktgTx    = useMemo(() => todaysTx.filter(t => t.type === "marketing"), [todaysTx]);
     const vjTx      = useMemo(() => todaysTx.filter(t => t.type === "baggage"),   [todaysTx]);
+    const packageTx = useMemo(() => todaysTx.filter(t => t.type === "package"),   [todaysTx]);
 
     const cargoTotal    = useMemo(() => cargoTx.reduce((s, t) => s + t.amount, 0),       [cargoTx]);
     const cargoKgTotal  = useMemo(() => cargoTx.reduce((s, t) => s + (t.kg || 0), 0),    [cargoTx]);
     const mktgTotal     = useMemo(() => mktgTx.reduce((s, t) => s + t.amount, 0),        [mktgTx]);
     const vjTotal       = useMemo(() => vjTx.reduce((s, t) => s + t.amount, 0),          [vjTx]);
     const vjKgTotal     = useMemo(() => vjTx.reduce((s, t) => s + (t.kg || 0), 0),       [vjTx]);
-    const grossTotal    = cargoTotal + mktgTotal + vjTotal;
+    const packageTotal  = useMemo(() => packageTx.reduce((s, t) => s + t.amount, 0),     [packageTx]);
+    // Package Desk used to be silently missing from Gross Today -- this
+    // screen never filtered for type "package" at all, even though the
+    // transactions prop already carries package rows (EHIApp.tsx fetches
+    // them), so any hub doing Package Desk business showed a lower "Gross
+    // Today" here than the same day's EOD/Accounting Console figure.
+    const grossTotal    = cargoTotal + mktgTotal + vjTotal + packageTotal;
 
     const isAdmin       = user.role === "admin" || user.role === "super_admin";
     const isAccountant  = user.role === "accountant" || user.role === "auditor";
@@ -200,15 +207,21 @@ export const Dashboard = ({
     const showCargo     = isAdmin || isAccountant || user.role === "cargo_agent";
     const showVJ        = isAdmin || isAccountant || user.role === "baggage_agent";
     const showMktg      = isAdmin || isAccountant || user.role === "marketing_agent";
+    // Package Desk is operated by cargo_agent/marketing_agent (src/lib/
+    // permissions.ts's 'Packages' view -- baggage_agent is deliberately not
+    // in that list), plus the same admin/accountant financial-review access
+    // as the other three streams.
+    const showPackage   = isAdmin || isAccountant || user.role === "cargo_agent" || user.role === "marketing_agent";
     const showRevSummary = isAdmin || isAccountant;
 
     const allVisibleTx = useMemo(() =>
       todaysTx.filter(t =>
         (showCargo && t.type === "cargo") ||
         (showMktg  && t.type === "marketing") ||
-        (showVJ    && t.type === "baggage")
+        (showVJ    && t.type === "baggage") ||
+        (showPackage && t.type === "package")
       ),
-      [todaysTx, showCargo, showMktg, showVJ]
+      [todaysTx, showCargo, showMktg, showVJ, showPackage]
     );
 
     const cashTotal     = useMemo(() => allVisibleTx.reduce((s, t) => s + (t.mode === "Cash"     ? t.amount : 0), 0), [allVisibleTx]);
@@ -236,7 +249,7 @@ export const Dashboard = ({
     });
 
     // How many score cards are visible — determines grid cols
-    const cardCount = [showCargo, showMktg, showVJ].filter(Boolean).length;
+    const cardCount = [showCargo, showMktg, showVJ, showPackage].filter(Boolean).length;
     const gridCols = cardCount === 1 ? '1fr' : cardCount === 3 ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)';
 
     return (
@@ -310,7 +323,7 @@ export const Dashboard = ({
         </div>
 
         {/* Score Cards */}
-        {(showCargo || showVJ || showMktg) && (
+        {(showCargo || showVJ || showMktg || showPackage) && (
           <div className="grid gap-3 shrink-0" style={{ gridTemplateColumns: gridCols }}>
             {showCargo && (
               <ScoreCard
@@ -339,6 +352,15 @@ export const Dashboard = ({
                 total={vjTotal}
                 sub1={`${vjTx.length} ${vjTx.length === 1 ? "passenger" : "passengers"}`}
                 sub2={`${vjKgTotal.toLocaleString()} Excess KG`}
+              />
+            )}
+            {showPackage && (
+              <ScoreCard
+                label="Package Desk" icon={Package2}
+                color="#8b5cf6"
+                bg="rgba(139,92,246,0.07)" borderColor="rgba(139,92,246,0.22)"
+                total={packageTotal}
+                sub1={`${packageTx.length} ${packageTx.length === 1 ? "entry" : "entries"}`}
               />
             )}
           </div>

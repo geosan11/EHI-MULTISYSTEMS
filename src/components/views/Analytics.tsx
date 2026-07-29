@@ -262,6 +262,43 @@ export const Analytics = ({
       } as Transaction));
   }, [debtBearingEntries, selectedHub, periodMatches]);
 
+  // Liquid Transactions (The actual real money we can count as Revenue).
+  // Hoisted to its own memo (used to be computed inline inside `metrics`
+  // only) so the Pareto/Category/Shift/Trend breakdowns below can share the
+  // exact same "what counts as revenue" definition the headline KPI uses,
+  // instead of each independently looping over the raw, un-deduplicated
+  // periodFilteredTxs and inflating for any period spanning a historical
+  // debt-clearance shadow row.
+  // We also consider 'is_debt_clearance' as liquid since it's money coming in today for past debts!
+  // 'Debt Paid' must be excluded here too, not just 'Debt' -- it's the
+  // synthetic mode EHIApp.tsx's fetchInitial computes for an original
+  // entry once fully cleared (receipt_mode stays 'Debt' in the DB;
+  // amount_paid >= amount just displays as 'Debt Paid'). Without this,
+  // a period spanning both the entry's original creation date and its
+  // later clearance date counted the SAME collected money twice: once
+  // via the original entry (mode !== 'Debt' now passes) and again via
+  // its is_debt_clearance shadow entry. EODReconciliation.tsx already
+  // keeps these two strictly separate (newSalesTx excludes
+  // is_debt_clearance entirely) -- this mirrors that.
+  // periodCollectionPseudoTxs (payment_history-derived, see above) is
+  // concatenated in rather than filtered from periodFilteredTxs -- these
+  // events aren't real rows in periodFilteredTxs at all going forward
+  // (no shadow row gets created for them), so they must be added
+  // explicitly to keep counting as liquid revenue/collected cash.
+  const validLiquidTxs = useMemo(() => {
+    return periodFilteredTxs.filter(t => (t.mode !== 'Debt' && t.mode !== 'Debt Paid' && !t.retrieved) || t.is_debt_clearance)
+      .concat(periodCollectionPseudoTxs);
+  }, [periodFilteredTxs, periodCollectionPseudoTxs]);
+
+  // The physical-entry set for count/weight/debt-visibility metrics: real
+  // rows only, historical debt-clearance shadow rows excluded (a shadow row
+  // is a payment record, not a second shipment -- counting it toward
+  // shipment count/tonnage inflated both for any period containing one).
+  // Deliberately NOT the same set as validLiquidTxs -- a Debt-mode original
+  // still belongs here (it's real, physical, already-moved cargo) even
+  // though it's excluded from revenue until paid.
+  const realEntryTxs = useMemo(() => periodFilteredTxs.filter(t => !t.is_debt_clearance), [periodFilteredTxs]);
+
   // Core Cargo & Revenue Metrics
   const metrics = useMemo(() => {
     const cargo = periodFilteredTxs.filter(t => t.type === 'cargo');
@@ -279,26 +316,6 @@ export const Analytics = ({
     const officeWorkTxs = debtTxs.filter(t => t.clientType === 'Corporate');
     const individualDebtTxs = debtTxs.filter(t => t.clientType !== 'Corporate');
     const retrievedTxs = periodFilteredTxs.filter(t => t.retrieved === true);
-
-    // Liquid Transactions (The actual real money we can count as Revenue)
-    // We also consider 'is_debt_clearance' as liquid since it's money coming in today for past debts!
-    // 'Debt Paid' must be excluded here too, not just 'Debt' -- it's the
-    // synthetic mode EHIApp.tsx's fetchInitial computes for an original
-    // entry once fully cleared (receipt_mode stays 'Debt' in the DB;
-    // amount_paid >= amount just displays as 'Debt Paid'). Without this,
-    // a period spanning both the entry's original creation date and its
-    // later clearance date counted the SAME collected money twice: once
-    // via the original entry (mode !== 'Debt' now passes) and again via
-    // its is_debt_clearance shadow entry. EODReconciliation.tsx already
-    // keeps these two strictly separate (newSalesTx excludes
-    // is_debt_clearance entirely) -- this mirrors that.
-    // periodCollectionPseudoTxs (payment_history-derived, see above) is
-    // concatenated in rather than filtered from periodFilteredTxs -- these
-    // events aren't real rows in periodFilteredTxs at all going forward
-    // (no shadow row gets created for them), so they must be added
-    // explicitly to keep counting as liquid revenue/collected cash.
-    const validLiquidTxs = periodFilteredTxs.filter(t => (t.mode !== 'Debt' && t.mode !== 'Debt Paid' && !t.retrieved) || t.is_debt_clearance)
-      .concat(periodCollectionPseudoTxs);
 
     const totalRevenue = validLiquidTxs.reduce((sum, t) => sum + t.amount, 0); // Pure liquid
     const cargoRevenue = validLiquidTxs.filter(t => t.type === 'cargo').reduce((sum, t) => sum + t.amount, 0);
@@ -384,23 +401,38 @@ export const Analytics = ({
       collectionEfficiency,
       airlinePayables
     };
-  }, [periodFilteredTxs, airlineCommissions, periodCollectionPseudoTxs]);
+  }, [periodFilteredTxs, airlineCommissions, validLiquidTxs]);
 
   // Client Pareto 80/20 Analysis
   const clientParetoData = useMemo(() => {
     const map: Record<string, { clientName: string; category: string; count: number; weightKg: number; revenue: number; debt: number }> = {};
-
-    periodFilteredTxs.forEach(t => {
+    const ensure = (t: Transaction) => {
       const clientName = t.name?.trim() || 'Walk-in Customer';
       const category = t.type === 'cargo' ? (t.clientType || 'Cargo Consignee') : t.type === 'baggage' ? 'Baggage Pax' : t.type === 'marketing' ? 'Field Agent Client' : 'Package Sender';
-
       if (!map[clientName]) {
         map[clientName] = { clientName, category, count: 0, weightKg: 0, revenue: 0, debt: 0 };
       }
-      map[clientName].count++;
-      map[clientName].weightKg += t.kg || 0;
-      map[clientName].revenue += t.amount;
-      if (t.mode === 'Debt') map[clientName].debt += t.amount;
+      return map[clientName];
+    };
+
+    // Physical activity (shipment count, weight, outstanding-debt
+    // visibility) sourced from realEntryTxs (shadow rows excluded) --
+    // otherwise a historical debt-clearance row inflated count/weight for
+    // a shipment already counted once via its own original entry.
+    realEntryTxs.forEach(t => {
+      const entry = ensure(t);
+      entry.count++;
+      entry.weightKg += t.kg || 0;
+      if (t.mode === 'Debt') entry.debt += t.amount;
+    });
+
+    // Revenue sourced from validLiquidTxs -- the same liquid/collected
+    // definition metrics.totalRevenue uses, so a client's Pareto revenue
+    // can't disagree with the headline KPI above it (the bug this fixes:
+    // this pass used to run over raw periodFilteredTxs instead, inflating
+    // any client's revenue that had a historical shadow row in-period).
+    validLiquidTxs.forEach(t => {
+      ensure(t).revenue += t.amount;
     });
 
     const sorted = Object.values(map).sort((a, b) => b.revenue - a.revenue);
@@ -420,7 +452,7 @@ export const Analytics = ({
         yieldPerKg
       };
     });
-  }, [periodFilteredTxs]);
+  }, [realEntryTxs, validLiquidTxs]);
 
   // Top 80/20 Summary
   const top20ClientsCount = useMemo(() => clientParetoData.filter(c => c.isTop20).length, [clientParetoData]);
@@ -432,20 +464,31 @@ export const Analytics = ({
   // Cargo Category & Content Type Yield Matrix
   const cargoCategoryData = useMemo(() => {
     const map: Record<string, { category: string; count: number; weightKg: number; revenue: number }> = {};
-
-    periodFilteredTxs.forEach(t => {
-      let category = 'General Package';
-      if (t.contentType) category = t.contentType;
-      else if (t.type === 'baggage') category = 'Excess Passenger Baggage';
-      else if (t.type === 'marketing') category = 'Field Bags (BB/MB/SB)';
-      else if (t.type === 'package') category = 'Express Parcel';
-      else if (t.detail?.toLowerCase().includes('electrical')) category = 'Electrical Parts';
-      else if (t.detail?.toLowerCase().includes('spares')) category = 'Automotive Spares';
-
+    const categoryFor = (t: Transaction): string => {
+      if (t.contentType) return t.contentType;
+      if (t.type === 'baggage') return 'Excess Passenger Baggage';
+      if (t.type === 'marketing') return 'Field Bags (BB/MB/SB)';
+      if (t.type === 'package') return 'Express Parcel';
+      if (t.detail?.toLowerCase().includes('electrical')) return 'Electrical Parts';
+      if (t.detail?.toLowerCase().includes('spares')) return 'Automotive Spares';
+      return 'General Package';
+    };
+    const ensure = (category: string) => {
       if (!map[category]) map[category] = { category, count: 0, weightKg: 0, revenue: 0 };
-      map[category].count++;
-      map[category].weightKg += t.kg || 0;
-      map[category].revenue += t.amount;
+      return map[category];
+    };
+
+    // Same realEntryTxs/validLiquidTxs split as clientParetoData above --
+    // count/weight from real rows, revenue from the liquid/collected set,
+    // so this yield matrix can't disagree with the headline KPI on a period
+    // spanning a historical debt-clearance shadow row.
+    realEntryTxs.forEach(t => {
+      const entry = ensure(categoryFor(t));
+      entry.count++;
+      entry.weightKg += t.kg || 0;
+    });
+    validLiquidTxs.forEach(t => {
+      ensure(categoryFor(t)).revenue += t.amount;
     });
 
     const grandTotal = metrics.totalRevenue || 1;
@@ -456,41 +499,52 @@ export const Analytics = ({
         yieldPerKg: c.weightKg > 0 ? c.revenue / c.weightKg : 0
       }))
       .sort((a, b) => b.revenue - a.revenue);
-  }, [periodFilteredTxs, metrics.totalRevenue]);
+  }, [realEntryTxs, validLiquidTxs, metrics.totalRevenue]);
 
   // Shift & Terminal Distribution
   const shiftDistributionData = useMemo(() => {
     const morning = { shift: 'Morning Shift (06:00 - 12:00)', revenue: 0, weightKg: 0, count: 0 };
     const afternoon = { shift: 'Afternoon Shift (12:00 - 17:00)', revenue: 0, weightKg: 0, count: 0 };
     const eveningNight = { shift: 'Evening / Night Shift (17:00 - 06:00)', revenue: 0, weightKg: 0, count: 0 };
-
-    periodFilteredTxs.forEach(t => {
+    const bucketFor = (t: Transaction) => {
       const hour = t.created_at ? new Date(t.created_at).getHours() : 12;
-      let target = afternoon;
-      if (hour >= 6 && hour < 12) target = morning;
-      else if (hour >= 12 && hour < 17) target = afternoon;
-      else target = eveningNight;
+      if (hour >= 6 && hour < 12) return morning;
+      if (hour >= 12 && hour < 17) return afternoon;
+      return eveningNight;
+    };
 
-      target.revenue += t.amount;
+    // count/weight from real rows, revenue from the liquid/collected set --
+    // a payment-history pseudo-tx buckets by the collection's OWN
+    // timestamp here (its created_at is the payment's `at`), which is the
+    // correct shift to attribute the cash to, distinct from whichever
+    // shift the original sale happened in.
+    realEntryTxs.forEach(t => {
+      const target = bucketFor(t);
       target.weightKg += t.kg || 0;
       target.count++;
     });
+    validLiquidTxs.forEach(t => {
+      bucketFor(t).revenue += t.amount;
+    });
 
     return [morning, afternoon, eveningNight];
-  }, [periodFilteredTxs]);
+  }, [realEntryTxs, validLiquidTxs]);
 
   // Dual-Axis Volume (KG) vs Revenue Trend Chart Data (24-hour / Multi-day)
   const dualAxisTrendData = useMemo(() => {
     if (period === 'shift' || period === 'today') {
-      // 24 Hourly Bins
+      // 24 Hourly Bins -- weight from real rows, revenue from the
+      // liquid/collected set (a payment-history pseudo-tx's created_at is
+      // the collection's own timestamp, so it lands in the hour the cash
+      // actually came in, not the original sale's hour).
       const bins = Array.from({ length: 24 }, (_, i) => {
         const hourLabel = `${i < 10 ? '0' : ''}${i}:00`;
-        const txInHour = periodFilteredTxs.filter(t => {
-          if (!t.created_at) return false;
-          return new Date(t.created_at).getHours() === i;
-        });
-        const revenue = txInHour.reduce((s, t) => s + t.amount, 0);
-        const weightKg = txInHour.reduce((s, t) => s + (t.kg || 0), 0);
+        const weightKg = realEntryTxs
+          .filter(t => t.created_at && new Date(t.created_at).getHours() === i)
+          .reduce((s, t) => s + (t.kg || 0), 0);
+        const revenue = validLiquidTxs
+          .filter(t => t.created_at && new Date(t.created_at).getHours() === i)
+          .reduce((s, t) => s + t.amount, 0);
         const yieldPerKg = weightKg > 0 ? Math.round(revenue / weightKg) : 0;
         return { label: hourLabel, revenue, weightKg, yieldPerKg };
       });
@@ -498,11 +552,17 @@ export const Analytics = ({
     } else {
       // Daily Bins
       const dateMap: Record<string, { label: string; revenue: number; weightKg: number }> = {};
-      periodFilteredTxs.forEach(t => {
-        const dateStr = t.created_at ? new Date(t.created_at).toISOString().slice(5, 10) : 'Today';
+      const ensure = (dateStr: string) => {
         if (!dateMap[dateStr]) dateMap[dateStr] = { label: dateStr, revenue: 0, weightKg: 0 };
-        dateMap[dateStr].revenue += t.amount;
-        dateMap[dateStr].weightKg += t.kg || 0;
+        return dateMap[dateStr];
+      };
+      realEntryTxs.forEach(t => {
+        const dateStr = t.created_at ? new Date(t.created_at).toISOString().slice(5, 10) : 'Today';
+        ensure(dateStr).weightKg += t.kg || 0;
+      });
+      validLiquidTxs.forEach(t => {
+        const dateStr = t.created_at ? new Date(t.created_at).toISOString().slice(5, 10) : 'Today';
+        ensure(dateStr).revenue += t.amount;
       });
 
       return Object.values(dateMap).map(d => ({
@@ -510,7 +570,7 @@ export const Analytics = ({
         yieldPerKg: d.weightKg > 0 ? Math.round(d.revenue / d.weightKg) : 0
       }));
     }
-  }, [periodFilteredTxs, period]);
+  }, [realEntryTxs, validLiquidTxs, period]);
 
   // Potential Revenue Leakage Anomaly Warning Signal
   const leakageWarningSignal = useMemo(() => {

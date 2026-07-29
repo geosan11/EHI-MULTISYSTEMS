@@ -4,7 +4,7 @@ import { BackButton } from '../BackButton';
 import { User } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../lib/ToastContext';
-import { useHubRoutes, getCachedHubRoutes, useValidatedRouteSelection } from '../../lib/hubRoutes';
+import { useHubRoutes, useValidatedRouteSelection } from '../../lib/hubRoutes';
 
 export interface CorporateClient {
   id: string;
@@ -162,13 +162,14 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
         });
         setStandardRates(ratesMap);
       } else {
-        const initial: Record<string, number> = {};
-        // Synchronous cache/fallback read (not the reactive useHubRoutes()
-        // value) -- this runs once inside a mount-only effect, so closing
-        // over the hook's state would freeze whatever it was at mount and
-        // never pick up the live-fetched list.
-        getCachedHubRoutes().forEach(r => initial[r] = 500); // 500 base rate
-        setStandardRates(initial);
+        // Deliberately left empty (not a synthesized ₦500/kg default) --
+        // matches CargoForm.tsx's own equivalent fetch, which was fixed to
+        // do the same. A guessed default here was visually indistinguishable
+        // from a real saved rate (defaultValue={standardRates[r] || ''}), so
+        // an admin could click "save" on what looked like an existing rate
+        // without realizing nothing was actually configured, silently
+        // locking in a fake company-wide rate for every route.
+        setStandardRates({});
       }
     };
     fetchStandardRates();
@@ -447,6 +448,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                     type="number"
                     defaultValue={standardRates[r] || ''}
                     key={`standard-rate-${r}-${standardRates[r] ?? 'empty'}`}
+                    placeholder="Not configured"
                     onBlur={(e) => e.target.value && handleUpdateStandardRate(r, e.target.value)}
                     className="w-24 bg-[var(--color-bg)] border border-[var(--color-surface-2)] rounded px-2 py-1 text-[12px] font-mono text-[var(--color-foreground)] text-right focus:outline-none focus:border-[var(--color-accent-amber)]"
                   />

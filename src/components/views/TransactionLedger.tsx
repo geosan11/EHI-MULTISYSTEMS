@@ -1507,7 +1507,7 @@ export const TransactionLedger = ({
     const reversedAmount = (tx.raw as any)?.retrieved_amount || 0;
     const ok = await confirm({
       title: 'Undo this retrieval?',
-      message: `This resets the retrieval record on ${tx.name}'s entry (${fmt(reversedAmount)} previously marked retrieved). It does NOT touch any wallet balance -- if that retrieval credited a wallet, correct that separately (Customer Credit Wallets, or edit this entry's mode).`,
+      message: `This resets the retrieval record on ${tx.name}'s entry (${fmt(reversedAmount)} previously marked retrieved). If that retrieval credited a wallet, this will automatically claw the credit back out of the wallet too -- it'll fail with an error instead if the customer has already spent it, so you can resolve that with the customer/accounting first.`,
       confirmLabel: 'Undo Retrieval',
       tone: 'danger',
     });
@@ -1521,6 +1521,7 @@ export const TransactionLedger = ({
       showToast({ message: result.error || 'Failed to undo retrieval.', type: 'error' });
       return;
     }
+    const walletReversed = result.walletReversed || 0;
 
     const updated: Transaction = {
       ...tx,
@@ -1538,12 +1539,15 @@ export const TransactionLedger = ({
     writeAuditLog({
       user_id: user.id, user_name: user.name || 'Unknown', action: 'UNRETRIEVE',
       table_name: RETRIEVAL_TABLE_NAME[tx.type as RetrievalEntryType], record_id: tx.id,
-      description: `Retrieval reversed for ${tx.name} (was ${fmt(reversedAmount)} retrieved)`,
+      description: `Retrieval reversed for ${tx.name} (was ${fmt(reversedAmount)} retrieved${walletReversed > 0 ? `, ${fmt(walletReversed)} clawed back from wallet` : ''})`,
       hub: user.hub, hub_id: user.hub_id,
       old_values: { retrieved_amount: reversedAmount },
-      new_values: { retrieved_amount: 0 },
+      new_values: { retrieved_amount: 0, wallet_reversed: walletReversed },
     }).catch(() => {});
-    showToast({ message: 'Retrieval undone', type: 'success' });
+    showToast({
+      message: walletReversed > 0 ? `Retrieval undone -- ${fmt(walletReversed)} clawed back from wallet` : 'Retrieval undone',
+      type: 'success',
+    });
     setViewingDetail({ ...viewingDetail, raw: updated });
   };
 

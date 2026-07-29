@@ -154,6 +154,21 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
     return creditsData.filter(tx => tx.airline && tx.airline.toLowerCase().includes(search.toLowerCase()));
   }, [creditsData, search]);
 
+  // Cargo entries and commission config keys have historically used both
+  // short and long airline names ("Green Africa" vs "Green Africa
+  // Airways") -- built once here, keyed by the SAME normalizeAirlineName
+  // used on tx.airline below, so creditSummary/creditsDetailed/the PDF
+  // export can never independently drift on whether a commission lookup
+  // is normalized (creditsDetailed used to skip this and silently fall
+  // through to 0% whenever a commission was saved under a variant name
+  // different from what tx.airline normalizes to, overstating what's owed
+  // to the airline on both the on-screen detailed list and the export).
+  const normalizedCommissions = useMemo(() => {
+    const map: Record<string, number> = {};
+    Object.entries(commissions).forEach(([k, v]) => { map[normalizeAirlineName(k)] = v; });
+    return map;
+  }, [commissions]);
+
   const creditSummary = useMemo(() => {
     const summary: Record<string, number> = {};
     credits.forEach(tx => {
@@ -161,14 +176,12 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
       // but also normalize commission keys so a commission saved under the
       // short form still matches.
       const airline = normalizeAirlineName(tx.airline) || 'Unknown';
-      const normalizedCommissions: Record<string, number> = {};
-      Object.entries(commissions).forEach(([k, v]) => { normalizedCommissions[normalizeAirlineName(k)] = v; });
       const commRate = tx.commissionRate ?? normalizedCommissions[airline] ?? 0;
       const weOwe = roundMoney(tx.amount * (1 - commRate / 100));
       summary[airline] = (summary[airline] || 0) + weOwe;
     });
     return Object.entries(summary).map(([airline, amount]) => ({ airline, amount })).sort((a, b) => b.amount - a.amount);
-  }, [credits, commissions]);
+  }, [credits, normalizedCommissions]);
 
   const totalCredit = creditSummary.reduce((acc, c) => acc + c.amount, 0);
 
@@ -179,12 +192,12 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
   const creditsDetailed = useMemo(() => {
     return credits.map(tx => {
       const normalizedAirline = normalizeAirlineName(tx.airline);
-      const commRate = tx.commissionRate ?? commissions[normalizedAirline] ?? commissions[tx.airline!] ?? 0;
+      const commRate = tx.commissionRate ?? normalizedCommissions[normalizedAirline] ?? 0;
       const commissionAmount = roundMoney(tx.amount * commRate / 100);
       const weOwe = roundMoney(tx.amount * (1 - commRate / 100));
       return { airline: tx.airline || 'Unknown', id: tx.id, baseAmount: tx.amount, commRate, commissionAmount, weOwe, detail: tx.detail };
     });
-  }, [credits, commissions]);
+  }, [credits, normalizedCommissions]);
 
   const handleDownloadPDF = () => {
     const generatedAt = new Date().toLocaleString('en-GB');

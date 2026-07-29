@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, fetchAllRows } from './supabase';
 import { Transaction } from './types';
 
 export type DebtEntryType = 'cargo' | 'baggage' | 'marketing' | 'package';
@@ -120,6 +120,13 @@ export interface PaymentHistoryEvent {
   sourceDetail: string;
   sourceHubId?: string;
   sourceHub?: string;
+  // The original entry's own created_at (when the sale/debt itself was
+  // booked, not when this particular payment against it landed) -- lets a
+  // consumer distinguish "collecting on an old debt" from "the customer
+  // paid off a debt created and cleared within the very same window,"
+  // which is a single sale, not sale + separate collection. See
+  // EODReconciliation.tsx's priorDebtCollectionEvents for the consumer.
+  sourceCreatedAt?: string;
 }
 
 // Every entry that could still contribute a debt-collection or retrieval
@@ -137,16 +144,25 @@ export async function fetchAllDebtAndRetrievalEntries(): Promise<Transaction[]> 
   const filterFor = (modeCol: string) =>
     `${modeCol}.eq.Debt,retrieved.eq.true,retrieved_amount.gt.0,is_debt_clearance.eq.true`;
 
-  const [cargoRes, baggageRes, marketingRes, packageRes] = await Promise.all([
-    supabase.from('cargo_entries').select('*').or(filterFor(MODE_COLUMN.cargo)).order('created_at', { ascending: false }).limit(1000),
-    supabase.from('manifests').select('*').or(filterFor(MODE_COLUMN.baggage)).order('created_at', { ascending: false }).limit(1000),
-    supabase.from('marketing_entries').select('*').or(filterFor(MODE_COLUMN.marketing)).order('created_at', { ascending: false }).limit(1000),
-    supabase.from('package_entries').select('*').or(filterFor(MODE_COLUMN.package)).order('created_at', { ascending: false }).limit(1000),
+  // Paginated, not `.limit(1000)` -- this fetch is unbounded by date on
+  // purpose (see the comment above), so any one of these 4 tables can
+  // realistically cross a single-page cap over a multi-year operation.
+  // A flat `.limit(1000)` silently dropped the oldest matching rows
+  // (order is created_at desc) past that point, from every one of this
+  // function's 4+ consumers (EOD, AccountingConsole, Analytics,
+  // DepartmentSalesAnalysis's modal) simultaneously, with zero warning --
+  // if one of those dropped rows was a long-outstanding debt finally paid
+  // off today, its collection event would vanish from today's totals.
+  const [cargoData, baggageData, marketingData, packageData] = await Promise.all([
+    fetchAllRows<any>((from, to) => supabase.from('cargo_entries').select('*').or(filterFor(MODE_COLUMN.cargo)).order('created_at', { ascending: false }).range(from, to)),
+    fetchAllRows<any>((from, to) => supabase.from('manifests').select('*').or(filterFor(MODE_COLUMN.baggage)).order('created_at', { ascending: false }).range(from, to)),
+    fetchAllRows<any>((from, to) => supabase.from('marketing_entries').select('*').or(filterFor(MODE_COLUMN.marketing)).order('created_at', { ascending: false }).range(from, to)),
+    fetchAllRows<any>((from, to) => supabase.from('package_entries').select('*').or(filterFor(MODE_COLUMN.package)).order('created_at', { ascending: false }).range(from, to)),
   ]);
 
   const mapped: Transaction[] = [];
 
-  (cargoRes.data || []).forEach((r: any) => mapped.push({
+  cargoData.forEach((r: any) => mapped.push({
     id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo',
     detail: r.is_debt_clearance ? 'DEBT CLEARANCE' : `${r.airline || ''} · ${r.awb_tag_number || ''}`,
     amount: r.amount || 0, amountPaid: r.amount_paid || 0, paymentHistory: r.payment_history || [],
@@ -158,7 +174,7 @@ export async function fetchAllDebtAndRetrievalEntries(): Promise<Transaction[]> 
     raw: r,
   } as Transaction));
 
-  (baggageRes.data || []).forEach((r: any) => mapped.push({
+  baggageData.forEach((r: any) => mapped.push({
     id: r.transaction_id || r.id, name: r.passenger_name || 'Passenger',
     detail: r.is_debt_clearance ? 'DEBT CLEARANCE' : `${r.flight_no || ''}`,
     amount: r.amount || 0, amountPaid: r.amount_paid || 0, paymentHistory: r.payment_history || [],
@@ -170,7 +186,7 @@ export async function fetchAllDebtAndRetrievalEntries(): Promise<Transaction[]> 
     raw: r,
   } as Transaction));
 
-  (marketingRes.data || []).forEach((r: any) => mapped.push({
+  marketingData.forEach((r: any) => mapped.push({
     id: r.entry_ref || r.id, name: r.customer_name || 'Customer',
     detail: r.is_debt_clearance ? 'DEBT CLEARANCE' : `${r.route || ''} · ${r.qty_big_bag || 0}BB ${r.qty_med_bag || 0}MB ${r.qty_small_bag || 0}SB`,
     // marketing_entries' naming inversion: `amount_paid` holds the real sale
@@ -186,7 +202,7 @@ export async function fetchAllDebtAndRetrievalEntries(): Promise<Transaction[]> 
     raw: r,
   } as Transaction));
 
-  (packageRes.data || []).forEach((r: any) => mapped.push({
+  packageData.forEach((r: any) => mapped.push({
     id: r.entry_ref || r.id, name: r.customer_name || 'Customer',
     detail: r.is_debt_clearance ? 'DEBT CLEARANCE' : `${r.destination || ''}`,
     amount: r.amount || 0, amountPaid: r.amount_paid || 0, paymentHistory: r.payment_history || [],
@@ -243,6 +259,7 @@ export function extractPaymentHistoryEvents(
         sourceTxId: t.id, sourceTxType: t.type as DebtEntryType,
         sourceTxName: t.name, sourceDetail: t.detail,
         sourceHubId: t.hub_id, sourceHub: t.hub,
+        sourceCreatedAt: t.created_at,
       });
     });
   });

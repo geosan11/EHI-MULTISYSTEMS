@@ -54,10 +54,12 @@ export function useSizeTierRates(): SizeTierRate[] {
 }
 
 // Returns the FLAT total for this content type + airline + route + hub whose
-// [min_inches, max_inches] bracket contains inches (max_inches null = open
-// top). This total is the whole price -- callers use it instead of, not on
-// top of, the per-kg cascade and minimum charge (same contract as
-// resolveFlatTier, just keyed on screen-size inches instead of weight).
+// [min_inches, max_inches) bracket contains inches (max_inches null = open
+// top, otherwise exclusive -- adjacent brackets like "32-43in"/"43-55in"
+// means 43in belongs to the second one, not both). This total is the whole
+// price -- callers use it instead of, not on top of, the per-kg cascade and
+// minimum charge (same contract as resolveFlatTier, just keyed on
+// screen-size inches instead of weight).
 export function resolveSizeTier(
   rows: SizeTierRate[], contentTypeName: string, airline: string, route: string, inches: number, hubId?: string | null, equivalentHubIds?: string[] | null,
 ): number | null {
@@ -75,7 +77,7 @@ export function resolveSizeTier(
     r.content_type_name.trim().toLowerCase() === normCt &&
     normalizeAirlineName(r.airline).toLowerCase() === normAir &&
     inches >= r.min_inches &&
-    (r.max_inches == null || inches <= r.max_inches)
+    (r.max_inches == null || inches < r.max_inches)
   );
 
   const pick = (hubOk: boolean, routeOk: boolean) => scoped.find(r =>
