@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { UserProfile, signIn } from '../lib/auth';
 import ehiLogo from '../assets/branding/ehi-logo.png';
-import loginBg from '../assets/branding/login-bg.jpg';
-import loginArt from '../assets/branding/ehi_login_art.jpg';
 import { getConnectionMode, testSupabaseConnection, supabase } from '../lib/supabase';
 import { User, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
 
@@ -106,13 +104,18 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
 
   return (
     <div
-      className="relative flex flex-col items-center justify-center min-h-[100dvh] w-full bg-cover bg-center bg-no-repeat overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-10 select-none animate-in fade-in duration-300"
-      style={{
-        backgroundImage: `url(${loginBg})`,
-      }}
+      className="relative flex flex-col items-center justify-center min-h-[100dvh] w-full overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-10 select-none animate-in fade-in duration-300"
+      style={{ background: 'var(--color-background)' }}
     >
-      {/* Ambient Glass Overlay (theme-aware) */}
-      <div className="absolute inset-0 backdrop-blur-[6px] pointer-events-none" style={{ background: 'var(--color-overlay)' }} />
+      {/* Soft blue/purple ambient wash, in place of a photo backdrop */}
+      <div
+        className="absolute -top-24 -left-24 w-[480px] h-[480px] rounded-full pointer-events-none"
+        style={{ background: 'var(--color-accent-cobalt)', opacity: 0.16, filter: 'blur(110px)' }}
+      />
+      <div
+        className="absolute -bottom-32 -right-24 w-[520px] h-[520px] rounded-full pointer-events-none"
+        style={{ background: 'var(--color-purple)', opacity: 0.16, filter: 'blur(120px)' }}
+      />
 
       {/* Main Container: Sleek desktop split card styled like the mockup */}
       <div
@@ -179,7 +182,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                       color: 'var(--color-input-text)',
                       border: '1.5px solid var(--color-border)',
                     }}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-accent-amber)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--glow-amber)'; }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-purple)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--glow-cobalt)'; }}
                     onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.boxShadow = 'none'; }}
                     required
                   />
@@ -196,7 +199,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                   <button
                     type="button"
                     onClick={() => { setShowForgotPassword(true); setResetEmail(email); setResetSent(false); setResetError(''); }}
-                    className="text-[11px] font-sans hover:text-[var(--color-accent-amber)] transition-colors cursor-pointer"
+                    className="text-[11px] font-sans hover:text-[var(--color-purple)] transition-colors cursor-pointer"
                     style={{ color: 'var(--color-muted)' }}
                   >
                     Forget password?
@@ -217,7 +220,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                       color: 'var(--color-input-text)',
                       border: '1.5px solid var(--color-border)',
                     }}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-accent-amber)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--glow-amber)'; }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-purple)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--glow-cobalt)'; }}
                     onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.boxShadow = 'none'; }}
                     required
                   />
@@ -322,10 +325,10 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
               <button
                 type="submit"
                 disabled={isLoading || connStatus === 'unconfigured'}
-                className="relative w-full h-11 rounded-xl overflow-hidden transition-all duration-200 transform hover:scale-[1.015] active:scale-[0.97] active:translate-y-[1px] disabled:opacity-50 mt-2 cursor-pointer group shadow-[0_6px_20px_rgba(251,191,36,0.45)] hover:shadow-[0_8px_28px_rgba(251,191,36,0.65)]"
+                className="relative w-full h-11 rounded-xl overflow-hidden transition-all duration-200 transform hover:scale-[1.015] active:scale-[0.97] active:translate-y-[1px] disabled:opacity-50 mt-2 cursor-pointer group shadow-[0_6px_20px_rgba(99,72,232,0.45)] hover:shadow-[0_8px_28px_rgba(99,72,232,0.6)]"
                 style={{
-                  background: 'linear-gradient(160deg, #fde68a 0%, #fbbf24 35%, #d97706 100%)',
-                  border: '1px solid rgba(253,230,138,0.5)',
+                  background: 'linear-gradient(135deg, var(--color-accent-cobalt) 0%, var(--color-purple) 100%)',
+                  border: '1px solid rgba(255,255,255,0.15)',
                 }}
               >
                 {/* Top glass sheen */}
@@ -343,7 +346,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                   style={{ background: 'rgba(0,0,0,0.30)' }}
                 />
                 {/* Content */}
-                <span className="relative z-10 flex items-center justify-center gap-2 text-[14px] font-extrabold font-sans text-amber-950 group-hover:scale-105 transition-transform duration-200">
+                <span className="relative z-10 flex items-center justify-center gap-2 text-[14px] font-extrabold font-sans text-white group-hover:scale-105 transition-transform duration-200">
                   {isLoading ? (
                     <>
                       <Loader2 size={16} className="animate-spin" />
@@ -362,7 +365,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                   <button
                     type="button"
                     onClick={() => { setShowForgotPassword(true); setResetEmail(email); setResetSent(false); setResetError(''); }}
-                    className="font-bold hover:text-[var(--color-accent-amber)] transition-colors cursor-pointer"
+                    className="font-bold hover:text-[var(--color-purple)] transition-colors cursor-pointer"
                     style={{ color: 'var(--color-foreground)' }}
                   >
                     Signup
@@ -377,30 +380,29 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
             </div>
           </div>
 
-          {/* Right Column (Desktop Cargo Aviation Artwork Panel - Centralized Logo) */}
-          <div className="hidden lg:flex lg:col-span-5 flex-col justify-between p-5 rounded-[18px] bg-[#090a0f] border border-white/12 text-white min-h-[380px] shadow-[0_8px_32px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.08)] relative overflow-hidden">
-            
-            {/* Cargo Plane Loading Background Artwork */}
+          {/* Right Column (Gradient Brand Panel, mockup-style) */}
+          <div
+            className="hidden lg:flex lg:col-span-5 flex-col justify-between p-6 rounded-[18px] text-white min-h-[380px] shadow-[0_8px_32px_rgba(0,0,0,0.35)] relative overflow-hidden"
+            style={{ background: 'linear-gradient(160deg, var(--color-accent-cobalt) 0%, #4c3fc9 45%, var(--color-purple) 100%)' }}
+          >
+            {/* Soft light bloom, echoing the mockup's diffuse highlight */}
             <div
-              className="absolute inset-0 bg-cover bg-center opacity-90 pointer-events-none"
-              style={{ backgroundImage: `url(${loginArt})` }}
+              className="absolute -top-16 -right-10 w-64 h-64 rounded-full pointer-events-none"
+              style={{ background: 'rgba(255,255,255,0.18)', filter: 'blur(70px)' }}
             />
-            {/* Soft Ambient Vignette Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-b from-slate-950/60 via-slate-950/30 to-slate-950/80 pointer-events-none" />
 
-            {/* Centralized EHI Logo Container */}
-            <div className="relative z-10 my-auto flex flex-col items-center justify-center w-full">
-              <div className="p-4 px-6 rounded-2xl bg-white/95 backdrop-blur-xl border border-white/60 shadow-2xl flex items-center justify-center transition-transform duration-300 hover:scale-105">
-                <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 135, height: 'auto', objectFit: 'contain' }} />
-              </div>
+            {/* Small logo mark, top-left like the mockup's asterisk */}
+            <div className="relative z-10 w-11 h-11 rounded-xl bg-white/95 flex items-center justify-center shadow-lg p-1.5">
+              <img src={ehiLogo} alt="EHI Multisystems" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             </div>
 
-            {/* Bottom Minimal Brand Tag */}
-            <div className="relative z-10 pt-3 border-t border-white/20 flex items-center justify-between text-[10px] font-sans text-white/90">
-              <span className="font-bold">EHI Multisystems Nigeria Ltd</span>
-              <span className="text-[#fbbf24] font-extrabold tracking-wide">Aviation Logistics</span>
+            {/* Bottom-left marketing copy, mockup-style */}
+            <div className="relative z-10">
+              <p className="text-[13px] font-sans text-white/80 mb-1.5">You can easily</p>
+              <h2 className="text-[22px] leading-snug font-extrabold font-sans">
+                Track, move and reconcile cargo — all from one hub.
+              </h2>
             </div>
-
           </div>
 
         </div>
@@ -429,13 +431,14 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
             <div className="p-5">
               {resetSent ? (
                 <div className="text-center py-4 space-y-3">
-                  <div className="text-[14px] text-amber-500 font-sans font-bold">Reset link sent ✓</div>
+                  <div className="text-[14px] font-sans font-bold" style={{ color: 'var(--color-purple)' }}>Reset link sent ✓</div>
                   <p className="text-[12px] font-sans leading-relaxed" style={{ color: 'var(--color-foreground)' }}>
                     Check {resetEmail} for a password reset link. It may take a minute to arrive.
                   </p>
                   <button
                     onClick={closeForgotPasswordModal}
-                    className="w-full h-11 bg-amber-500 hover:bg-amber-400 text-slate-950 text-[13px] font-bold rounded-xl mt-2 transition-colors cursor-pointer"
+                    className="w-full h-11 text-white text-[13px] font-bold rounded-xl mt-2 transition-opacity hover:opacity-90 cursor-pointer"
+                    style={{ background: 'linear-gradient(135deg, var(--color-accent-cobalt) 0%, var(--color-purple) 100%)' }}
                   >
                     Done
                   </button>
@@ -453,7 +456,7 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                     autoFocus
                     className="w-full h-12 px-4 text-sm rounded-[var(--radius-md)] focus:outline-none transition-all"
                     style={{ background: 'var(--color-input-bg)', color: 'var(--color-input-text)', border: '1px solid var(--color-border)' }}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-accent-amber)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--glow-amber)'; }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-purple)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--glow-cobalt)'; }}
                     onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.boxShadow = 'none'; }}
                   />
                   {resetError && (
@@ -471,7 +474,8 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                     <button
                       type="submit"
                       disabled={resetSending}
-                      className="flex-1 h-11 bg-amber-500 hover:bg-amber-400 text-slate-950 text-[13px] font-bold rounded-xl disabled:opacity-60 transition-colors cursor-pointer"
+                      className="flex-1 h-11 text-white text-[13px] font-bold rounded-xl disabled:opacity-60 transition-opacity hover:opacity-90 cursor-pointer"
+                      style={{ background: 'linear-gradient(135deg, var(--color-accent-cobalt) 0%, var(--color-purple) 100%)' }}
                     >
                       {resetSending ? 'Sending…' : 'Send Reset Link'}
                     </button>

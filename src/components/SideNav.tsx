@@ -108,19 +108,20 @@ export const SideNav = ({
     ...toEntries(["Packages", "Scan", "Incoming", "OutboundArrivals", "MyTrips", "More"]),
   ];
 
-  const activeColor = "var(--color-accent-amber)";
-
   return (
     <aside
       className={`ehi-sidenav ${isExpanded ? "expanded" : "collapsed"}`}
       style={{
         display: "flex",
         flexDirection: "column",
-        width: isExpanded ? 220 : 64,
-        background: "var(--color-nav-bg, var(--color-obsidian))",
-        borderRight: "1px solid var(--color-nav-border, var(--color-border))",
+        width: isExpanded ? 220 : 76,
+        margin: "12px 0 12px 12px",
+        background: "var(--color-surface-card)",
+        border: "1px solid var(--color-border)",
+        borderRadius: "var(--radius-2xl)",
+        boxShadow: "var(--shadow-dropdown)",
         flexShrink: 0,
-        height: "var(--app-height)",
+        height: "calc(var(--app-height) - 24px)",
         overflowY: "auto",
         overflowX: "hidden",
         transition: "width 0.3s cubic-bezier(0.2, 0, 0, 1)",
@@ -129,8 +130,7 @@ export const SideNav = ({
       {/* Brand */}
       <div
         style={{
-          padding: isExpanded ? "20px 12px 16px" : "20px 0 16px",
-          borderBottom: "1px solid var(--color-border, var(--color-border))",
+          padding: isExpanded ? "18px 12px 14px" : "18px 0 14px",
           display: "flex",
           flexDirection: "column",
           alignItems: isExpanded ? "flex-start" : "center",
@@ -247,7 +247,7 @@ export const SideNav = ({
         </div>
       </div>
 
-      <nav style={{ flex: 1, padding: "8px 0" }}>
+      <nav style={{ flex: 1, padding: "6px 10px", display: "flex", flexDirection: "column", gap: 4 }}>
         {visibleTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = currentTab === tab.id;
@@ -256,38 +256,45 @@ export const SideNav = ({
             <button
               key={tab.id}
               onClick={() => onChangeTab(tab.id)}
-              className={`group ${isActive ? "bg-[var(--glow-amber)]" : "hover:bg-[rgba(255,255,255,0.03)]"}`}
+              className="group"
               style={{
                 width: "100%",
                 display: "flex",
                 alignItems: "center",
+                justifyContent: isExpanded ? "flex-start" : "center",
                 gap: isExpanded ? 12 : 0,
-                padding: "11px 14px",
-                background: isActive ? "var(--glow-amber)" : "transparent",
+                padding: isExpanded ? "8px 10px" : "8px",
+                background: isActive ? "transparent" : "transparent",
                 border: "none",
-                borderLeft: isActive
-                  ? `3px solid var(--color-accent-amber)`
-                  : "3px solid transparent",
+                borderRadius: "var(--radius-lg)",
                 cursor: "pointer",
-                transition: "all 0.15s ease",
+                transition: "background-color 0.15s ease",
                 textAlign: "left",
               }}
+              onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = "var(--color-surface-2)"; }}
+              onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
             >
               <div
                 style={{
-                  width: 20,
+                  width: 38,
+                  height: 38,
+                  borderRadius: "var(--radius-md)",
                   display: "flex",
                   justifyContent: "center",
                   alignItems: "center",
+                  flexShrink: 0,
+                  background: isActive ? "linear-gradient(135deg, #fde68a 0%, var(--color-accent-amber) 60%, #d97706 100%)" : "transparent",
+                  boxShadow: isActive ? "var(--shadow-amber)" : "none",
+                  transition: "all 0.15s ease",
                 }}
               >
                 <Icon
-                  size={isActive ? 20 : 18}
-                  weight={isActive ? "duotone" : "regular"}
+                  size={18}
+                  weight={isActive ? "fill" : "regular"}
                   style={{ flexShrink: 0, transition: "all 0.15s ease" }}
                   className={
                     isActive
-                      ? "text-[var(--color-accent-amber)]"
+                      ? "text-[var(--color-obsidian)]"
                       : "text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)]"
                   }
                 />
@@ -305,10 +312,10 @@ export const SideNav = ({
                 }}
               >
                 <span
-                  className={`${isActive ? "text-[var(--color-accent-amber)]" : "text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)]"} transition-colors`}
+                  className={`${isActive ? "text-[var(--color-foreground)]" : "text-[var(--color-muted)] group-hover:text-[var(--color-foreground)]"} transition-colors`}
                   style={{
                     fontSize: 13,
-                    fontWeight: isActive ? 600 : 500,
+                    fontWeight: isActive ? 700 : 500,
                   }}
                 >
                   {tab.label}
@@ -321,8 +328,8 @@ export const SideNav = ({
 
       <div
         style={{
-          padding: "12px 8px",
-          borderTop: "1px solid var(--color-border, rgba(255,255,255,0.07))",
+          padding: "10px",
+          borderTop: "1px solid var(--color-border)",
           display: "flex",
           flexDirection: "column",
           gap: "4px",
@@ -333,14 +340,15 @@ export const SideNav = ({
           className="group hover:bg-[var(--color-surface-2)] transition-colors"
           style={{
             width: "100%",
-            padding: "9px 14px",
+            padding: isExpanded ? "9px 10px" : "9px",
+            justifyContent: isExpanded ? "flex-start" : "center",
             background: "transparent",
             border: "none",
             display: "flex",
             alignItems: "center",
             gap: isExpanded ? 12 : 0,
             cursor: "pointer",
-            borderRadius: 6,
+            borderRadius: "var(--radius-lg)",
           }}
         >
           {theme === "dark" ? (
@@ -382,14 +390,15 @@ export const SideNav = ({
           className="group hover:bg-[var(--color-surface-2)] transition-colors"
           style={{
             width: "100%",
-            padding: "9px 14px",
+            padding: isExpanded ? "9px 10px" : "9px",
+            justifyContent: isExpanded ? "flex-start" : "center",
             background: "transparent",
             border: "none",
             display: "flex",
             alignItems: "center",
             gap: isExpanded ? 12 : 0,
             cursor: "pointer",
-            borderRadius: 6,
+            borderRadius: "var(--radius-lg)",
           }}
         >
           <SignOutIcon
