@@ -143,7 +143,7 @@ export const ToastStack = ({
 }) => {
   if (toasts.length === 0) return null;
   return (
-    <div className="fixed top-4 inset-x-0 z-[9999] flex flex-col items-center gap-2 px-4 pointer-events-none">
+    <div className="fixed top-4 inset-x-0 z-[99999999] flex flex-col items-center gap-2 px-4 pointer-events-none">
       <div className="w-full max-w-sm flex flex-col gap-2">
         {toasts.map((t) => (
           <ToastCard key={t.id} {...t} onDismiss={onDismiss} />

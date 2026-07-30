@@ -119,7 +119,11 @@ export const ExcessBaggageForm = ({
   const parsedOverride = parseFloat(amountOverride) || 0;
   const totalAmount = amountOverride !== "" ? parsedOverride : minAmount;
 
-  const isValid = name.trim().length > 0 && flight.trim().length > 0 && dest !== '' && excessKg > 0 && (amountOverride === "" || parsedOverride >= minAmount);
+  // A short wallet paying its remainder by Transfer/POS needs a bank before
+  // the entry can be submitted -- mirrors the same guard in handleSubmit.
+  const walletRemainderBankOk = mode !== 'Wallet' || !activeWallet || activeWallet.balance >= totalAmount ||
+    !(walletRemainderMode === 'Transfer' || walletRemainderMode === 'POS') || walletRemainderBank.trim().length > 0;
+  const isValid = name.trim().length > 0 && flight.trim().length > 0 && dest !== '' && excessKg > 0 && (amountOverride === "" || parsedOverride >= minAmount) && walletRemainderBankOk;
 
   const { showToast } = useToast();
 
@@ -171,6 +175,18 @@ export const ExcessBaggageForm = ({
     // receipt_mode, so the till isn't silently short. EOD nets
     // wallet_deduction_amount out of the cash/transfer/POS totals.
     if (mode === "Wallet" && activeWallet) {
+      // Guard: a short wallet needs a remainder method (Cash needs nothing;
+      // Transfer/POS need a bank/terminal reference). Checked BEFORE
+      // chargeWalletForSale -- that call commits an atomic, non-reversible
+      // wallet deduction, so this can never run after the money has already
+      // moved (previously it did, silently deducting the wallet even when
+      // the bank field was left blank).
+      const walletRemainder = Math.max(0, totalAmount - activeWallet.balance);
+      if (walletRemainder > 0 && (walletRemainderMode === 'Transfer' || walletRemainderMode === 'POS') && !walletRemainderBank.trim()) {
+        showToast({ message: `Enter the bank/terminal for the ₦${fmt(walletRemainder)} remainder.`, type: 'warning' });
+        setSubmitting(false);
+        return;
+      }
       const charge = await chargeWalletForSale({
         wallet: activeWallet,
         amount: totalAmount,
@@ -180,13 +196,6 @@ export const ExcessBaggageForm = ({
       });
       if (!charge.ok) {
         showToast({ message: `Wallet deduction failed: ${charge.error}. Entry was not logged.`, type: 'error' });
-        setSubmitting(false);
-        return;
-      }
-      // Guard: a short wallet needs a remainder method (Cash needs nothing;
-      // Transfer/POS need a bank/terminal reference).
-      if (charge.remainder > 0 && (walletRemainderMode === 'Transfer' || walletRemainderMode === 'POS') && !walletRemainderBank.trim()) {
-        showToast({ message: `Enter the bank/terminal for the ₦${fmt(charge.remainder)} remainder.`, type: 'warning' });
         setSubmitting(false);
         return;
       }
@@ -769,6 +778,7 @@ export const ExcessBaggageForm = ({
                     bank={walletRemainderBank}
                     onModeChange={setWalletRemainderMode}
                     onBankChange={setWalletRemainderBank}
+                    banks={banks}
                   />
                 )}
               </div>

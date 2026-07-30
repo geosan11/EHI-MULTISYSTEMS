@@ -226,7 +226,7 @@ export const MarketingWorkspace = ({
   // an empty route already zeroes routePrices (see above), but a manually
   // typed amountOverride could still push totalAmount > 0 without a route
   // ever having been chosen.
-  const isValid = !!awb && !!route && (mode === "Debt" ? debtorName.trim().length > 0 : name.trim().length > 0) && phone.trim().length > 0 && totalAmount > 0 && (amountOverride === "" || parsedOverride >= minAmount);
+  const isValidCore = !!awb && !!route && (mode === "Debt" ? debtorName.trim().length > 0 : name.trim().length > 0) && phone.trim().length > 0 && totalAmount > 0 && (amountOverride === "" || parsedOverride >= minAmount);
 
   // "Less Transfer" — daily adjustment for 3rd-party/corporate transfers (Govt/Honda/Zion)
   // that belong to other accounts and should be excluded from the day's cash tally
@@ -241,6 +241,12 @@ export const MarketingWorkspace = ({
     if (selectedWalletOverride) return selectedWalletOverride;
     return matchWallet(customerWallets, name, phone);
   }, [name, phone, customerWallets, selectedWalletOverride]);
+
+  // A short wallet paying its remainder by Transfer/POS needs a bank before
+  // the entry can be submitted -- mirrors the same guard in handleSubmit.
+  const walletRemainderBankOk = mode !== 'Wallet' || !activeWallet || activeWallet.balance >= totalAmount ||
+    !(walletRemainderMode === 'Transfer' || walletRemainderMode === 'POS') || walletRemainderBank.trim().length > 0;
+  const isValid = isValidCore && walletRemainderBankOk;
 
   const marketingTxs = transactions.filter((t) => t.type === "marketing");
   const totalSales = marketingTxs.reduce((sum, t) => sum + t.amount, 0);
@@ -430,6 +436,18 @@ export const MarketingWorkspace = ({
     // receipt_mode, so the till isn't silently short. EOD nets
     // wallet_deduction_amount out of the cash/transfer/POS totals.
     if (mode === "Wallet" && activeWallet) {
+      // Guard: a short wallet needs a remainder method (Cash needs nothing;
+      // Transfer/POS need a bank/terminal reference). Checked BEFORE
+      // chargeWalletForSale -- that call commits an atomic, non-reversible
+      // wallet deduction, so this can never run after the money has already
+      // moved (previously it did, silently deducting the wallet even when
+      // the bank field was left blank).
+      const walletRemainder = Math.max(0, totalAmount - activeWallet.balance);
+      if (walletRemainder > 0 && (walletRemainderMode === 'Transfer' || walletRemainderMode === 'POS') && !walletRemainderBank.trim()) {
+        showToast({ message: `Enter the bank/terminal for the ₦${fmt(walletRemainder)} remainder.`, type: 'warning' });
+        setSubmitting(false);
+        return;
+      }
       const charge = await chargeWalletForSale({
         wallet: activeWallet,
         amount: totalAmount,
@@ -439,13 +457,6 @@ export const MarketingWorkspace = ({
       });
       if (!charge.ok) {
         showToast({ message: `Wallet deduction failed: ${charge.error}. Entry was not logged.`, type: 'error' });
-        setSubmitting(false);
-        return;
-      }
-      // Guard: a short wallet needs a remainder method (Cash needs nothing;
-      // Transfer/POS need a bank/terminal reference).
-      if (charge.remainder > 0 && (walletRemainderMode === 'Transfer' || walletRemainderMode === 'POS') && !walletRemainderBank.trim()) {
-        showToast({ message: `Enter the bank/terminal for the ₦${fmt(charge.remainder)} remainder.`, type: 'warning' });
         setSubmitting(false);
         return;
       }
@@ -929,6 +940,7 @@ export const MarketingWorkspace = ({
                         bank={walletRemainderBank}
                         onModeChange={setWalletRemainderMode}
                         onBankChange={setWalletRemainderBank}
+                        banks={banks}
                       />
                     )}
                   </div>
