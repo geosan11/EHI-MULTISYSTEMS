@@ -464,51 +464,34 @@ export const CustomerWallets = ({
 
     setSavingTopUp(true);
     try {
-      // 1. Check if wallet already exists for this customer name (case insensitive)
-      const existing = wallets.find(
-        (w) => w.customer_name.trim().toLowerCase() === name.toLowerCase()
-      );
+      // 1. Find or atomically create the wallet, serialized server-side
+      // against concurrent calls for the same customer name -- this used
+      // to check only this tab's in-memory `wallets` array then do a plain
+      // client .insert(), so two top-ups submitted near-simultaneously for
+      // the same (often phone-less) customer could both miss the match and
+      // both create a separate wallet, splitting their balance across two
+      // rows. See find_or_create_customer_wallet() in
+      // supabase/migrations/20260917_phoneless_wallet_dedupe_race.sql.
+      const { data: foundOrCreated, error: findErr } = await supabase.rpc('find_or_create_customer_wallet', {
+        p_hub_id: user.hub_id,
+        p_customer_name: name,
+        p_customer_phone: formPhone.trim() || null,
+        p_created_by: user.name,
+        p_source_type: formSourceType,
+        p_source_ref: formSourceRef.trim() || null,
+        p_source_note: formNote.trim() || null,
+        p_opening_balance: amt,
+      });
+      if (findErr) throw findErr;
+      const foundOrCreatedRow = Array.isArray(foundOrCreated) ? foundOrCreated[0] : foundOrCreated;
+      if (!foundOrCreatedRow?.wallet_id) throw new Error('Could not find or create wallet');
 
-      let walletId = existing?.id;
-      let isNewWallet = false;
-
-      if (existing) {
-        if (formPhone.trim() && formPhone.trim() !== existing.customer_phone) {
-          // Not money -- no race risk, safe to update directly alongside
-          // the atomic balance top-up below.
-          await supabase.from('customer_wallets').update({ customer_phone: formPhone.trim() }).eq('id', existing.id);
-        }
-      } else {
-        // Insert new wallet at zero balance -- the actual credit happens
-        // via applyWalletTransaction below so the balance and its
-        // wallet_transactions audit row are always created together.
-        const { data: newWallet, error: insertErr } = await supabase
-          .from('customer_wallets')
-          .insert({
-            hub_id: user.hub_id,
-            customer_name: name,
-            customer_phone: formPhone.trim() || null,
-            opening_balance: amt,
-            balance: 0,
-            total_topped_up: 0,
-            total_used: 0,
-            source_type: formSourceType,
-            source_ref: formSourceRef.trim() || null,
-            source_note: formNote.trim() || null,
-            status: 'active',
-            created_by: user.name,
-          })
-          .select('id')
-          .single();
-
-        if (insertErr) throw insertErr;
-        walletId = newWallet.id;
-        isNewWallet = true;
-      }
+      const walletId: string = foundOrCreatedRow.wallet_id;
+      const isNewWallet: boolean = foundOrCreatedRow.was_created;
 
       // 2. Atomically credit the wallet + write its wallet_transactions audit row
       const result = await applyWalletTransaction({
-        walletId: walletId!,
+        walletId,
         type: 'top_up',
         amount: amt,
         cargoRef: formSourceRef.trim() || undefined,
