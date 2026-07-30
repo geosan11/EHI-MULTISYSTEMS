@@ -8,6 +8,7 @@ import { useToast } from '../../lib/ToastContext';
 import { clearDebt, DEBT_TABLE_NAME, DebtEntryType } from '../../lib/debt';
 import { supabase, writeAuditLog } from '../../lib/supabase';
 import { useHubNames } from '../../lib/hubRoutes';
+import { useBanks } from '../../lib/banks';
 
 export const DebtorsTab = ({
   transactions = [],
@@ -19,6 +20,7 @@ export const DebtorsTab = ({
   onUpdateTx?: (tx: Transaction) => void;
 }) => {
   const { showToast } = useToast();
+  const banks = useBanks();
   // hub_id -> name, for the DEBT_COLLECTION audit log's `hub` field below --
   // (debt as any).hub is unreliable (see useHubNames' own comment), so this
   // is the only way to reliably show the debt's REAL hub name rather than
@@ -190,6 +192,14 @@ export const DebtorsTab = ({
     const paidNow = parseFloat(paymentAmount);
     if (!paidNow || paidNow <= 0) {
       showToast({ message: 'Enter a payment amount greater than zero.', type: 'warning' });
+      return;
+    }
+    // paymentBank had no input anywhere in this screen -- every Transfer
+    // payment silently sent bank: undefined to clearDebt with nothing ever
+    // prompting for one. Mirrors the same guard TransactionLedger.tsx's
+    // confirmClearDebt already has for its own Transfer clearance flow.
+    if (paymentMode === 'Transfer' && !paymentBank.trim()) {
+      showToast({ message: 'Select the bank for this transfer payment.', type: 'warning' });
       return;
     }
     setSubmittingPaymentId(id);
@@ -593,10 +603,25 @@ export const DebtorsTab = ({
                                        </select>
                                      </div>
                                    </div>
-                                   
+
+                                   {paymentMode === 'Transfer' && (
+                                     <div>
+                                       <label htmlFor={`payment-bank-${d.id}`} className="text-[11px] font-sans text-[var(--color-muted)] block mb-1">Bank</label>
+                                       <select
+                                         id={`payment-bank-${d.id}`}
+                                         value={paymentBank}
+                                         onChange={e => setPaymentBank(e.target.value)}
+                                         className="w-full h-10 bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-lg px-3 text-[var(--color-foreground)] font-sans text-[13px] focus:outline-none focus:border-[var(--color-success)] focus:ring-1 focus:ring-[var(--color-success)]"
+                                       >
+                                         <option value="">Select Bank</option>
+                                         {banks.map((b) => <option key={b} value={b}>{b}</option>)}
+                                       </select>
+                                     </div>
+                                   )}
+
                                    <div className="flex justify-end pt-2">
                                      <button
-                                       disabled={submittingPaymentId === d.id}
+                                       disabled={submittingPaymentId === d.id || (paymentMode === 'Transfer' && !paymentBank.trim())}
                                        onClick={() => handleRecordPayment(d.id)}
                                        className="bg-[var(--color-success)] text-[#0B0F19] px-6 py-2 rounded-lg text-[13px] font-sans font-bold hover:bg-opacity-90 transition-opacity focus:outline-none disabled:opacity-50"
                                      >
