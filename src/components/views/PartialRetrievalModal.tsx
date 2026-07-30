@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Scale, Package, Wallet, CheckCircle2 } from 'lucide-react';
+import { X, Scale, Package, Wallet, CheckCircle2, Loader2 } from 'lucide-react';
 import { fmt } from '../../lib/helpers';
 
 interface PartialRetrievalModalProps {
@@ -12,6 +12,12 @@ interface PartialRetrievalModalProps {
     retrievedPieces: number;
     retrievedKg: number;
   }) => void;
+  // True while the parent's onConfirm request is in flight -- disables the
+  // Confirm button and backdrop/X close so a double-click or slow network
+  // can't fire executeRetrieval twice for one physical retrieval (the
+  // server-side RPC only rejects a retrieval that would exceed the entry's
+  // TOTAL, not an exact-duplicate partial amount that still fits under it).
+  busy?: boolean;
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -21,7 +27,7 @@ const TYPE_LABEL: Record<string, string> = {
   package: 'Package',
 };
 
-export const PartialRetrievalModal: React.FC<PartialRetrievalModalProps> = ({ entry, onClose, onConfirm }) => {
+export const PartialRetrievalModal: React.FC<PartialRetrievalModalProps> = ({ entry, onClose, onConfirm, busy = false }) => {
   const [retrievalType, setRetrievalType] = useState<'full' | 'partial'>('full');
   const totalPieces = entry.pieces || 1;
   const totalKg = entry.kg || 1;
@@ -73,7 +79,7 @@ export const PartialRetrievalModal: React.FC<PartialRetrievalModalProps> = ({ en
   );
 
   const handleConfirm = () => {
-    if (invalid) return;
+    if (invalid || busy) return;
     onConfirm({
       isPartial: retrievalType === 'partial',
       retrievedValue,
@@ -93,7 +99,7 @@ export const PartialRetrievalModal: React.FC<PartialRetrievalModalProps> = ({ en
       <div className="bg-[var(--color-obsidian)] border border-[var(--color-border)] rounded-xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-[var(--color-border)] bg-[var(--color-surface-card)]">
           <h3 className="text-[14px] font-bold text-[var(--color-foreground)]">Process {typeLabel} Retrieval</h3>
-          <button onClick={onClose} className="p-1 hover:bg-[var(--color-surface-2)] rounded text-[var(--color-muted)]"><X size={18} /></button>
+          <button onClick={onClose} disabled={busy} className="p-1 hover:bg-[var(--color-surface-2)] rounded text-[var(--color-muted)] disabled:opacity-40 disabled:cursor-not-allowed"><X size={18} /></button>
         </div>
 
         <div className="p-5 space-y-5">
@@ -168,9 +174,9 @@ export const PartialRetrievalModal: React.FC<PartialRetrievalModalProps> = ({ en
         </div>
 
         <div className="p-4 border-t border-[var(--color-border)] bg-[var(--color-surface-card)]">
-          <button onClick={handleConfirm} disabled={invalid}
+          <button onClick={handleConfirm} disabled={invalid || busy}
             className={`w-full h-12 flex items-center justify-center gap-2 rounded-lg text-[13px] font-bold disabled:opacity-50 ${retrievalType === 'full' ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)]' : 'bg-[var(--color-accent-cobalt)] text-white'}`}>
-            <CheckCircle2 size={16} /> Confirm Retrieval
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />} {busy ? 'Processing…' : 'Confirm Retrieval'}
           </button>
         </div>
       </div>

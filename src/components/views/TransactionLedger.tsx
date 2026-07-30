@@ -177,6 +177,13 @@ export const TransactionLedger = ({
   const [viewingQrTx, setViewingQrTx] = useState<Entry | null>(null);
   const [viewingDetail, setViewingDetail] = useState<Entry | null>(null);
   const [retrievalModalEntry, setRetrievalModalEntry] = useState<Entry | null>(null);
+  // Guards executeRetrieval against a double-click/slow-network double
+  // submit -- process_*_retrieval only rejects a retrieval that would push
+  // cumulative retrieved_amount past the entry's TOTAL, so two identical
+  // partial retrievals that each individually fit under the total both
+  // succeed, double-crediting the wallet or double-clearing debt. Mirrors
+  // clearingDebt's same guard on the debt-clearance confirm flow below.
+  const [processingRetrieval, setProcessingRetrieval] = useState(false);
   // Raw input value (updates on every keystroke for controlled input)
   const [searchInput, setSearchInput] = useState("");
   // Debounced value fed into the filteredEntries useMemo — avoids running
@@ -1552,87 +1559,92 @@ export const TransactionLedger = ({
   };
 
   const executeRetrieval = async (data: { isPartial: boolean, retrievedValue: number, retrievedPieces: number, retrievedKg: number }) => {
-    if (!retrievalModalEntry) return;
-    const entry = retrievalModalEntry;
-    const customerName = entry.name;
+    if (!retrievalModalEntry || processingRetrieval) return;
+    setProcessingRetrieval(true);
+    try {
+      const entry = retrievalModalEntry;
+      const customerName = entry.name;
 
-    // process_<type>_retrieval locks the entry, rejects a refund that
-    // would push cumulative retrieved_amount past the entry's original
-    // amount, updates retrieval tracking, and credits the wallet -- all in
-    // one atomic call. See
-    // supabase/migrations/20260902_multi_department_retrieval_and_wallet_cashout.sql.
-    const result = await processRetrieval(entry.type as RetrievalEntryType, {
-      entryRef: entry.id,
-      isPartial: data.isPartial,
-      retrievedValue: data.retrievedValue,
-      retrievedPieces: data.retrievedPieces,
-      retrievedKg: data.retrievedKg,
-      customerName,
-      hubId: user.hub_id,
-      loggedBy: user.name,
-      // Entry.raw is the Transaction, which only carries camelCase
-      // consigneePhone -- the snake_case DB column lives one level
-      // deeper, at Entry.raw.raw (Transaction.raw is the true DB row).
-      customerPhone: (retrievalModalEntry?.raw as any)?.raw?.consignee_phone,
-    });
+      // process_<type>_retrieval locks the entry, rejects a refund that
+      // would push cumulative retrieved_amount past the entry's original
+      // amount, updates retrieval tracking, and credits the wallet -- all in
+      // one atomic call. See
+      // supabase/migrations/20260902_multi_department_retrieval_and_wallet_cashout.sql.
+      const result = await processRetrieval(entry.type as RetrievalEntryType, {
+        entryRef: entry.id,
+        isPartial: data.isPartial,
+        retrievedValue: data.retrievedValue,
+        retrievedPieces: data.retrievedPieces,
+        retrievedKg: data.retrievedKg,
+        customerName,
+        hubId: user.hub_id,
+        loggedBy: user.name,
+        // Entry.raw is the Transaction, which only carries camelCase
+        // consigneePhone -- the snake_case DB column lives one level
+        // deeper, at Entry.raw.raw (Transaction.raw is the true DB row).
+        customerPhone: (retrievalModalEntry?.raw as any)?.raw?.consignee_phone,
+      });
 
-    if (!result.ok) {
-      showToast({ message: 'Failed to complete retrieval deposit: ' + result.error, type: 'error' });
-      return;
-    }
+      if (!result.ok) {
+        showToast({ message: 'Failed to complete retrieval deposit: ' + result.error, type: 'error' });
+        return;
+      }
 
-    // entry.raw is the Transaction (see the `entries` useMemo above, which
-    // sets `raw: t` on every row) -- the real cargo_entries DB row one level
-    // further down is Transaction.raw, set at EHIApp.tsx's fetch. Reading
-    // retrieved_amount off entry.raw directly always resolved to undefined,
-    // so the just-completed retrieval was invisible (e.g. in DebtorsTab,
-    // which reads t.raw?.retrieved_amount) until the next full refetch.
-    const priorRaw = (entry.raw as any)?.raw || {};
-    const entryAmount = (entry.raw as any)?.amount ?? priorRaw.amount ?? 0;
-    const priorRetrievedAmount = priorRaw.retrieved_amount || 0;
-    const newRetrievedAmount = priorRetrievedAmount + data.retrievedValue;
-    const fullyRetrieved = newRetrievedAmount >= entryAmount;
-    const newStatus = fullyRetrieved ? 'Retrieved' : priorRaw.status;
-    onUpdateTx({
-      ...(entry.raw as any),
-      raw: {
-        ...priorRaw,
-        retrieved_amount: newRetrievedAmount,
-        retrieved_pieces: (priorRaw.retrieved_pieces || 0) + data.retrievedPieces,
-        retrieved_kg: (priorRaw.retrieved_kg || 0) + data.retrievedKg,
+      // entry.raw is the Transaction (see the `entries` useMemo above, which
+      // sets `raw: t` on every row) -- the real cargo_entries DB row one level
+      // further down is Transaction.raw, set at EHIApp.tsx's fetch. Reading
+      // retrieved_amount off entry.raw directly always resolved to undefined,
+      // so the just-completed retrieval was invisible (e.g. in DebtorsTab,
+      // which reads t.raw?.retrieved_amount) until the next full refetch.
+      const priorRaw = (entry.raw as any)?.raw || {};
+      const entryAmount = (entry.raw as any)?.amount ?? priorRaw.amount ?? 0;
+      const priorRetrievedAmount = priorRaw.retrieved_amount || 0;
+      const newRetrievedAmount = priorRetrievedAmount + data.retrievedValue;
+      const fullyRetrieved = newRetrievedAmount >= entryAmount;
+      const newStatus = fullyRetrieved ? 'Retrieved' : priorRaw.status;
+      onUpdateTx({
+        ...(entry.raw as any),
+        raw: {
+          ...priorRaw,
+          retrieved_amount: newRetrievedAmount,
+          retrieved_pieces: (priorRaw.retrieved_pieces || 0) + data.retrievedPieces,
+          retrieved_kg: (priorRaw.retrieved_kg || 0) + data.retrievedKg,
+          retrieved: fullyRetrieved,
+          status: newStatus,
+        },
         retrieved: fullyRetrieved,
+        retrievedAt: new Date().toISOString(),
+        retrievedBy: user.name,
         status: newStatus,
-      },
-      retrieved: fullyRetrieved,
-      retrievedAt: new Date().toISOString(),
-      retrievedBy: user.name,
-      status: newStatus,
-    });
+      });
 
-    // Report what the RPC actually did, not the full retrieved value --
-    // an unpaid-debt or already-paid-in-full retrieval can send ₦0 (or
-    // less than the full amount) to the wallet, with the rest clearing debt.
-    const refund = result.walletRefund ?? 0;
-    const debtCleared = result.debtReduction ?? 0;
-    const message = refund > 0 && debtCleared > 0
-      ? `₦${fmt(debtCleared)} debt cleared and ₦${fmt(refund)} deposited to ${customerName}'s wallet!`
-      : refund > 0
-        ? `Successfully deposited ₦${fmt(refund)} to ${customerName}'s wallet!`
-        : `₦${fmt(debtCleared)} debt cleared for ${customerName}. No wallet refund was due.`;
+      // Report what the RPC actually did, not the full retrieved value --
+      // an unpaid-debt or already-paid-in-full retrieval can send ₦0 (or
+      // less than the full amount) to the wallet, with the rest clearing debt.
+      const refund = result.walletRefund ?? 0;
+      const debtCleared = result.debtReduction ?? 0;
+      const message = refund > 0 && debtCleared > 0
+        ? `₦${fmt(debtCleared)} debt cleared and ₦${fmt(refund)} deposited to ${customerName}'s wallet!`
+        : refund > 0
+          ? `Successfully deposited ₦${fmt(refund)} to ${customerName}'s wallet!`
+          : `₦${fmt(debtCleared)} debt cleared for ${customerName}. No wallet refund was due.`;
 
-    // Same audit_log gap fix as handleUnretrieve above.
-    writeAuditLog({
-      user_id: user.id, user_name: user.name || 'Unknown', action: 'RETRIEVAL',
-      table_name: RETRIEVAL_TABLE_NAME[entry.type as RetrievalEntryType], record_id: entry.id,
-      description: `${data.isPartial ? 'Partial' : 'Full'} retrieval processed for ${customerName} -- ₦${fmt(data.retrievedValue)} (₦${fmt(debtCleared)} debt cleared, ₦${fmt(refund)} to wallet)`,
-      hub: user.hub, hub_id: user.hub_id,
-      old_values: { retrieved_amount: priorRetrievedAmount },
-      new_values: { retrieved_amount: newRetrievedAmount, retrieved_by: user.name, retrieved_at: new Date().toISOString() },
-    }).catch(() => {});
+      // Same audit_log gap fix as handleUnretrieve above.
+      writeAuditLog({
+        user_id: user.id, user_name: user.name || 'Unknown', action: 'RETRIEVAL',
+        table_name: RETRIEVAL_TABLE_NAME[entry.type as RetrievalEntryType], record_id: entry.id,
+        description: `${data.isPartial ? 'Partial' : 'Full'} retrieval processed for ${customerName} -- ₦${fmt(data.retrievedValue)} (₦${fmt(debtCleared)} debt cleared, ₦${fmt(refund)} to wallet)`,
+        hub: user.hub, hub_id: user.hub_id,
+        old_values: { retrieved_amount: priorRetrievedAmount },
+        new_values: { retrieved_amount: newRetrievedAmount, retrieved_by: user.name, retrieved_at: new Date().toISOString() },
+      }).catch(() => {});
 
-    showToast({ message, type: 'success' });
-    setViewingDetail(null);
-    setRetrievalModalEntry(null);
+      showToast({ message, type: 'success' });
+      setViewingDetail(null);
+      setRetrievalModalEntry(null);
+    } finally {
+      setProcessingRetrieval(false);
+    }
   };
 
   const canApproveRetrievals = user.role === 'super_admin' || user.can_approve_retrievals === true;
@@ -3782,6 +3794,7 @@ export const TransactionLedger = ({
           entry={retrievalModalEntry.raw}
           onClose={() => setRetrievalModalEntry(null)}
           onConfirm={executeRetrieval}
+          busy={processingRetrieval}
         />
       )}
 
