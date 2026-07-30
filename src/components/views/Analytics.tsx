@@ -343,7 +343,14 @@ export const Analytics = ({
     // that mismatch is exactly what let collectionEfficiency silently
     // exceed 100% and get clamped instead of surfacing the real drift.
     const cashRevenue = validLiquidTxs.filter(t => t.mode === 'Cash').reduce((sum, t) => sum + t.amount, 0);
-    const transferRevenue = validLiquidTxs.filter(t => t.mode === 'Transfer').reduce((sum, t) => sum + t.amount, 0);
+    // TransferCash ("paid by bank transfer, agent holds the cash") is a
+    // real, fully-collected mode -- schema-level CHECK constraints allow it
+    // on all four entry tables (see src/lib/salesAnalysis.ts's own bucket
+    // for it). Omitting it here made a fully-paid TransferCash sale count
+    // toward totalRevenue but not totalCollected below, showing a false
+    // shortfall (Collection Efficiency under 100% with money that was
+    // actually all collected).
+    const transferRevenue = validLiquidTxs.filter(t => t.mode === 'Transfer' || t.mode === 'TransferCash').reduce((sum, t) => sum + t.amount, 0);
     const posRevenue = validLiquidTxs.filter(t => t.mode === 'POS').reduce((sum, t) => sum + t.amount, 0);
     const walletDeductions = validLiquidTxs.reduce((sum, t) => sum + (t.wallet_deduction_amount || (t.mode === 'Wallet' ? t.amount : 0)), 0);
     // Raw t.amount alone overstates outstanding debt -- it ignores both
@@ -360,7 +367,7 @@ export const Analytics = ({
     const officeWorkValue = officeWorkTxs.reduce((sum, t) => sum + t.amount, 0);
     const retrievedValue = retrievedTxs.reduce((sum, t) => sum + t.amount, 0);
 
-    const unconfirmedTransfers = validLiquidTxs.filter(t => t.mode === 'Transfer' && !t.paymentConfirmed).reduce((sum, t) => sum + t.amount, 0);
+    const unconfirmedTransfers = validLiquidTxs.filter(t => (t.mode === 'Transfer' || t.mode === 'TransferCash') && !t.paymentConfirmed).reduce((sum, t) => sum + t.amount, 0);
     const unverifiedCash = validLiquidTxs.filter(t => t.mode === 'Cash' && !t.paymentConfirmed).reduce((sum, t) => sum + t.amount, 0);
 
     const totalCollected = cashRevenue + transferRevenue + posRevenue + walletDeductions - unconfirmedTransfers - unverifiedCash;

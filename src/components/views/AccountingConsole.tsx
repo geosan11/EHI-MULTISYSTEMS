@@ -161,7 +161,12 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
   // correct forever for old data) plus payment_history-derived collections
   // (going forward, now that clearing a debt no longer creates a row here).
   const cashTotal = filteredTx.reduce((sum, t) => sum + (t.mode === 'Cash' ? t.amount : 0), 0) + collectionByMode.cash;
-  const transferTotal = filteredTx.reduce((sum, t) => sum + (t.mode === 'Transfer' ? t.amount : 0), 0) + collectionByMode.transfer;
+  // TransferCash ("paid by bank transfer, agent holds the cash") is a real,
+  // fully-collected sale mode (see src/lib/salesAnalysis.ts's own bucket for
+  // it) -- omitting it here understated Collected/Collection Rate below and
+  // made the four mode segments stop summing to grandRevenue whenever any
+  // TransferCash sales existed in the period.
+  const transferTotal = filteredTx.reduce((sum, t) => sum + ((t.mode === 'Transfer' || t.mode === 'TransferCash') ? t.amount : 0), 0) + collectionByMode.transfer;
   const posTotal = filteredTx.reduce((sum, t) => sum + (t.mode === 'POS' ? t.amount : 0), 0) + collectionByMode.pos;
   const debtTotal = filteredTx.reduce((sum, t) => sum + (t.mode === 'Debt' ? t.amount : 0), 0);
   const modeSum = cashTotal + transferTotal + posTotal + debtTotal;
