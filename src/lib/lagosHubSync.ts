@@ -150,26 +150,25 @@ export async function syncLagosRates(): Promise<{ success: boolean; count: numbe
 
       for (const targetHubId of info.allLagosHubIds) {
         if (targetHubId === masterHubId) continue;
-        const existingTargetRows = specialRates.filter(r => r.hub_id === targetHubId);
         for (const row of masterRows) {
-          const exists = existingTargetRows.some(e =>
-            e.content_type_id === row.content_type_id &&
-            e.airline === row.airline &&
-            e.route_name === row.route_name &&
-            e.min_kg === row.min_kg
-          );
-          if (!exists) {
-            const { error } = await supabase.from('special_goods_rates').insert({
-              hub_id: targetHubId,
-              content_type_id: row.content_type_id,
-              airline: row.airline,
-              route_name: row.route_name,
-              min_kg: row.min_kg,
-              max_kg: row.max_kg,
-              rate_per_kg: row.rate_per_kg,
-            });
-            if (!error) syncCount++;
-          }
+          // special_goods_rates' uniqueness is an expression index
+          // (coalesce(hub_id::text,''), coalesce(route_name,'')), which
+          // PostgREST's upsert onConflict (a bare column list) can't
+          // target -- routed through a dedicated RPC that does a raw
+          // `INSERT ... ON CONFLICT (<same expressions>) DO UPDATE`
+          // instead, same race-proofing as the .upsert() calls elsewhere
+          // in this function. See
+          // supabase/migrations/20260918_special_goods_rates_lagos_sync_fix.sql.
+          const { error } = await supabase.rpc('sync_special_goods_rate', {
+            p_hub_id: targetHubId,
+            p_content_type_id: row.content_type_id,
+            p_airline: row.airline,
+            p_route_name: row.route_name,
+            p_min_kg: row.min_kg,
+            p_max_kg: row.max_kg,
+            p_rate_per_kg: row.rate_per_kg,
+          });
+          if (!error) syncCount++;
         }
       }
     }
