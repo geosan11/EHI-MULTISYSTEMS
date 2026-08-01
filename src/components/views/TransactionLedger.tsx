@@ -3531,6 +3531,26 @@ export const TransactionLedger = ({
                       {routes.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
+                      Airline
+                    </label>
+                    <select
+                      id="edit-tx-marketing-airline"
+                      name="edit-tx-marketing-airline"
+                      disabled={!canEdit}
+                      value={editingTx.airline || ''}
+                      onChange={(e) => setEditingTx({ ...editingTx, airline: e.target.value })}
+                      className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
+                    >
+                      <option value="">Select Airline</option>
+                      {/* Same stale-value guard as Cargo's Airline select above. */}
+                      {editingTx.airline && !editAirlines.includes(editingTx.airline) && (
+                        <option value={editingTx.airline}>{editingTx.airline}</option>
+                      )}
+                      {editAirlines.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                  </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div className="space-y-1">
                       <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
