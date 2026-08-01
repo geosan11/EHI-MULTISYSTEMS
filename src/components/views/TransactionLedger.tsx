@@ -2280,7 +2280,7 @@ export const TransactionLedger = ({
                           // "current shift" implies until someone noticed
                           // and manually retyped both date inputs.
                           onDateRangeChange({
-                            start: new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0],
+                            start: new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0],
                             end: new Date().toISOString().split('T')[0],
                           });
                         }
