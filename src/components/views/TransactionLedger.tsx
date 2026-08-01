@@ -3373,15 +3373,23 @@ export const TransactionLedger = ({
                       <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
                         Content Type
                       </label>
-                      <input
+                      <select
                         id="edit-tx-content-type"
                         name="edit-tx-content-type"
-                        type="text"
                         disabled={!canEdit}
                         value={editingTx.contentType || ''}
                         onChange={(e) => setEditingTx({ ...editingTx, contentType: e.target.value })}
                         className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
-                      />
+                      >
+                        <option value="">Select Content Type</option>
+                        {/* Guard against the entry's current content type having fallen out of
+                            the canonical list (e.g. deleted via ContentTypes.tsx since this entry
+                            was created) -- same stale-value guard as the Airline select above. */}
+                        {editingTx.contentType && !contentTypes.includes(editingTx.contentType) && (
+                          <option value={editingTx.contentType}>{editingTx.contentType}</option>
+                        )}
+                        {contentTypes.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -3475,15 +3483,17 @@ export const TransactionLedger = ({
                       <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
                         Destination
                       </label>
-                      <input
+                      <select
                         id="edit-tx-destination"
                         name="edit-tx-destination"
-                        type="text"
                         disabled={!canEdit}
                         value={editingTx.destination || ''}
                         onChange={(e) => setEditingTx({ ...editingTx, destination: e.target.value })}
                         className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
-                      />
+                      >
+                        <option value="">Select Route</option>
+                        {routes.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
                     </div>
                   </div>
                 </>
@@ -3509,15 +3519,17 @@ export const TransactionLedger = ({
                     <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
                       Route
                     </label>
-                    <input
+                    <select
                       id="edit-tx-marketing-route"
                       name="edit-tx-marketing-route"
-                      type="text"
                       disabled={!canEdit}
                       value={editingTx.route || ''}
                       onChange={(e) => setEditingTx({ ...editingTx, route: e.target.value })}
                       className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
-                    />
+                    >
+                      <option value="">Select Route</option>
+                      {routes.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div className="space-y-1">
@@ -3590,15 +3602,17 @@ export const TransactionLedger = ({
                       <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
                         Destination
                       </label>
-                      <input
+                      <select
                         id="edit-tx-package-destination"
                         name="edit-tx-package-destination"
-                        type="text"
                         disabled={!canEdit}
                         value={editingTx.destination || ''}
                         onChange={(e) => setEditingTx({ ...editingTx, destination: e.target.value })}
                         className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
-                      />
+                      >
+                        <option value="">Select Route</option>
+                        {routes.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
