@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Transaction, User } from '../../lib/types';
 import { fmt, sanitizeSpreadsheetAoA, autoFitWorksheetColumns } from '../../lib/helpers';
 import * as XLSX from 'xlsx';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllRows } from '../../lib/supabase';
 import { Search, FileDown, Briefcase, Scale, DollarSign, AlertCircle } from 'lucide-react';
 import { useToast } from '../../lib/ToastContext';
 
@@ -31,13 +31,73 @@ export const B2BSalesTab = ({ transactions, user }: B2BSalesTabProps) => {
     return map;
   }, [corporateClients]);
 
-  // Filter B2B transactions (cargo entries with corporate client type or client ID set)
+  // This tab previously only ever saw `transactions`, which EHIApp.tsx
+  // windows to globalDateRange (a trailing few days) -- a corporate client
+  // billed on account weeks or months ago simply wasn't fetched at all, no
+  // matter what date filter this screen showed (it has none of its own).
+  // Dedicated, date-unbounded fetch instead, same pattern DebtorsTab.tsx
+  // already uses for the identical "debts can't be date-windowed" problem:
+  // fetchAllRows paginates past any single-page cap, and the query is
+  // server-side filtered to corporate-linked cargo entries so it never
+  // has to pull the whole (much larger) walk-in ledger to find them.
+  const [fetchedB2BRows, setFetchedB2BRows] = useState<Transaction[]>([]);
+  const [loadingB2B, setLoadingB2B] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const rows = await fetchAllRows<any>((from, to) =>
+          supabase.from('cargo_entries')
+            .select('entry_ref, consignee_name, route, airline, awb_tag_number, total_pcs, total_kg, amount, amount_paid, receipt_mode, payment_history, status, created_at, client_type, corporate_client_id')
+            .or('corporate_client_id.not.is.null,client_type.eq.Corporate')
+            .order('created_at', { ascending: false })
+            .range(from, to)
+        );
+        if (!active) return;
+        setFetchedB2BRows(rows.map((r: any): Transaction => ({
+          id: r.entry_ref,
+          name: r.consignee_name || 'Customer',
+          detail: `${r.airline || ''} · ${r.awb_tag_number || ''}`,
+          amount: Number(r.amount) || 0,
+          amountPaid: Number(r.amount_paid) || 0,
+          paymentHistory: r.payment_history || [],
+          mode: r.receipt_mode || 'Cash',
+          pieces: r.total_pcs ?? undefined,
+          kg: r.total_kg ?? undefined,
+          time: r.created_at,
+          created_at: r.created_at,
+          type: 'cargo',
+          status: r.status || 'Intake',
+          airline: r.airline,
+          route: r.route,
+          awb_tag_number: r.awb_tag_number,
+          clientType: r.client_type,
+          corporate_client_id: r.corporate_client_id,
+          raw: r,
+        } as Transaction)));
+      } catch (err: any) {
+        showToast({ message: `Failed to load B2B sales: ${err.message || err}`, type: 'error' });
+      } finally {
+        if (active) setLoadingB2B(false);
+      }
+    })();
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Merge with the live `transactions` prop, same as DebtorsTab.tsx does for
+  // its own dedicated fetch -- prop wins on id collision, so a corporate
+  // entry created/edited THIS session shows immediately rather than waiting
+  // for the next fetch.
   const b2bTx = useMemo(() => {
-    return transactions.filter(t => 
-      t.type === 'cargo' && 
-      (t.clientType === 'Corporate' || !!t.corporate_client_id)
-    );
-  }, [transactions]);
+    const byId = new Map<string, Transaction>();
+    fetchedB2BRows.forEach(t => byId.set(t.id, t));
+    transactions.forEach(t => {
+      if (t.type === 'cargo' && (t.clientType === 'Corporate' || !!t.corporate_client_id)) byId.set(t.id, t);
+    });
+    return Array.from(byId.values());
+  }, [fetchedB2BRows, transactions]);
 
   // Filter based on search query and selected corporate client
   const filteredB2BTx = useMemo(() => {
@@ -267,7 +327,15 @@ export const B2BSalesTab = ({ transactions, user }: B2BSalesTabProps) => {
                 );
               })}
 
-              {filteredB2BTx.length === 0 && (
+              {loadingB2B && filteredB2BTx.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="p-8 text-center text-[12px] text-[var(--color-muted)] italic">
+                    Loading full corporate sales history…
+                  </td>
+                </tr>
+              )}
+
+              {!loadingB2B && filteredB2BTx.length === 0 && (
                 <tr>
                   <td colSpan={9} className="p-8 text-center text-[12px] text-[var(--color-muted)] italic">
                     No B2B sales entries match the criteria.
