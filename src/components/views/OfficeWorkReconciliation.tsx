@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Building2, Loader, CheckCircle2, RefreshCw } from 'lucide-react';
 import { User } from '../../lib/types';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllRows } from '../../lib/supabase';
 import { BackButton } from '../BackButton';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
@@ -49,14 +49,28 @@ export const OfficeWorkReconciliation = ({ user, onBack }: { user: User; onBack:
     const byNorm = new Map<string, Client>();
     clientList.forEach(c => byNorm.set(norm(c.company_name), c));
 
-    let q = supabase.from('cargo_entries')
-      .select('entry_ref, consignee_name, route, total_kg, amount, amount_paid, retrieved_amount, receipt_mode, created_at')
-      .is('corporate_client_id', null)
-      .order('created_at', { ascending: false })
-      .limit(1000);
-    if (debtOnly) q = q.eq('receipt_mode', 'Debt');
-    const { data: rows, error } = await q;
-    if (error) { showToast({ message: `Load failed: ${error.message}`, type: 'error' }); setLoading(false); return; }
+    // Paginated via fetchAllRows, not `.limit(1000)` -- that cap applied to
+    // the raw row stream BEFORE the corporate-name match below, ordered
+    // created_at desc with no date bound. In "Debt only" mode the 1000-row
+    // window was filled almost entirely with rare, corporate-relevant Debt
+    // rows, so real matches survived; in "All modes" the same cap filled
+    // with high-volume daily Cash/Transfer/POS/Wallet walk-in traffic,
+    // evicting the comparatively rare unlinked Debt-mode corporate entries
+    // before the name-match ever ran -- "All modes" being a logical
+    // superset of "Debt only" still returned zero matches in practice.
+    let rows: any[];
+    try {
+      rows = await fetchAllRows<any>((from, to) => {
+        let q = supabase.from('cargo_entries')
+          .select('entry_ref, consignee_name, route, total_kg, amount, amount_paid, retrieved_amount, receipt_mode, created_at')
+          .is('corporate_client_id', null)
+          .order('created_at', { ascending: false });
+        if (debtOnly) q = q.eq('receipt_mode', 'Debt');
+        return q.range(from, to);
+      });
+    } catch (error: any) {
+      showToast({ message: `Load failed: ${error.message}`, type: 'error' }); setLoading(false); return;
+    }
 
     const out: Candidate[] = [];
     (rows || []).forEach((r: any) => {
