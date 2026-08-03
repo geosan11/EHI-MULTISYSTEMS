@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Transaction, User, Expense } from "../../lib/types";
 import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDateTime, normalizeAirlineName } from "../../lib/helpers";
@@ -118,6 +119,7 @@ export const TransactionLedger = ({
   onStartShift?: () => void;
   onEndShift?: () => void;
 }) => {
+  const navigate = useNavigate();
   const contentTypes = useContentTypes();
   const routes = useHubRoutes();
   // hub_id -> name, for the debt-clearance shadow entry's `hub` display
@@ -1972,6 +1974,15 @@ export const TransactionLedger = ({
             </button>
 
             <button
+              title="Every debt payment and cargo retrieval, one line each"
+              onClick={() => { onBack(); navigate('/more/debt-collection-log'); }}
+              className="h-8 px-2 flex items-center gap-1.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] font-mono text-[10px] font-bold transition-colors cursor-pointer"
+            >
+              <HandCoins size={13} />
+              <span>Debt &amp; Retrievals</span>
+            </button>
+
+            <button
               title="Print Compact 80mm Ledger Summary"
               onClick={handlePrint80mmLedger}
               className="h-8 px-2 flex items-center gap-1.5 bg-[rgba(245,158,11,0.12)] border border-[rgba(245,158,11,0.3)] rounded-lg text-[var(--color-accent-amber)] hover:bg-[var(--color-accent-amber)] hover:text-black font-mono text-[10px] font-bold transition-colors cursor-pointer"
@@ -2296,6 +2307,19 @@ export const TransactionLedger = ({
                   ))}
                 </div>
               </div>
+
+              {/* Static reminder, not tied to result count -- shiftFilter is a
+                  real, always-on narrowing filter (hides anything outside the
+                  active/most-recent shift window) but was previously excluded
+                  from the "N filters active" banner below and from Reset
+                  Filters, so an entry outside the current shift could look
+                  like it doesn't exist with zero on-screen explanation. */}
+              {shiftFilter === 'current' && (
+                <div className="text-[9.5px] font-mono text-[var(--color-muted)] flex items-center gap-1">
+                  <Clock size={10} />
+                  <span>Only this shift's entries — switch to "All Time" for older results.</span>
+                </div>
+              )}
 
               {/* Row 2: Filter dropdowns */}
               <div className="flex items-center gap-2 flex-wrap">
