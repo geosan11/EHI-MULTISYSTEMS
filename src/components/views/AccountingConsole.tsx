@@ -81,9 +81,30 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
       return monthAgo.toISOString().split('T')[0] < dateRange.start;
     })());
 
-  const unconfirmedCount = useMemo(() => {
-    return transactions.filter(t => t.mode === 'Transfer' && !t.paymentConfirmed).length;
-  }, [transactions]);
+  // Was computed off `transactions`, which EHIApp.tsx windows to
+  // globalDateRange (a trailing few days) -- a Transfer sale left
+  // unconfirmed longer than that window silently dropped out of both this
+  // badge and the tab's own internal match-candidate list (PaymentValidation.tsx),
+  // even though it's still a genuinely open, unresolved payment. A
+  // dedicated, unbounded COUNT query (not full rows -- this is just a
+  // badge number) across all 4 department tables instead.
+  const [unconfirmedCount, setUnconfirmedCount] = useState(0);
+  useEffect(() => {
+    let active = true;
+    const tables: { name: string; modeCol: string }[] = [
+      { name: 'cargo_entries', modeCol: 'receipt_mode' },
+      { name: 'manifests', modeCol: 'payment_mode' },
+      { name: 'marketing_entries', modeCol: 'payment_mode' },
+      { name: 'package_entries', modeCol: 'payment_mode' },
+    ];
+    Promise.all(tables.map(({ name, modeCol }) =>
+      supabase.from(name).select('*', { count: 'exact', head: true }).eq(modeCol, 'Transfer').eq('payment_confirmed', false)
+    )).then(results => {
+      if (!active) return;
+      setUnconfirmedCount(results.reduce((sum, r) => sum + (r.count || 0), 0));
+    }).catch(() => { /* badge is a nice-to-have indicator, not worth a toast on failure */ });
+    return () => { active = false; };
+  }, []);
 
   const periodMatches = useMemo(() => {
     const now = new Date();

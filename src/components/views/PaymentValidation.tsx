@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Transaction, ParsedBankAlert, PaymentMatch, User } from '../../lib/types';
 import { fmt } from '../../lib/helpers';
 import { AlertCircle, CheckCircle, Mail, Search, Link as LinkIcon, ChevronDown, ChevronRight } from 'lucide-react';
 import { useToast } from '../../lib/ToastContext';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllRows } from '../../lib/supabase';
 import { confirmPayment, PaymentEntryType } from '../../lib/paymentConfirmation';
 
 interface PaymentValidationProps {
@@ -21,12 +21,74 @@ export const PaymentValidation: React.FC<PaymentValidationProps> = ({ transactio
   const [showAutoForward, setShowAutoForward] = useState(false);
   const { showToast } = useToast();
 
-  // SECTION A: Unconfirmed Transfers
+  // SECTION A: Unconfirmed Transfers -- used below as match candidates when
+  // an agent pastes a bank alert email. Was sourced from `transactions`,
+  // which EHIApp.tsx windows to globalDateRange (a trailing few days), so a
+  // Transfer sale left unconfirmed longer than that silently couldn't be
+  // matched against an arriving bank alert at all -- exactly the class of
+  // bug found across this app's other "unbounded by nature" screens
+  // (DebtorsTab.tsx, Office Work Reconciliation, B2B Sales). Dedicated,
+  // date-unbounded fetch instead, same fetchAllRows pattern.
+  const [fetchedUnconfirmed, setFetchedUnconfirmed] = useState<Transaction[]>([]);
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const { data: profiles } = await supabase.from('user_profiles').select('id,name');
+        const profileLookup: Record<string, string> = {};
+        (profiles || []).forEach((p: any) => { profileLookup[p.id] = p.name; });
+
+        const tables: { name: string; modeCol: string; idCol: string; type: Transaction['type']; nameCol: string; amountCol: string }[] = [
+          { name: 'cargo_entries', modeCol: 'receipt_mode', idCol: 'entry_ref', type: 'cargo', nameCol: 'consignee_name', amountCol: 'amount' },
+          { name: 'manifests', modeCol: 'payment_mode', idCol: 'transaction_id', type: 'baggage', nameCol: 'passenger_name', amountCol: 'amount' },
+          // marketing_entries' naming inversion: amount_paid holds the real
+          // sale total -- matches EHIApp.tsx's/debt.ts's identical mapping.
+          { name: 'marketing_entries', modeCol: 'payment_mode', idCol: 'entry_ref', type: 'marketing', nameCol: 'customer_name', amountCol: 'amount_paid' },
+          { name: 'package_entries', modeCol: 'payment_mode', idCol: 'entry_ref', type: 'package', nameCol: 'customer_name', amountCol: 'amount' },
+        ];
+
+        const perTable = await Promise.all(tables.map(({ name, modeCol, idCol, type, nameCol, amountCol }) =>
+          fetchAllRows<any>((from, to) =>
+            supabase.from(name)
+              .select(`${idCol}, ${nameCol}, ${amountCol}, created_at, ${modeCol}, payment_narration, entered_by`)
+              .eq(modeCol, 'Transfer')
+              .eq('payment_confirmed', false)
+              .order('created_at', { ascending: false })
+              .range(from, to)
+          ).then(rows => rows.map((r: any) => ({
+            id: r[idCol],
+            name: r[nameCol] || 'Customer',
+            detail: '',
+            amount: Number(r[amountCol]) || 0,
+            mode: 'Transfer',
+            time: r.created_at,
+            created_at: r.created_at,
+            type,
+            paymentNarration: r.payment_narration || undefined,
+            enteredByName: r.entered_by ? (profileLookup[r.entered_by] || r.entered_by) : undefined,
+            paymentConfirmed: false,
+            raw: r,
+          } as unknown as Transaction)))
+        ));
+        if (!active) return;
+        setFetchedUnconfirmed(perTable.flat());
+      } catch (err: any) {
+        showToast({ message: `Failed to load unconfirmed transfers: ${err.message || err}`, type: 'error' });
+      }
+    })();
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Merge with the live `transactions` prop (prop wins on id collision) so a
+  // Transfer sale made THIS session is matchable immediately, same pattern
+  // as B2BSalesTab.tsx/DebtorsTab.tsx.
   const unconfirmedTransfers = useMemo(() => {
-    return transactions
-      .filter(t => t.mode === 'Transfer' && !t.paymentConfirmed)
-      .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
-  }, [transactions]);
+    const byId = new Map<string, Transaction>();
+    fetchedUnconfirmed.forEach(t => byId.set(t.id, t));
+    transactions.forEach(t => { if (t.mode === 'Transfer' && !t.paymentConfirmed) byId.set(t.id, t); });
+    return Array.from(byId.values()).sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+  }, [fetchedUnconfirmed, transactions]);
 
   // SECTION C: Recently Confirmed (Today)
   const recentlyConfirmed = useMemo(() => {
