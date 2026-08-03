@@ -8,6 +8,7 @@ import { applyWalletTransaction, processRetrieval, unretrieveEntry, approveRetri
 import { clearDebt, DebtEntryType } from "../../lib/debt";
 import { confirmPayment, PaymentEntryType } from "../../lib/paymentConfirmation";
 import { useHubRoutes, useHubNames } from "../../lib/hubRoutes";
+import { canAccessTab } from "../../lib/permissions";
 import { getEquivalentHubIds } from "../../lib/lagosHubSync";
 import { useAirlines } from "../../lib/airlines";
 import { MIN_PACKAGE_AMOUNT } from "../../lib/constants";
@@ -1973,14 +1974,23 @@ export const TransactionLedger = ({
               <Download size={13} />
             </button>
 
-            <button
-              title="Every debt payment and cargo retrieval, one line each"
-              onClick={() => { onBack(); navigate('/more/debt-collection-log'); }}
-              className="h-8 px-2 flex items-center gap-1.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] font-mono text-[10px] font-bold transition-colors cursor-pointer"
-            >
-              <HandCoins size={13} />
-              <span>Debt &amp; Retrievals</span>
-            </button>
+            {/* Gated the same way More.tsx's own menu entry is -- every role
+                has More:DebtCollectionLog by default, but a super_admin can
+                revoke it per-user via view_overrides (StaffManagement.tsx);
+                an ungated button here would let a specifically-denied user
+                reach the screen anyway. airlines: [] is safe -- canAccessTab
+                only consults it for airline-scoped Baggage:<name> keys, not
+                this static role-based one (see getAllowedTabs). */}
+            {canAccessTab(user, 'More:DebtCollectionLog', []) && (
+              <button
+                title="Every debt payment and cargo retrieval, one line each"
+                onClick={() => { onBack(); navigate('/more/debt-collection-log'); }}
+                className="h-8 px-2 flex items-center gap-1.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] font-mono text-[10px] font-bold transition-colors cursor-pointer"
+              >
+                <HandCoins size={13} />
+                <span>Debt &amp; Retrievals</span>
+              </button>
+            )}
 
             <button
               title="Print Compact 80mm Ledger Summary"
