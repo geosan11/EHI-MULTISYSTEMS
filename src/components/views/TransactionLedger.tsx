@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 import { QRCode } from "../QRCode";
 import TagPrintHistory from "./TagPrintHistory";
-import { supabase, writeAuditLog } from "../../lib/supabase";
+import { supabase, writeAuditLog, fetchAllRows } from "../../lib/supabase";
 import { useToast } from "../../lib/ToastContext";
 import { useConfirm } from "../../lib/ConfirmContext";
 import { LiveCreditFeed } from "../LiveCreditFeed";
@@ -402,9 +402,161 @@ export const TransactionLedger = ({
     return getShiftBoundary(shiftHour);
   }, [shiftHour, activeShift, shifts]);
 
+  // "All Time" previously only widened the SHARED globalDateRange to 5
+  // years, still capped at .limit(5000)/table in EHIApp.tsx's fetchInitial
+  // -- wider, not literally "every transaction ever." Raising/removing that
+  // shared cap wasn't an option: it also feeds Tower/Analytics/Dashboard,
+  // which would then have to load and process years of data on every
+  // click regardless of whether the user is even looking at the ledger.
+  // Dedicated, ledger-local, fully paginated (fetchAllRows) fetch instead,
+  // triggered once when "All Time" is first engaged. Mapping mirrors
+  // EHIApp.tsx's fetchInitial field-for-field (same duplication already
+  // accepted for src/lib/debt.ts's fetchAllDebtAndRetrievalEntries) so
+  // every edit/retrieval/debt-clearance action works identically on a
+  // historical row as on one from the normal windowed fetch.
+  const [allTimeTransactions, setAllTimeTransactions] = useState<Transaction[]>([]);
+  const [loadingAllTime, setLoadingAllTime] = useState(false);
+  const [allTimeLoaded, setAllTimeLoaded] = useState(false);
+
+  const fetchAllTimeTransactions = async () => {
+    if (allTimeLoaded || loadingAllTime) return;
+    setLoadingAllTime(true);
+    try {
+      const { data: profiles } = await supabase.from('user_profiles').select('id,name');
+      const profileLookup: Record<string, string> = {};
+      (profiles || []).forEach((p: any) => { if (p.id) profileLookup[p.id] = p.name || ''; });
+
+      const wantsCargo = !defaultTypeFilter || defaultTypeFilter === 'cargo';
+      const wantsBaggage = !defaultTypeFilter || defaultTypeFilter === 'baggage';
+      const wantsMarketing = !defaultTypeFilter || defaultTypeFilter === 'marketing';
+      const wantsPackage = !defaultTypeFilter || defaultTypeFilter === 'package';
+
+      const [cargoRows, baggageRows, marketingRows, packageRows] = await Promise.all([
+        wantsCargo ? fetchAllRows<any>((from, to) => supabase.from('cargo_entries').select('entry_ref,consignee_name,airline,awb_tag_number,total_pcs,total_kg,size_inches,route,content_type,amount,receipt_mode,pickup_pin,status,created_at,commission_rate,bank,hub_id,terminal,remark,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,consignee_phone,client_type,corporate_client_id,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id').order('created_at', { ascending: false }).range(from, to)) : Promise.resolve([] as any[]),
+        wantsBaggage ? fetchAllRows<any>((from, to) => supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs,amount_paid,payment_history,airline,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark').order('created_at', { ascending: false }).range(from, to)) : Promise.resolve([] as any[]),
+        wantsMarketing ? fetchAllRows<any>((from, to) => supabase.from('marketing_entries').select('entry_ref,awb_tag_number,customer_name,route,airline,qty_big_bag,qty_med_bag,qty_small_bag,bb_kg,mb_kg,sb_kg,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,last_edited_by,last_edited_at,debt_amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark,customer_phone').order('created_at', { ascending: false }).range(from, to)) : Promise.resolve([] as any[]),
+        wantsPackage ? fetchAllRows<any>((from, to) => supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,total_pcs,total_kg,contents,status,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,amount_paid,payment_history,created_at,hub_id,terminal,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark,customer_phone').order('created_at', { ascending: false }).range(from, to)) : Promise.resolve([] as any[]),
+      ]);
+
+      const mapped: Transaction[] = [];
+
+      cargoRows.forEach((r: any) => {
+        const enteredByName = r.entered_by ? (profileLookup[r.entered_by] || r.entered_by) : undefined;
+        mapped.push({
+          id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo',
+          detail: `${r.airline || ''} · ${r.awb_tag_number || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}${r.size_inches ? ` · ${r.size_inches}in` : ''}`,
+          amount: r.amount || 0,
+          mode: r.receipt_mode === 'Debt' && Number(r.amount_paid || 0) >= Number(r.amount || 0) ? 'Debt Paid' : (r.receipt_mode || 'Cash'),
+          time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+          type: 'cargo', status: r.status || 'Intake', awb_tag_number: r.awb_tag_number, kg: r.total_kg,
+          sizeInches: r.size_inches ?? undefined, pieces: r.total_pcs, pickupPin: r.pickup_pin || undefined,
+          created_at: r.created_at, airline: r.airline, commissionRate: r.commission_rate ?? undefined,
+          bank: r.bank, route: r.route, hub_id: r.hub_id, terminal: r.terminal, contentType: r.content_type,
+          remarks: r.remark || undefined, enteredByName: enteredByName || undefined, editedBy: r.last_edited_by || undefined,
+          editedAt: r.last_edited_at || undefined, amountPaid: r.amount_paid || 0, paymentHistory: r.payment_history || [],
+          paymentConfirmed: r.payment_confirmed, posApprovalCode: r.pos_approval_code || undefined, confirmedBy: r.confirmed_by || undefined,
+          confirmedAt: r.confirmed_at || undefined, consigneePhone: r.consignee_phone || undefined, clientType: r.client_type || undefined,
+          corporate_client_id: r.corporate_client_id || undefined, bankReference: r.bank_reference || undefined, bankSender: r.bank_sender || undefined,
+          bankAlertText: r.bank_alert_text || undefined, wallet_id: r.wallet_id || undefined, wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
+          retrieved: r.retrieved ?? undefined, retrievalNote: r.retrieval_note ?? undefined, retrievedAt: r.retrieved_at ?? undefined,
+          retrievedBy: r.retrieved_by ?? undefined, retrievalApproved: r.retrieval_approved ?? undefined, retrievalApprovedBy: r.retrieval_approved_by ?? undefined,
+          retrievalApprovedAt: r.retrieval_approved_at ?? undefined, is_debt_clearance: r.is_debt_clearance || undefined, related_tx_id: r.related_tx_id || undefined,
+          raw: r,
+        } as Transaction);
+      });
+
+      baggageRows.forEach((r: any) => {
+        const enteredByName = r.entered_by ? (profileLookup[r.entered_by] || r.entered_by) : undefined;
+        mapped.push({
+          id: r.transaction_id || r.id, name: r.passenger_name || 'Baggage Passenger',
+          detail: `${r.flight_no || ''} · ${r.destination || ''} · ${r.total_pcs || 1}pcs · +${r.excess_kg || 0}kg excess`,
+          amount: r.amount || 0,
+          mode: r.payment_mode === 'Debt' && Number(r.amount_paid || 0) >= Number(r.amount || 0) ? 'Debt Paid' : (r.payment_mode || 'POS'),
+          time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+          type: 'baggage', status: 'Delivered', created_at: r.created_at, bank: r.bank, hub_id: r.hub_id, airline: r.airline,
+          destination: r.destination, excessKg: r.excess_kg, totalKg: r.total_kg, flight: r.flight_no, pnr: r.pnr || undefined,
+          kg: r.excess_kg, pieces: r.total_pcs, enteredByName: enteredByName || undefined, editedBy: r.last_edited_by || undefined,
+          editedAt: r.last_edited_at || undefined, amountPaid: r.amount_paid || 0, paymentHistory: r.payment_history || [],
+          paymentConfirmed: r.payment_confirmed, posApprovalCode: r.pos_approval_code || undefined, confirmedBy: r.confirmed_by || undefined,
+          confirmedAt: r.confirmed_at || undefined, bankReference: r.bank_reference || undefined, bankSender: r.bank_sender || undefined,
+          bankAlertText: r.bank_alert_text || undefined, wallet_id: r.wallet_id || undefined, wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
+          retrieved: r.retrieved ?? undefined, retrievalNote: r.retrieval_note ?? undefined, retrievedAt: r.retrieved_at ?? undefined,
+          retrievedBy: r.retrieved_by ?? undefined, retrievalApproved: r.retrieval_approved ?? undefined, retrievalApprovedBy: r.retrieval_approved_by ?? undefined,
+          retrievalApprovedAt: r.retrieval_approved_at ?? undefined, is_debt_clearance: r.is_debt_clearance || undefined, related_tx_id: r.related_tx_id || undefined,
+          remarks: r.remark || undefined, raw: r,
+        } as Transaction);
+      });
+
+      marketingRows.forEach((r: any) => {
+        const enteredByName = r.entered_by ? (profileLookup[r.entered_by] || r.entered_by) : undefined;
+        mapped.push({
+          id: r.entry_ref || r.id, awb_tag_number: r.awb_tag_number || undefined, name: r.customer_name || 'Customer',
+          detail: `${r.route || ''} · ${r.qty_big_bag || 0}BB ${r.qty_med_bag || 0}MB ${r.qty_small_bag || 0}SB`,
+          amount: r.amount_paid || 0,
+          mode: r.payment_mode === 'Debt' && Number(r.debt_amount_paid || 0) >= Number(r.amount_paid || 0) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
+          time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+          type: 'marketing', status: 'Intake', created_at: r.created_at, bank: r.bank, hub_id: r.hub_id, route: r.route,
+          airline: r.airline || undefined, enteredByName: enteredByName || undefined, editedBy: r.last_edited_by || undefined,
+          editedAt: r.last_edited_at || undefined, amountPaid: r.debt_amount_paid || 0, paymentHistory: r.payment_history || [],
+          paymentConfirmed: r.payment_confirmed, posApprovalCode: r.pos_approval_code || undefined, confirmedBy: r.confirmed_by || undefined,
+          confirmedAt: r.confirmed_at || undefined, bankReference: r.bank_reference || undefined, bankSender: r.bank_sender || undefined,
+          bankAlertText: r.bank_alert_text || undefined, wallet_id: r.wallet_id || undefined, wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
+          retrieved: r.retrieved ?? undefined, retrievalNote: r.retrieval_note ?? undefined, retrievedAt: r.retrieved_at ?? undefined,
+          retrievedBy: r.retrieved_by ?? undefined, retrievalApproved: r.retrieval_approved ?? undefined, retrievalApprovedBy: r.retrieval_approved_by ?? undefined,
+          retrievalApprovedAt: r.retrieval_approved_at ?? undefined, consigneePhone: r.customer_phone || undefined,
+          is_debt_clearance: r.is_debt_clearance || undefined, related_tx_id: r.related_tx_id || undefined, remarks: r.remark || undefined,
+          raw: r,
+        } as Transaction);
+      });
+
+      packageRows.forEach((r: any) => {
+        const enteredByName = r.entered_by ? (profileLookup[r.entered_by] || r.entered_by) : undefined;
+        mapped.push({
+          id: r.entry_ref || r.id, name: r.customer_name || 'Customer',
+          detail: `${r.destination || ''} · ${r.content_type || 'Package'} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg${r.contents ? ` · ${r.contents}` : ''}`,
+          amount: r.amount || 0,
+          mode: r.payment_mode === 'Debt' && (r.debt_paid === true || Number(r.amount_paid || 0) >= Number(r.amount || 0)) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
+          time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+          type: 'package', status: r.status || 'Intake', created_at: r.created_at, bank: r.bank, hub_id: r.hub_id, terminal: r.terminal,
+          destination: r.destination, contentType: r.content_type, pieces: r.total_pcs || undefined, kg: r.total_kg || undefined,
+          contents: r.contents || undefined, paymentNarration: r.payment_narration || undefined, debtPaid: r.debt_paid ?? undefined,
+          debtPaidAt: r.debt_paid_at || undefined, enteredByName: enteredByName || undefined, editedBy: r.last_edited_by || undefined,
+          editedAt: r.last_edited_at || undefined, amountPaid: r.amount_paid || 0, paymentHistory: r.payment_history || [],
+          paymentConfirmed: r.payment_confirmed, posApprovalCode: r.pos_approval_code || undefined, confirmedBy: r.confirmed_by || undefined,
+          confirmedAt: r.confirmed_at || undefined, wallet_id: r.wallet_id || undefined, wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
+          retrieved: r.retrieved ?? undefined, retrievalNote: r.retrieval_note ?? undefined, retrievedAt: r.retrieved_at ?? undefined,
+          retrievedBy: r.retrieved_by ?? undefined, retrievalApproved: r.retrieval_approved ?? undefined, retrievalApprovedBy: r.retrieval_approved_by ?? undefined,
+          retrievalApprovedAt: r.retrieval_approved_at ?? undefined, consigneePhone: r.customer_phone || undefined,
+          is_debt_clearance: r.is_debt_clearance || undefined, related_tx_id: r.related_tx_id || undefined, remarks: r.remark || undefined,
+          raw: r,
+        } as Transaction);
+      });
+
+      setAllTimeTransactions(mapped);
+      setAllTimeLoaded(true);
+    } catch (err: any) {
+      showToast({ message: `Failed to load full history: ${err.message || err}`, type: 'error' });
+    } finally {
+      setLoadingAllTime(false);
+    }
+  };
+
+  // shiftFilter === 'all' (All Time engaged) sources from the dedicated
+  // fetch above, merged with the live `transactions` prop (prop wins on id
+  // collision, so a same-session create/edit shows immediately without
+  // waiting for a refetch) -- otherwise unchanged, sourcing from
+  // `transactions` alone exactly as before this fix.
+  const mergedTransactions = useMemo(() => {
+    if (shiftFilter !== 'all' || !allTimeLoaded) return transactions;
+    const byId = new Map<string, Transaction>();
+    allTimeTransactions.forEach(t => byId.set(t.id, t));
+    transactions.forEach(t => byId.set(t.id, t));
+    return Array.from(byId.values());
+  }, [transactions, allTimeTransactions, allTimeLoaded, shiftFilter]);
+
   const entries = useMemo(() => {
     const list: Entry[] = [
-      ...transactions.map((t) => {
+      ...mergedTransactions.map((t) => {
         const dtStr = t.created_at || t.time;
         const d = dtStr ? new Date(dtStr) : null;
         let displayDate = 'Unknown date';
@@ -474,7 +626,7 @@ export const TransactionLedger = ({
       if (a.time < b.time) return 1;
       return 0;
     });
-  }, [transactions, expenses]);
+  }, [mergedTransactions, expenses]);
 
   const filteredEntries = useMemo(() => entries.filter((e) => {
     if (typeFilter !== "All") {
@@ -2286,6 +2438,15 @@ export const TransactionLedger = ({
                       key={scope}
                       onClick={() => {
                         setShiftFilter(scope);
+                        if (scope === 'all') {
+                          // Kicks off the genuinely-unbounded dedicated fetch
+                          // (see fetchAllTimeTransactions above) -- no-ops
+                          // if already loaded/loading. Widening
+                          // globalDateRange below is kept too: it's still
+                          // what other screens sharing that state (Tower/
+                          // Analytics) see if the user switches tabs.
+                          fetchAllTimeTransactions();
+                        }
                         if (scope === 'all' && dateRange && onDateRangeChange) {
                           onDateRangeChange({
                             start: new Date(Date.now() - 5 * 365 * 86400000).toISOString().split('T')[0],
@@ -2328,6 +2489,13 @@ export const TransactionLedger = ({
                 <div className="text-[9.5px] font-mono text-[var(--color-muted)] flex items-center gap-1">
                   <Clock size={10} />
                   <span>Only this shift's entries — switch to "All Time" for older results.</span>
+                </div>
+              )}
+
+              {shiftFilter === 'all' && loadingAllTime && (
+                <div className="text-[9.5px] font-mono text-[var(--color-accent-amber)] flex items-center gap-1">
+                  <Loader2 size={10} className="animate-spin" />
+                  <span>Loading full history — this can take a moment for a busy hub…</span>
                 </div>
               )}
 
