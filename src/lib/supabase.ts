@@ -170,6 +170,37 @@ export async function fetchAllRows<T>(
   return all;
 }
 
+// Same pagination shape as fetchAllRows, but stops once `maxRows` is
+// reached instead of paging through the entire table -- for the rare case
+// where a fetch is intentionally unbounded by date/filter (so it WILL
+// keep growing as the underlying table does) and could otherwise page
+// through an unbounded number of rows as that growth continues, hanging
+// the UI and ballooning memory with no ceiling (e.g. the Transaction
+// Ledger's "All Time" view). A plain fetchAllRows() is still correct and
+// preferred everywhere else in this codebase, where the query is already
+// narrowed enough (a specific filter, a bounded window) that it can't
+// grow unboundedly on its own. Returns whether the cap was actually hit
+// so the caller can warn the user their view may be incomplete, mirroring
+// EHIApp.tsx's fetchInitial 5000-row-cap warning.
+export async function fetchRowsCapped<T>(
+  buildPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>,
+  maxRows: number,
+  pageSize = 1000,
+): Promise<{ rows: T[]; capped: boolean }> {
+  const all: T[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await buildPage(from, from + pageSize - 1);
+    if (error) throw error;
+    const rows = data || [];
+    all.push(...rows);
+    if (rows.length < pageSize) break;
+    if (all.length >= maxRows) return { rows: all, capped: true };
+    from += pageSize;
+  }
+  return { rows: all, capped: false };
+}
+
 // ── AUDIT LOG WRITER ─────────────────────────────────────
 // Call this from any action that should appear in the audit trail
 export async function writeAuditLog(entry: {

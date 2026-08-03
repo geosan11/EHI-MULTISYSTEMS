@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 import { QRCode } from "../QRCode";
 import TagPrintHistory from "./TagPrintHistory";
-import { supabase, writeAuditLog, fetchAllRows } from "../../lib/supabase";
+import { supabase, writeAuditLog, fetchRowsCapped } from "../../lib/supabase";
 import { useToast } from "../../lib/ToastContext";
 import { useConfirm } from "../../lib/ConfirmContext";
 import { LiveCreditFeed } from "../LiveCreditFeed";
@@ -431,12 +431,36 @@ export const TransactionLedger = ({
       const wantsMarketing = !defaultTypeFilter || defaultTypeFilter === 'marketing';
       const wantsPackage = !defaultTypeFilter || defaultTypeFilter === 'package';
 
-      const [cargoRows, baggageRows, marketingRows, packageRows] = await Promise.all([
-        wantsCargo ? fetchAllRows<any>((from, to) => supabase.from('cargo_entries').select('entry_ref,consignee_name,airline,awb_tag_number,total_pcs,total_kg,size_inches,route,content_type,amount,receipt_mode,pickup_pin,status,created_at,commission_rate,bank,hub_id,terminal,remark,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,consignee_phone,client_type,corporate_client_id,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id').order('created_at', { ascending: false }).range(from, to)) : Promise.resolve([] as any[]),
-        wantsBaggage ? fetchAllRows<any>((from, to) => supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs,amount_paid,payment_history,airline,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark').order('created_at', { ascending: false }).range(from, to)) : Promise.resolve([] as any[]),
-        wantsMarketing ? fetchAllRows<any>((from, to) => supabase.from('marketing_entries').select('entry_ref,awb_tag_number,customer_name,route,airline,qty_big_bag,qty_med_bag,qty_small_bag,bb_kg,mb_kg,sb_kg,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,last_edited_by,last_edited_at,debt_amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark,customer_phone').order('created_at', { ascending: false }).range(from, to)) : Promise.resolve([] as any[]),
-        wantsPackage ? fetchAllRows<any>((from, to) => supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,total_pcs,total_kg,contents,status,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,amount_paid,payment_history,created_at,hub_id,terminal,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark,customer_phone').order('created_at', { ascending: false }).range(from, to)) : Promise.resolve([] as any[]),
+      // "All Time" is intentionally unbounded by date, so unlike every
+      // other fetchAllRows() call in this codebase (already narrowed by a
+      // specific filter or window), this one WILL keep growing as the
+      // underlying tables do. A hard per-table cap keeps a busy hub's
+      // history from eventually hanging the UI or ballooning memory with
+      // no ceiling -- at 2026-08 volume this is 10x+ current table sizes,
+      // so it changes nothing today; it's a safety net for growth, not a
+      // real limit yet. Mirrors EHIApp.tsx's fetchInitial 5000-row-cap
+      // warning pattern.
+      const ALL_TIME_ROW_CAP = 20000;
+      const emptyCapped = { rows: [] as any[], capped: false };
+      const [cargoResult, baggageResult, marketingResult, packageResult] = await Promise.all([
+        wantsCargo ? fetchRowsCapped<any>((from, to) => supabase.from('cargo_entries').select('entry_ref,consignee_name,airline,awb_tag_number,total_pcs,total_kg,size_inches,route,content_type,amount,receipt_mode,pickup_pin,status,created_at,commission_rate,bank,hub_id,terminal,remark,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,consignee_phone,client_type,corporate_client_id,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id').order('created_at', { ascending: false }).range(from, to), ALL_TIME_ROW_CAP) : Promise.resolve(emptyCapped),
+        wantsBaggage ? fetchRowsCapped<any>((from, to) => supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs,amount_paid,payment_history,airline,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark').order('created_at', { ascending: false }).range(from, to), ALL_TIME_ROW_CAP) : Promise.resolve(emptyCapped),
+        wantsMarketing ? fetchRowsCapped<any>((from, to) => supabase.from('marketing_entries').select('entry_ref,awb_tag_number,customer_name,route,airline,qty_big_bag,qty_med_bag,qty_small_bag,bb_kg,mb_kg,sb_kg,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,last_edited_by,last_edited_at,debt_amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark,customer_phone').order('created_at', { ascending: false }).range(from, to), ALL_TIME_ROW_CAP) : Promise.resolve(emptyCapped),
+        wantsPackage ? fetchRowsCapped<any>((from, to) => supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,total_pcs,total_kg,contents,status,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,amount_paid,payment_history,created_at,hub_id,terminal,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark,customer_phone').order('created_at', { ascending: false }).range(from, to), ALL_TIME_ROW_CAP) : Promise.resolve(emptyCapped),
       ]);
+      const cargoRows = cargoResult.rows, baggageRows = baggageResult.rows, marketingRows = marketingResult.rows, packageRows = packageResult.rows;
+
+      const cappedTables: string[] = [];
+      if (cargoResult.capped) cappedTables.push('Cargo');
+      if (baggageResult.capped) cappedTables.push('Excess Baggage');
+      if (marketingResult.capped) cappedTables.push('Marketing');
+      if (packageResult.capped) cappedTables.push('Package Desk');
+      if (cappedTables.length > 0) {
+        showToast({
+          message: `"All Time" is showing only the most recent ${ALL_TIME_ROW_CAP.toLocaleString()} records for: ${cappedTables.join(', ')}. Use a narrower custom date range to see older entries in this window.`,
+          type: 'warning',
+        });
+      }
 
       const mapped: Transaction[] = [];
 
