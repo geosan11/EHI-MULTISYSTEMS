@@ -55,6 +55,11 @@ export interface RetrievalResult {
   newBalance?: number;
   walletRefund?: number;
   debtReduction?: number;
+  // 'pending' when walletRefund > 0 -- the refund now always needs a
+  // second person's approval (approveRetrievalRefund) before newBalance
+  // actually reflects it; 'none' when there was nothing to refund at all.
+  refundStatus?: 'pending' | 'none';
+  refundTransactionId?: string;
   error?: string;
 }
 
@@ -119,6 +124,8 @@ export async function processRetrieval(type: RetrievalEntryType, params: {
     newBalance: Number(row?.new_balance),
     walletRefund: Number(row?.wallet_refund ?? 0),
     debtReduction: Number(row?.debt_reduction ?? 0),
+    refundStatus: row?.refund_status,
+    refundTransactionId: row?.refund_transaction_id ?? undefined,
   };
 }
 
@@ -250,6 +257,95 @@ export async function rejectWalletCashPayout(params: {
   reason?: string;
 }): Promise<CashPayoutResult> {
   const { error } = await supabase.rpc('reject_wallet_cash_payout', {
+    p_transaction_id: params.transactionId,
+    p_rejected_by: params.rejectedBy,
+    p_reason: params.reason ?? null,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+// Requests a wallet top-up without applying it -- open to ANY authenticated,
+// hub-matched user (same as requestWalletCashPayout), including roles
+// apply_wallet_transaction() blocks from the direct/immediate top-up path
+// (cargo_agent, baggage_agent, marketing_agent, driver, office_work).
+// Creates a 'pending' wallet_transactions row for accountant/admin/
+// super_admin to approve or reject via approveWalletTopUp/rejectWalletTopUp.
+export async function requestWalletTopUp(params: {
+  walletId: string;
+  amount: number;
+  requestedBy: string;
+  paymentMode?: 'Cash' | 'Transfer' | 'POS';
+  note?: string;
+}): Promise<CashPayoutResult> {
+  const { data, error } = await supabase.rpc('request_wallet_top_up', {
+    p_wallet_id: params.walletId,
+    p_amount: params.amount,
+    p_requested_by: params.requestedBy,
+    p_payment_mode: params.paymentMode ?? null,
+    p_note: params.note ?? null,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, transactionId: data as string };
+}
+
+export async function approveWalletTopUp(params: {
+  transactionId: string;
+  approvedBy: string;
+}): Promise<CashPayoutResult> {
+  const { data, error } = await supabase.rpc('approve_wallet_top_up', {
+    p_transaction_id: params.transactionId,
+    p_approved_by: params.approvedBy,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, newBalance: Number(data) };
+}
+
+export async function rejectWalletTopUp(params: {
+  transactionId: string;
+  rejectedBy: string;
+  reason?: string;
+}): Promise<CashPayoutResult> {
+  const { error } = await supabase.rpc('reject_wallet_top_up', {
+    p_transaction_id: params.transactionId,
+    p_rejected_by: params.rejectedBy,
+    p_reason: params.reason ?? null,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+// Approves a pending retrieval refund (processRetrieval's deferred wallet
+// credit) and applies the real balance increase. Shared across all 4
+// department types -- by approval time it's purely a wallet_transactions
+// row, no department-specific entry table involved.
+export async function approveRetrievalRefund(params: {
+  transactionId: string;
+  approvedBy: string;
+}): Promise<CashPayoutResult> {
+  const { data, error } = await supabase.rpc('approve_retrieval_refund', {
+    p_transaction_id: params.transactionId,
+    p_approved_by: params.approvedBy,
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, newBalance: Number(data) };
+}
+
+// Rejecting a refund does NOT reverse the retrieval's goods-release/debt-
+// reduction side (that already happened, unconditionally) -- only the
+// wallet-credit side. If the retrieval itself was mistaken, unretrieveEntry
+// above is the correct reversal path.
+export async function rejectRetrievalRefund(params: {
+  transactionId: string;
+  rejectedBy: string;
+  reason?: string;
+}): Promise<CashPayoutResult> {
+  const { error } = await supabase.rpc('reject_retrieval_refund', {
     p_transaction_id: params.transactionId,
     p_rejected_by: params.rejectedBy,
     p_reason: params.reason ?? null,

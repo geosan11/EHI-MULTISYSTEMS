@@ -634,15 +634,26 @@ export function autoFitWorksheetColumns(ws: XLSX.WorkSheet): void {
 
   // Title/date/summary rows above the real header only populate column A --
   // measuring width from row 0 lets that one long string skew column A's
-  // width across the whole sheet. Skip ahead to the first row where every
-  // column is actually populated (the real header row) before measuring.
+  // width across the whole sheet. Skip ahead to the first row that's
+  // substantially populated (the real header/data) before measuring.
+  // Majority-populated, not `populated === totalCols` -- a sheet with more
+  // than one sub-table of DIFFERING column counts (e.g. Reports.tsx's
+  // sales_* exports: an 11-column "ALL AGENTS COMBINED" summary followed by
+  // a 13-column "PER-AGENT DETAIL" table) has totalCols set by the widest
+  // sub-table, so the narrower summary row never satisfies exact equality
+  // and was skipped from width measurement entirely -- even though it
+  // holds real, often-large numbers (company-wide sums), leaving that
+  // column too narrow. A majority threshold still correctly skips a title
+  // row (usually 1-4 populated cells) while including every real sub-table
+  // regardless of its own column count.
   let startRow = range.s.r;
+  const majorityThreshold = Math.ceil(totalCols / 2);
   for (let r = range.s.r; r <= range.e.r; r++) {
     let populated = 0;
     for (let c = range.s.c; c <= range.e.c; c++) {
       if (ws[XLSX.utils.encode_cell({ r, c })]) populated++;
     }
-    if (populated === totalCols) { startRow = r; break; }
+    if (populated >= majorityThreshold) { startRow = r; break; }
   }
 
   const cols: { wch: number }[] = [];

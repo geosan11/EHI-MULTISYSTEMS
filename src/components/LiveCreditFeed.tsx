@@ -6,6 +6,11 @@ import { Wallet, RefreshCw, ArrowUpRight, ArrowDownLeft, Sparkles, ChevronRight,
 interface LiveCreditFeedProps {
   wallets: CustomerWallet[];
   transactions: Transaction[];
+  // Mirrors TransactionLedger.tsx's own (already-debounced) search box so
+  // this panel's Wallets/Live Stream tabs narrow down live as the agent
+  // types there too, instead of only reacting to this panel's own "Filter"
+  // button (which pushes INTO the ledger's search box, not the other way).
+  searchQuery?: string;
   onOpenTopUp?: (customerName?: string) => void;
   onOpenWalletsView?: () => void;
   onFilterByCustomer?: (customerName: string) => void;
@@ -14,6 +19,7 @@ interface LiveCreditFeedProps {
 export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
   wallets,
   transactions,
+  searchQuery,
   onOpenTopUp,
   onOpenWalletsView,
   onFilterByCustomer,
@@ -22,12 +28,30 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
   const [activeTab, setActiveTab] = useState<'wallets' | 'activity'>('wallets');
   const [drawerWallet, setDrawerWallet] = useState<CustomerWallet | null>(null);
 
+  // Totals stay unfiltered -- "Total Customer Credit Liability" and "Active
+  // Wallets" must keep meaning the true company-wide figures regardless of
+  // whatever's currently typed in the ledger's search box, matching
+  // CustomerWallets.tsx's own independent-of-filters totals convention.
   const totalLiability = wallets.reduce((sum, w) => sum + (w.balance || 0), 0);
   const activeWalletsCount = wallets.filter((w) => (w.balance || 0) > 0).length;
+
+  const searchLower = (searchQuery || '').trim().toLowerCase();
+  const displayedWallets = searchLower
+    ? wallets.filter((w) =>
+        (w.customer_name || '').toLowerCase().includes(searchLower) ||
+        (w.customer_phone || '').includes(searchLower)
+      )
+    : wallets;
 
   // Extract recent retrieval and wallet deduction activities from transactions
   const walletActivities = transactions
     .filter((t) => (t as any).wallet_id || (t as any).wallet_deduction_amount > 0 || t.mode === 'Wallet' || t.detail?.toUpperCase().includes('RETRIVAL') || t.detail?.toUpperCase().includes('RETRIEVAL') || t.detail?.toUpperCase().includes('REFUND') || (t as any).retrieved)
+    .filter((t) =>
+      !searchLower ||
+      (t.name || '').toLowerCase().includes(searchLower) ||
+      (t.awb_tag_number || '').toLowerCase().includes(searchLower) ||
+      (t.detail || '').toLowerCase().includes(searchLower)
+    )
     .slice(0, 25);
 
   if (collapsed) {
@@ -113,7 +137,7 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
               : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
           }`}
         >
-          <Wallet size={11} /> Wallets ({wallets.length})
+          <Wallet size={11} /> Wallets ({displayedWallets.length})
         </button>
         <button
           type="button"
@@ -131,8 +155,8 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
       {/* Tab Content */}
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
         {activeTab === 'wallets' ? (
-          wallets.length > 0 ? (
-            wallets.map((w) => (
+          displayedWallets.length > 0 ? (
+            displayedWallets.map((w) => (
               <div
                 key={w.id}
                 onClick={() => setDrawerWallet(w)}
@@ -189,8 +213,8 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
           ) : (
             <div className="py-12 text-center text-[11px] font-mono text-[var(--color-muted)] space-y-2">
               <Wallet size={24} className="mx-auto text-[var(--color-muted)] opacity-50" />
-              <div>No customer credit wallets yet.</div>
-              {onOpenTopUp && (
+              <div>{searchLower ? 'No wallets match your search.' : 'No customer credit wallets yet.'}</div>
+              {!searchLower && onOpenTopUp && (
                 <button
                   type="button"
                   onClick={() => onOpenTopUp()}
@@ -255,7 +279,7 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
             })
           ) : (
             <div className="py-12 text-center text-[11px] font-mono text-[var(--color-muted)]">
-              No recent wallet activity recorded in this shift.
+              {searchLower ? 'No activity matches your search.' : 'No recent wallet activity recorded in this shift.'}
             </div>
           )
         )}

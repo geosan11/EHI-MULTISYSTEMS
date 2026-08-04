@@ -1857,12 +1857,18 @@ export const TransactionLedger = ({
       // Report what the RPC actually did, not the full retrieved value --
       // an unpaid-debt or already-paid-in-full retrieval can send ₦0 (or
       // less than the full amount) to the wallet, with the rest clearing debt.
+      // Goods are released and debt is cleared immediately either way; the
+      // wallet refund itself now always lands as a pending
+      // wallet_transactions row (see process_*_retrieval) awaiting a
+      // separate accountant/admin/super_admin approval, so the customer's
+      // balance doesn't reflect it until then -- CustomerWallets.tsx's
+      // "Pending Wallet Approvals" queue is where that happens.
       const refund = result.walletRefund ?? 0;
       const debtCleared = result.debtReduction ?? 0;
       const message = refund > 0 && debtCleared > 0
-        ? `₦${fmt(debtCleared)} debt cleared and ₦${fmt(refund)} deposited to ${customerName}'s wallet!`
+        ? `₦${fmt(debtCleared)} debt cleared for ${customerName}. ₦${fmt(refund)} wallet refund is pending approval.`
         : refund > 0
-          ? `Successfully deposited ₦${fmt(refund)} to ${customerName}'s wallet!`
+          ? `Goods released. ₦${fmt(refund)} wallet refund for ${customerName} is pending approval.`
           : `₦${fmt(debtCleared)} debt cleared for ${customerName}. No wallet refund was due.`;
 
       // Same audit_log gap fix as handleUnretrieve above.
@@ -4234,6 +4240,7 @@ export const TransactionLedger = ({
       <LiveCreditFeed
         wallets={wallets}
         transactions={transactions}
+        searchQuery={searchQuery}
         onFilterByCustomer={(name) => handleSearchChange(name)}
       />
     </div>

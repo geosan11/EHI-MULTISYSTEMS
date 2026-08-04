@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { User } from '../../lib/types';
 import { fmt, tnow } from '../../lib/helpers';
 import { supabase, writeAuditLog, fetchRowsCapped } from '../../lib/supabase';
-import { applyWalletTransaction, requestWalletCashPayout, approveWalletCashPayout, rejectWalletCashPayout, RetrievalEntryType } from '../../lib/wallet';
+import { applyWalletTransaction, requestWalletCashPayout, approveWalletCashPayout, rejectWalletCashPayout, requestWalletTopUp, approveWalletTopUp, rejectWalletTopUp, approveRetrievalRefund, rejectRetrievalRefund, RetrievalEntryType } from '../../lib/wallet';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
 import { BackButton } from '../BackButton';
@@ -51,7 +51,7 @@ export interface WalletTransaction {
   id: string;
   wallet_id: string;
   hub_id?: string;
-  type: 'top_up' | 'deduction' | 'refund' | 'adjustment' | 'cash_payout';
+  type: 'top_up' | 'deduction' | 'refund' | 'adjustment' | 'cash_payout' | 'retrieval_refund';
   amount: number;
   balance_before: number;
   balance_after: number;
@@ -128,11 +128,15 @@ export const CustomerWallets = ({
   // named set of roles rather than reusing canApprovePayouts.
   const canForceDelete = ['super_admin', 'accountant', 'admin', 'office_work'].includes(user.role);
   const [forceDeletingId, setForceDeletingId] = useState<string | null>(null);
-  // Matches apply_wallet_transaction's own server-side gate for
-  // top_up/adjustment (20260903_security_and_bugfix_pass.sql) -- without
-  // this, unprivileged roles could open the Top-Up form and submit it,
-  // only to have the RPC reject it after the fact.
-  const canTopUp = ['accountant', 'admin', 'super_admin', 'auditor'].includes(user.role);
+  // Every role can open the Top-Up form now -- canDirectTopUp (matching
+  // apply_wallet_transaction's server-side gate for top_up/adjustment,
+  // 20260903_security_and_bugfix_pass.sql) decides whether handleSaveTopUp
+  // applies the credit immediately, or (for cargo_agent/baggage_agent/
+  // marketing_agent/driver/office_work) routes through
+  // request_wallet_top_up() instead, landing in the pending-approval queue
+  // below for accountant/admin/super_admin to action.
+  const canTopUp = true;
+  const canDirectTopUp = ['accountant', 'admin', 'super_admin', 'auditor'].includes(user.role);
 
   // Cash-payout request form
   const [payoutWalletId, setPayoutWalletId] = useState<string | null>(null);
@@ -227,13 +231,19 @@ export const CustomerWallets = ({
     }
   }, [user.hub_id, user.role, walletView, showToast]);
 
+  // Combines all 3 maker-checker wallet actions into one queue --
+  // cash_payout, top_up (front-line-requested), and retrieval_refund
+  // (processRetrieval's deferred wallet credit) are all just
+  // wallet_transactions rows with a 'pending' status and a type
+  // discriminator, so one fetch + one render section covers all three
+  // instead of duplicating the whole pattern 3 times.
   const fetchPendingPayouts = useCallback(async () => {
     if (!canApprovePayouts) return;
     try {
       const { data, error } = await supabase
         .from('wallet_transactions')
         .select('*')
-        .eq('type', 'cash_payout')
+        .in('type', ['cash_payout', 'top_up', 'retrieval_refund'])
         .eq('status', 'pending')
         .order('created_at', { ascending: true });
       if (error) throw error;
@@ -243,7 +253,7 @@ export const CustomerWallets = ({
       // been run, and this section is a secondary feature of the screen,
       // not its core purpose (matches tableMissing's own graceful handling
       // for customer_wallets above).
-      console.error('Error fetching pending cash payouts:', err);
+      console.error('Error fetching pending wallet approvals:', err);
     }
   }, [canApprovePayouts]);
 
@@ -510,31 +520,47 @@ export const CustomerWallets = ({
       const walletId: string = foundOrCreatedRow.wallet_id;
       const isNewWallet: boolean = foundOrCreatedRow.was_created;
 
-      // 2. Atomically credit the wallet + write its wallet_transactions audit row
-      const result = await applyWalletTransaction({
-        walletId,
-        type: 'top_up',
-        amount: amt,
-        cargoRef: formSourceRef.trim() || undefined,
-        description: formNote.trim() || `Top-up via ${formSourceType.replace('_', ' ')}`,
-        loggedBy: user.name,
-        paymentMode: formPaymentMode,
-      });
+      // 2. accountant/admin/super_admin/auditor credit the wallet
+      // immediately, same as always. Every other role (cargo_agent,
+      // baggage_agent, marketing_agent, driver, office_work) instead
+      // requests the top-up -- it lands as a 'pending' wallet_transactions
+      // row via request_wallet_top_up(), with zero balance change until an
+      // accountant/admin/super_admin approves it below.
+      const result = canDirectTopUp
+        ? await applyWalletTransaction({
+            walletId,
+            type: 'top_up',
+            amount: amt,
+            cargoRef: formSourceRef.trim() || undefined,
+            description: formNote.trim() || `Top-up via ${formSourceType.replace('_', ' ')}`,
+            loggedBy: user.name,
+            paymentMode: formPaymentMode,
+          })
+        : await requestWalletTopUp({
+            walletId,
+            amount: amt,
+            requestedBy: user.name,
+            paymentMode: formPaymentMode,
+            note: formNote.trim() || `Top-up via ${formSourceType.replace('_', ' ')}`,
+          });
 
       if (!result.ok) {
-        // A rejected top-up (e.g. a stale/unprivileged session slipping
-        // past the canTopUp gate above, or the server-side role check in
-        // apply_wallet_transaction) must not leave the zero-balance wallet
-        // row just inserted above permanently orphaned. Scoped to exactly
-        // that row and only if it's still untouched, so this can never
-        // delete a wallet that already has real balance/activity.
+        // A rejected top-up must not leave the zero-balance wallet row
+        // just inserted above permanently orphaned. Scoped to exactly that
+        // row and only if it's still untouched, so this can never delete a
+        // wallet that already has real balance/activity.
         if (isNewWallet && walletId) {
           await supabase.from('customer_wallets').delete().eq('id', walletId).eq('balance', 0).eq('total_topped_up', 0);
         }
         throw new Error(result.error);
       }
 
-      showToast({ message: `Successfully topped up ₦${fmt(amt)} for ${name}!`, type: 'success' });
+      showToast({
+        message: canDirectTopUp
+          ? `Successfully topped up ₦${fmt(amt)} for ${name}!`
+          : `₦${fmt(amt)} top-up requested for ${name} — awaiting approval`,
+        type: 'success',
+      });
       setShowTopUpModal(false);
       setFormName('');
       setFormPhone('');
@@ -543,6 +569,7 @@ export const CustomerWallets = ({
       setFormNote('');
       setFormPaymentMode('Cash');
       fetchWallets();
+      fetchPendingPayouts();
     } catch (err: any) {
       console.error('Wallet top up error:', err);
       showToast({ message: 'Failed to complete top-up: ' + err.message, type: 'error' });
@@ -587,27 +614,39 @@ export const CustomerWallets = ({
     }
   };
 
+  // Labels/RPC routing for the 3 pending types this queue now covers.
+  const PENDING_TYPE_LABEL: Record<string, string> = {
+    cash_payout: 'Cash Payout',
+    top_up: 'Top-Up',
+    retrieval_refund: 'Retrieval Refund',
+  };
+  const approveByType = (type: string) =>
+    type === 'top_up' ? approveWalletTopUp : type === 'retrieval_refund' ? approveRetrievalRefund : approveWalletCashPayout;
+  const rejectByType = (type: string) =>
+    type === 'top_up' ? rejectWalletTopUp : type === 'retrieval_refund' ? rejectRetrievalRefund : rejectWalletCashPayout;
+
   const handleApprovePayout = async (payout: WalletTransaction) => {
     if (payout.logged_by === user.name) {
-      showToast({ message: "You can't approve a cash payout you requested yourself", type: 'error' });
+      showToast({ message: `You can't approve a ${PENDING_TYPE_LABEL[payout.type] || 'wallet action'} you requested yourself`, type: 'error' });
       return;
     }
+    const verb = payout.type === 'cash_payout' ? 'deducted from' : 'credited to';
     const ok = await confirm({
-      title: 'Approve cash payout?',
-      message: `Approve a ₦${fmt(payout.amount)} cash payout requested by ${payout.logged_by}? The wallet balance will be deducted immediately.`,
+      title: `Approve ${PENDING_TYPE_LABEL[payout.type] || 'wallet action'}?`,
+      message: `Approve a ₦${fmt(payout.amount)} ${(PENDING_TYPE_LABEL[payout.type] || 'action').toLowerCase()} requested by ${payout.logged_by}? The wallet balance will be ${verb} immediately.`,
       confirmLabel: 'Approve',
       tone: 'default',
     });
     if (!ok) return;
     setPayoutActionLoading(payout.id);
     try {
-      const result = await approveWalletCashPayout({ transactionId: payout.id, approvedBy: user.name });
+      const result = await approveByType(payout.type)({ transactionId: payout.id, approvedBy: user.name });
       if (!result.ok) throw new Error(result.error);
-      showToast({ message: `₦${fmt(payout.amount)} cash payout approved`, type: 'success' });
+      showToast({ message: `₦${fmt(payout.amount)} ${PENDING_TYPE_LABEL[payout.type] || 'action'} approved`, type: 'success' });
       fetchPendingPayouts();
       fetchWallets();
     } catch (err: any) {
-      showToast({ message: 'Failed to approve payout: ' + err.message, type: 'error' });
+      showToast({ message: 'Failed to approve: ' + err.message, type: 'error' });
     } finally {
       setPayoutActionLoading(null);
     }
@@ -616,18 +655,18 @@ export const CustomerWallets = ({
   const handleRejectPayout = async (payout: WalletTransaction) => {
     setPayoutActionLoading(payout.id);
     try {
-      const result = await rejectWalletCashPayout({
+      const result = await rejectByType(payout.type)({
         transactionId: payout.id,
         rejectedBy: user.name,
         reason: rejectReason.trim() || undefined,
       });
       if (!result.ok) throw new Error(result.error);
-      showToast({ message: 'Cash payout rejected', type: 'success' });
+      showToast({ message: `${PENDING_TYPE_LABEL[payout.type] || 'Action'} rejected`, type: 'success' });
       setRejectingPayoutId(null);
       setRejectReason('');
       fetchPendingPayouts();
     } catch (err: any) {
-      showToast({ message: 'Failed to reject payout: ' + err.message, type: 'error' });
+      showToast({ message: 'Failed to reject: ' + err.message, type: 'error' });
     } finally {
       setPayoutActionLoading(null);
     }
@@ -737,12 +776,14 @@ export const CustomerWallets = ({
         </div>
       </div>
 
-      {/* Pending Cash Payouts -- maker-checker: requested by one agent,
-          approved/rejected by a different accountant/admin/super_admin */}
+      {/* Pending Wallet Approvals -- maker-checker: requested by one agent
+          (cash payout, front-line top-up, or a retrieval's deferred wallet
+          refund), approved/rejected by a different accountant/admin/
+          super_admin */}
       {canApprovePayouts && pendingPayouts.length > 0 && (
         <div className="p-3.5 bg-[rgba(245,158,11,0.06)] border border-[var(--color-accent-amber)] rounded-xl space-y-2.5">
           <div className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)] uppercase tracking-wider flex items-center gap-1.5">
-            <HandCoins size={13} /> Pending Cash Payouts ({pendingPayouts.length})
+            <HandCoins size={13} /> Pending Wallet Approvals ({pendingPayouts.length})
           </div>
           {pendingPayouts.map((payout) => {
             const wallet = wallets.find((w) => w.id === payout.wallet_id);
@@ -754,6 +795,9 @@ export const CustomerWallets = ({
                   <div className="space-y-0.5 min-w-0">
                     <div className="font-bold text-[var(--color-foreground)] truncate">
                       {wallet?.customer_name || 'Unknown customer'} · ₦{fmt(payout.amount)}
+                      <span className="ml-1.5 px-1.5 py-0.5 rounded text-[8px] font-mono uppercase bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)] align-middle">
+                        {PENDING_TYPE_LABEL[payout.type] || payout.type}
+                      </span>
                     </div>
                     <div className="text-[9px] font-mono text-[var(--color-muted)]">
                       Requested by {payout.logged_by} · {payout.department || 'cargo'}
@@ -807,7 +851,7 @@ export const CustomerWallets = ({
                 )}
                 {isSelf && (
                   <div className="text-[9px] font-mono text-[var(--color-muted)] italic">
-                    You requested this payout -- a different person must approve it.
+                    You requested this -- a different person must approve it.
                   </div>
                 )}
               </div>
