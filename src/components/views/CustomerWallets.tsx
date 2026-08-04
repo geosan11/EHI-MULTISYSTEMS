@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { User } from '../../lib/types';
 import { fmt, tnow } from '../../lib/helpers';
-import { supabase, writeAuditLog } from '../../lib/supabase';
+import { supabase, writeAuditLog, fetchRowsCapped } from '../../lib/supabase';
 import { applyWalletTransaction, requestWalletCashPayout, approveWalletCashPayout, rejectWalletCashPayout, RetrievalEntryType } from '../../lib/wallet';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
@@ -97,6 +97,7 @@ export const CustomerWallets = ({
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedWallet, setSelectedWallet] = useState<CustomerWallet | null>(null);
   const [walletHistory, setWalletHistory] = useState<WalletTransaction[]>([]);
+  const [walletHistoryCapped, setWalletHistoryCapped] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
 
   // Top-Up form states
@@ -116,6 +117,7 @@ export const CustomerWallets = ({
   const [savingTopUp, setSavingTopUp] = useState(false);
 
   const [tableMissing, setTableMissing] = useState(false);
+  const [walletsCapped, setWalletsCapped] = useState(false);
 
   // Same role gate TransactionLedger.tsx already uses for financial
   // approvals (payment confirmation) -- reused here for cash-payout
@@ -149,29 +151,43 @@ export const CustomerWallets = ({
     setLoading(true);
     setTableMissing(false);
     try {
-      let query = supabase
-        .from('customer_wallets')
-        .select('*')
-        .order('updated_at', { ascending: false });
+      const buildPage = (from: number, to: number) => {
+        let query = supabase
+          .from('customer_wallets')
+          .select('*')
+          .order('updated_at', { ascending: false });
 
-      query = walletView === 'archived'
-        ? query.not('archived_at', 'is', null)
-        : query.is('archived_at', null);
+        query = walletView === 'archived'
+          ? query.not('archived_at', 'is', null)
+          : query.is('archived_at', null);
 
-      // Customer credit wallets are company-wide customer accounts -- all station
-      // agents across all hubs require visibility into all customer wallets
-      // to process wallet payments, top-ups, and ledger checks regardless of
-      // origin hub.
+        // Customer credit wallets are company-wide customer accounts -- all station
+        // agents across all hubs require visibility into all customer wallets
+        // to process wallet payments, top-ups, and ledger checks regardless of
+        // origin hub.
 
-      const { data, error } = await query;
-      if (error) {
-        if (error.message?.includes('customer_wallets') || error.message?.includes('schema cache') || error.code === '42P01' || error.code === 'PGRST301') {
+        return query.range(from, to);
+      };
+
+      // customer_wallets grows without bound as customers accrue prepaid
+      // balances -- a plain unpaginated select silently truncated at
+      // PostgREST's implicit ~1000-row cap once the table passed that size,
+      // dropping the oldest wallets off this list with no indication.
+      // Paginate past it the same way the ledger's "All Time" fetch does.
+      let fetched: CustomerWallet[];
+      let capped: boolean;
+      try {
+        const result = await fetchRowsCapped<CustomerWallet>(buildPage, 20000);
+        fetched = result.rows;
+        capped = result.capped;
+      } catch (error: any) {
+        if (error?.message?.includes('customer_wallets') || error?.message?.includes('schema cache') || error?.code === '42P01' || error?.code === 'PGRST301') {
           setTableMissing(true);
           return;
         }
         throw error;
       }
-      const fetched = (data as CustomerWallet[]) || [];
+      setWalletsCapped(capped);
 
       // apply_wallet_transaction() already sets status='exhausted' the
       // instant a wallet's balance hits zero (see
@@ -249,10 +265,17 @@ export const CustomerWallets = ({
   // EHI still owed that money. Fetched independently of walletView so it
   // can't be affected by which tab is open.
   const [totalLiability, setTotalLiability] = useState(0);
+  const [liabilityCapped, setLiabilityCapped] = useState(false);
   const fetchTotalLiability = useCallback(async () => {
-    const { data, error } = await supabase.from('customer_wallets').select('balance');
-    if (!error && data) {
-      setTotalLiability(data.reduce((acc, w: any) => acc + (w.balance || 0), 0));
+    try {
+      const { rows, capped } = await fetchRowsCapped<{ balance: number }>(
+        (from, to) => supabase.from('customer_wallets').select('balance').range(from, to),
+        20000,
+      );
+      setTotalLiability(rows.reduce((acc, w) => acc + (w.balance || 0), 0));
+      setLiabilityCapped(capped);
+    } catch {
+      // table may not exist yet -- fetchWallets() already surfaces that case
     }
   }, []);
   useEffect(() => {
@@ -301,14 +324,20 @@ export const CustomerWallets = ({
     setShowHistoryModal(true);
     setHistoryLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('wallet_transactions')
-        .select('*')
-        .eq('wallet_id', wallet.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setWalletHistory((data as WalletTransaction[]) || []);
+      // A long-lived, heavily-used wallet's history can exceed PostgREST's
+      // implicit ~1000-row cap -- paginate past it so old top-ups/deductions
+      // don't silently vanish from this modal.
+      const { rows, capped } = await fetchRowsCapped<WalletTransaction>(
+        (from, to) => supabase
+          .from('wallet_transactions')
+          .select('*')
+          .eq('wallet_id', wallet.id)
+          .order('created_at', { ascending: false })
+          .range(from, to),
+        5000,
+      );
+      setWalletHistory(rows);
+      setWalletHistoryCapped(capped);
     } catch (err: any) {
       showToast({ message: 'Failed to load wallet history: ' + err.message, type: 'error' });
     } finally {
@@ -397,28 +426,20 @@ export const CustomerWallets = ({
 
     setForceDeletingId(wallet.id);
     try {
-      let { error } = await supabase.rpc('force_delete_wallet', { p_wallet_id: wallet.id });
-      
-      // If RPC fails (e.g. foreign key constraint error on database where wallet_transactions_wallet_id_fkey
-      // lacks ON DELETE CASCADE), fall back to explicit step-by-step unlinking and deletion.
+      // force_delete_wallet is a single SECURITY DEFINER Postgres function
+      // (20260905_force_delete_wallet.sql) -- it unlinks all 4 entry tables,
+      // deletes wallet_transactions, and deletes the wallet inside one
+      // transaction, so it can never itself leave partial state. There used
+      // to be a client-side fallback here that manually replayed those same
+      // steps as 5 separate non-transactional HTTP calls if the RPC errored
+      // -- but a mid-sequence failure in THAT path could leave a wallet
+      // unlinked from its entries without actually being deleted, exactly
+      // the inconsistent state the atomic RPC exists to prevent. Fail
+      // closed instead: surface the RPC's error and let the user retry.
+      const { error } = await supabase.rpc('force_delete_wallet', { p_wallet_id: wallet.id });
       if (error) {
-        console.warn('force_delete_wallet RPC encountered error, executing fallback client cleanup:', error.message);
-        try {
-          await supabase.from('cargo_entries').update({ wallet_id: null }).eq('wallet_id', wallet.id);
-          await supabase.from('manifests').update({ wallet_id: null }).eq('wallet_id', wallet.id);
-          await supabase.from('marketing_entries').update({ wallet_id: null }).eq('wallet_id', wallet.id);
-          await supabase.from('package_entries').update({ wallet_id: null }).eq('wallet_id', wallet.id);
-          await supabase.from('wallet_transactions').delete().eq('wallet_id', wallet.id);
-          const { error: delErr } = await supabase.from('customer_wallets').delete().eq('id', wallet.id);
-          if (delErr) {
-            showToast({ message: `Failed to force-delete wallet: ${delErr.message}`, type: 'error' });
-            return;
-          }
-          error = null;
-        } catch (fallbackErr: any) {
-          showToast({ message: `Failed to force-delete wallet: ${fallbackErr.message || error.message}`, type: 'error' });
-          return;
-        }
+        showToast({ message: `Failed to force-delete wallet: ${error.message}`, type: 'error' });
+        return;
       }
 
       setWallets((prev) => prev.filter((w) => w.id !== wallet.id));
@@ -685,7 +706,9 @@ export const CustomerWallets = ({
             ₦{fmt(totalLiability)}
           </div>
           <div className="text-[8px] font-mono text-[var(--color-muted)]">
-            Prepaid balance held by EHI
+            {liabilityCapped || walletsCapped
+              ? 'Wallet count exceeds this view\'s cap — total may be incomplete'
+              : 'Prepaid balance held by EHI'}
           </div>
         </div>
 
@@ -1176,6 +1199,12 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
                 <X size={16} />
               </button>
             </div>
+
+            {walletHistoryCapped && (
+              <div className="text-[10px] font-mono text-[var(--color-accent-amber)] shrink-0">
+                Showing the most recent 5,000 entries — older history exists but isn't shown here.
+              </div>
+            )}
 
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
               {historyLoading ? (

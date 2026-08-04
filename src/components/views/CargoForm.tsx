@@ -2,7 +2,7 @@ import { CARGO_ROUTES } from "../../lib/constants";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Transaction, User, Expense, CustomerWallet } from "../../lib/types";
-import { fmt, roundMoney, tnow, generatePickupPin, normalizeAirlineName, getHubCode, upperOnChange, isStandalonePWA } from "../../lib/helpers";
+import { fmt, roundMoney, tnow, generatePickupPin, normalizeAirlineName, getHubCode, upperOnChange, isStandalonePWA, formatPaymentModeDisplay } from "../../lib/helpers";
 import { chargeWalletForSale } from "../../lib/walletPayment";
 import { matchWallet } from "../../lib/customerIdentity";
 import { WalletRemainderSelector } from "../WalletRemainderSelector";
@@ -539,7 +539,7 @@ export const CargoForm = ({
   const [closeEntries, setCloseEntries] = useState<Array<{
     amount: number; receipt_mode: string; route: string | null; consignee_name: string;
     airline: string | null; awb_tag_number: string | null; total_pcs: number; total_kg: number;
-    content_type: string | null; bank: string | null;
+    content_type: string | null; bank: string | null; wallet_deduction_amount?: number | null;
   }>>([]);
   const [closeExpenses, setCloseExpenses] = useState<Expense[]>([]);
 
@@ -595,7 +595,7 @@ export const CargoForm = ({
       const endISO = endD.toISOString();
       const [entriesRes, expRes] = await Promise.all([
         supabase.from('cargo_entries')
-          .select('amount,receipt_mode,route,consignee_name,airline,awb_tag_number,total_pcs,total_kg,content_type,bank,created_at')
+          .select('amount,receipt_mode,route,consignee_name,airline,awb_tag_number,total_pcs,total_kg,content_type,bank,created_at,wallet_deduction_amount')
           .eq('hub_id', user.hub_id)
           .gte('created_at', startISO).lt('created_at', endISO)
           .order('created_at', { ascending: true }).limit(1000),
@@ -1556,7 +1556,7 @@ export const CargoForm = ({
         route: successTx.detail.split(" · ")[4] || route,
         contentType: successTx.detail.split(" · ")[5] || contentType,
         amount: successTx.amount,
-        paymentMode: successTx.mode,
+        paymentMode: formatPaymentModeDisplay(successTx.mode, successTx.wallet_deduction_amount, successTx.amount),
         paymentNarration: successTx.paymentNarration,
         bankName: successTx.bank || undefined,
         remark: successTx.remarks || undefined,
@@ -1668,7 +1668,7 @@ export const CargoForm = ({
       route: successTx.detail.split(" · ")[4] || route,
       contentType: successTx.detail.split(" · ")[5] || contentType,
       amount: successTx.amount,
-      paymentMode: successTx.mode,
+      paymentMode: formatPaymentModeDisplay(successTx.mode, successTx.wallet_deduction_amount, successTx.amount),
       paymentNarration: successTx.paymentNarration,
       bankName: successTx.bank || undefined,
       remark: successTx.remarks || undefined,
@@ -3286,7 +3286,7 @@ export const CargoForm = ({
                       pieces: t.total_pcs,
                       kg: t.total_kg,
                       amount: t.amount,
-                      paymentMode: t.receipt_mode,
+                      paymentMode: formatPaymentModeDisplay(t.receipt_mode, t.wallet_deduction_amount, t.amount),
                       bank: t.bank || undefined,
                     })),
                     totalSales: closeTotalSales,

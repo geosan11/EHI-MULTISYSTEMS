@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useEnterToNextField } from '../../lib/useEnterToNextField';
 import { PaymentMode, Transaction, User, ExcessBaggageAirline } from '../../lib/types';
-import { fmt, roundMoney, tnow, getHubCode, upperOnChange, generatePickupPin } from '../../lib/helpers';
+import { fmt, roundMoney, tnow, getHubCode, upperOnChange, generatePickupPin, formatPaymentModeDisplay } from '../../lib/helpers';
 import { chargeWalletForSale } from '../../lib/walletPayment';
 import { matchWallet } from '../../lib/customerIdentity';
 import { WalletRemainderSelector } from '../WalletRemainderSelector';
@@ -277,7 +277,7 @@ export const ExcessBaggageForm = ({
         excessKg: successTx.exc,
         ratePerKg,
         amount: successTx.tx.amount,
-        paymentMode: successTx.tx.mode,
+        paymentMode: formatPaymentModeDisplay(successTx.tx.mode, successTx.tx.wallet_deduction_amount, successTx.tx.amount),
         paymentNarration: successTx.tx.paymentNarration,
         bankName: successTx.tx.bank,
       };
@@ -303,7 +303,7 @@ export const ExcessBaggageForm = ({
       excessKg: successTx.exc,
       ratePerKg,
       amount: successTx.tx.amount,
-      paymentMode: successTx.tx.mode,
+      paymentMode: formatPaymentModeDisplay(successTx.tx.mode, successTx.tx.wallet_deduction_amount, successTx.tx.amount),
       paymentNarration: successTx.tx.paymentNarration,
       bankName: successTx.tx.bank,
     });
@@ -446,7 +446,7 @@ export const ExcessBaggageForm = ({
                       excessChargeKg: s.exc,
                       ratePerKg,
                       amount: s.tx.amount,
-                      paymentMode: s.tx.mode,
+                      paymentMode: formatPaymentModeDisplay(s.tx.mode, s.tx.wallet_deduction_amount, s.tx.amount),
                       trackingUrl: `https://app.ehimultisystems.com/track/${s.tx.id}`,
                       paymentNarration: s.tx.paymentNarration,
                       bankName: s.tx.bank,
@@ -483,7 +483,7 @@ export const ExcessBaggageForm = ({
                       excessChargeKg: s.exc,
                       ratePerKg,
                       amount: s.tx.amount,
-                      paymentMode: s.tx.mode,
+                      paymentMode: formatPaymentModeDisplay(s.tx.mode, s.tx.wallet_deduction_amount, s.tx.amount),
                       trackingUrl: `https://app.ehimultisystems.com/track/${s.tx.id}`,
                       paymentNarration: s.tx.paymentNarration,
                       bankName: s.tx.bank,

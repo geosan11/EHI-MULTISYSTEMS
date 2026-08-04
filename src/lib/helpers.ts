@@ -28,6 +28,24 @@ export const fmt = (amount: number) => {
   }).format(amount);
 };
 
+// A sale/debt-clearance paid partly from a customer wallet and partly by
+// another method (CargoForm.tsx's chargeWalletForSale auto-split, and the
+// same pattern on TransactionLedger.tsx's Edit Transaction screen) is
+// recorded as a single `mode` (the non-wallet remainder) plus a
+// `wallet_deduction_amount` -- every receipt/print/detail view that only
+// prints the bare mode string silently hides the wallet portion. Central
+// place to render both components consistently wherever payment mode is
+// shown.
+export const formatPaymentModeDisplay = (
+  mode: string,
+  walletDeductionAmount: number | undefined | null,
+  totalAmount: number
+): string => {
+  if (!walletDeductionAmount || walletDeductionAmount <= 0 || mode === 'Wallet') return mode;
+  const remainder = Math.max(0, totalAmount - walletDeductionAmount);
+  return `${mode} + Wallet (₦${fmt(remainder)} ${mode} · ₦${fmt(walletDeductionAmount)} Wallet)`;
+};
+
 // Deliberately matches against the bundled CARGO_ROUTES constant, not the
 // live hubs table (src/lib/hubRoutes.ts) -- this file is also imported
 // server-side (server/emailParser.ts), and hubRoutes.ts pulls in

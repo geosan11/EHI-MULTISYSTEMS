@@ -11,7 +11,7 @@ export interface AccountingSummaryPDFData {
   totalExpenses: number;
   pendingExpTotal: number;
   netRevenue: number;
-  modes: { cash: number; transfer: number; pos: number; debt: number };
+  modes: { cash: number; transfer: number; pos: number; debt: number; wallet: number };
   collectionEff: number;
   vatEstimate: number;
 }
@@ -97,6 +97,7 @@ const AccountingSummaryPDFDoc = ({ data }: { data: AccountingSummaryPDFData }) =
         <View style={styles.row}><Text style={styles.label}>Bank Transfer</Text><Text style={styles.value}>NGN {data.modes.transfer.toLocaleString('en-NG', { maximumFractionDigits: 2 })}</Text></View>
         <View style={styles.row}><Text style={styles.label}>POS</Text><Text style={styles.value}>NGN {data.modes.pos.toLocaleString('en-NG', { maximumFractionDigits: 2 })}</Text></View>
         <View style={styles.row}><Text style={styles.label}>Debt / Credit</Text><Text style={styles.value}>NGN {data.modes.debt.toLocaleString('en-NG', { maximumFractionDigits: 2 })}</Text></View>
+        <View style={styles.row}><Text style={styles.label}>Customer Wallet</Text><Text style={styles.value}>NGN {data.modes.wallet.toLocaleString('en-NG', { maximumFractionDigits: 2 })}</Text></View>
         <View style={[styles.row, { marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderTopColor: '#e5e7eb' }]}>
           <Text style={[styles.label, { fontWeight: 'bold' }]}>Collection Efficiency</Text>
           <Text style={styles.value}>{data.collectionEff.toFixed(0)}%</Text>

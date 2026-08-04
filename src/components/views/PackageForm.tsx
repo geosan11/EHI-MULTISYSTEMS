@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useEnterToNextField } from "../../lib/useEnterToNextField";
 import { User, Transaction, Expense } from "../../lib/types";
-import { fmt, uid, tnow, generatePaymentNarration, getHubCode, upperOnChange, isStandalonePWA, generatePickupPin } from "../../lib/helpers";
+import { fmt, uid, tnow, generatePaymentNarration, getHubCode, upperOnChange, isStandalonePWA, generatePickupPin, formatPaymentModeDisplay } from "../../lib/helpers";
 import { chargeWalletForSale } from "../../lib/walletPayment";
 import { matchWallet } from "../../lib/customerIdentity";
 import { WalletRemainderSelector } from "../WalletRemainderSelector";
@@ -615,7 +615,7 @@ export const PackageForm = ({
                           kg: successTx.kg,
                           contents: successTx.contents,
                           amount: successTx.amount,
-                          paymentMode: successTx.mode,
+                          paymentMode: formatPaymentModeDisplay(successTx.mode, successTx.wallet_deduction_amount, successTx.amount),
                           paymentNarration: successTx.paymentNarration,
                           bankName: bank || undefined,
                           trackingUrl: `https://app.ehimultisystems.com/track/${successTx.id}`,
@@ -650,7 +650,7 @@ export const PackageForm = ({
                           kg: successTx.kg,
                           contents: successTx.contents,
                           amount: successTx.amount,
-                          paymentMode: successTx.mode,
+                          paymentMode: formatPaymentModeDisplay(successTx.mode, successTx.wallet_deduction_amount, successTx.amount),
                           paymentNarration: successTx.paymentNarration,
                           bankName: bank || undefined,
                           trackingUrl: `https://app.ehimultisystems.com/track/${successTx.id}`,
@@ -684,7 +684,7 @@ export const PackageForm = ({
                       kg: successTx.kg,
                       contents: successTx.contents,
                       amount: successTx.amount,
-                      paymentMode: successTx.mode,
+                      paymentMode: formatPaymentModeDisplay(successTx.mode, successTx.wallet_deduction_amount, successTx.amount),
                       paymentNarration: successTx.paymentNarration,
                       bankName: bank || undefined,
                     }));
@@ -1109,7 +1109,7 @@ export const PackageForm = ({
                       pieces: t.pieces,
                       kg: t.kg,
                       amount: t.amount,
-                      paymentMode: t.mode,
+                      paymentMode: formatPaymentModeDisplay(t.mode, t.wallet_deduction_amount, t.amount),
                       bank: t.bank,
                     })),
                     totalSales,

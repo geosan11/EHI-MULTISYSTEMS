@@ -7,7 +7,7 @@ import { useAirlines } from "../../lib/airlines";
 import { useHubs } from "../../lib/hubRoutes";
 import { useExpenseCategories } from "../../lib/expenseCategories";
 import { useBanks } from "../../lib/banks";
-import { fmt, uid, tnow, getHubCode, upperOnChange, roundMoney, generatePickupPin } from "../../lib/helpers";
+import { fmt, uid, tnow, getHubCode, upperOnChange, roundMoney, generatePickupPin, formatPaymentModeDisplay } from "../../lib/helpers";
 import { chargeWalletForSale } from "../../lib/walletPayment";
 import { matchWallet } from "../../lib/customerIdentity";
 import { WalletRemainderSelector } from "../WalletRemainderSelector";
@@ -301,7 +301,7 @@ export const MarketingWorkspace = ({
         medBags: mb,
         smallBags: sb,
         amount: successTx.amount,
-        paymentMode: successTx.mode,
+        paymentMode: formatPaymentModeDisplay(successTx.mode, successTx.wallet_deduction_amount, successTx.amount),
         paymentNarration: successTx.paymentNarration,
         bankName: bank || undefined,
       };
@@ -369,7 +369,7 @@ export const MarketingWorkspace = ({
         route: t.detail.split(" · ")[0],
         bags: t.detail.split(" · ")[1],
         amount: t.amount,
-        paymentMode: t.mode,
+        paymentMode: formatPaymentModeDisplay(t.mode, t.wallet_deduction_amount, t.amount),
         bank: t.bank,
       })),
       totalSales,
@@ -723,7 +723,7 @@ export const MarketingWorkspace = ({
                           medBags: mb,
                           smallBags: sb,
                           amount: successTx.amount,
-                          paymentMode: successTx.mode,
+                          paymentMode: formatPaymentModeDisplay(successTx.mode, successTx.wallet_deduction_amount, successTx.amount),
                           paymentNarration: successTx.paymentNarration,
                           bankName: bank || undefined,
                           airline: successTx.airline,
@@ -758,7 +758,7 @@ export const MarketingWorkspace = ({
                           medBags: mb,
                           smallBags: sb,
                           amount: successTx.amount,
-                          paymentMode: successTx.mode,
+                          paymentMode: formatPaymentModeDisplay(successTx.mode, successTx.wallet_deduction_amount, successTx.amount),
                           paymentNarration: successTx.paymentNarration,
                           bankName: bank || undefined,
                           airline: successTx.airline,

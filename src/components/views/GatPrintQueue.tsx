@@ -4,7 +4,7 @@ import { User } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
 import { BackButton } from '../BackButton';
 import { useToast } from '../../lib/ToastContext';
-import { fmt, tnow } from '../../lib/helpers';
+import { fmt, tnow, formatPaymentModeDisplay } from '../../lib/helpers';
 
 type DocType = 'tags' | 'receipts';
 type Stream = 'all' | 'cargo' | 'package';
@@ -30,6 +30,7 @@ interface Row {
   // Package-only extras
   contents?: string;
   payment_mode?: string;
+  wallet_deduction_amount?: number | null;
 }
 
 const rowKey = (r: Row) => `${r.stream}:${r.entry_ref}`;
@@ -68,7 +69,7 @@ export const GatPrintQueue = ({ user, onBack }: { user: User; onBack: () => void
 
     if (stream === 'all' || stream === 'cargo') {
       let q = supabase.from('cargo_entries')
-        .select('entry_ref, consignee_name, route, total_pcs, total_kg, amount, airline, content_type, awb_tag_number, receipt_mode, bank, payment_narration, remark, pickup_pin, created_at, tag_printed_at, receipt_printed_at')
+        .select('entry_ref, consignee_name, route, total_pcs, total_kg, amount, airline, content_type, awb_tag_number, receipt_mode, bank, payment_narration, remark, pickup_pin, created_at, tag_printed_at, receipt_printed_at, wallet_deduction_amount')
         .eq('terminal', 'GAT')
         .gte('created_at', fromISO)
         .lte('created_at', toISO)
@@ -93,12 +94,13 @@ export const GatPrintQueue = ({ user, onBack }: { user: User; onBack: () => void
         payment_narration: r.payment_narration,
         remark: r.remark,
         pickup_pin: r.pickup_pin,
+        wallet_deduction_amount: r.wallet_deduction_amount,
       }));
     }
 
     if (stream === 'all' || stream === 'package') {
       let q = supabase.from('package_entries')
-        .select('entry_ref, customer_name, destination, total_pcs, total_kg, amount, content_type, contents, payment_mode, bank, payment_narration, created_at, tag_printed_at, receipt_printed_at')
+        .select('entry_ref, customer_name, destination, total_pcs, total_kg, amount, content_type, contents, payment_mode, bank, payment_narration, created_at, tag_printed_at, receipt_printed_at, wallet_deduction_amount')
         .eq('terminal', 'GAT')
         .gte('created_at', fromISO)
         .lte('created_at', toISO)
@@ -120,6 +122,7 @@ export const GatPrintQueue = ({ user, onBack }: { user: User; onBack: () => void
         payment_mode: r.payment_mode,
         bank: r.bank,
         payment_narration: r.payment_narration,
+        wallet_deduction_amount: r.wallet_deduction_amount,
       }));
     }
 
@@ -166,7 +169,7 @@ export const GatPrintQueue = ({ user, onBack }: { user: User; onBack: () => void
         route: row.routeOrDestination,
         contentType: row.content_type || '',
         amount: row.amount,
-        paymentMode: row.receipt_mode || 'Cash',
+        paymentMode: formatPaymentModeDisplay(row.receipt_mode || 'Cash', row.wallet_deduction_amount, row.amount),
         bankName: row.bank || undefined,
         paymentNarration: row.payment_narration || undefined,
         remark: row.remark || undefined,
@@ -198,7 +201,7 @@ export const GatPrintQueue = ({ user, onBack }: { user: User; onBack: () => void
         kg: row.total_kg || undefined,
         contents: row.contents,
         amount: row.amount,
-        paymentMode: row.payment_mode || 'Cash',
+        paymentMode: formatPaymentModeDisplay(row.payment_mode || 'Cash', row.wallet_deduction_amount, row.amount),
         paymentNarration: row.payment_narration || undefined,
         bankName: row.bank || undefined,
       });

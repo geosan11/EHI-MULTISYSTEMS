@@ -181,23 +181,33 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
   // Historical shadow rows (still present in filteredTx, unconditional --
   // correct forever for old data) plus payment_history-derived collections
   // (going forward, now that clearing a debt no longer creates a row here).
-  const cashTotal = filteredTx.reduce((sum, t) => sum + (t.mode === 'Cash' ? t.amount : 0), 0) + collectionByMode.cash;
+  // A tx whose mode is Cash/Transfer/POS can still be partly wallet-covered
+  // (chargeWalletForSale's auto-split, or the Edit Transaction wallet+
+  // remainder split) -- wallet_deduction_amount is that portion and must be
+  // subtracted here or it gets double-counted: once under its own Wallet
+  // bucket below, once still embedded in the remainder mode's full t.amount.
+  const nonWalletPortion = (t: Transaction) => Math.max(0, t.amount - (t.wallet_deduction_amount || 0));
+  const cashTotal = filteredTx.reduce((sum, t) => sum + (t.mode === 'Cash' ? nonWalletPortion(t) : 0), 0) + collectionByMode.cash;
   // TransferCash ("paid by bank transfer, agent holds the cash") is a real,
   // fully-collected sale mode (see src/lib/salesAnalysis.ts's own bucket for
   // it) -- omitting it here understated Collected/Collection Rate below and
   // made the four mode segments stop summing to grandRevenue whenever any
   // TransferCash sales existed in the period.
-  const transferTotal = filteredTx.reduce((sum, t) => sum + ((t.mode === 'Transfer' || t.mode === 'TransferCash') ? t.amount : 0), 0) + collectionByMode.transfer;
-  const posTotal = filteredTx.reduce((sum, t) => sum + (t.mode === 'POS' ? t.amount : 0), 0) + collectionByMode.pos;
+  const transferTotal = filteredTx.reduce((sum, t) => sum + ((t.mode === 'Transfer' || t.mode === 'TransferCash') ? nonWalletPortion(t) : 0), 0) + collectionByMode.transfer;
+  const posTotal = filteredTx.reduce((sum, t) => sum + (t.mode === 'POS' ? nonWalletPortion(t) : 0), 0) + collectionByMode.pos;
   const debtTotal = filteredTx.reduce((sum, t) => sum + (t.mode === 'Debt' ? t.amount : 0), 0);
-  const modeSum = cashTotal + transferTotal + posTotal + debtTotal;
+  // Every wallet_deduction_amount across the period, whichever remainder
+  // mode (or none, for a fully wallet-paid tx) the rest was booked under.
+  const walletTotal = filteredTx.reduce((sum, t) => sum + (t.wallet_deduction_amount || 0), 0);
+  const modeSum = cashTotal + transferTotal + posTotal + debtTotal + walletTotal;
 
   const cashPct = modeSum ? (cashTotal / modeSum) * 100 : 0;
   const transferPct = modeSum ? (transferTotal / modeSum) * 100 : 0;
   const posPct = modeSum ? (posTotal / modeSum) * 100 : 0;
   const debtPct = modeSum ? (debtTotal / modeSum) * 100 : 0;
+  const walletPct = modeSum ? (walletTotal / modeSum) * 100 : 0;
 
-  const collectionEff = grandRevenue ? ((cashTotal + transferTotal + posTotal) / grandRevenue) * 100 : 0;
+  const collectionEff = grandRevenue ? ((cashTotal + transferTotal + posTotal + walletTotal) / grandRevenue) * 100 : 0;
   const collectionColor = collectionEff >= 90 ? 'text-[var(--color-success)]' : collectionEff >= 70 ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-error)]';
   const vatEstimate = grandRevenue * 0.075;
 
@@ -428,7 +438,7 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
                   totalExpenses,
                   pendingExpTotal,
                   netRevenue,
-                  modes: { cash: cashTotal, transfer: transferTotal, pos: posTotal, debt: debtTotal },
+                  modes: { cash: cashTotal, transfer: transferTotal, pos: posTotal, debt: debtTotal, wallet: walletTotal },
                   collectionEff,
                   vatEstimate,
                 });
@@ -514,12 +524,14 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
                  {transferPct > 0 && <div style={{width: `${transferPct}%`}} className="bg-[var(--color-accent-cobalt)]" title={`Bank Transfer: ${fmt(transferTotal)}`} />}
                  {posPct > 0 && <div style={{width: `${posPct}%`}} className="bg-[var(--color-accent-amber)]" title={`POS / Card: ${fmt(posTotal)}`} />}
                  {debtPct > 0 && <div style={{width: `${debtPct}%`}} className="bg-[var(--color-error)]" title={`On Credit: ${fmt(debtTotal)}`} />}
+                 {walletPct > 0 && <div style={{width: `${walletPct}%`, backgroundColor: '#8B5CF6'}} title={`Customer Wallet: ${fmt(walletTotal)}`} />}
                </div>
                <div className="grid grid-cols-2 gap-3 text-[12px] font-sans">
                   <div className="flex items-center space-x-2"><div className="w-2 h-2 rounded-full bg-[var(--color-success)]"/> <span className="text-[var(--color-light-muted)]">Cash: {cashPct.toFixed(0)}% ({fmt(cashTotal)})</span></div>
                   <div className="flex items-center space-x-2"><div className="w-2 h-2 rounded-full bg-[var(--color-accent-cobalt)]"/> <span className="text-[var(--color-light-muted)]">Bank Transfer: {transferPct.toFixed(0)}% ({fmt(transferTotal)})</span></div>
                   <div className="flex items-center space-x-2"><div className="w-2 h-2 rounded-full bg-[var(--color-accent-amber)]"/> <span className="text-[var(--color-light-muted)]">POS / Card: {posPct.toFixed(0)}% ({fmt(posTotal)})</span></div>
                   <div className="flex items-center space-x-2"><div className="w-2 h-2 rounded-full bg-[var(--color-error)]"/> <span className="text-[var(--color-light-muted)]">On Credit: {debtPct.toFixed(0)}% ({fmt(debtTotal)})</span></div>
+                  <div className="flex items-center space-x-2"><div className="w-2 h-2 rounded-full" style={{backgroundColor: '#8B5CF6'}}/> <span className="text-[var(--color-light-muted)]">Customer Wallet: {walletPct.toFixed(0)}% ({fmt(walletTotal)})</span></div>
                </div>
              </div>
 

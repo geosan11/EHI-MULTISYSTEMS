@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Transaction, User, Expense } from "../../lib/types";
-import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDateTime, normalizeAirlineName } from "../../lib/helpers";
+import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDateTime, normalizeAirlineName, formatPaymentModeDisplay } from "../../lib/helpers";
 import { applyWalletTransaction, processRetrieval, unretrieveEntry, approveRetrieval, RetrievalEntryType } from "../../lib/wallet";
 import { clearDebt, DebtEntryType } from "../../lib/debt";
 import { confirmPayment, PaymentEntryType } from "../../lib/paymentConfirmation";
@@ -48,6 +48,7 @@ import { LiveCreditFeed } from "../LiveCreditFeed";
 import { PartialRetrievalModal } from "./PartialRetrievalModal";
 import { CustomerWallet } from "../../lib/types";
 import { CustomerWalletPicker } from "../CustomerWalletPicker";
+import { WalletRemainderSelector } from "../WalletRemainderSelector";
 import { chargeWalletForSale } from "../../lib/walletPayment";
 
 type Entry = {
@@ -144,6 +145,11 @@ export const TransactionLedger = ({
   // must not charge the wallet a second time.
   const [editOriginalMode, setEditOriginalMode] = useState<string | null>(null);
   const [editWallet, setEditWallet] = useState<CustomerWallet | null>(null);
+  // Mirrors CargoForm.tsx's walletRemainderMode/walletRemainderBank -- lets a
+  // wallet that can't cover the full edited amount be topped up by a second
+  // payment method instead of blocking the save outright.
+  const [editWalletRemainderMode, setEditWalletRemainderMode] = useState<'Cash' | 'Transfer' | 'POS'>('Cash');
+  const [editWalletRemainderBank, setEditWalletRemainderBank] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
   // In-flight guard for toggleConfirm/savePosCode -- neither had any
   // per-row lock before, so a fast double-click could fire two
@@ -830,6 +836,8 @@ export const TransactionLedger = ({
       setEditingTx(tx);
       setEditOriginalMode(tx.mode);
       setEditWallet(null);
+      setEditWalletRemainderMode('Cash');
+      setEditWalletRemainderBank('');
       setPieceInput(String(tx.pieces ?? ''));
       setKgInput(String(tx.kg ?? ''));
       setAmountInput(String(tx.amount ?? ''));
@@ -903,13 +911,20 @@ export const TransactionLedger = ({
       const switchingToWallet = editingTx.mode === 'Wallet' && editOriginalMode !== 'Wallet';
       let walletId = editingTx.wallet_id;
       let walletDeduction = editingTx.wallet_deduction_amount;
+      // If the wallet can't cover the full amount, the remainder is
+      // collected by editWalletRemainderMode instead of blocking the save --
+      // same auto-split CargoForm.tsx's intake flow already does via
+      // chargeWalletForSale + WalletRemainderSelector.
+      let finalMode = editingTx.mode;
+      let finalBank = editingTx.bank;
       if (switchingToWallet) {
         if (!editWallet) {
           showToast({ message: 'Select a customer wallet to charge before saving.', type: 'warning' });
           return;
         }
-        if (editWallet.balance < amount) {
-          showToast({ message: `${editWallet.customer_name}'s wallet only has ₦${fmt(editWallet.balance)} -- not enough to cover ₦${fmt(amount)}.`, type: 'error' });
+        const walletRemainder = Math.max(0, amount - editWallet.balance);
+        if (walletRemainder > 0 && (editWalletRemainderMode === 'Transfer' || editWalletRemainderMode === 'POS') && !editWalletRemainderBank.trim()) {
+          showToast({ message: `Enter the bank/terminal for the ₦${fmt(walletRemainder)} remainder.`, type: 'warning' });
           return;
         }
         const charge = await chargeWalletForSale({
@@ -919,12 +934,18 @@ export const TransactionLedger = ({
           description: `Mode changed to Wallet on edit (${editingTx.type} ${editingTx.id})`,
           loggedBy: user.name,
         });
-        if (!charge.ok || charge.remainder > 0) {
-          showToast({ message: `Wallet charge failed: ${charge.error || 'insufficient balance'}. Entry not saved.`, type: 'error' });
+        if (!charge.ok) {
+          showToast({ message: `Wallet charge failed: ${charge.error || 'unknown error'}. Entry not saved.`, type: 'error' });
           return;
         }
         walletId = editWallet.id;
         walletDeduction = charge.walletDeduction;
+        if (charge.remainder > 0) {
+          // Book the entry under the remainder method; wallet's share stays
+          // tracked in wallet_deduction_amount, mirroring CargoForm.tsx.
+          finalMode = editWalletRemainderMode;
+          finalBank = (editWalletRemainderMode === 'Transfer' || editWalletRemainderMode === 'POS') ? editWalletRemainderBank.trim() : undefined;
+        }
       }
 
       // Details fields (name, route, pieces, weight, etc.) are edited as
@@ -932,7 +953,7 @@ export const TransactionLedger = ({
       // app (ledger rows, receipts) displays -- rebuild it here so the
       // optimistic local update stays consistent with what a refetch from
       // Supabase will later reconstruct (see EHIApp.tsx's fetchInitial).
-      const finalTx: Transaction = { ...editingTx, pieces, kg, amount, wallet_id: walletId, wallet_deduction_amount: walletDeduction };
+      const finalTx: Transaction = { ...editingTx, pieces, kg, amount, mode: finalMode, bank: finalBank, wallet_id: walletId, wallet_deduction_amount: walletDeduction };
       finalTx.editedBy = user.name;
       finalTx.editedAt = new Date().toISOString();
       if (finalTx.type === 'cargo') {
@@ -951,6 +972,8 @@ export const TransactionLedger = ({
       setEditingTx(null);
       setEditWallet(null);
       setEditOriginalMode(null);
+      setEditWalletRemainderMode('Cash');
+      setEditWalletRemainderBank('');
     } finally {
       setSavingEdit(false);
     }
@@ -984,7 +1007,7 @@ export const TransactionLedger = ({
             route: tx.route || "Unknown",
             contentType: tx.detail?.split(" · ")[5] || "General Goods",
             amount: tx.amount,
-            paymentMode: tx.mode,
+            paymentMode: formatPaymentModeDisplay(tx.mode, tx.wallet_deduction_amount, tx.amount),
             bankName: tx.bank,
             pickupPin: tx.pickupPin,
             trackingUrl: `https://app.ehimultisystems.com/track/${tx.id}`,
@@ -1006,7 +1029,7 @@ export const TransactionLedger = ({
             excessChargeKg: tx.excessKg || 0,
             ratePerKg: (tx.excessKg || 0) > 0 ? Math.round(tx.amount / tx.excessKg!) : 0,
             amount: tx.amount,
-            paymentMode: tx.mode,
+            paymentMode: formatPaymentModeDisplay(tx.mode, tx.wallet_deduction_amount, tx.amount),
             trackingUrl: `https://app.ehimultisystems.com/track/${tx.id}`,
           }, width);
         } else if (tx.type === 'package') {
@@ -1023,7 +1046,7 @@ export const TransactionLedger = ({
             kg: tx.kg || 0,
             contents: (tx as any).contents,
             amount: tx.amount,
-            paymentMode: tx.mode,
+            paymentMode: formatPaymentModeDisplay(tx.mode, tx.wallet_deduction_amount, tx.amount),
             paymentNarration: tx.paymentNarration,
             bankName: tx.bank,
             trackingUrl: `https://app.ehimultisystems.com/track/${tx.id}`,
@@ -1064,7 +1087,7 @@ export const TransactionLedger = ({
             medBags: med,
             smallBags: small,
             amount: tx.amount,
-            paymentMode: tx.mode,
+            paymentMode: formatPaymentModeDisplay(tx.mode, tx.wallet_deduction_amount, tx.amount),
             paymentNarration: tx.paymentNarration,
             bankName: tx.bank,
             trackingUrl: `https://app.ehimultisystems.com/track/${tx.id}`,
@@ -1135,7 +1158,7 @@ export const TransactionLedger = ({
           route: tx.route || 'Unknown',
           contentType: tx.detail?.split(' · ')[5] || 'General Goods',
           amount: tx.amount,
-          paymentMode: tx.mode,
+          paymentMode: formatPaymentModeDisplay(tx.mode, tx.wallet_deduction_amount, tx.amount),
           bankName: tx.bank,
           paymentNarration: tx.paymentNarration,
           remark: tx.remarks,
@@ -1155,7 +1178,7 @@ export const TransactionLedger = ({
           kg: tx.kg || 0,
           contents: (tx as any).contents,
           amount: tx.amount,
-          paymentMode: tx.mode,
+          paymentMode: formatPaymentModeDisplay(tx.mode, tx.wallet_deduction_amount, tx.amount),
           paymentNarration: tx.paymentNarration,
           bankName: tx.bank,
         });
@@ -1176,7 +1199,7 @@ export const TransactionLedger = ({
           excessKg: tx.excessKg || 0,
           ratePerKg: (tx.excessKg || 0) > 0 ? Math.round(tx.amount / tx.excessKg!) : 0,
           amount: tx.amount,
-          paymentMode: tx.mode,
+          paymentMode: formatPaymentModeDisplay(tx.mode, tx.wallet_deduction_amount, tx.amount),
           paymentNarration: tx.paymentNarration,
           bankName: tx.bank,
         });
@@ -3263,7 +3286,7 @@ export const TransactionLedger = ({
                       viewingDetail.mode === "Expense" ? "bg-[rgba(239,68,68,0.15)] text-[var(--color-error)]" : 
                       "border border-[var(--color-error)] text-[var(--color-error)]"
                     }`}>
-                      {viewingDetail.mode === "Debt" ? "Debt" : viewingDetail.mode}
+                      {viewingDetail.mode === "Debt" ? "Debt" : formatPaymentModeDisplay(viewingDetail.mode, viewingDetail.raw?.wallet_deduction_amount, viewingDetail.amount)}
                     </span>
                   </div>
                   
@@ -3957,7 +3980,11 @@ export const TransactionLedger = ({
                   onChange={(e) => {
                     const nextMode = e.target.value as any;
                     setEditingTx({ ...editingTx, mode: nextMode });
-                    if (nextMode !== 'Wallet') setEditWallet(null);
+                    if (nextMode !== 'Wallet') {
+                      setEditWallet(null);
+                      setEditWalletRemainderMode('Cash');
+                      setEditWalletRemainderBank('');
+                    }
                   }}
                   className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
                 >
@@ -3980,6 +4007,18 @@ export const TransactionLedger = ({
                     onSelectWallet={setEditWallet}
                     currentCustomerName={editingTx.name}
                   />
+                  {editWallet && editWallet.balance < (parseFloat(amountInput) || 0) && (
+                    <WalletRemainderSelector
+                      walletName={editWallet.customer_name}
+                      coverage={editWallet.balance}
+                      remainder={(parseFloat(amountInput) || 0) - editWallet.balance}
+                      mode={editWalletRemainderMode}
+                      bank={editWalletRemainderBank}
+                      onModeChange={setEditWalletRemainderMode}
+                      onBankChange={setEditWalletRemainderBank}
+                      banks={banks}
+                    />
+                  )}
                 </div>
               )}
 
