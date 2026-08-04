@@ -41,9 +41,24 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
         >
           <ChevronLeft size={18} />
         </button>
-        <div className="writing-mode-vertical text-[10px] font-mono font-bold tracking-widest text-[var(--color-accent-amber)] uppercase rotate-180 flex items-center gap-2 whitespace-nowrap truncate max-h-[calc(100vh-140px)] overflow-hidden">
+        <div className="flex flex-col items-center gap-2 max-h-[calc(100vh-140px)] overflow-hidden">
           <span className="w-2 h-2 rounded-full bg-[var(--color-accent-amber)] animate-pulse shrink-0" />
-          Prepaid Credit Feed (₦{fmt(totalLiability)})
+          {/* `writing-mode-vertical` was a made-up class -- it doesn't exist
+              in Tailwind or anywhere in this codebase's CSS, so this label
+              was never actually vertical: it laid out as one long
+              whitespace-nowrap line inside a 40px-wide box, got hard-clipped
+              by `truncate`, and the surviving fragment was flipped upside
+              down by rotate-180, producing garbled text. Real vertical
+              typesetting needs the actual `writing-mode` CSS property
+              (no Tailwind utility for it), applied here via inline style;
+              `truncate` is dropped since it's a horizontal-line clip that
+              fights vertical text, not a fix for it. */}
+          <span
+            className="text-[10px] font-mono font-bold tracking-widest text-[var(--color-accent-amber)] uppercase whitespace-nowrap"
+            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+          >
+            Prepaid Credit Feed (₦{fmt(totalLiability)})
+          </span>
         </div>
       </div>
     );

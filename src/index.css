@@ -141,6 +141,9 @@
   --card-grid: 1fr 1fr;
 
   /* Toast variables dark mode defaults */
+  --toast-bg: rgba(26, 31, 46, 0.92);
+  --toast-border: rgba(255, 255, 255, 0.08);
+  --toast-title-color: #f1f5f9;
   --toast-text-color: #f1f5f9;
   --toast-icon-bg: rgba(255, 255, 255, 0.07);
   --toast-icon-border: rgba(255, 255, 255, 0.04);
