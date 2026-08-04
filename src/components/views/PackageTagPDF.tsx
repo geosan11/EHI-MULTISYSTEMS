@@ -25,7 +25,7 @@ export interface PackageTagPDFData {
   name: string; // Customer name
   destination: string;
   contentType: string; // 'Package' | 'Parcel'
-  pieces?: number;
+  pieces?: number; // total piece count for this shipment -- one page is rendered per piece, same as CargoTagPDF
   kg?: number;
   contents?: string;
   hubName?: string;
@@ -165,6 +165,21 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
     color: "#000000",
   },
+  pieceBadge: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#000000",
+    borderRadius: 3,
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    alignSelf: "flex-start",
+    marginBottom: 4,
+  },
+  pieceBadgeText: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: "#000000",
+  },
   qrImage: {
     width: 82,
     height: 82,
@@ -222,84 +237,112 @@ const styles = StyleSheet.create({
 const truncateForTag = (str: string, max: number) =>
   str.length > max ? str.slice(0, max - 1).trimEnd() + "…" : str;
 
-// No pieces/multi-page concept here -- unlike Cargo (which can have several
-// physical pieces) a Package/Parcel entry is always exactly one item, so
-// this is a single Page, not a Document loop.
-const PackageTagOnlyPDF = ({ data }: { data: PackageTagPDFData }) => (
-  <Document>
-    <Page size={[PAGE_WIDTH, PAGE_HEIGHT]} style={styles.page} wrap={false}>
-      <View style={styles.headerRow}>
-        <EHILogoPDF width={54} variant="cargo" />
-      </View>
-      <View style={styles.divider} />
+const PackageTagPage = ({
+  data,
+  pieceIndex,
+  totalPieces,
+}: {
+  data: PackageTagPDFData;
+  pieceIndex: number;
+  totalPieces: number;
+}) => (
+  <Page size={[PAGE_WIDTH, PAGE_HEIGHT]} style={styles.page} wrap={false}>
+    <View style={styles.headerRow}>
+      <EHILogoPDF width={54} variant="cargo" />
+    </View>
+    <View style={styles.divider} />
 
-      <View style={styles.dateRow}>
-        <Text style={styles.dateText}>DATE: {data.date || "—"}</Text>
-      </View>
+    <View style={styles.dateRow}>
+      <Text style={styles.dateText}>DATE: {data.date || "—"}</Text>
+    </View>
 
-      <View style={styles.body}>
-        <View style={styles.leftCol}>
-          <Text style={styles.destLabel}>Destination</Text>
-          <Text style={styles.destValue}>{cleanRoute(data.destination)}</Text>
+    <View style={styles.body}>
+      <View style={styles.leftCol}>
+        <Text style={styles.destLabel}>Destination</Text>
+        <Text style={styles.destValue}>{cleanRoute(data.destination)}</Text>
 
-          <View style={styles.refBand}>
-            <Text style={styles.refLabel}>Tracking Ref</Text>
-            <Text style={styles.refValue}>{data.id}</Text>
+        <View style={styles.refBand}>
+          <Text style={styles.refLabel}>Tracking Ref</Text>
+          {/* Each physical piece gets its own sequential tag suffix, same
+              convention as CargoTagPDF, so multiple tags on one shipment
+              are never visually identical -- the QR code still points at
+              the shared base tracking ref. */}
+          <Text style={styles.refValue}>{data.id}-{pieceIndex}</Text>
+        </View>
+
+        {totalPieces > 1 && (
+          <View style={styles.pieceBadge}>
+            <Text style={styles.pieceBadgeText}>PIECE {pieceIndex} of {totalPieces}</Text>
           </View>
+        )}
 
-          <View style={styles.typeBadge}>
+        <View style={styles.typeBadge}>
+          <Text style={styles.typeBadgeText}>
+            {data.contentType?.toUpperCase() || "PACKAGE"}
+          </Text>
+          {data.contents && (
             <Text style={styles.typeBadgeText}>
-              {data.contentType?.toUpperCase() || "PACKAGE"}
+              {truncateForTag(data.contents.toUpperCase(), 30)}
             </Text>
-            {data.contents && (
-              <Text style={styles.typeBadgeText}>
-                {truncateForTag(data.contents.toUpperCase(), 30)}
-              </Text>
-            )}
-          </View>
+          )}
+        </View>
 
-          <View style={styles.fieldRow}>
-            <View style={styles.fieldBlock}>
-              <Text style={styles.fieldLabel}>Pcs</Text>
-              <Text style={styles.fieldValue}>{data.pieces || "—"}</Text>
-            </View>
-            <View style={styles.fieldBlock}>
-              <Text style={styles.fieldLabel}>KG</Text>
-              <Text style={styles.fieldValue}>{data.kg || "—"}</Text>
-            </View>
-            <View style={styles.fieldBlock}>
-              <Text style={styles.fieldLabel}>Hub</Text>
-              <Text style={styles.hubValue}>{getHubCode(data.hubName) || "—"}</Text>
-            </View>
+        <View style={styles.fieldRow}>
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Pcs</Text>
+            <Text style={styles.fieldValue}>{data.pieces || "—"}</Text>
           </View>
-
-          <View style={styles.fieldRow}>
-            <View style={styles.fieldBlock}>
-              <Text style={styles.fieldLabel}>Consignee</Text>
-              <Text style={styles.nameValue}>{truncateForTag(data.name || "—", 30)}</Text>
-            </View>
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>KG</Text>
+            <Text style={styles.fieldValue}>{data.kg || "—"}</Text>
+          </View>
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Hub</Text>
+            <Text style={styles.hubValue}>{getHubCode(data.hubName) || "—"}</Text>
           </View>
         </View>
 
-        <View style={styles.rightCol}>
-          {data.qrCodeDataUrl ? (
-            <Image src={data.qrCodeDataUrl} style={styles.qrImage} />
-          ) : null}
-          <Text style={styles.qrCaption}>Scan to track</Text>
-
-          <View style={styles.contentUnderQr}>
-            <Text style={styles.contentLabelUnderQr}>Content</Text>
-            <Text style={styles.contentValueUnderQr}>{truncateForTag(data.contentType || "—", 12)}</Text>
+        <View style={styles.fieldRow}>
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Consignee</Text>
+            <Text style={styles.nameValue}>{truncateForTag(data.name || "—", 30)}</Text>
           </View>
         </View>
       </View>
 
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>EHI MULTISYSTEMS NIGERIA LIMITED</Text>
+      <View style={styles.rightCol}>
+        {data.qrCodeDataUrl ? (
+          <Image src={data.qrCodeDataUrl} style={styles.qrImage} />
+        ) : null}
+        <Text style={styles.qrCaption}>Scan to track</Text>
+
+        <View style={styles.contentUnderQr}>
+          <Text style={styles.contentLabelUnderQr}>Content</Text>
+          <Text style={styles.contentValueUnderQr}>{truncateForTag(data.contentType || "—", 12)}</Text>
+        </View>
       </View>
-    </Page>
-  </Document>
+    </View>
+
+    <View style={styles.footer}>
+      <Text style={styles.footerText}>EHI MULTISYSTEMS NIGERIA LIMITED</Text>
+    </View>
+  </Page>
 );
+
+// One page per physical piece, same as CargoTagPDF -- a Package/Parcel
+// entry's `pieces` count can be >1 (see PackageForm.tsx's Pcs field), so a
+// single tag regardless of piece count left every piece past the first
+// unlabeled.
+const PackageTagOnlyPDF = ({ data }: { data: PackageTagPDFData }) => {
+  const totalPieces = Math.max(1, Number(data.pieces) || 1);
+  return (
+    <Document>
+      {Array.from({ length: totalPieces }, (_, i) => (
+        <PackageTagPage key={i} data={data} pieceIndex={i + 1} totalPieces={totalPieces} />
+      ))}
+    </Document>
+  );
+};
 
 async function buildTagData(data: PackageTagPDFData): Promise<PackageTagPDFData> {
   if (data.qrCodeDataUrl) return data;
