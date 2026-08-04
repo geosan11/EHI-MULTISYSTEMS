@@ -3,10 +3,11 @@ import { useEnterToNextField } from '../../lib/useEnterToNextField';
 import { PaymentMode, Transaction, User, ExcessBaggageAirline } from '../../lib/types';
 import { fmt, roundMoney, tnow, getHubCode, upperOnChange, generatePickupPin, formatPaymentModeDisplay } from '../../lib/helpers';
 import { chargeWalletForSale } from '../../lib/walletPayment';
+import { matchOfficeClient, useCorporateClients, useCorporateRouteRates } from '../../lib/officeWork';
 import { matchWallet } from '../../lib/customerIdentity';
 import { WalletRemainderSelector } from '../WalletRemainderSelector';
 import { getNextTag } from '../../lib/tagPool';
-import { CheckCircle, Loader2, ClipboardList, MessageSquare, Plus, Printer, Bluetooth, BarChart2, Copy } from 'lucide-react';
+import { CheckCircle, Loader2, ClipboardList, MessageSquare, Plus, Printer, Bluetooth, BarChart2, Copy, AlertTriangle } from 'lucide-react';
 import { QRCode } from '../QRCode';
 import { sendReceiptWhatsApp, buildExcessBaggageWhatsApp } from '../../lib/notifications';
 import { PaymentNarrationBox } from '../PaymentNarrationBox';
@@ -119,6 +120,24 @@ export const ExcessBaggageForm = ({
   const parsedOverride = parseFloat(amountOverride) || 0;
   const totalAmount = amountOverride !== "" ? parsedOverride : minAmount;
 
+  // Office-work (B2B corporate) auto-detection -- shared with Cargo/
+  // Package/Marketing intake via src/lib/officeWork.ts. Previously only
+  // CargoForm.tsx had this, so a corporate client's excess baggage was
+  // always silently booked at the standard per-kg rate with no way to bill
+  // it against the negotiated contract rate.
+  const corpClients = useCorporateClients();
+  const corpRates = useCorporateRouteRates();
+  const officeMatch = useMemo(() => matchOfficeClient(name, corpClients), [name, corpClients]);
+  const detectedOfficeClient = officeMatch.client;
+  const [linkedAsOfficeWork, setLinkedAsOfficeWork] = useState(false);
+  useEffect(() => {
+    setLinkedAsOfficeWork(officeMatch.type === 'exact');
+  }, [name, officeMatch.type]);
+  const officeWorkRate = useMemo(() => {
+    if (!linkedAsOfficeWork || !detectedOfficeClient) return null;
+    return corpRates.find(r => r.corporate_client_id === detectedOfficeClient.id && r.route_name === dest) || null;
+  }, [linkedAsOfficeWork, detectedOfficeClient, corpRates, dest]);
+
   // A short wallet paying its remainder by Transfer/POS needs a bank before
   // the entry can be submitted -- mirrors the same guard in handleSubmit.
   const walletRemainderBankOk = mode !== 'Wallet' || !activeWallet || activeWallet.balance >= totalAmount ||
@@ -164,7 +183,10 @@ export const ExcessBaggageForm = ({
       kg: excessKg,
       pieces: pcsVal,
       enteredByName: user.name,
-      // TODO: capture client_type at entry
+      linked_as_office_work: linkedAsOfficeWork || undefined,
+      corporate_client_id: linkedAsOfficeWork && detectedOfficeClient ? detectedOfficeClient.id : undefined,
+      applied_rate_per_kg: linkedAsOfficeWork && officeWorkRate ? officeWorkRate.rate_per_kg : undefined,
+      clientType: linkedAsOfficeWork ? "Corporate" : "Individual",
     } as any;
     // Attach phone for EHIApp to write to passenger_phone column
     (tx as any).phone = phone.trim() || undefined;
@@ -598,6 +620,56 @@ export const ExcessBaggageForm = ({
               className={formInputClass}
             />
           </div>
+
+          {/* Office-work detection banner -- see CargoForm.tsx's
+              equivalent for the reference implementation. */}
+          {detectedOfficeClient && !linkedAsOfficeWork && (
+            <div className="p-3 rounded-lg border border-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.08)] flex items-start gap-3">
+              <AlertTriangle size={16} className="text-[var(--color-accent-amber)] shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <div className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)]">
+                  Office Work Client Detected
+                </div>
+                <div className="text-[10px] font-mono text-[var(--color-muted)] mt-0.5">
+                  <span className="font-semibold text-[var(--color-foreground)]">{detectedOfficeClient.company_name}</span> is a registered corporate account.
+                  {officeWorkRate
+                    ? ` Contract rate for ${dest}: ₦${officeWorkRate.rate_per_kg}/kg`
+                    : ' No contract rate configured for this route — amount stays manual.'}
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLinkedAsOfficeWork(true);
+                      if (officeWorkRate && excessKg > 0) {
+                        const computed = Math.max(excessKg * officeWorkRate.rate_per_kg, officeWorkRate.minimum_amount ?? 0);
+                        setAmountOverride(String(computed));
+                      }
+                    }}
+                    className="px-3 py-1 rounded bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[10px] font-bold font-mono"
+                  >
+                    Yes, Link as Office Work
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLinkedAsOfficeWork(false)}
+                    className="px-3 py-1 rounded border border-[var(--color-border)] text-[var(--color-muted)] text-[10px] font-mono"
+                  >
+                    No, Keep as Retail
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {linkedAsOfficeWork && detectedOfficeClient && (
+            <div className="p-2 rounded border border-[rgba(139,92,246,0.4)] bg-[rgba(139,92,246,0.08)] flex items-center gap-2">
+              <span className="text-[9px] font-bold font-mono text-[#a78bfa] uppercase tracking-wider">OFFICE WORK</span>
+              <span className="text-[10px] font-mono text-[var(--color-muted)] flex-1">{detectedOfficeClient.company_name}</span>
+              <button type="button" onClick={() => setLinkedAsOfficeWork(false)} className="text-[9px] font-mono text-[var(--color-muted)] hover:text-[var(--color-error)]">
+                unlink
+              </button>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <span className="text-[12px] font-sans font-semibold text-[var(--color-light-muted)]">PNR / Booking Reference <span className="text-[10px] font-normal text-[var(--color-muted)]">(Optional)</span></span>

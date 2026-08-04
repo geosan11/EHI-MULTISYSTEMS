@@ -9,15 +9,18 @@ import { fmt } from '../../lib/helpers';
 
 const norm = (s: string) => (s || '').trim().toUpperCase().replace(/\s+/g, ' ');
 
+type DeptType = 'cargo' | 'package' | 'baggage' | 'marketing';
+
 interface Client { id: string; company_name: string; }
 interface Rate { corporate_client_id: string; route_name: string; rate_per_kg: number; minimum_amount: number | null; }
 interface Candidate {
-  entry_ref: string;
+  type: DeptType;
+  entry_ref: string; // entry_ref/transaction_id, whichever the source table uses
   consignee_name: string;
   route: string | null;
-  total_kg: number;
-  amount: number;
-  amount_paid: number;
+  total_kg: number; // billable weight -- excess_kg for baggage, total_kg for the other 3
+  amount: number; // the "principal" to compare/replace -- amount_paid for marketing (its inverted convention, see below)
+  amount_paid: number; // "already collected" -- debt_amount_paid for marketing
   retrieved_amount: number;
   receipt_mode: string;
   created_at: string;
@@ -27,6 +30,16 @@ interface Candidate {
   appliedRate: number | null;
   delta: number | null;
 }
+
+// One RPC per department -- mirrors debt.ts's/wallet.ts's established
+// "each table's id column and amount-paid semantics differ" pattern rather
+// than a single dynamic-table function.
+const RECONCILE_RPC: Record<DeptType, { name: string; idParam: string }> = {
+  cargo: { name: 'reconcile_office_entry', idParam: 'p_entry_ref' },
+  package: { name: 'reconcile_package_office_entry', idParam: 'p_entry_ref' },
+  baggage: { name: 'reconcile_baggage_office_entry', idParam: 'p_transaction_id' },
+  marketing: { name: 'reconcile_marketing_office_entry', idParam: 'p_entry_ref' },
+};
 
 export const OfficeWorkReconciliation = ({ user, onBack }: { user: User; onBack: () => void }) => {
   const { showToast } = useToast();
@@ -58,46 +71,104 @@ export const OfficeWorkReconciliation = ({ user, onBack }: { user: User; onBack:
     // evicting the comparatively rare unlinked Debt-mode corporate entries
     // before the name-match ever ran -- "All modes" being a logical
     // superset of "Debt only" still returned zero matches in practice.
-    let rows: any[];
+    //
+    // All 4 departments scanned -- this used to be cargo_entries only, so a
+    // corporate client's package/baggage/marketing business was never
+    // surfaced for reconciliation even when the SAME client's cargo was.
+    const fetchDept = (type: DeptType) => {
+      switch (type) {
+        case 'cargo':
+          return fetchAllRows<any>((from, to) => {
+            let q = supabase.from('cargo_entries')
+              .select('entry_ref, consignee_name, route, total_kg, amount, amount_paid, retrieved_amount, receipt_mode, created_at')
+              .is('corporate_client_id', null)
+              .order('created_at', { ascending: false });
+            if (debtOnly) q = q.eq('receipt_mode', 'Debt');
+            return q.range(from, to);
+          });
+        case 'package':
+          return fetchAllRows<any>((from, to) => {
+            let q = supabase.from('package_entries')
+              .select('entry_ref, customer_name, destination, total_kg, amount, amount_paid, retrieved_amount, payment_mode, created_at')
+              .is('corporate_client_id', null)
+              .order('created_at', { ascending: false });
+            if (debtOnly) q = q.eq('payment_mode', 'Debt');
+            return q.range(from, to);
+          });
+        case 'baggage':
+          // excess_kg, not total_kg -- billable weight for baggage is only
+          // the portion over the airline's free allowance, matching what
+          // ExcessBaggageForm.tsx itself charges for at intake.
+          return fetchAllRows<any>((from, to) => {
+            let q = supabase.from('manifests')
+              .select('transaction_id, passenger_name, destination, excess_kg, amount, amount_paid, retrieved_amount, payment_mode, created_at')
+              .is('corporate_client_id', null)
+              .order('created_at', { ascending: false });
+            if (debtOnly) q = q.eq('payment_mode', 'Debt');
+            return q.range(from, to);
+          });
+        case 'marketing':
+          // Inverted convention (see clear_marketing_debt/process_marketing_
+          // retrieval's own comments): amount_paid holds the SALE TOTAL,
+          // debt_amount_paid holds what's actually been paid down. Mapped
+          // into the shared Candidate shape below.
+          return fetchAllRows<any>((from, to) => {
+            let q = supabase.from('marketing_entries')
+              .select('entry_ref, customer_name, route, total_kg, amount_paid, debt_amount_paid, retrieved_amount, payment_mode, created_at')
+              .is('corporate_client_id', null)
+              .order('created_at', { ascending: false });
+            if (debtOnly) q = q.eq('payment_mode', 'Debt');
+            return q.range(from, to);
+          });
+      }
+    };
+
+    let rowsByType: [DeptType, any[]][];
     try {
-      rows = await fetchAllRows<any>((from, to) => {
-        let q = supabase.from('cargo_entries')
-          .select('entry_ref, consignee_name, route, total_kg, amount, amount_paid, retrieved_amount, receipt_mode, created_at')
-          .is('corporate_client_id', null)
-          .order('created_at', { ascending: false });
-        if (debtOnly) q = q.eq('receipt_mode', 'Debt');
-        return q.range(from, to);
-      });
+      const types: DeptType[] = ['cargo', 'package', 'baggage', 'marketing'];
+      const results = await Promise.all(types.map(fetchDept));
+      rowsByType = types.map((t, i) => [t, results[i]]);
     } catch (error: any) {
       showToast({ message: `Load failed: ${error.message}`, type: 'error' }); setLoading(false); return;
     }
 
     const out: Candidate[] = [];
-    (rows || []).forEach((r: any) => {
-      const client = byNorm.get(norm(r.consignee_name));
-      if (!client) return; // exact match only — safe default
-      const rate = rateList.find(rt => rt.corporate_client_id === client.id && rt.route_name === r.route);
-      let correctedAmount: number | null = null;
-      let appliedRate: number | null = null;
-      if (rate) {
-        appliedRate = Number(rate.rate_per_kg);
-        correctedAmount = Math.max(Math.round(Number(r.total_kg) || 0) * appliedRate, Number(rate.minimum_amount) || 0);
-      }
-      out.push({
-        entry_ref: r.entry_ref,
-        consignee_name: r.consignee_name,
-        route: r.route,
-        total_kg: Number(r.total_kg) || 0,
-        amount: Number(r.amount) || 0,
-        amount_paid: Number(r.amount_paid) || 0,
-        retrieved_amount: Number(r.retrieved_amount) || 0,
-        receipt_mode: r.receipt_mode,
-        created_at: r.created_at,
-        clientId: client.id,
-        clientName: client.company_name,
-        correctedAmount,
-        appliedRate,
-        delta: correctedAmount == null ? null : correctedAmount - (Number(r.amount) || 0),
+    rowsByType.forEach(([type, rows]) => {
+      (rows || []).forEach((r: any) => {
+        const name = type === 'cargo' ? r.consignee_name : type === 'baggage' ? r.passenger_name : r.customer_name;
+        const client = byNorm.get(norm(name));
+        if (!client) return; // exact match only — safe default
+        const route = type === 'cargo' || type === 'marketing' ? r.route : r.destination;
+        const totalKg = type === 'baggage' ? Number(r.excess_kg) || 0 : Number(r.total_kg) || 0;
+        const amount = type === 'marketing' ? Number(r.amount_paid) || 0 : Number(r.amount) || 0;
+        const amountPaid = type === 'marketing' ? Number(r.debt_amount_paid) || 0 : Number(r.amount_paid) || 0;
+        const mode = type === 'cargo' ? r.receipt_mode : r.payment_mode;
+        const entryRef = type === 'baggage' ? r.transaction_id : r.entry_ref;
+
+        const rate = rateList.find(rt => rt.corporate_client_id === client.id && rt.route_name === route);
+        let correctedAmount: number | null = null;
+        let appliedRate: number | null = null;
+        if (rate) {
+          appliedRate = Number(rate.rate_per_kg);
+          correctedAmount = Math.max(Math.round(totalKg) * appliedRate, Number(rate.minimum_amount) || 0);
+        }
+        out.push({
+          type,
+          entry_ref: entryRef,
+          consignee_name: name,
+          route,
+          total_kg: totalKg,
+          amount,
+          amount_paid: amountPaid,
+          retrieved_amount: Number(r.retrieved_amount) || 0,
+          receipt_mode: mode,
+          created_at: r.created_at,
+          clientId: client.id,
+          clientName: client.company_name,
+          correctedAmount,
+          appliedRate,
+          delta: correctedAmount == null ? null : correctedAmount - amount,
+        });
       });
     });
     setCandidates(out);
@@ -106,18 +177,23 @@ export const OfficeWorkReconciliation = ({ user, onBack }: { user: User; onBack:
 
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [debtOnly]);
 
+  // type-prefixed -- entry_ref is only unique WITHIN one department table,
+  // and now that all 4 are merged into one list, two different departments'
+  // ref/tag generators could in principle collide.
+  const candKey = (c: Candidate) => `${c.type}:${c.entry_ref}`;
+
   const repriceable = useMemo(() => candidates.filter(c => c.correctedAmount != null), [candidates]);
-  const toggle = (ref: string) => setSelected(prev => { const n = new Set(prev); n.has(ref) ? n.delete(ref) : n.add(ref); return n; });
-  const allSelected = repriceable.length > 0 && repriceable.every(c => selected.has(c.entry_ref));
-  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(repriceable.map(c => c.entry_ref)));
+  const toggle = (key: string) => setSelected(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  const allSelected = repriceable.length > 0 && repriceable.every(c => selected.has(candKey(c)));
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(repriceable.map(candKey)));
 
   const selectedDelta = useMemo(
-    () => candidates.filter(c => selected.has(c.entry_ref) && c.delta != null).reduce((s, c) => s + (c.delta || 0), 0),
+    () => candidates.filter(c => selected.has(candKey(c)) && c.delta != null).reduce((s, c) => s + (c.delta || 0), 0),
     [candidates, selected]
   );
 
   const applySelected = async () => {
-    const rows = candidates.filter(c => selected.has(c.entry_ref) && c.correctedAmount != null);
+    const rows = candidates.filter(c => selected.has(candKey(c)) && c.correctedAmount != null);
     if (rows.length === 0) return;
     const ok = await confirm({
       title: `Reconcile ${rows.length} ${rows.length === 1 ? 'entry' : 'entries'}?`,
@@ -129,8 +205,9 @@ export const OfficeWorkReconciliation = ({ user, onBack }: { user: User; onBack:
     setApplying(true);
     let done = 0, failed = 0;
     for (const c of rows) {
-      const { error } = await supabase.rpc('reconcile_office_entry', {
-        p_entry_ref: c.entry_ref,
+      const rpc = RECONCILE_RPC[c.type];
+      const { error } = await supabase.rpc(rpc.name, {
+        [rpc.idParam]: c.entry_ref,
         p_client_id: c.clientId,
         p_new_amount: c.correctedAmount,
         p_new_rate: c.appliedRate,
@@ -152,7 +229,7 @@ export const OfficeWorkReconciliation = ({ user, onBack }: { user: User; onBack:
             <div className="p-2 bg-[rgba(245,158,11,0.1)] rounded-lg"><Building2 size={20} className="text-[var(--color-accent-amber)]" /></div>
             <div className="min-w-0">
               <h1 className="text-[16px] font-bold text-[var(--color-foreground)] tracking-tight">Office Work Reconciliation</h1>
-              <p className="text-[11px] font-mono text-[var(--color-muted)] mt-0.5">Unlinked entries whose consignee matches a corporate client</p>
+              <p className="text-[11px] font-mono text-[var(--color-muted)] mt-0.5">Unlinked cargo/package/baggage/marketing entries whose customer matches a corporate client</p>
             </div>
           </div>
           <button onClick={load} className="h-9 w-9 flex items-center justify-center rounded-lg bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-accent-amber)]" title="Refresh"><RefreshCw size={14} /></button>
@@ -190,13 +267,14 @@ export const OfficeWorkReconciliation = ({ user, onBack }: { user: User; onBack:
               {candidates.map(c => {
                 const noRate = c.correctedAmount == null;
                 return (
-                  <div key={c.entry_ref} className={`rounded-lg border p-3 ${noRate ? 'border-[var(--color-border)] opacity-70' : selected.has(c.entry_ref) ? 'border-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.06)]' : 'border-[var(--color-border)] bg-[var(--color-surface-1)]'}`} style={{ boxShadow: 'var(--shadow-sm)' }}>
+                  <div key={candKey(c)} className={`rounded-lg border p-3 ${noRate ? 'border-[var(--color-border)] opacity-70' : selected.has(candKey(c)) ? 'border-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.06)]' : 'border-[var(--color-border)] bg-[var(--color-surface-1)]'}`} style={{ boxShadow: 'var(--shadow-sm)' }}>
                     <div className="flex items-start gap-3">
-                      <input type="checkbox" disabled={noRate} checked={selected.has(c.entry_ref)} onChange={() => toggle(c.entry_ref)} className="mt-1" />
+                      <input type="checkbox" disabled={noRate} checked={selected.has(candKey(c))} onChange={() => toggle(candKey(c))} className="mt-1" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-[12px] font-bold text-[var(--color-foreground)]">{c.consignee_name}</span>
                           <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[rgba(139,92,246,0.12)] text-[#a78bfa] uppercase">{c.clientName}</span>
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[var(--color-surface-2)] text-[var(--color-muted)] uppercase">{c.type}</span>
                           <span className="text-[9px] font-mono text-[var(--color-muted)]">{c.receipt_mode}</span>
                         </div>
                         <div className="text-[10px] font-mono text-[var(--color-muted)] mt-0.5">{c.entry_ref} · {c.route || '—'} · {Math.round(c.total_kg)}kg · {new Date(c.created_at).toLocaleDateString('en-GB')}</div>

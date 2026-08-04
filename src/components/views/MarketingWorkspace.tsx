@@ -9,11 +9,12 @@ import { useExpenseCategories } from "../../lib/expenseCategories";
 import { useBanks } from "../../lib/banks";
 import { fmt, uid, tnow, getHubCode, upperOnChange, roundMoney, generatePickupPin, formatPaymentModeDisplay } from "../../lib/helpers";
 import { chargeWalletForSale } from "../../lib/walletPayment";
+import { matchOfficeClient, useCorporateClients, useCorporateRouteRates } from "../../lib/officeWork";
 import { matchWallet } from "../../lib/customerIdentity";
 import { WalletRemainderSelector } from "../WalletRemainderSelector";
 import { getNextTag } from "../../lib/tagPool";
 import { DepartmentSalesAnalysisModal } from "../DepartmentSalesAnalysis";
-import { Plus, CheckCircle, Loader2, ClipboardList, MessageSquare, Printer, Minus, TrendingDown, BarChart2, Bluetooth, Copy } from "lucide-react";
+import { Plus, CheckCircle, Loader2, ClipboardList, MessageSquare, Printer, Minus, TrendingDown, BarChart2, Bluetooth, Copy, AlertTriangle } from "lucide-react";
 import { motion } from "motion/react";
 import { supabase } from "../../lib/supabase";
 
@@ -215,6 +216,24 @@ export const MarketingWorkspace = ({
   const totalKg = (parseFloat(bbKg) || 0) + (parseFloat(mbKg) || 0) + (parseFloat(sbKg) || 0);
   const parsedOverride = parseFloat(amountOverride) || 0;
   const totalAmount = amountOverride !== "" ? parsedOverride : minAmount;
+
+  // Office-work (B2B corporate) auto-detection -- shared with Cargo/
+  // Package/Excess Baggage intake via src/lib/officeWork.ts. Previously
+  // only CargoForm.tsx had this, so a corporate client's marketing
+  // shipments were always silently booked at the standard pricing-matrix
+  // rate with no way to bill them against the negotiated contract rate.
+  const corpClients = useCorporateClients();
+  const corpRates = useCorporateRouteRates();
+  const officeMatch = useMemo(() => matchOfficeClient(mode === "Debt" ? debtorName : name, corpClients), [mode, debtorName, name, corpClients]);
+  const detectedOfficeClient = officeMatch.client;
+  const [linkedAsOfficeWork, setLinkedAsOfficeWork] = useState(false);
+  useEffect(() => {
+    setLinkedAsOfficeWork(officeMatch.type === 'exact');
+  }, [name, debtorName, officeMatch.type]);
+  const officeWorkRate = useMemo(() => {
+    if (!linkedAsOfficeWork || !detectedOfficeClient) return null;
+    return corpRates.find(r => r.corporate_client_id === detectedOfficeClient.id && r.route_name === route) || null;
+  }, [linkedAsOfficeWork, detectedOfficeClient, corpRates, route]);
 
   // Debt mode records debtorName as the transaction's name (see handleAddEntry
   // below: `mode === "Debt" ? debtorName.trim() : name.trim()`), but this
@@ -420,6 +439,10 @@ export const MarketingWorkspace = ({
       // of the one they thought they were entering it for.
       hub_id: user.hub_id,
       enteredByName: user.name,
+      linked_as_office_work: linkedAsOfficeWork || undefined,
+      corporate_client_id: linkedAsOfficeWork && detectedOfficeClient ? detectedOfficeClient.id : undefined,
+      applied_rate_per_kg: linkedAsOfficeWork && officeWorkRate ? officeWorkRate.rate_per_kg : undefined,
+      clientType: linkedAsOfficeWork ? "Corporate" : "Individual",
       // Explicit fields so EHIApp doesn't need to parse the detail string
       ...(bb > 0 || mb > 0 || sb > 0 ? { _bb: bb, _mb: mb, _sb: sb } as any : {}),
       ...(totalKg > 0 ? { _bbKg: parseFloat(bbKg) || 0, _mbKg: parseFloat(mbKg) || 0, _sbKg: parseFloat(sbKg) || 0 } as any : {}),
@@ -895,6 +918,56 @@ export const MarketingWorkspace = ({
                     className={`w-full h-11 pl-9 pr-3 text-sm rounded bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-foreground)] font-sans ${mktgFocusClasses}`}
                   />
                 </div>
+
+                {/* Office-work detection banner -- see CargoForm.tsx's
+                    equivalent for the reference implementation. */}
+                {detectedOfficeClient && !linkedAsOfficeWork && (
+                  <div className="p-3 rounded-lg border border-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.08)] flex items-start gap-3">
+                    <AlertTriangle size={16} className="text-[var(--color-accent-amber)] shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)]">
+                        Office Work Client Detected
+                      </div>
+                      <div className="text-[10px] font-mono text-[var(--color-muted)] mt-0.5">
+                        <span className="font-semibold text-[var(--color-foreground)]">{detectedOfficeClient.company_name}</span> is a registered corporate account.
+                        {officeWorkRate
+                          ? ` Contract rate for ${route}: ₦${officeWorkRate.rate_per_kg}/kg`
+                          : ' No contract rate configured for this route — amount stays manual.'}
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLinkedAsOfficeWork(true);
+                            if (officeWorkRate && totalKg > 0) {
+                              const computed = Math.max(totalKg * officeWorkRate.rate_per_kg, officeWorkRate.minimum_amount ?? 0);
+                              setAmountOverride(String(computed));
+                            }
+                          }}
+                          className="px-3 py-1 rounded bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[10px] font-bold font-mono"
+                        >
+                          Yes, Link as Office Work
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setLinkedAsOfficeWork(false)}
+                          className="px-3 py-1 rounded border border-[var(--color-border)] text-[var(--color-muted)] text-[10px] font-mono"
+                        >
+                          No, Keep as Retail
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {linkedAsOfficeWork && detectedOfficeClient && (
+                  <div className="p-2 rounded border border-[rgba(139,92,246,0.4)] bg-[rgba(139,92,246,0.08)] flex items-center gap-2">
+                    <span className="text-[9px] font-bold font-mono text-[#a78bfa] uppercase tracking-wider">OFFICE WORK</span>
+                    <span className="text-[10px] font-mono text-[var(--color-muted)] flex-1">{detectedOfficeClient.company_name}</span>
+                    <button type="button" onClick={() => setLinkedAsOfficeWork(false)} className="text-[9px] font-mono text-[var(--color-muted)] hover:text-[var(--color-error)]">
+                      unlink
+                    </button>
+                  </div>
+                )}
 
                 <div className="flex space-x-3">
                   <select
