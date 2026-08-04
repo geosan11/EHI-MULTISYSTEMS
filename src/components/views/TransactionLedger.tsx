@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 import { QRCode } from "../QRCode";
 import TagPrintHistory from "./TagPrintHistory";
-import { supabase, writeAuditLog, fetchRowsCapped } from "../../lib/supabase";
+import { supabase, writeAuditLog, fetchRowsCapped, fetchAllRows } from "../../lib/supabase";
 import { useToast } from "../../lib/ToastContext";
 import { useConfirm } from "../../lib/ConfirmContext";
 import { LiveCreditFeed } from "../LiveCreditFeed";
@@ -237,42 +237,44 @@ export const TransactionLedger = ({
   useEffect(() => {
     let active = true;
     const fetchRates = async () => {
-      try {
-        const hubIds = user?.hub_id ? await getEquivalentHubIds(user.hub_id) : [];
-        const [stdRes, airRes, hubRes] = await Promise.all([
-          supabase.from('standard_cargo_rates').select('route_name, rate_per_kg'),
-          hubIds.length > 0 ? supabase.from('hub_airline_route_rates').select('airline, route_name, rate_per_kg').in('hub_id', hubIds) : Promise.resolve({ data: null, error: null }),
-          hubIds.length > 0 ? supabase.from('hub_route_rates').select('route_name, rate_per_kg').in('hub_id', hubIds) : Promise.resolve({ data: null, error: null }),
-        ]);
+      const hubIds = user?.hub_id ? await getEquivalentHubIds(user.hub_id) : [];
+      // fetchAllRows paginates past PostgREST's implicit ~1000-row cap --
+      // these are small config/lookup tables today, but a plain .select()
+      // would silently truncate (and this is used for live pricing, not
+      // just display) once any of them crossed that cap. Promise.allSettled
+      // (not Promise.all) so one query failing doesn't wipe out the other
+      // two's already-successful results, matching the original per-query
+      // fallback behavior.
+      const [stdResult, airResult, hubResult] = await Promise.allSettled([
+        fetchAllRows<any>((from, to) => supabase.from('standard_cargo_rates').select('route_name, rate_per_kg').range(from, to)),
+        hubIds.length > 0 ? fetchAllRows<any>((from, to) => supabase.from('hub_airline_route_rates').select('airline, route_name, rate_per_kg').in('hub_id', hubIds).range(from, to)) : Promise.resolve([]),
+        hubIds.length > 0 ? fetchAllRows<any>((from, to) => supabase.from('hub_route_rates').select('route_name, rate_per_kg').in('hub_id', hubIds).range(from, to)) : Promise.resolve([]),
+      ]);
 
-        if (active && stdRes.data) {
-          const stdMap: Record<string, number> = {};
-          stdRes.data.forEach((r: any) => { stdMap[r.route_name] = Number(r.rate_per_kg); });
-          setStandardRatesMap(stdMap);
-          localStorage.setItem("ehi_standard_cargo_rates", JSON.stringify(stdMap));
-        } else if (active) {
-          const saved = localStorage.getItem("ehi_standard_cargo_rates");
-          if (saved) setStandardRatesMap(JSON.parse(saved));
-        }
+      if (!active) return;
 
-        if (active && airRes.data) {
-          const airMap: Record<string, number> = {};
-          airRes.data.forEach((r: any) => {
-            airMap[`${r.airline}|${r.route_name}`] = Number(r.rate_per_kg);
-          });
-          setHubAirlineRates(airMap);
-        }
+      if (stdResult.status === 'fulfilled') {
+        const stdMap: Record<string, number> = {};
+        stdResult.value.forEach((r: any) => { stdMap[r.route_name] = Number(r.rate_per_kg); });
+        setStandardRatesMap(stdMap);
+        localStorage.setItem("ehi_standard_cargo_rates", JSON.stringify(stdMap));
+      } else {
+        const saved = localStorage.getItem("ehi_standard_cargo_rates");
+        if (saved) setStandardRatesMap(JSON.parse(saved));
+      }
 
-        if (active && hubRes.data) {
-          const hMap: Record<string, number> = {};
-          hubRes.data.forEach((r: any) => { hMap[r.route_name] = Number(r.rate_per_kg); });
-          setHubRouteRates(hMap);
-        }
-      } catch {
-        if (active) {
-          const saved = localStorage.getItem("ehi_standard_cargo_rates");
-          if (saved) setStandardRatesMap(JSON.parse(saved));
-        }
+      if (airResult.status === 'fulfilled') {
+        const airMap: Record<string, number> = {};
+        airResult.value.forEach((r: any) => {
+          airMap[`${r.airline}|${r.route_name}`] = Number(r.rate_per_kg);
+        });
+        setHubAirlineRates(airMap);
+      }
+
+      if (hubResult.status === 'fulfilled') {
+        const hMap: Record<string, number> = {};
+        hubResult.value.forEach((r: any) => { hMap[r.route_name] = Number(r.rate_per_kg); });
+        setHubRouteRates(hMap);
       }
     };
     fetchRates();
@@ -428,9 +430,12 @@ export const TransactionLedger = ({
     if (allTimeLoaded || loadingAllTime) return;
     setLoadingAllTime(true);
     try {
-      const { data: profiles } = await supabase.from('user_profiles').select('id,name');
+      // Paginated -- a plain .select() silently truncates past PostgREST's
+      // ~1000-row cap, which would show a raw UUID instead of the agent's
+      // name on some All Time entries once staff headcount crossed that.
+      const profiles = await fetchAllRows<any>((from, to) => supabase.from('user_profiles').select('id,name').range(from, to));
       const profileLookup: Record<string, string> = {};
-      (profiles || []).forEach((p: any) => { if (p.id) profileLookup[p.id] = p.name || ''; });
+      profiles.forEach((p: any) => { if (p.id) profileLookup[p.id] = p.name || ''; });
 
       const wantsCargo = !defaultTypeFilter || defaultTypeFilter === 'cargo';
       const wantsBaggage = !defaultTypeFilter || defaultTypeFilter === 'baggage';

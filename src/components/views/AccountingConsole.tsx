@@ -218,6 +218,21 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
   const todayStr = new Date().toISOString().split('T')[0];
   const [regDate, setRegDate] = useState(todayStr);
 
+  // regDate is a free date-picker, not tied to the period selector above --
+  // same silent-truncation risk (transactions/expenses are windowed by the
+  // shared globalDateRange), so it gets the same widen-if-possible,
+  // warn-if-not treatment as "This Month"/"Custom" do above.
+  useEffect(() => {
+    if (!onDateRangeChange || !dateRange) return;
+    if (regDate >= dateRange.start && regDate <= dateRange.end) return;
+    const start = regDate < dateRange.start ? regDate : dateRange.start;
+    const end = regDate > dateRange.end ? regDate : dateRange.end;
+    onDateRangeChange({ start, end });
+  }, [regDate, dateRange, onDateRangeChange]);
+
+  const showRegDateIncompleteBanner = !onDateRangeChange && dateRange != null &&
+    (regDate < dateRange.start || regDate > dateRange.end);
+
   const [openingBalance, setOpeningBalance] = useState<number | null>(null);
   const [physicalCount, setPhysicalCount] = useState<number | null>(null);
   const [isLocked, setIsLocked] = useState(false);
@@ -329,12 +344,23 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
   // A debt payment leaves the parent transaction's mode as 'Debt'/'Debt Paid'
   // (never 'Cash'), so today's cash recovered against an old debt would be
   // invisible to a mode-only filter -- pull it from paymentHistory instead.
+  // isOnRegDate compares against the LOCAL calendar day (parseLocalDateBoundary,
+  // same as periodMatches above), not a raw UTC-substring match -- a cash
+  // sale logged late evening local time can fall on the "next day" in UTC,
+  // so `.split('T')[0] === regDate` silently dropped it from Cash Register's
+  // totals for the day it actually happened, while Summary's periodMatches
+  // (local-day aware) still counted it under "Today".
+  const isOnRegDate = (dateStr: string | null | undefined): boolean => {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    return d >= parseLocalDateBoundary(regDate) && d <= parseLocalDateBoundary(regDate, true);
+  };
   const debtCashRecoveredToday = transactions.reduce((sum, t) => {
-    const todays = (t.paymentHistory || []).filter(p => p.mode === 'Cash' && p.at.split('T')[0] === regDate);
+    const todays = (t.paymentHistory || []).filter(p => p.mode === 'Cash' && isOnRegDate(p.at));
     return sum + todays.reduce((s, p) => s + p.amount, 0);
   }, 0);
   const regReceipts = transactions
-    .filter(t => (t.mode === 'Cash' || t.wallet_deduction_amount) && t.created_at && t.created_at.split('T')[0] === regDate)
+    .filter(t => (t.mode === 'Cash' || t.wallet_deduction_amount) && isOnRegDate(t.created_at))
     .reduce((sum, t) => {
       const cashPortion = t.mode === 'Cash' ? Math.max(0, t.amount - (t.wallet_deduction_amount || 0)) : 0;
       return sum + cashPortion;
@@ -343,7 +369,7 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
   // rejected expense hasn't (or won't) be paid out, so counting it here
   // would falsely shrink the expected closing balance.
   const regPayments = expenses
-    .filter(e => (e.status || 'approved') === 'approved' && e.mode === 'Cash' && e.created_at && e.created_at.split('T')[0] === regDate)
+    .filter(e => (e.status || 'approved') === 'approved' && e.mode === 'Cash' && isOnRegDate(e.created_at))
     .reduce((sum, e) => sum + e.amount, 0);
   const expectedClosing = (openingBalance || 0) + regReceipts - regPayments;
   const variance = physicalCount !== null ? physicalCount - expectedClosing : 0;
@@ -600,6 +626,13 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
                    {isLocked ? 'LOCKED' : 'OPEN'}
                  </div>
                </div>
+
+               {showRegDateIncompleteBanner && (
+                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[rgba(245,158,11,0.08)] border border-[var(--color-accent-amber)] text-[11px] font-sans text-[var(--color-accent-amber)]">
+                   <AlertCircle size={14} />
+                   Data only loaded from {dateRange?.start} onward — {regDate} may be showing an incomplete total.
+                 </div>
+               )}
 
                <div className="bg-[var(--color-surface-card)] rounded-xl border border-[var(--color-border)] p-5 space-y-4">
                  <div className="flex justify-between items-center pb-3 border-b border-[var(--color-border)]">

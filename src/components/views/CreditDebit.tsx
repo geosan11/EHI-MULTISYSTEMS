@@ -3,7 +3,7 @@ import { User, Transaction } from '../../lib/types';
 import { fmt, roundMoney } from '../../lib/helpers';
 import { CreditCard, Building2, Users, Search, ArrowDownLeft, ArrowUpRight, TrendingDown, TrendingUp, Building, UserSquare2, Loader, FileDown } from 'lucide-react';
 import { BackButton } from '../BackButton';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllRows } from '../../lib/supabase';
 import { normalizeAirlineName } from '../../lib/helpers';
 import { EmptyState } from './EmptyState';
 
@@ -45,13 +45,17 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
 
         // Fetch Debts (all time -- a debt from months ago can still be
         // outstanding, so this can't be date-bounded the way Credits is
-        // below. Capped at 1000 most-recent rows per table instead of
-        // truly unbounded, which grows every month forever with no ceiling.
+        // below). Paginated past PostgREST's implicit ~1000-row cap instead
+        // of hard-limiting to the 1000 most recent rows per table -- this is
+        // filtered to genuinely outstanding Debt-mode rows, not the whole
+        // table, so it only grows with real debt, the same class of query
+        // src/lib/debt.ts's fetchAllDebtAndRetrievalEntries already uses
+        // fetchAllRows for.
         const [cargoDebts, vjDebts, mktDebts, pkgDebts] = await Promise.all([
-          addHubFilter(supabase.from('cargo_entries').select('*').eq('receipt_mode', 'Debt').order('created_at', { ascending: false }).limit(1000)),
-          addHubFilter(supabase.from('manifests').select('*').eq('payment_mode', 'Debt').order('created_at', { ascending: false }).limit(1000)),
-          addHubFilter(supabase.from('marketing_entries').select('*').eq('payment_mode', 'Debt').order('created_at', { ascending: false }).limit(1000)),
-          addHubFilter(supabase.from('package_entries').select('*').eq('payment_mode', 'Debt').order('created_at', { ascending: false }).limit(1000))
+          fetchAllRows<any>((from, to) => addHubFilter(supabase.from('cargo_entries').select('*').eq('receipt_mode', 'Debt').order('created_at', { ascending: false })).range(from, to)),
+          fetchAllRows<any>((from, to) => addHubFilter(supabase.from('manifests').select('*').eq('payment_mode', 'Debt').order('created_at', { ascending: false })).range(from, to)),
+          fetchAllRows<any>((from, to) => addHubFilter(supabase.from('marketing_entries').select('*').eq('payment_mode', 'Debt').order('created_at', { ascending: false })).range(from, to)),
+          fetchAllRows<any>((from, to) => addHubFilter(supabase.from('package_entries').select('*').eq('payment_mode', 'Debt').order('created_at', { ascending: false })).range(from, to)),
         ]);
 
         // amountPaid is carried through so downstream balance calcs (below)
@@ -61,18 +65,18 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
         // was paid all the way to zero (the only thing that flips mode away
         // from 'Debt').
         const mappedDebts: Transaction[] = [];
-        if (cargoDebts.data) {
-          cargoDebts.data.forEach(r => mappedDebts.push({
+        if (cargoDebts) {
+          cargoDebts.forEach(r => mappedDebts.push({
             id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo', detail: `${r.airline || ''} · ${r.awb_tag_number || ''}`, amount: r.amount || 0, amountPaid: r.amount_paid || 0, mode: 'Debt', time: r.created_at, type: 'cargo', awb_tag_number: r.awb_tag_number, status: r.status || 'Intake', raw: r
           }));
         }
-        if (vjDebts.data) {
-          vjDebts.data.forEach(r => mappedDebts.push({
+        if (vjDebts) {
+          vjDebts.forEach(r => mappedDebts.push({
             id: r.transaction_id || r.id, name: r.passenger_name || 'Passenger', detail: `${r.flight_no || ''}`, amount: r.amount || 0, amountPaid: r.amount_paid || 0, mode: 'Debt', time: r.created_at, type: 'baggage', status: 'Intake', raw: r
           }));
         }
-        if (mktDebts.data) {
-          mktDebts.data.forEach(r => mappedDebts.push({
+        if (mktDebts) {
+          mktDebts.forEach(r => mappedDebts.push({
             // marketing_entries has an inverted naming convention from the
             // other 3 tables (see clear_marketing_debt's own comment):
             // amount_paid holds the SALE TOTAL, not what's been paid down;
@@ -86,8 +90,8 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
             id: r.entry_ref || r.id, name: r.customer_name || 'Customer', detail: `${r.route || ''}`, amount: r.amount_paid || 0, amountPaid: r.debt_amount_paid || 0, mode: 'Debt', time: r.created_at, type: 'marketing', status: 'Intake', raw: r
           }));
         }
-        if (pkgDebts.data) {
-          pkgDebts.data.forEach(r => mappedDebts.push({
+        if (pkgDebts) {
+          pkgDebts.forEach(r => mappedDebts.push({
             id: r.entry_ref || r.id, name: r.customer_name || 'Customer', detail: `${r.destination || ''}`, amount: r.amount || 0, amountPaid: r.amount_paid || 0, mode: 'Debt', time: r.created_at, type: 'package', status: r.status || 'Intake', raw: r
           }));
         }
@@ -354,6 +358,7 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
                 <ArrowUpRight size={14} className="text-[var(--color-success)]" /> Total Due to Airlines
               </div>
               <div className="text-[32px] font-sans font-bold text-[var(--color-success)] relative z-10">{fmt(totalCredit)}</div>
+              <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider mt-1 relative z-10">Last 30 days</div>
             </div>
 
             <div className="space-y-3">
