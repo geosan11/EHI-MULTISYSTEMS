@@ -198,7 +198,12 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
   const debtTotal = filteredTx.reduce((sum, t) => sum + (t.mode === 'Debt' ? t.amount : 0), 0);
   // Every wallet_deduction_amount across the period, whichever remainder
   // mode (or none, for a fully wallet-paid tx) the rest was booked under.
-  const walletTotal = filteredTx.reduce((sum, t) => sum + (t.wallet_deduction_amount || 0), 0);
+  // Falls back to the full amount for a mode==='Wallet' row whose
+  // wallet_deduction_amount is NULL -- the column was backfilled only for
+  // the retrieval reclassification (20260717_cargo_workflow_overhaul.sql),
+  // so older Wallet-mode rows predate it. Same fallback EODReconciliation.tsx/
+  // Analytics.tsx/LiveCreditFeed.tsx already use for this exact gap.
+  const walletTotal = filteredTx.reduce((sum, t) => sum + (t.wallet_deduction_amount || (t.mode === 'Wallet' ? t.amount : 0)), 0);
   const modeSum = cashTotal + transferTotal + posTotal + debtTotal + walletTotal;
 
   const cashPct = modeSum ? (cashTotal / modeSum) * 100 : 0;
@@ -215,22 +220,35 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
   // Backed by eod_records (hub_id, date) -- the same table EODReconciliation.tsx
   // locks the day against -- instead of a separate localStorage register that
   // could silently disagree with it.
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Local calendar date, not `.toISOString().split('T')[0]` (UTC) -- must
+  // match isOnRegDate's local-day comparison below (regReceipts etc.), or
+  // the register defaults to "yesterday" for the first ~1hr after local
+  // midnight in a UTC+ timezone (Lagos is UTC+1), excluding sales that just
+  // happened from what the register displays as "today".
+  const todayDate = new Date();
+  const todayStr = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
   const [regDate, setRegDate] = useState(todayStr);
 
   // regDate is a free date-picker, not tied to the period selector above --
   // same silent-truncation risk (transactions/expenses are windowed by the
   // shared globalDateRange), so it gets the same widen-if-possible,
   // warn-if-not treatment as "This Month"/"Custom" do above.
+  // A native <input type="date"> fires onChange with '' the instant it's
+  // cleared, and can emit a partial value (e.g. while typing a year digit
+  // by digit) before landing on a real date -- widening the APP-WIDE shared
+  // range to '' propagates into EHIApp.tsx's fetchInitial as `new Date('')`,
+  // which throws on .toISOString() and breaks data loading for every other
+  // tab until reload. Only ever act on a well-formed YYYY-MM-DD value.
+  const isValidDateStr = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
   useEffect(() => {
-    if (!onDateRangeChange || !dateRange) return;
+    if (!onDateRangeChange || !dateRange || !isValidDateStr(regDate)) return;
     if (regDate >= dateRange.start && regDate <= dateRange.end) return;
     const start = regDate < dateRange.start ? regDate : dateRange.start;
     const end = regDate > dateRange.end ? regDate : dateRange.end;
     onDateRangeChange({ start, end });
   }, [regDate, dateRange, onDateRangeChange]);
 
-  const showRegDateIncompleteBanner = !onDateRangeChange && dateRange != null &&
+  const showRegDateIncompleteBanner = !onDateRangeChange && dateRange != null && isValidDateStr(regDate) &&
     (regDate < dateRange.start || regDate > dateRange.end);
 
   const [openingBalance, setOpeningBalance] = useState<number | null>(null);

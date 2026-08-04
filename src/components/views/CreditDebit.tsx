@@ -51,11 +51,15 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
         // table, so it only grows with real debt, the same class of query
         // src/lib/debt.ts's fetchAllDebtAndRetrievalEntries already uses
         // fetchAllRows for.
+        // .order('id') as a secondary sort key -- created_at alone isn't
+        // unique (bulk imports/migrations can share an exact timestamp), so
+        // rows tied on created_at that straddle a page boundary could
+        // otherwise duplicate or vanish across fetchAllRows' paged requests.
         const [cargoDebts, vjDebts, mktDebts, pkgDebts] = await Promise.all([
-          fetchAllRows<any>((from, to) => addHubFilter(supabase.from('cargo_entries').select('*').eq('receipt_mode', 'Debt').order('created_at', { ascending: false })).range(from, to)),
-          fetchAllRows<any>((from, to) => addHubFilter(supabase.from('manifests').select('*').eq('payment_mode', 'Debt').order('created_at', { ascending: false })).range(from, to)),
-          fetchAllRows<any>((from, to) => addHubFilter(supabase.from('marketing_entries').select('*').eq('payment_mode', 'Debt').order('created_at', { ascending: false })).range(from, to)),
-          fetchAllRows<any>((from, to) => addHubFilter(supabase.from('package_entries').select('*').eq('payment_mode', 'Debt').order('created_at', { ascending: false })).range(from, to)),
+          fetchAllRows<any>((from, to) => addHubFilter(supabase.from('cargo_entries').select('*').eq('receipt_mode', 'Debt').order('created_at', { ascending: false }).order('id')).range(from, to)),
+          fetchAllRows<any>((from, to) => addHubFilter(supabase.from('manifests').select('*').eq('payment_mode', 'Debt').order('created_at', { ascending: false }).order('id')).range(from, to)),
+          fetchAllRows<any>((from, to) => addHubFilter(supabase.from('marketing_entries').select('*').eq('payment_mode', 'Debt').order('created_at', { ascending: false }).order('id')).range(from, to)),
+          fetchAllRows<any>((from, to) => addHubFilter(supabase.from('package_entries').select('*').eq('payment_mode', 'Debt').order('created_at', { ascending: false }).order('id')).range(from, to)),
         ]);
 
         // amountPaid is carried through so downstream balance calcs (below)
@@ -101,13 +105,17 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
         // full original balance as outstanding here.
         setDebtsData(mappedDebts.filter(tx => (tx.amount - (tx.amountPaid || 0) - ((tx.raw as any)?.retrieved_amount || 0)) > 0));
 
-        // Fetch Credits (last 30 days of cargo)
+        // Fetch Credits (last 30 days of cargo) -- date-bounded, but a busy
+        // hub can still clear 1000 cargo entries within 30 days, so this
+        // needs the same pagination treatment as the Debts fetch above,
+        // not just a date filter, to actually show every commission-bearing
+        // sale in the window rather than silently the newest ~1000.
         const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
-        const cargoCreditsReq = await addHubFilter(supabase.from('cargo_entries').select('*').gte('created_at', thirtyDaysAgo));
-        
+        const cargoCredits = await fetchAllRows<any>((from, to) => addHubFilter(supabase.from('cargo_entries').select('*').gte('created_at', thirtyDaysAgo).order('created_at', { ascending: false }).order('id')).range(from, to));
+
         const mappedCredits: Transaction[] = [];
-        if (cargoCreditsReq.data) {
-          cargoCreditsReq.data.forEach(r => {
+        if (cargoCredits) {
+          cargoCredits.forEach(r => {
             if (r.airline) {
               mappedCredits.push({
                 id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo', detail: `${r.awb_tag_number || ''}`, amount: r.amount || 0, mode: r.receipt_mode, time: r.created_at, type: 'cargo', airline: normalizeAirlineName(r.airline), commissionRate: r.commission_rate ?? undefined, status: r.status || 'Intake'

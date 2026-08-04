@@ -144,6 +144,13 @@ export const TransactionLedger = ({
   // re-saving an edit that was already 'Wallet' (or leaving it unchanged)
   // must not charge the wallet a second time.
   const [editOriginalMode, setEditOriginalMode] = useState<string | null>(null);
+  // Captured alongside editOriginalMode -- an entry that already carries a
+  // wallet contribution (either fully 'Wallet'-mode, or a split from a prior
+  // edit/intake where mode is now the remainder method) must not be
+  // re-charged just because the mode dropdown gets set to 'Wallet' again;
+  // `editOriginalMode !== 'Wallet'` alone isn't a reliable "not yet charged"
+  // signal once split entries exist (see switchingToWallet below).
+  const [editOriginalWalletDeduction, setEditOriginalWalletDeduction] = useState<number>(0);
   const [editWallet, setEditWallet] = useState<CustomerWallet | null>(null);
   // Mirrors CargoForm.tsx's walletRemainderMode/walletRemainderBank -- lets a
   // wallet that can't cover the full edited amount be topped up by a second
@@ -245,10 +252,16 @@ export const TransactionLedger = ({
       // (not Promise.all) so one query failing doesn't wipe out the other
       // two's already-successful results, matching the original per-query
       // fallback behavior.
+      // .order() before .range() on every page -- fetchAllRows pages via
+      // repeated OFFSET/LIMIT-style requests, which Postgres/PostgREST does
+      // NOT guarantee a stable row order across without an explicit ORDER
+      // BY; an unordered multi-page fetch can duplicate or skip rows once a
+      // table crosses the page size, which for a rate lookup means a route
+      // silently falling back to the wrong (or no) rate.
       const [stdResult, airResult, hubResult] = await Promise.allSettled([
-        fetchAllRows<any>((from, to) => supabase.from('standard_cargo_rates').select('route_name, rate_per_kg').range(from, to)),
-        hubIds.length > 0 ? fetchAllRows<any>((from, to) => supabase.from('hub_airline_route_rates').select('airline, route_name, rate_per_kg').in('hub_id', hubIds).range(from, to)) : Promise.resolve([]),
-        hubIds.length > 0 ? fetchAllRows<any>((from, to) => supabase.from('hub_route_rates').select('route_name, rate_per_kg').in('hub_id', hubIds).range(from, to)) : Promise.resolve([]),
+        fetchAllRows<any>((from, to) => supabase.from('standard_cargo_rates').select('route_name, rate_per_kg').order('route_name').range(from, to)),
+        hubIds.length > 0 ? fetchAllRows<any>((from, to) => supabase.from('hub_airline_route_rates').select('airline, route_name, rate_per_kg').in('hub_id', hubIds).order('airline').order('route_name').range(from, to)) : Promise.resolve([]),
+        hubIds.length > 0 ? fetchAllRows<any>((from, to) => supabase.from('hub_route_rates').select('route_name, rate_per_kg').in('hub_id', hubIds).order('route_name').range(from, to)) : Promise.resolve([]),
       ]);
 
       if (!active) return;
@@ -433,7 +446,12 @@ export const TransactionLedger = ({
       // Paginated -- a plain .select() silently truncates past PostgREST's
       // ~1000-row cap, which would show a raw UUID instead of the agent's
       // name on some All Time entries once staff headcount crossed that.
-      const profiles = await fetchAllRows<any>((from, to) => supabase.from('user_profiles').select('id,name').range(from, to));
+      // Isolated in its own try/catch: fetchAllRows throws on error (unlike
+      // the old `const {data} = await supabase...`, which just resolved
+      // null) -- this is decoration (a name lookup), not core data, so a
+      // failure here must degrade to raw IDs, not abort the entire All Time
+      // transaction load below.
+      const profiles = await fetchAllRows<any>((from, to) => supabase.from('user_profiles').select('id,name').order('id').range(from, to)).catch(() => []);
       const profileLookup: Record<string, string> = {};
       profiles.forEach((p: any) => { if (p.id) profileLookup[p.id] = p.name || ''; });
 
@@ -840,6 +858,7 @@ export const TransactionLedger = ({
       const tx = { ...e.raw } as Transaction;
       setEditingTx(tx);
       setEditOriginalMode(tx.mode);
+      setEditOriginalWalletDeduction(tx.wallet_deduction_amount || 0);
       setEditWallet(null);
       setEditWalletRemainderMode('Cash');
       setEditWalletRemainderBank('');
@@ -888,32 +907,41 @@ export const TransactionLedger = ({
         return;
       }
       // Amount can never be edited below what's already been recorded as
-      // paid (a partial debt payment) OR retrieved (goods already released
-      // against this balance) -- doing so would drive the true remaining
-      // balance negative, silently corrupting DebtorsTab's/CreditDebit's
-      // balance math and every clear_*_debt RPC's own remaining-balance
-      // check (all of which subtract both amountPaid AND retrieved_amount,
-      // not amountPaid alone -- see clear_cargo_debt's formula). This
-      // previously only checked amountPaid, so a Debt-mode entry that had
-      // already been partially retrieved could still have its amount
-      // edited down below (amountPaid + retrieved_amount), silently
-      // clamped to a 0 balance server-side with the real gap unrecoverable
-      // through the normal clear-debt flow.
-      const alreadyAccountedFor = (editingTx.amountPaid || 0) + ((editingTx.raw as any)?.retrieved_amount || 0);
+      // paid (a partial debt payment), retrieved (goods already released
+      // against this balance), OR wallet-deducted (money already taken from
+      // a customer's wallet against this entry, whether from intake or an
+      // earlier wallet-split edit) -- doing so would drive the true
+      // remaining balance negative, silently corrupting DebtorsTab's/
+      // CreditDebit's balance math and every clear_*_debt RPC's own
+      // remaining-balance check (all of which subtract both amountPaid AND
+      // retrieved_amount, not amountPaid alone -- see clear_cargo_debt's
+      // formula). This previously only checked amountPaid, so a Debt-mode
+      // entry that had already been partially retrieved (or wallet-split)
+      // could still have its amount edited down below what was actually
+      // collected, silently clamped to a 0 balance server-side with the
+      // real gap unrecoverable through the normal clear-debt flow.
+      const alreadyAccountedFor = (editingTx.amountPaid || 0) + ((editingTx.raw as any)?.retrieved_amount || 0) + editOriginalWalletDeduction;
       if (alreadyAccountedFor > 0 && amount < alreadyAccountedFor) {
-        showToast({ message: `Amount cannot be reduced below the ₦${fmt(alreadyAccountedFor)} already recorded as paid or retrieved on this entry.`, type: 'warning' });
+        showToast({ message: `Amount cannot be reduced below the ₦${fmt(alreadyAccountedFor)} already recorded as paid, retrieved, or wallet-deducted on this entry.`, type: 'warning' });
         return;
       }
 
-
-
       // Switching an entry's mode TO 'Wallet' (from anything else) deducts
       // the amount from the selected customer's wallet, same as picking
-      // Wallet at intake (CargoForm's chargeWalletForSale). Re-saving an
-      // entry that was already 'Wallet' does NOT charge again -- only an
-      // actual change of mode triggers it, guarded by editOriginalMode
-      // captured when the modal opened.
-      const switchingToWallet = editingTx.mode === 'Wallet' && editOriginalMode !== 'Wallet';
+      // Wallet at intake (CargoForm's chargeWalletForSale). Guarded by
+      // editOriginalWalletDeduction (captured when the modal opened), NOT
+      // just editOriginalMode -- a split entry (wallet covered part of the
+      // amount, the remainder booked under Cash/Transfer/POS) already has a
+      // real wallet_deduction_amount while its `mode` is NOT 'Wallet', so a
+      // mode-only check would treat re-selecting "Wallet" on that entry as
+      // a fresh charge and deduct the customer's wallet a second time for
+      // money it already paid.
+      const alreadyWalletCharged = editOriginalWalletDeduction > 0;
+      if (editingTx.mode === 'Wallet' && editOriginalMode !== 'Wallet' && alreadyWalletCharged) {
+        showToast({ message: 'This entry already has a wallet contribution recorded from an earlier save -- re-charging the wallet from this screen isn\'t supported. Pick the entry\'s actual remainder payment mode instead, or contact an admin to correct it.', type: 'error' });
+        return;
+      }
+      const switchingToWallet = editingTx.mode === 'Wallet' && editOriginalMode !== 'Wallet' && !alreadyWalletCharged;
       let walletId = editingTx.wallet_id;
       let walletDeduction = editingTx.wallet_deduction_amount;
       // If the wallet can't cover the full amount, the remainder is
@@ -977,6 +1005,7 @@ export const TransactionLedger = ({
       setEditingTx(null);
       setEditWallet(null);
       setEditOriginalMode(null);
+      setEditOriginalWalletDeduction(0);
       setEditWalletRemainderMode('Cash');
       setEditWalletRemainderBank('');
     } finally {
