@@ -260,8 +260,8 @@ export const TransactionLedger = ({
       // silently falling back to the wrong (or no) rate.
       const [stdResult, airResult, hubResult] = await Promise.allSettled([
         fetchAllRows<any>((from, to) => supabase.from('standard_cargo_rates').select('route_name, rate_per_kg').order('route_name').range(from, to)),
-        hubIds.length > 0 ? fetchAllRows<any>((from, to) => supabase.from('hub_airline_route_rates').select('airline, route_name, rate_per_kg').in('hub_id', hubIds).order('airline').order('route_name').range(from, to)) : Promise.resolve([]),
-        hubIds.length > 0 ? fetchAllRows<any>((from, to) => supabase.from('hub_route_rates').select('route_name, rate_per_kg').in('hub_id', hubIds).order('route_name').range(from, to)) : Promise.resolve([]),
+        hubIds.length > 0 ? fetchAllRows<any>((from, to) => supabase.from('hub_airline_route_rates').select('airline, route_name, rate_per_kg').in('hub_id', hubIds).order('airline').order('route_name').order('id').range(from, to)) : Promise.resolve([]),
+        hubIds.length > 0 ? fetchAllRows<any>((from, to) => supabase.from('hub_route_rates').select('route_name, rate_per_kg').in('hub_id', hubIds).order('route_name').order('id').range(from, to)) : Promise.resolve([]),
       ]);
 
       if (!active) return;
