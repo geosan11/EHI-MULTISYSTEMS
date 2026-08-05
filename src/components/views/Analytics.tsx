@@ -178,11 +178,29 @@ export const Analytics = ({
     });
   }, []);
 
-  // Filtered transactions by Hub
+  // Selecting a hub shows every hub sharing its STATE, not just that exact
+  // hub_id -- Lagos Air Cargo Station and EHI Head Office Lagos are two
+  // separate hub rows sharing state='Lagos' (see sibling_hub_ids(),
+  // 20260817_state_visibility.sql onward, which already grants RLS
+  // visibility across them for the exact same reason). `transactions`
+  // already contains both hubs' rows once RLS allows it; without this, this
+  // screen's OWN exact-hub_id filter silently re-split them back apart,
+  // making a "Lagos" view of Analytics only ever show whichever single
+  // station happened to be selected -- exactly the gap that let office-work
+  // revenue at one Lagos station go unnoticed while checking the other.
+  const hubIdToState = useMemo(() => {
+    const m = new Map<string, string>();
+    activeHubs.forEach(h => { if (h.id !== 'all') m.set(h.id, h.state); });
+    return m;
+  }, [activeHubs]);
+
+  // Filtered transactions by Hub (state-grouped)
   const hubFilteredTxs = useMemo(() => {
     if (selectedHub === 'all') return transactions;
-    return transactions.filter(t => t.hub_id === selectedHub);
-  }, [transactions, selectedHub]);
+    const selectedState = hubIdToState.get(selectedHub);
+    if (!selectedState) return transactions.filter(t => t.hub_id === selectedHub);
+    return transactions.filter(t => t.hub_id === selectedHub || (t.hub_id && hubIdToState.get(t.hub_id) === selectedState));
+  }, [transactions, selectedHub, hubIdToState]);
 
   // Same period-window test periodFilteredTxs applies to each transaction's
   // created_at -- extracted so debt-collection events (dated by their own
@@ -250,8 +268,13 @@ export const Analytics = ({
   // reduce logic without a parallel set of formulas.
   const periodCollectionPseudoTxs = useMemo((): Transaction[] => {
     const exclusionCounts = buildShadowRowExclusionCounts(debtBearingEntries);
+    const selectedState = selectedHub === 'all' ? null : hubIdToState.get(selectedHub);
     return extractPaymentHistoryEvents(debtBearingEntries, exclusionCounts)
-      .filter(e => (selectedHub === 'all' || e.sourceHubId === selectedHub) && periodMatches(new Date(e.at)))
+      .filter(e => (
+        selectedHub === 'all'
+        || e.sourceHubId === selectedHub
+        || (selectedState != null && e.sourceHubId != null && hubIdToState.get(e.sourceHubId) === selectedState)
+      ) && periodMatches(new Date(e.at)))
       .map(e => ({
         id: `PH-${e.sourceTxId}-${e.at}`,
         name: e.sourceTxName, detail: e.sourceDetail,
@@ -260,7 +283,7 @@ export const Analytics = ({
         hub_id: e.sourceHubId, hub: e.sourceHub,
         is_debt_clearance: true,
       } as Transaction));
-  }, [debtBearingEntries, selectedHub, periodMatches]);
+  }, [debtBearingEntries, selectedHub, periodMatches, hubIdToState]);
 
   // Liquid Transactions (The actual real money we can count as Revenue).
   // Hoisted to its own memo (used to be computed inline inside `metrics`
@@ -741,9 +764,18 @@ export const Analytics = ({
               onChange={(e) => setSelectedHub(e.target.value)}
               className="bg-[var(--color-surface-1)] text-[var(--color-foreground)] text-[11px] font-mono h-8 pl-3 pr-7 rounded-lg border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent-amber)] appearance-none cursor-pointer"
             >
-              {activeHubs.map(hub => (
-                <option key={hub.id} value={hub.id}>{hub.name}</option>
-              ))}
+              {activeHubs.map(hub => {
+                // Selecting this hub also pulls in every sibling sharing its
+                // state (see hubFilteredTxs above) -- label it so it's clear
+                // why e.g. "Lagos Air Cargo Station" shows combined figures,
+                // not just that one station's own.
+                const siblingCount = hub.id === 'all' ? 0 : activeHubs.filter(h => h.id !== 'all' && h.id !== hub.id && h.state === hub.state).length;
+                return (
+                  <option key={hub.id} value={hub.id}>
+                    {hub.name}{siblingCount > 0 ? ` (+${siblingCount} ${hub.state} station${siblingCount > 1 ? 's' : ''})` : ''}
+                  </option>
+                );
+              })}
             </select>
             <ChevronDown className="absolute right-2 top-2.5 text-[var(--color-muted)] pointer-events-none" size={12} />
           </div>

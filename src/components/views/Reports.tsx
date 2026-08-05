@@ -42,16 +42,19 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
   const [customTo,   setCustomTo]   = useState('');
   const [generating, setGenerating] = useState(false);
   const [hubNames, setHubNames] = useState<Record<string, string>>({});
+  const [hubStates, setHubStates] = useState<Record<string, string>>({});
   const [fetchedTx, setFetchedTx] = useState<Transaction[]>([]);
   const [isLoadingTx, setIsLoadingTx] = useState(false);
   const [corpClientsMap, setCorpClientsMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    supabase.from('hubs').select('id, name, code').then(({ data }) => {
+    supabase.from('hubs').select('id, name, code, state').then(({ data }) => {
       if (data) {
         const map: Record<string, string> = {};
-        data.forEach((h: any) => { map[h.id] = `${h.code}/${h.name}`; });
+        const stateMap: Record<string, string> = {};
+        data.forEach((h: any) => { map[h.id] = `${h.code}/${h.name}`; if (h.state) stateMap[h.id] = h.state; });
         setHubNames(map);
+        setHubStates(stateMap);
       }
     });
     supabase.from('corporate_clients').select('id, company_name').then(({ data }) => {
@@ -440,9 +443,29 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
     return Object.entries(byHub).map(([id, d]) => ({
       hub_id: id,
       hub_name: hubNames[id] || id,
+      state: hubStates[id] || null,
       ...d
     })).sort((a, b) => b.revenue - a.revenue);
-  }, [nonClearanceTx, hubNames]);
+  }, [nonClearanceTx, hubNames, hubStates]);
+
+  // Sibling hubs (same `state`, e.g. Lagos Air Cargo Station + EHI Head
+  // Office Lagos) show individually above, but management specifically
+  // asked not to lose combined-state revenue by only checking one station --
+  // so surface a subtotal per state that has more than one hub reporting.
+  const hubStateSubtotals = useMemo(() => {
+    const byState: Record<string, { revenue: number; entries: number; hubCount: number }> = {};
+    hubReport.forEach(h => {
+      if (!h.state) return;
+      if (!byState[h.state]) byState[h.state] = { revenue: 0, entries: 0, hubCount: 0 };
+      byState[h.state].revenue += h.revenue;
+      byState[h.state].entries += h.entries;
+      byState[h.state].hubCount += 1;
+    });
+    return Object.entries(byState)
+      .filter(([, d]) => d.hubCount > 1)
+      .map(([state, d]) => ({ state, ...d }))
+      .sort((a, b) => b.revenue - a.revenue);
+  }, [hubReport]);
 
   const airlineReport = useMemo(() => {
     const map: Record<string, { cargoSales: number; cargoKg: number; baggageSales: number; baggageKg: number; totalSales: number; totalKg: number; count: number }> = {};
@@ -585,8 +608,14 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
         ['EHI MULTISYSTEMS - HUB COMPARISON'],
         ['Period:', dateRange.from.toLocaleDateString(), 'to', dateRange.to.toLocaleDateString()],
         [],
-        ['Hub Code/Name', 'Entries', 'Total Revenue (NGN)'],
-        ...hubReport.map(h => [h.hub_name, h.entries, h.revenue])
+        ['Hub Code/Name', 'State', 'Entries', 'Total Revenue (NGN)'],
+        ...hubReport.map(h => [h.hub_name, h.state || '', h.entries, h.revenue]),
+        ...(hubStateSubtotals.length > 0 ? [
+          [],
+          ['STATE SUB-TOTALS (combined across sibling hubs)'],
+          ['State', 'Hubs', 'Entries', 'Total Revenue (NGN)'],
+          ...hubStateSubtotals.map(s => [s.state, s.hubCount, s.entries, s.revenue])
+        ] : [])
       ];
     } else if (selectedReport === 'b2b_sales') {
       wsData = [
@@ -625,6 +654,7 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
       debtors:       selectedReport === 'debtors'   ? debtorReport   : null,
       staff:         selectedReport === 'staff'     ? staffReport    : null,
       hubs:          selectedReport === 'hubs'      ? hubReport      : null,
+      hubStateSubtotals: selectedReport === 'hubs'  ? hubStateSubtotals : null,
     });
     setGenerating(false);
   };
@@ -760,21 +790,45 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
                 {selectedReport === 'sales_baggage'   && <DepartmentSalesAnalysisView data={baggageSalesAnalysis} deptLabel="Baggage" routeLabel="Destination" />}
                 {selectedReport === 'sales_package'   && <DepartmentSalesAnalysisView data={packageSalesAnalysis} deptLabel="Package" routeLabel="Destination" />}
                 {selectedReport === 'hubs'      && (
-                  <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded overflow-hidden">
-                    <table className="w-full text-left text-sm">
-                      <thead className="bg-[var(--color-surface-2)] font-mono text-[10px] text-[var(--color-muted)]">
-                        <tr><th className="p-3">Hub Code/Name</th><th className="p-3 text-right">Entries</th><th className="p-3 text-right">Revenue</th></tr>
-                      </thead>
-                      <tbody>
-                        {hubReport.map((h, i) => (
-                          <tr key={i} className="border-t border-[var(--color-border)]">
-                            <td className="p-3">{h.hub_name}</td>
-                            <td className="p-3 text-right font-mono text-[var(--color-muted)]">{h.entries}</td>
-                            <td className="p-3 text-right font-mono font-bold text-[var(--color-accent-cobalt)]">₦{h.revenue.toLocaleString()}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="space-y-4">
+                    <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded overflow-hidden">
+                      <table className="w-full text-left text-sm">
+                        <thead className="bg-[var(--color-surface-2)] font-mono text-[10px] text-[var(--color-muted)]">
+                          <tr><th className="p-3">Hub Code/Name</th><th className="p-3 text-right">Entries</th><th className="p-3 text-right">Revenue</th></tr>
+                        </thead>
+                        <tbody>
+                          {hubReport.map((h, i) => (
+                            <tr key={i} className="border-t border-[var(--color-border)]">
+                              <td className="p-3">{h.hub_name}{h.state ? <span className="text-[var(--color-muted)] text-xs"> ({h.state})</span> : ''}</td>
+                              <td className="p-3 text-right font-mono text-[var(--color-muted)]">{h.entries}</td>
+                              <td className="p-3 text-right font-mono font-bold text-[var(--color-accent-cobalt)]">₦{h.revenue.toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {hubStateSubtotals.length > 0 && (
+                      <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded overflow-hidden">
+                        <div className="p-3 border-b border-[var(--color-border)] font-mono text-[10px] text-[var(--color-muted)]">
+                          STATE SUB-TOTALS (combined across sibling hubs sharing a state, e.g. Lagos)
+                        </div>
+                        <table className="w-full text-left text-sm">
+                          <thead className="bg-[var(--color-surface-2)] font-mono text-[10px] text-[var(--color-muted)]">
+                            <tr><th className="p-3">State</th><th className="p-3 text-right">Hubs</th><th className="p-3 text-right">Entries</th><th className="p-3 text-right">Revenue</th></tr>
+                          </thead>
+                          <tbody>
+                            {hubStateSubtotals.map((s, i) => (
+                              <tr key={i} className="border-t border-[var(--color-border)]">
+                                <td className="p-3">{s.state}</td>
+                                <td className="p-3 text-right font-mono text-[var(--color-muted)]">{s.hubCount}</td>
+                                <td className="p-3 text-right font-mono text-[var(--color-muted)]">{s.entries}</td>
+                                <td className="p-3 text-right font-mono font-bold text-[var(--color-accent-amber)]">₦{s.revenue.toLocaleString()}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 )}
                 {selectedReport === 'b2b_sales' && (

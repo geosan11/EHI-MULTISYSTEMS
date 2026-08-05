@@ -293,6 +293,14 @@ export const Settings = ({
   const [newHubType, setNewHubType] = useState<HubType>('Cargo Station');
   const [addingHub, setAddingHub] = useState(false);
 
+  // sibling_hub_ids() groups hubs by an exact `state` string match (not
+  // case/whitespace-safe) -- so "lagos" vs "Lagos" vs "Lagos " would silently
+  // fall outside the grouping used for cross-hub visibility and reporting
+  // (see 20260930_normalize_lagos_hub_state.sql). Normalize casing/spacing
+  // here so a newly added hub can't reintroduce that drift.
+  const normalizeStateName = (s: string) =>
+    s.trim().replace(/\s+/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+
   const handleAddHub = async () => {
     const name = newHubName.trim();
     const code = newHubCode.trim().toUpperCase();
@@ -309,7 +317,7 @@ export const Settings = ({
     }
     setAddingHub(true);
     const { data, error } = await supabase.from('hubs')
-      .insert({ name, code, state: newHubState.trim() || null, type: newHubType, active: true })
+      .insert({ name, code, state: newHubState.trim() ? normalizeStateName(newHubState) : null, type: newHubType, active: true })
       .select('id, name, code, type, active')
       .single();
     setAddingHub(false);

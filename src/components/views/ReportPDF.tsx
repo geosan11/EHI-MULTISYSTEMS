@@ -40,6 +40,7 @@ export interface ReportDataPayload {
   debtors: any;
   staff: any;
   hubs: any;
+  hubStateSubtotals: any;
 }
 
 const fmt = (num: number) => `NGN ${(num || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -182,20 +183,43 @@ const StaffTable = ({ data }: { data: any[] }) => (
   </View>
 );
 
-const HubsTable = ({ data }: { data: any[] }) => (
-  <View style={styles.table}>
-    <View style={styles.tableRow}>
-      <View style={styles.tableColHeader}><Text style={styles.tableCellHeader}>Hub</Text></View>
-      <View style={styles.tableColHeader}><Text style={[styles.tableCellHeader, styles.textCenter]}>Entries</Text></View>
-      <View style={styles.tableColHeader}><Text style={[styles.tableCellHeader, styles.textRight]}>Revenue</Text></View>
-    </View>
-    {data.map((h, i) => (
-      <View style={styles.tableRow} key={i}>
-        <View style={styles.tableCol}><Text style={styles.tableCell}>{h.hub}</Text></View>
-        <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textCenter]}>{h.entries}</Text></View>
-        <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textRight, styles.fontBold]}>₦{fmt(h.revenue)}</Text></View>
+const HubsTable = ({ data, stateSubtotals }: { data: any[]; stateSubtotals?: any[] }) => (
+  <View>
+    <View style={styles.table}>
+      <View style={styles.tableRow}>
+        <View style={styles.tableColHeader}><Text style={styles.tableCellHeader}>Hub</Text></View>
+        <View style={styles.tableColHeader}><Text style={[styles.tableCellHeader, styles.textCenter]}>Entries</Text></View>
+        <View style={styles.tableColHeader}><Text style={[styles.tableCellHeader, styles.textRight]}>Revenue</Text></View>
       </View>
-    ))}
+      {data.map((h, i) => (
+        <View style={styles.tableRow} key={i}>
+          <View style={styles.tableCol}><Text style={styles.tableCell}>{h.hub_name}{h.state ? ` (${h.state})` : ''}</Text></View>
+          <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textCenter]}>{h.entries}</Text></View>
+          <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textRight, styles.fontBold]}>₦{fmt(h.revenue)}</Text></View>
+        </View>
+      ))}
+    </View>
+    {stateSubtotals && stateSubtotals.length > 0 && (
+      <View>
+        <Text style={styles.sectionTitle}>STATE SUB-TOTALS (combined across sibling hubs)</Text>
+        <View style={styles.table}>
+          <View style={styles.tableRow}>
+            <View style={styles.tableColHeader}><Text style={styles.tableCellHeader}>State</Text></View>
+            <View style={styles.tableColHeader}><Text style={[styles.tableCellHeader, styles.textCenter]}>Hubs</Text></View>
+            <View style={styles.tableColHeader}><Text style={[styles.tableCellHeader, styles.textCenter]}>Entries</Text></View>
+            <View style={styles.tableColHeader}><Text style={[styles.tableCellHeader, styles.textRight]}>Revenue</Text></View>
+          </View>
+          {stateSubtotals.map((s, i) => (
+            <View style={styles.tableRow} key={i}>
+              <View style={styles.tableCol}><Text style={styles.tableCell}>{s.state}</Text></View>
+              <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textCenter]}>{s.hubCount}</Text></View>
+              <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textCenter]}>{s.entries}</Text></View>
+              <View style={styles.tableCol}><Text style={[styles.tableCell, styles.textRight, styles.fontBold]}>₦{fmt(s.revenue)}</Text></View>
+            </View>
+          ))}
+        </View>
+      </View>
+    )}
   </View>
 );
 
@@ -225,7 +249,7 @@ const PDFDocument = ({ payload }: { payload: ReportDataPayload }) => {
           {reportType === 'customers' && <CustomersTable data={payload.customers} />}
           {reportType === 'debtors' && <DebtorsTable data={payload.debtors} />}
           {reportType === 'staff' && <StaffTable data={payload.staff} />}
-          {reportType === 'hubs' && <HubsTable data={payload.hubs} />}
+          {reportType === 'hubs' && <HubsTable data={payload.hubs} stateSubtotals={payload.hubStateSubtotals} />}
         </View>
 
         <Text style={styles.footer}>
