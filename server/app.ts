@@ -395,6 +395,15 @@ export function createApp() {
       return res.status(403).json({ error: 'Only a super_admin can edit remarks editing permission.' });
     }
 
+    // can_edit_ledger grants the ability to modify live financial
+    // transaction entries -- same sensitivity as can_edit_remarks above,
+    // same protection. (can_print_ledger, the sibling reprint-only
+    // permission this was split out of, is deliberately left without this
+    // extra gate, matching its existing behavior.)
+    if ('can_edit_ledger' in updates && adminCtx.callerRole !== 'super_admin') {
+      return res.status(403).json({ error: 'Only a super_admin can edit ledger editing permission.' });
+    }
+
     // Granting approval authority over retrieved transactions is an
     // accountability-sensitive permission -- same reasoning as
     // can_edit_remarks/view_overrides above, not just a hub admin's call.

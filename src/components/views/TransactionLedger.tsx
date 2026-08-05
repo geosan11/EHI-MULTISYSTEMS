@@ -1939,15 +1939,19 @@ export const TransactionLedger = ({
     setViewingDetail({ ...viewingDetail, raw: updated });
   };
 
-  // Edit allowed only when not view-only AND user has can_print_ledger or is super_admin
+  // Edit allowed only when not view-only AND user has can_edit_ledger or is super_admin.
+  // Split from can_print_ledger (which now gates reprint/print only, see
+  // TransactionLedger's Printing & Documents section below) -- previously
+  // one flag controlled both, so a super_admin couldn't grant one without
+  // the other. See 20260933_edit_ledger_permission.sql.
   const canEdit = !viewOnly &&
     ['accountant', 'admin', 'super_admin'].includes(user.role) &&
-    (user.role === 'super_admin' || user.can_print_ledger === true);
+    (user.role === 'super_admin' || user.can_edit_ledger === true);
 
   const isAccountantOrAdmin = canEdit;
   const canEditRemarks = user.role === 'super_admin' || user.can_edit_remarks === true;
   // Separate from canEdit -- PIN visibility is admin/super_admin/
-  // accountant regardless of the can_print_ledger flag, which is a
+  // accountant regardless of the can_edit_ledger flag, which is a
   // different, edit-specific permission.
   const canSeePin = ['admin', 'super_admin', 'accountant'].includes(user.role);
 

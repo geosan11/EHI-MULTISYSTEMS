@@ -14,6 +14,7 @@ export interface UserProfile {
   hub_id?: string;
   active: boolean;
   can_print_ledger?: boolean;
+  can_edit_ledger?: boolean;
   can_edit_remarks?: boolean;
   can_approve_retrievals?: boolean;
   assigned_airline?: string;
@@ -72,6 +73,7 @@ export async function signIn(email: string, password: string): Promise<UserProfi
       active,
       hub_id,
       can_print_ledger,
+      can_edit_ledger,
       can_edit_remarks,
       can_approve_retrievals,
       assigned_airline,
@@ -106,6 +108,7 @@ export async function signIn(email: string, password: string): Promise<UserProfi
       hub_id: profile.hub_id,
       active: profile.active,
       can_print_ledger: profile.can_print_ledger ?? false,
+      can_edit_ledger: profile.can_edit_ledger ?? false,
       can_edit_remarks: profile.can_edit_remarks ?? false,
       can_approve_retrievals: profile.can_approve_retrievals ?? false,
       assigned_airline: profile.assigned_airline ?? undefined,
@@ -249,7 +252,7 @@ export async function createStaffAccountsBulk(rows: BulkStaffRow[]): Promise<{ r
 export async function fetchStaffList(hubId?: string): Promise<any[]> {
   let q = supabase
     .from('user_profiles')
-    .select('id, email, name, role, hub_type, active, hub_id, can_print_ledger, hubs(name, code)')
+    .select('id, email, name, role, hub_type, active, hub_id, can_print_ledger, can_edit_ledger, hubs(name, code)')
     .order('name');
 
   if (hubId) q = q.eq('hub_id', hubId) as any;
@@ -262,7 +265,7 @@ export async function fetchStaffList(hubId?: string): Promise<any[]> {
 // Update a staff profile (role, hub, active status)
 export async function updateStaffProfile(
   userId: string,
-  updates: { role?: string; hub_id?: string; hub_type?: string; active?: boolean; name?: string; phone?: string; can_print_ledger?: boolean; can_edit_remarks?: boolean; can_approve_retrievals?: boolean; assigned_airline?: string | null; view_overrides?: string[] | null }
+  updates: { role?: string; hub_id?: string; hub_type?: string; active?: boolean; name?: string; phone?: string; can_print_ledger?: boolean; can_edit_ledger?: boolean; can_edit_remarks?: boolean; can_approve_retrievals?: boolean; assigned_airline?: string | null; view_overrides?: string[] | null }
 ): Promise<void> {
   const { data: sess } = await supabase.auth.getSession();
   const token = sess.session?.access_token || '';
@@ -309,6 +312,7 @@ async function getSessionInner(): Promise<UserProfile | null> {
       active,
       hub_id,
       can_print_ledger,
+      can_edit_ledger,
       can_edit_remarks,
       can_approve_retrievals,
       assigned_airline,
@@ -363,6 +367,7 @@ async function getSessionInner(): Promise<UserProfile | null> {
     hub_id: profile.hub_id,
     active: profile.active,
     can_print_ledger: profile.can_print_ledger ?? false,
+    can_edit_ledger: profile.can_edit_ledger ?? false,
     can_edit_remarks: profile.can_edit_remarks ?? false,
     can_approve_retrievals: profile.can_approve_retrievals ?? false,
     assigned_airline: profile.assigned_airline ?? undefined,

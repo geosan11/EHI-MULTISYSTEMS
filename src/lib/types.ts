@@ -43,7 +43,8 @@ export interface User {
   hub_code?: string;
   hub_id?: string;
   active?: boolean;
-  can_print_ledger?: boolean;   // Super admin grants this per user
+  can_print_ledger?: boolean;   // Super admin grants this per user -- reprint/print only, see can_edit_ledger for editing
+  can_edit_ledger?: boolean;    // Super admin grants this per user to edit transaction entries in the ledger
   can_edit_remarks?: boolean;   // Super admin grants this per user to edit cargo remarks
   can_approve_retrievals?: boolean;   // Super admin grants this per user to approve retrieval events in the ledger
   // Which excess_baggage_airlines.name this user tickets for -- only

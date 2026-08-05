@@ -22,6 +22,7 @@ interface StaffMember {
   active: boolean;
   phone?: string;
   can_print_ledger?: boolean;
+  can_edit_ledger?: boolean;
   can_edit_remarks?: boolean;
   can_approve_retrievals?: boolean;
   assigned_airline?: string | null;
@@ -92,7 +93,7 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
       if (hubData) setHubs(hubData as Hub[]);
 
       let q = supabase.from('user_profiles')
-        .select('id, email, name, role, hub_id, hub_type, active, phone, can_print_ledger, can_edit_remarks, can_approve_retrievals, assigned_airline, view_overrides, hubs(name, code)')
+        .select('id, email, name, role, hub_id, hub_type, active, phone, can_print_ledger, can_edit_ledger, can_edit_remarks, can_approve_retrievals, assigned_airline, view_overrides, hubs(name, code)')
         .order('name');
 
       if (!isSuperAdmin && user.hub_id) {
@@ -107,6 +108,7 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
           ...s,
           hub: Array.isArray(s.hubs) ? s.hubs[0] : s.hubs,
           can_print_ledger: s.can_print_ledger ?? false,
+          can_edit_ledger: s.can_edit_ledger ?? false,
           can_edit_remarks: s.can_edit_remarks ?? false,
           can_approve_retrievals: s.can_approve_retrievals ?? false,
         })));
@@ -351,6 +353,12 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
                       Ledger Print
                     </span>
                   )}
+                  {member.can_edit_ledger && (
+                    <span className="text-[8px] font-bold uppercase px-2 py-0.5 rounded font-mono text-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.1)] border border-[rgba(245,158,11,0.2)]">
+                      <Edit2 size={8} className="inline mr-1 mb-[1px]" />
+                      Ledger Edit
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 text-[10px] text-[var(--color-muted)] mb-1">
                   <Mail size={9} /><span>{member.email}</span>
@@ -560,7 +568,12 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
                   </select>
                 </div>
               )}
-              {/* Ledger Edit Permission — super_admin only */}
+              {/* Ledger Print/Reprint Permission — super_admin only. Split
+                  from Ledger Edit Permission below: these used to be one
+                  combined can_print_ledger toggle (it gated both printing
+                  AND, for accountant/admin, editing) -- a super_admin
+                  wanting to grant one without the other had no way to.
+                  See 20260933_edit_ledger_permission.sql. */}
               {isSuperAdmin && (
                 <>
                 <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-3">
@@ -568,17 +581,17 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
                     <div>
                       <div className="flex items-center gap-1.5 mb-0.5">
                         <Shield size={12} className="text-[var(--color-accent-amber)]" />
-                        <span className="text-[12px] font-bold text-[var(--color-foreground)]">Ledger Edit Permission</span>
+                        <span className="text-[12px] font-bold text-[var(--color-foreground)]">Ledger Print/Reprint Permission</span>
                       </div>
                       <p className="text-[10px] text-[var(--color-muted)] leading-snug">
-                        Allows this staff member to edit transaction entries in the ledger. Changes affect live financial data.
+                        Allows this staff member to print/reprint receipts, tags, and other documents from the ledger.
                       </p>
                     </div>
                     <button
                       onClick={() => setEditingStaff(s => s ? {...s, can_print_ledger: !s.can_print_ledger} : null)}
                       role="switch"
                       aria-checked={editingStaff.can_print_ledger}
-                      aria-label="Ledger edit permission"
+                      aria-label="Ledger print/reprint permission"
                       className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 transition-colors ml-3 ${
                         editingStaff.can_print_ledger
                           ? 'bg-[var(--color-accent-amber)] border-[var(--color-accent-amber)]'
@@ -593,6 +606,41 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
                   {editingStaff.can_print_ledger && (
                     <div className="mt-2 text-[9px] font-mono text-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.08)] px-2 py-1 rounded">
                       ⚠ This user can print receipts/tags from the ledger
+                    </div>
+                  )}
+                </div>
+
+                {/* Ledger Edit Permission — super_admin only */}
+                <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <Shield size={12} className="text-[var(--color-accent-amber)]" />
+                        <span className="text-[12px] font-bold text-[var(--color-foreground)]">Ledger Edit Permission</span>
+                      </div>
+                      <p className="text-[10px] text-[var(--color-muted)] leading-snug">
+                        Allows this staff member to edit transaction entries, bulk-confirm cash/POS/transfer payments, and use the ledger's row-selection tools. Changes affect live financial data.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setEditingStaff(s => s ? {...s, can_edit_ledger: !s.can_edit_ledger} : null)}
+                      role="switch"
+                      aria-checked={editingStaff.can_edit_ledger}
+                      aria-label="Ledger edit permission"
+                      className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 transition-colors ml-3 ${
+                        editingStaff.can_edit_ledger
+                          ? 'bg-[var(--color-accent-amber)] border-[var(--color-accent-amber)]'
+                          : 'bg-[var(--color-surface-2)] border-[var(--color-border)]'
+                      }`}
+                    >
+                      <span className={`pointer-events-none inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow transition-transform ${
+                        editingStaff.can_edit_ledger ? 'translate-x-5' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </div>
+                  {editingStaff.can_edit_ledger && (
+                    <div className="mt-2 text-[9px] font-mono text-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.08)] px-2 py-1 rounded">
+                      ⚠ This user can edit live transaction entries in the ledger
                     </div>
                   )}
                 </div>
@@ -737,10 +785,26 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
                     role: editingStaff.role,
                     hub_id: editingStaff.hub_id,
                     can_print_ledger: editingStaff.can_print_ledger,
-                    can_edit_remarks: editingStaff.can_edit_remarks,
-                    can_approve_retrievals: editingStaff.can_approve_retrievals,
                     assigned_airline: editingStaff.role === 'baggage_agent' ? (editingStaff.assigned_airline || null) : null,
-                    ...(isSuperAdmin ? { view_overrides: editingStaff.view_overrides ?? null } : {}),
+                    // can_edit_ledger/can_edit_remarks/can_approve_retrievals/
+                    // view_overrides are only ever shown/editable to a
+                    // super_admin (see the {isSuperAdmin && ...} toggle
+                    // blocks above) -- but server/app.ts's update-staff
+                    // endpoint gates these by KEY PRESENCE, not by whether
+                    // the value actually changed. Always including them
+                    // unconditionally (as this used to) meant every hub
+                    // admin's save of ANY staff field -- name, phone, role,
+                    // hub -- 403'd outright, since these keys were always
+                    // present in the payload even when unchanged. Spread
+                    // in only for super_admin, matching view_overrides'
+                    // already-correct pattern, so a hub admin's payload
+                    // simply omits them and the server leaves them as-is.
+                    ...(isSuperAdmin ? {
+                      can_edit_ledger: editingStaff.can_edit_ledger,
+                      can_edit_remarks: editingStaff.can_edit_remarks,
+                      can_approve_retrievals: editingStaff.can_approve_retrievals,
+                      view_overrides: editingStaff.view_overrides ?? null,
+                    } : {}),
                   })}
                   disabled={saving}
                   className="flex-1 h-11 bg-[var(--color-accent-cobalt)] text-white rounded-lg text-[12px] font-bold disabled:opacity-60"

@@ -899,11 +899,28 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
   // only refetches when THIS device has pending local writes to push, not
   // to pick up entries made elsewhere. fetchInitial is already guarded by
   // fetchEpochRef against an older call resolving after a newer one.
+  // Refs (not effect deps) for fetchInitial/currentTab -- fetchInitial's
+  // identity changes with globalDateRange, so depending on it directly
+  // would tear down and restart this interval on every filter click,
+  // indefinitely deferring the self-heal for anyone who filters more often
+  // than every 5 minutes (an accountant flipping between periods, say).
+  // Reading through refs lets the interval's own lifecycle stay stable
+  // while still always calling the current fetchInitial/tab at fire time.
+  const fetchInitialRef = useRef(fetchInitial);
+  fetchInitialRef.current = fetchInitial;
+  const currentTabRef = useRef(currentTab);
+  currentTabRef.current = currentTab;
   useEffect(() => {
     if (isOffline) return;
-    const refreshInterval = setInterval(() => { fetchInitial(); }, 5 * 60 * 1000);
+    const refreshInterval = setInterval(() => {
+      const tab = currentTabRef.current;
+      const isDataTab =
+        tab === 'Cargo' || tab === 'Marketing' || tab === 'Packages' || tab === 'GAT' ||
+        tab.startsWith('Baggage:') || ['Tower', 'Scan', 'More'].includes(tab);
+      if (isDataTab) fetchInitialRef.current();
+    }, 5 * 60 * 1000);
     return () => clearInterval(refreshInterval);
-  }, [isOffline, fetchInitial]);
+  }, [isOffline]);
 
   const prevTabRef = useRef(currentTab);
   useEffect(() => {
@@ -2155,7 +2172,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             onUpdateTx={handleUpdateTx}
             defaultTypeFilter={streamLedger.streams.length === 1 ? streamLedger.streams[0] : null}
             defaultTerminalFilter={streamLedger.terminal}
-            viewOnly={user.role !== 'super_admin' && !user.can_print_ledger}
+            viewOnly={user.role !== 'super_admin' && !user.can_edit_ledger}
             dateRange={globalDateRange}
             onDateRangeChange={setGlobalDateRange}
             activeShift={streamLedgerDepartment ? (activeShiftsByDept[streamLedgerDepartment] || null) : null}
