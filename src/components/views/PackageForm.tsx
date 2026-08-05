@@ -195,9 +195,13 @@ export const PackageForm = ({
   // contract rate is authoritative pricing the company already agreed to
   // (e.g. a bulk-volume discount), and can legitimately fall below the
   // standard minimum package fee. Matches CargoForm.tsx's identical
-  // exemption for size/flat-tier pricing.
+  // exemption for size/flat-tier pricing -- including keeping the
+  // parsedAmount > 0 floor even when exempted, since a route with no
+  // configured contract rate leaves amount fully manual and this
+  // auto-links with no button click, so a blank/zero/negative amount could
+  // otherwise submit silently.
   const isValidCore = (mode === "Debt" ? debtorName.trim().length > 0 : name.trim().length > 0)
-    && (linkedAsOfficeWork || parsedAmount >= MIN_PACKAGE_AMOUNT) && destination.trim().length > 0 && actualContents.trim().length > 0 && !!trackingRef && pcsNum > 0;
+    && (linkedAsOfficeWork ? parsedAmount > 0 : parsedAmount >= MIN_PACKAGE_AMOUNT) && destination.trim().length > 0 && actualContents.trim().length > 0 && !!trackingRef && pcsNum > 0;
 
   // "Today" here means the actual calendar day, not whatever the app-wide
   // date-range picker (globalDateRange, defaults to a trailing 7 days) is

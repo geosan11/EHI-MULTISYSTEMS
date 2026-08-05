@@ -151,8 +151,11 @@ export const ExcessBaggageForm = ({
   // linkedAsOfficeWork exempts the retail-computed minAmount floor -- a
   // negotiated contract rate is authoritative pricing the company already
   // agreed to, and can legitimately fall below standard retail (matches
-  // CargoForm.tsx's identical exemption for size/flat-tier pricing).
-  const isValid = name.trim().length > 0 && flight.trim().length > 0 && dest !== '' && excessKg > 0 && (amountOverride === "" || linkedAsOfficeWork || parsedOverride >= minAmount) && walletRemainderBankOk;
+  // CargoForm.tsx's identical exemption for size/flat-tier pricing) -- but
+  // still requires parsedOverride > 0, since a route with no configured
+  // contract rate leaves this field manual and this auto-links with no
+  // button click, so a typed zero/negative override could otherwise submit.
+  const isValid = name.trim().length > 0 && flight.trim().length > 0 && dest !== '' && excessKg > 0 && (amountOverride === "" || (linkedAsOfficeWork ? parsedOverride > 0 : parsedOverride >= minAmount)) && walletRemainderBankOk;
 
   const { showToast } = useToast();
 
