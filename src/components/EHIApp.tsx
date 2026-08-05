@@ -1346,6 +1346,17 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         // Was captured client-side but had no column to land in -- see
         // MarketingWorkspace.tsx's own comment on this same gap.
         customer_phone: tx.consigneePhone || null,
+        // Set by MarketingWorkspace.tsx's office-work auto-detection (mirrors
+        // CargoForm.tsx's own, which DID have somewhere to land) -- these had
+        // no column to write into on this table until
+        // 20260926_office_work_all_departments.sql, so a corporate client's
+        // marketing sale was computed at contract price but the link/rate
+        // were silently discarded, leaving the row permanently unattributed
+        // and stuck showing as "unlinked" in OfficeWorkReconciliation.tsx.
+        client_type: tx.clientType || null,
+        corporate_client_id: (tx as any).corporate_client_id || null,
+        applied_rate_per_kg: tx.applied_rate_per_kg ?? null,
+        linked_as_office_work: (tx as any).linked_as_office_work ?? false,
         // Set by DebtorsTab.tsx/TransactionLedger.tsx's debt-clearance
         // shadow entries but never actually written here -- see the cargo
         // branch's own comment below on the same gap. Was cargo_entries-only
@@ -1397,6 +1408,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         client_type: tx.clientType || null,
         corporate_client_id: (tx as any).corporate_client_id || null,
         applied_rate_per_kg: tx.applied_rate_per_kg ?? null,
+        linked_as_office_work: (tx as any).linked_as_office_work ?? false,
         // See the marketing branch's comment above -- same gap, same fix,
         // for the department this bug was actually noticed in.
         wallet_id: tx.wallet_id ?? null,
@@ -1439,6 +1451,11 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         bank: tx.bank,
         hub_id: hubId,
         // See the marketing branch's comment above -- same gap, same fix.
+        client_type: tx.clientType || null,
+        corporate_client_id: (tx as any).corporate_client_id || null,
+        applied_rate_per_kg: tx.applied_rate_per_kg ?? null,
+        linked_as_office_work: (tx as any).linked_as_office_work ?? false,
+        // See the marketing branch's comment above -- same gap, same fix.
         wallet_id: tx.wallet_id ?? null,
         wallet_deduction_amount: tx.wallet_deduction_amount ?? null,
         entered_by: user.id && user.id.includes('-') && user.id.length > 30 ? user.id : undefined,
@@ -1468,6 +1485,11 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         debt_paid_at: (tx as any).debtPaidAt || null,
         amount_paid: tx.amountPaid,
         payment_history: tx.paymentHistory,
+        // See the marketing branch's comment above -- same gap, same fix.
+        client_type: tx.clientType || null,
+        corporate_client_id: (tx as any).corporate_client_id || null,
+        applied_rate_per_kg: tx.applied_rate_per_kg ?? null,
+        linked_as_office_work: (tx as any).linked_as_office_work ?? false,
         // See the marketing branch's comment above -- same gap, same fix.
         wallet_id: tx.wallet_id ?? null,
         wallet_deduction_amount: tx.wallet_deduction_amount ?? null,

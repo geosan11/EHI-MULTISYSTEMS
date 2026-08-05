@@ -81,6 +81,15 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
       .from('wallet_transactions')
       .select('amount, payment_mode, hub_id')
       .eq('type', 'top_up')
+      // 'pending' still counts -- a front-line-requested top-up (see
+      // request_wallet_top_up, 20260925_top_up_and_retrieval_refund_
+      // approval.sql) means the agent already physically collected the
+      // cash/transfer/POS payment; only the WALLET credit itself is
+      // pending approval. 'rejected' must NOT count -- a rejection means
+      // the claimed collection was invalid, so counting it here would
+      // silently inflate expected cash for a top-up that never actually
+      // happened, producing a permanent phantom drawer shortfall.
+      .neq('status', 'rejected')
       .gte('created_at', start.toISOString())
       .lt('created_at', end.toISOString())
       .then(({ data }) => {

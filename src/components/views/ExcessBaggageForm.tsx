@@ -3,7 +3,7 @@ import { useEnterToNextField } from '../../lib/useEnterToNextField';
 import { PaymentMode, Transaction, User, ExcessBaggageAirline } from '../../lib/types';
 import { fmt, roundMoney, tnow, getHubCode, upperOnChange, generatePickupPin, formatPaymentModeDisplay } from '../../lib/helpers';
 import { chargeWalletForSale } from '../../lib/walletPayment';
-import { matchOfficeClient, useCorporateClients, useCorporateRouteRates } from '../../lib/officeWork';
+import { matchOfficeClient, useCorporateClients, useCorporateRouteRates, useOfficeWorkAutoPrice } from '../../lib/officeWork';
 import { matchWallet } from '../../lib/customerIdentity';
 import { WalletRemainderSelector } from '../WalletRemainderSelector';
 import { getNextTag } from '../../lib/tagPool';
@@ -137,12 +137,22 @@ export const ExcessBaggageForm = ({
     if (!linkedAsOfficeWork || !detectedOfficeClient) return null;
     return corpRates.find(r => r.corporate_client_id === detectedOfficeClient.id && r.route_name === dest) || null;
   }, [linkedAsOfficeWork, detectedOfficeClient, corpRates, dest]);
+  // Handles the EXACT-match case, which auto-links with no button click --
+  // see PackageForm.tsx's identical comment on why this is necessary.
+  // excessKg (not kgVal/total weight) since that's the billable weight --
+  // matches what the intake charges for and what officeWorkRate itself
+  // is meant to price.
+  useOfficeWorkAutoPrice(linkedAsOfficeWork, officeWorkRate, excessKg, dest, setAmountOverride);
 
   // A short wallet paying its remainder by Transfer/POS needs a bank before
   // the entry can be submitted -- mirrors the same guard in handleSubmit.
   const walletRemainderBankOk = mode !== 'Wallet' || !activeWallet || activeWallet.balance >= totalAmount ||
     !(walletRemainderMode === 'Transfer' || walletRemainderMode === 'POS') || walletRemainderBank.trim().length > 0;
-  const isValid = name.trim().length > 0 && flight.trim().length > 0 && dest !== '' && excessKg > 0 && (amountOverride === "" || parsedOverride >= minAmount) && walletRemainderBankOk;
+  // linkedAsOfficeWork exempts the retail-computed minAmount floor -- a
+  // negotiated contract rate is authoritative pricing the company already
+  // agreed to, and can legitimately fall below standard retail (matches
+  // CargoForm.tsx's identical exemption for size/flat-tier pricing).
+  const isValid = name.trim().length > 0 && flight.trim().length > 0 && dest !== '' && excessKg > 0 && (amountOverride === "" || linkedAsOfficeWork || parsedOverride >= minAmount) && walletRemainderBankOk;
 
   const { showToast } = useToast();
 

@@ -4,7 +4,7 @@ import { useEnterToNextField } from "../../lib/useEnterToNextField";
 import { User, Transaction, Expense } from "../../lib/types";
 import { fmt, uid, tnow, generatePaymentNarration, getHubCode, upperOnChange, isStandalonePWA, generatePickupPin, formatPaymentModeDisplay } from "../../lib/helpers";
 import { chargeWalletForSale } from "../../lib/walletPayment";
-import { matchOfficeClient, useCorporateClients, useCorporateRouteRates } from "../../lib/officeWork";
+import { matchOfficeClient, useCorporateClients, useCorporateRouteRates, useOfficeWorkAutoPrice } from "../../lib/officeWork";
 import { matchWallet } from "../../lib/customerIdentity";
 import { WalletRemainderSelector } from "../WalletRemainderSelector";
 import { useHubRoutes, useValidatedRouteSelection, useHubs } from "../../lib/hubRoutes";
@@ -153,6 +153,12 @@ export const PackageForm = ({
     if (!linkedAsOfficeWork || !detectedOfficeClient) return null;
     return corpRates.find(r => r.corporate_client_id === detectedOfficeClient.id && r.route_name === destination) || null;
   }, [linkedAsOfficeWork, detectedOfficeClient, corpRates, destination]);
+  // Handles the EXACT-match case, which auto-links with no button click --
+  // the banner's own "Yes, Link as Office Work" button (below) only ever
+  // fires for a fuzzy match, so without this an exact match would link
+  // and stamp applied_rate_per_kg without ever actually pricing the sale
+  // at the contract rate.
+  useOfficeWorkAutoPrice(linkedAsOfficeWork, officeWorkRate, parseFloat(kg) || 0, destination, setAmount);
 
   useEffect(() => {
     if ((mode === "Transfer" || mode === "POS") && !narrationCode) {
@@ -185,8 +191,13 @@ export const PackageForm = ({
   // contentTypes[0] made it always truthy, so this never actually bit;
   // now that it starts empty, it needs an explicit check like destination
   // already has.
+  // linkedAsOfficeWork exempts the MIN_PACKAGE_AMOUNT floor -- a negotiated
+  // contract rate is authoritative pricing the company already agreed to
+  // (e.g. a bulk-volume discount), and can legitimately fall below the
+  // standard minimum package fee. Matches CargoForm.tsx's identical
+  // exemption for size/flat-tier pricing.
   const isValidCore = (mode === "Debt" ? debtorName.trim().length > 0 : name.trim().length > 0)
-    && parsedAmount >= MIN_PACKAGE_AMOUNT && destination.trim().length > 0 && actualContents.trim().length > 0 && !!trackingRef && pcsNum > 0;
+    && (linkedAsOfficeWork || parsedAmount >= MIN_PACKAGE_AMOUNT) && destination.trim().length > 0 && actualContents.trim().length > 0 && !!trackingRef && pcsNum > 0;
 
   // "Today" here means the actual calendar day, not whatever the app-wide
   // date-range picker (globalDateRange, defaults to a trailing 7 days) is
@@ -247,7 +258,7 @@ export const PackageForm = ({
   const isValid = isValidCore && walletRemainderBankOk;
 
   const handleAddEntry = async () => {
-    if (parsedAmount < MIN_PACKAGE_AMOUNT) {
+    if (!linkedAsOfficeWork && parsedAmount < MIN_PACKAGE_AMOUNT) {
       showToast({ message: `Amount must be at least ₦${MIN_PACKAGE_AMOUNT.toLocaleString()}`, type: 'warning' });
       return;
     }
@@ -783,60 +794,65 @@ export const PackageForm = ({
                         className={`w-full h-11 pl-9 pr-3 text-sm rounded bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-foreground)] font-sans ${focusClasses}`}
                       />
                     </div>
+                  </>
+                )}
 
-                    {/* Office-work detection banner -- see CargoForm.tsx's
-                        equivalent for the reference implementation. */}
-                    {detectedOfficeClient && !linkedAsOfficeWork && (
-                      <div className="p-3 rounded-lg border border-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.08)] flex items-start gap-3">
-                        <AlertTriangle size={16} className="text-[var(--color-accent-amber)] shrink-0 mt-0.5" />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)]">
-                            Office Work Client Detected
-                          </div>
-                          <div className="text-[10px] font-mono text-[var(--color-muted)] mt-0.5">
-                            <span className="font-semibold text-[var(--color-foreground)]">{detectedOfficeClient.company_name}</span> is a registered corporate account.
-                            {officeWorkRate
-                              ? ` Contract rate for ${destination}: ₦${officeWorkRate.rate_per_kg}/kg`
-                              : ' No contract rate configured for this route — amount stays manual.'}
-                          </div>
-                          <div className="flex gap-2 mt-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setLinkedAsOfficeWork(true);
-                                if (officeWorkRate && kg) {
-                                  const w = parseFloat(kg) || 0;
-                                  if (w > 0) {
-                                    const computed = Math.max(w * officeWorkRate.rate_per_kg, officeWorkRate.minimum_amount ?? 0);
-                                    setAmount(String(computed));
-                                  }
-                                }
-                              }}
-                              className="px-3 py-1 rounded bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[10px] font-bold font-mono"
-                            >
-                              Yes, Link as Office Work
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setLinkedAsOfficeWork(false)}
-                              className="px-3 py-1 rounded border border-[var(--color-border)] text-[var(--color-muted)] text-[10px] font-mono"
-                            >
-                              No, Keep as Retail
-                            </button>
-                          </div>
-                        </div>
+                {/* Office-work detection banner -- see CargoForm.tsx's
+                    equivalent for the reference implementation. Deliberately
+                    OUTSIDE the `mode !== "Debt"` block above: officeMatch
+                    matches `debtorName` in Debt mode (the primary corporate
+                    scenario), so gating this on retail-only mode meant a
+                    Debt-mode match linked silently with no banner, no chip,
+                    no unlink control, and no repricing. */}
+                {detectedOfficeClient && !linkedAsOfficeWork && (
+                  <div className="p-3 rounded-lg border border-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.08)] flex items-start gap-3">
+                    <AlertTriangle size={16} className="text-[var(--color-accent-amber)] shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)]">
+                        Office Work Client Detected
                       </div>
-                    )}
-                    {linkedAsOfficeWork && detectedOfficeClient && (
-                      <div className="p-2 rounded border border-[rgba(139,92,246,0.4)] bg-[rgba(139,92,246,0.08)] flex items-center gap-2">
-                        <span className="text-[9px] font-bold font-mono text-[#a78bfa] uppercase tracking-wider">OFFICE WORK</span>
-                        <span className="text-[10px] font-mono text-[var(--color-muted)] flex-1">{detectedOfficeClient.company_name}</span>
-                        <button type="button" onClick={() => setLinkedAsOfficeWork(false)} className="text-[9px] font-mono text-[var(--color-muted)] hover:text-[var(--color-error)]">
-                          unlink
+                      <div className="text-[10px] font-mono text-[var(--color-muted)] mt-0.5">
+                        <span className="font-semibold text-[var(--color-foreground)]">{detectedOfficeClient.company_name}</span> is a registered corporate account.
+                        {officeWorkRate
+                          ? ` Contract rate for ${destination}: ₦${officeWorkRate.rate_per_kg}/kg`
+                          : ' No contract rate configured for this route — amount stays manual.'}
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLinkedAsOfficeWork(true);
+                            if (officeWorkRate && kg) {
+                              const w = parseFloat(kg) || 0;
+                              if (w > 0) {
+                                const computed = Math.max(w * officeWorkRate.rate_per_kg, officeWorkRate.minimum_amount ?? 0);
+                                setAmount(String(computed));
+                              }
+                            }
+                          }}
+                          className="px-3 py-1 rounded bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[10px] font-bold font-mono"
+                        >
+                          Yes, Link as Office Work
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setLinkedAsOfficeWork(false)}
+                          className="px-3 py-1 rounded border border-[var(--color-border)] text-[var(--color-muted)] text-[10px] font-mono"
+                        >
+                          No, Keep as Retail
                         </button>
                       </div>
-                    )}
-                  </>
+                    </div>
+                  </div>
+                )}
+                {linkedAsOfficeWork && detectedOfficeClient && (
+                  <div className="p-2 rounded border border-[rgba(139,92,246,0.4)] bg-[rgba(139,92,246,0.08)] flex items-center gap-2">
+                    <span className="text-[9px] font-bold font-mono text-[#a78bfa] uppercase tracking-wider">OFFICE WORK</span>
+                    <span className="text-[10px] font-mono text-[var(--color-muted)] flex-1">{detectedOfficeClient.company_name}</span>
+                    <button type="button" onClick={() => setLinkedAsOfficeWork(false)} className="text-[9px] font-mono text-[var(--color-muted)] hover:text-[var(--color-error)]">
+                      unlink
+                    </button>
+                  </div>
                 )}
 
                 <div className="flex space-x-3">
@@ -974,7 +990,7 @@ export const PackageForm = ({
                     />
                   </div>
                 </div>
-                {amount !== "" && parsedAmount < MIN_PACKAGE_AMOUNT && (
+                {!linkedAsOfficeWork && amount !== "" && parsedAmount < MIN_PACKAGE_AMOUNT && (
                   <p className="text-[11px] text-red-500 font-mono -mt-2">
                     ⚠ Minimum amount is ₦{MIN_PACKAGE_AMOUNT.toLocaleString()}
                   </p>

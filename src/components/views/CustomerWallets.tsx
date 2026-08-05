@@ -800,7 +800,11 @@ export const CustomerWallets = ({
                       </span>
                     </div>
                     <div className="text-[9px] font-mono text-[var(--color-muted)]">
-                      Requested by {payout.logged_by} · {payout.department || 'cargo'}
+                      {/* top_up has no real department (request_wallet_top_up
+                          doesn't take one) -- falling back to 'cargo' for it
+                          would mislabel every front-line top-up request.
+                          cash_payout/retrieval_refund always have a real one. */}
+                      Requested by {payout.logged_by}{payout.department ? ` · ${payout.department}` : ''}
                       {payout.description ? ` · ${payout.description}` : ''}
                     </div>
                   </div>
@@ -1269,8 +1273,8 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-1.5 font-bold">
                         {tx.type === 'top_up' ? (
-                          <span className="text-[var(--color-success)] flex items-center gap-1">
-                            <ArrowDownLeft size={12} /> TOP-UP
+                          <span className={`flex items-center gap-1 ${tx.status === 'rejected' ? 'text-[var(--color-muted)] line-through' : tx.status === 'pending' ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-success)]'}`}>
+                            <ArrowDownLeft size={12} /> TOP-UP{tx.status === 'pending' ? ' (PENDING)' : tx.status === 'rejected' ? ' (REJECTED)' : ''}
                           </span>
                         ) : tx.type === 'deduction' ? (
                           <span className="text-[var(--color-error)] flex items-center gap-1">
@@ -1279,6 +1283,10 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
                         ) : tx.type === 'cash_payout' ? (
                           <span className={`flex items-center gap-1 ${tx.status === 'rejected' ? 'text-[var(--color-muted)] line-through' : tx.status === 'pending' ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-error)]'}`}>
                             <HandCoins size={12} /> CASH PAYOUT{tx.status === 'pending' ? ' (PENDING)' : tx.status === 'rejected' ? ' (REJECTED)' : ''}
+                          </span>
+                        ) : tx.type === 'retrieval_refund' ? (
+                          <span className={`flex items-center gap-1 ${tx.status === 'rejected' ? 'text-[var(--color-muted)] line-through' : tx.status === 'pending' ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-success)]'}`}>
+                            <ArrowDownLeft size={12} /> RETRIEVAL REFUND{tx.status === 'pending' ? ' (PENDING)' : tx.status === 'rejected' ? ' (REJECTED)' : ''}
                           </span>
                         ) : (
                           <span className="text-[var(--color-accent-cobalt)]">{tx.type.toUpperCase()}</span>
@@ -1303,15 +1311,16 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
                     <div className="text-right shrink-0 space-y-0.5">
                       <div
                         className={`font-mono font-bold text-[12px] ${
-                          tx.type === 'top_up' ? 'text-[var(--color-success)]'
+                          (tx.type === 'top_up' || tx.type === 'retrieval_refund') && tx.status !== 'completed' ? 'text-[var(--color-muted)]'
+                            : (tx.type === 'top_up' || tx.type === 'retrieval_refund') ? 'text-[var(--color-success)]'
                             : tx.type === 'cash_payout' && tx.status !== 'completed' ? 'text-[var(--color-muted)]'
                             : 'text-[var(--color-error)]'
                         }`}
                       >
-                        {tx.type === 'top_up' ? '+' : '-'}₦{fmt(tx.amount)}
+                        {tx.type === 'top_up' || tx.type === 'retrieval_refund' ? '+' : '-'}₦{fmt(tx.amount)}
                       </div>
                       <div className="text-[9px] font-mono text-[var(--color-muted)]">
-                        Bal after: ₦{fmt(tx.balance_after)}
+                        {tx.status === 'pending' ? 'Balance not yet affected' : `Bal after: ₦${fmt(tx.balance_after)}`}
                       </div>
                     </div>
                   </div>

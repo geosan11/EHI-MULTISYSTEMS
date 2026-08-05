@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from './supabase';
+import { roundMoney } from './helpers';
 
 export interface CorporateClient {
   id: string;
@@ -67,6 +68,36 @@ export function useCorporateClients(): CorporateClient[] {
     return () => { active = false; };
   }, []);
   return clients;
+}
+
+// Auto-fills a form's amount field from the contract rate whenever an
+// entry is linked as office work and a rate + weight are both available.
+// Keyed on a client|route|weight signature so it fills once per change and
+// doesn't fight a manual edit the agent makes afterward (the edit sticks
+// until weight/route/client changes) -- mirrors CargoForm.tsx's own
+// dedicated effect for this. Necessary because the banner's "Yes, Link as
+// Office Work" button only ever fires for a FUZZY match (it's only
+// rendered before linking); an EXACT match auto-links immediately via a
+// separate effect with no click involved, so without this the amount is
+// silently left at whatever was typed while applied_rate_per_kg still gets
+// stamped with the contract rate -- the row looks linked and priced, but
+// was never actually billed at that rate.
+export function useOfficeWorkAutoPrice(
+  linkedAsOfficeWork: boolean,
+  officeWorkRate: CorporateRouteRate | null,
+  weight: number,
+  route: string,
+  setAmount: (v: string) => void,
+) {
+  const sigRef = useRef<string>('');
+  useEffect(() => {
+    if (!linkedAsOfficeWork || !officeWorkRate || weight <= 0) return;
+    const sig = `${officeWorkRate.corporate_client_id}|${route}|${weight}`;
+    if (sigRef.current === sig) return;
+    sigRef.current = sig;
+    const computed = Math.max(roundMoney(weight * officeWorkRate.rate_per_kg), officeWorkRate.minimum_amount ?? 0);
+    setAmount(String(computed));
+  }, [linkedAsOfficeWork, officeWorkRate, weight, route]);
 }
 
 export function useCorporateRouteRates(): CorporateRouteRate[] {

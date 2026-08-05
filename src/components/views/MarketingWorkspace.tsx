@@ -9,7 +9,7 @@ import { useExpenseCategories } from "../../lib/expenseCategories";
 import { useBanks } from "../../lib/banks";
 import { fmt, uid, tnow, getHubCode, upperOnChange, roundMoney, generatePickupPin, formatPaymentModeDisplay } from "../../lib/helpers";
 import { chargeWalletForSale } from "../../lib/walletPayment";
-import { matchOfficeClient, useCorporateClients, useCorporateRouteRates } from "../../lib/officeWork";
+import { matchOfficeClient, useCorporateClients, useCorporateRouteRates, useOfficeWorkAutoPrice } from "../../lib/officeWork";
 import { matchWallet } from "../../lib/customerIdentity";
 import { WalletRemainderSelector } from "../WalletRemainderSelector";
 import { getNextTag } from "../../lib/tagPool";
@@ -234,6 +234,9 @@ export const MarketingWorkspace = ({
     if (!linkedAsOfficeWork || !detectedOfficeClient) return null;
     return corpRates.find(r => r.corporate_client_id === detectedOfficeClient.id && r.route_name === route) || null;
   }, [linkedAsOfficeWork, detectedOfficeClient, corpRates, route]);
+  // Handles the EXACT-match case, which auto-links with no button click --
+  // see PackageForm.tsx's identical comment on why this is necessary.
+  useOfficeWorkAutoPrice(linkedAsOfficeWork, officeWorkRate, totalKg, route, setAmountOverride);
 
   // Debt mode records debtorName as the transaction's name (see handleAddEntry
   // below: `mode === "Debt" ? debtorName.trim() : name.trim()`), but this
@@ -245,7 +248,9 @@ export const MarketingWorkspace = ({
   // an empty route already zeroes routePrices (see above), but a manually
   // typed amountOverride could still push totalAmount > 0 without a route
   // ever having been chosen.
-  const isValidCore = !!awb && !!route && (mode === "Debt" ? debtorName.trim().length > 0 : name.trim().length > 0) && phone.trim().length > 0 && totalAmount > 0 && (amountOverride === "" || parsedOverride >= minAmount);
+  // linkedAsOfficeWork exempts the retail-computed minAmount floor -- see
+  // ExcessBaggageForm.tsx's identical exemption for the reasoning.
+  const isValidCore = !!awb && !!route && (mode === "Debt" ? debtorName.trim().length > 0 : name.trim().length > 0) && phone.trim().length > 0 && totalAmount > 0 && (amountOverride === "" || linkedAsOfficeWork || parsedOverride >= minAmount);
 
   // "Less Transfer" — daily adjustment for 3rd-party/corporate transfers (Govt/Honda/Zion)
   // that belong to other accounts and should be excluded from the day's cash tally

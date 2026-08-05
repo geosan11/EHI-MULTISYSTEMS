@@ -1293,7 +1293,12 @@ export const CargoForm = ({
       // over the per-kg+minimum cascade, per its own comment above). Without
       // this, a legitimately-priced size/flat-tier sale could be blocked by
       // a minimum-charge bracket that was never meant to apply to it.
-      (priceOverrideInfo?.type === 'size' || priceOverrideInfo?.type === 'flat'
+      // A negotiated office-work contract rate is authoritative pricing the
+      // company already agreed to -- it can legitimately fall below the
+      // retail-computed minAmount (e.g. a bulk-volume discount), so it's
+      // exempted from the floor the same way size/flat-tier pricing already
+      // is, just below.
+      (priceOverrideInfo?.type === 'size' || priceOverrideInfo?.type === 'flat' || linkedAsOfficeWork
         ? parsedAmount > 0
         : (rate == null && minCharge == null ? parsedAmount > 0 : parsedAmount >= minAmount && parsedAmount > 0)) &&
       // A short wallet paying its remainder by Transfer/POS needs a bank
@@ -1303,7 +1308,7 @@ export const CargoForm = ({
       (mode !== 'Wallet' || !activeWallet || activeWallet.balance >= parsedAmount ||
         !(walletRemainderMode === 'Transfer' || walletRemainderMode === 'POS') ||
         walletRemainderBank.trim().length > 0),
-    [actualConsignee, route, actualContentType, w, sizeInches, isSizeTierContent, piecesNum, parsedAmount, minAmount, rate, minCharge, priceOverrideInfo, mode, activeWallet, walletRemainderMode, walletRemainderBank],
+    [actualConsignee, route, actualContentType, w, sizeInches, isSizeTierContent, piecesNum, parsedAmount, minAmount, rate, minCharge, priceOverrideInfo, linkedAsOfficeWork, mode, activeWallet, walletRemainderMode, walletRemainderBank],
   );
 
   const handleRetailSubmit = async () => {
