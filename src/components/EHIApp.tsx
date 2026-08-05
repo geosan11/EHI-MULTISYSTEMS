@@ -889,6 +889,22 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     fetchInitial();
   }, [isOffline, retryTrigger, fetchInitial]);
 
+  // Self-healing fallback for cargo/baggage/marketing/package, same
+  // reasoning as fetchWallets' own periodic refresh above: postgres_changes
+  // delivers nothing for a table missing from the supabase_realtime
+  // publication (see 20260932_realtime_publication_membership.sql), and
+  // even with that fixed, a single dropped websocket event on any of these
+  // 4 tables would otherwise leave the ledger silently incomplete for the
+  // rest of a long-running session -- handleForceSync's own 60s interval
+  // only refetches when THIS device has pending local writes to push, not
+  // to pick up entries made elsewhere. fetchInitial is already guarded by
+  // fetchEpochRef against an older call resolving after a newer one.
+  useEffect(() => {
+    if (isOffline) return;
+    const refreshInterval = setInterval(() => { fetchInitial(); }, 5 * 60 * 1000);
+    return () => clearInterval(refreshInterval);
+  }, [isOffline, fetchInitial]);
+
   const prevTabRef = useRef(currentTab);
   useEffect(() => {
     const prevTab = prevTabRef.current;
