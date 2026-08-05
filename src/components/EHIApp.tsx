@@ -13,7 +13,7 @@ import { Header as HeaderRaw } from './Header';
 import { BottomNav as BottomNavRaw } from './BottomNav';
 import { SideNav as SideNavRaw } from './SideNav';
 import { useToast } from '../lib/ToastContext';
-import { supabase, writeAuditLog } from '../lib/supabase';
+import { supabase, writeAuditLog, fetchRowsCapped } from '../lib/supabase';
 import { Loader2 } from 'lucide-react';
 import { Dashboard as DashboardRaw } from './views/Dashboard';
 import { CargoForm as CargoFormRaw } from './views/CargoForm';
@@ -246,15 +246,41 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     return map;
   }, [todayShifts]);
 
+  // Exposed (not just used internally) so screens that need a wallet
+  // picker to be correct RIGHT NOW -- not eventually, if a realtime event
+  // arrives -- can force a fresh fetch instead of trusting this global
+  // cache's current contents (see TransactionLedger.tsx's Edit Transaction
+  // modal, which was showing "0 Active" for a wallet that demonstrably
+  // existed because this cache had gone stale with no way to self-correct).
+  const fetchWallets = useCallback(async () => {
+    try {
+      // customer_wallets grows without bound (see CustomerWallets.tsx's own
+      // identical comment) -- a plain .select() silently truncated at
+      // PostgREST's implicit ~1000-row cap once the table passed that size.
+      const { rows } = await fetchRowsCapped<CustomerWallet>(
+        (from, to) => supabase.from('customer_wallets').select('*').order('updated_at', { ascending: false }).range(from, to),
+        20000,
+      );
+      setCustomerWallets(rows);
+    } catch (err) {
+      console.error('Failed to fetch customer wallets', err);
+    }
+  }, []);
+
   useEffect(() => {
     let active = true;
-    const fetchWallets = async () => {
-      try {
-        const { data } = await supabase.from('customer_wallets').select('*').order('updated_at', { ascending: false });
-        if (active && data) setCustomerWallets(data as CustomerWallet[]);
-      } catch (err) {}
-    };
     fetchWallets();
+
+    // Realtime patches keep the cache current between fetches, but nothing
+    // here should be trusted as the SOLE way this cache ever updates --
+    // postgres_changes delivers nothing if customer_wallets/wallet_
+    // transactions were ever missing from the supabase_realtime publication
+    // (see 20260932_realtime_publication_membership.sql), and even with
+    // that fixed, a single dropped websocket event would otherwise corrupt
+    // wallet-charging for the rest of the session with no visible sign
+    // anything was wrong. This periodic refresh is the self-healing
+    // fallback for that.
+    const refreshInterval = setInterval(() => { if (active) fetchWallets(); }, 5 * 60 * 1000);
 
     const channel = supabase
       .channel('customer_wallets_realtime_global')
@@ -280,9 +306,10 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
     return () => {
       active = false;
+      clearInterval(refreshInterval);
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [fetchWallets]);
 
   // Keep a ref mirror of transactions for synchronous dedup checks in realtime handlers
   useEffect(() => { transactionsRef.current = transactions; }, [transactions]);
@@ -2071,6 +2098,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                    todayShifts={todayShifts.filter(s => s.department === 'all')}
                    onStartShift={() => handleStartShift('all')}
                    onEndShift={() => handleEndShift('all')}
+                   customerWallets={customerWallets}
+                   refetchCustomerWallets={fetchWallets}
                 />
               )}
             </ErrorBoundary>
@@ -2101,6 +2130,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             onEndShift={streamLedgerDepartment ? () => handleEndShift(streamLedgerDepartment) : undefined}
             shiftLabel={streamLedgerDepartment && streamLedgerDepartment !== 'all' ? STREAM_LEDGER_DEPT_LABEL[streamLedgerDepartment] : undefined}
             customerWallets={customerWallets}
+            refetchCustomerWallets={fetchWallets}
           />
         </div>,
         document.body

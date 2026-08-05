@@ -95,6 +95,7 @@ export const TransactionLedger = ({
   onEndShift,
   shiftLabel,
   customerWallets = [],
+  refetchCustomerWallets,
 }: {
   user: User;
   transactions: Transaction[];
@@ -102,6 +103,12 @@ export const TransactionLedger = ({
   onBack: () => void;
   onUpdateTx: (tx: Transaction) => void;
   customerWallets?: CustomerWallet[];
+  // Edit Transaction's wallet picker previously trusted whatever this
+  // global cache currently held -- which could be stale (e.g. a wallet
+  // created/credited elsewhere in the session that a missed realtime event
+  // never patched in). Calling this on modal open guarantees a fresh read
+  // for this financially-sensitive path regardless of that cache's state.
+  refetchCustomerWallets?: () => void;
   defaultTypeFilter?: 'cargo' | 'baggage' | 'marketing' | 'package' | null;
   // Seeds the terminal filter chip -- used by the GAT tab's History button,
   // where defaultTypeFilter can't express "cargo AND package" alone.
@@ -856,6 +863,7 @@ export const TransactionLedger = ({
     evt.stopPropagation();
     if (e.source === "transaction") {
       const tx = { ...e.raw } as Transaction;
+      refetchCustomerWallets?.();
       setEditingTx(tx);
       setEditOriginalMode(tx.mode);
       setEditOriginalWalletDeduction(tx.wallet_deduction_amount || 0);
@@ -3171,7 +3179,7 @@ export const TransactionLedger = ({
                       <div>{e.source === "expense" ? "-" : ""}₦{fmt(e.amount)}</div>
                       {e.raw?.wallet_deduction_amount > 0 && (
                         <div className="text-[9px] text-[var(--color-accent-amber)] font-normal">
-                          -₦{fmt(e.raw.wallet_deduction_amount)} (Wallet)
+                          ₦{fmt(Math.max(0, e.amount - e.raw.wallet_deduction_amount))} {e.mode} · ₦{fmt(e.raw.wallet_deduction_amount)} Wallet
                         </div>
                       )}
                     </td>
