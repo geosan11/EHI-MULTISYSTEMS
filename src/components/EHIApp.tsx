@@ -252,16 +252,34 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
   // cache's current contents (see TransactionLedger.tsx's Edit Transaction
   // modal, which was showing "0 Active" for a wallet that demonstrably
   // existed because this cache had gone stale with no way to self-correct).
+  // Now callable from several independent triggers (mount, the periodic
+  // refresh below, and every Edit Transaction modal open, from either
+  // TransactionLedger render site) with no serialization between them --
+  // walletsFetchEpochRef guards against an older, slower call resolving
+  // AFTER a newer one and reverting a balance change the newer call
+  // already picked up, same pattern fetchEpochRef already uses for
+  // fetchInitial just below.
+  const walletsFetchEpochRef = useRef(0);
   const fetchWallets = useCallback(async () => {
+    const myEpoch = ++walletsFetchEpochRef.current;
     try {
       // customer_wallets grows without bound (see CustomerWallets.tsx's own
       // identical comment) -- a plain .select() silently truncated at
       // PostgREST's implicit ~1000-row cap once the table passed that size.
-      const { rows } = await fetchRowsCapped<CustomerWallet>(
+      const { rows, capped } = await fetchRowsCapped<CustomerWallet>(
         (from, to) => supabase.from('customer_wallets').select('*').order('updated_at', { ascending: false }).range(from, to),
         20000,
       );
+      if (walletsFetchEpochRef.current !== myEpoch) return;
       setCustomerWallets(rows);
+      // Same "don't silently show an incomplete list" convention
+      // fetchInitial already uses below for cargo/baggage/marketing/package.
+      if (capped) {
+        showToast({
+          message: 'Showing only the most recent 20,000 customer wallets. Some older wallets may not appear in search.',
+          type: 'warning',
+        });
+      }
     } catch (err) {
       console.error('Failed to fetch customer wallets', err);
     }
