@@ -119,7 +119,7 @@ export const CustomerWalletPicker: React.FC<CustomerWalletPickerProps> = ({
         centering. */}
     {isOpen && createPortal(
         <div
-          className={`fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 ${
+          className={`fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 ${
             isClosing ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'
           }`}
           onClick={(e) => {
