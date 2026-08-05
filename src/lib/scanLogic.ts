@@ -18,12 +18,12 @@ export async function fetchCargoByRef(ref: string, localTransactions?: any[]): P
                 localMatch.type === 'baggage' ? 'manifests' : 
                 localMatch.type === 'package' ? 'package_entries' : 'marketing_entries',
         awb_tag_number: localMatch.awb_tag_number || localMatch.id,
-        route: localMatch.detail?.split(' · ')[4] || '',
-        destination: localMatch.detail?.split(' · ')[4] || '',
+        route: localMatch.route || localMatch.detail?.split(' · ')[3] || '',
+        destination: localMatch.destination || localMatch.detail?.split(' · ')[3] || '',
         consignee_name: localMatch.name,
         passenger_name: localMatch.name,
         customer_name: localMatch.name,
-        content_type: localMatch.detail?.split(' · ')[5] || 'Package',
+        content_type: localMatch.contentType || localMatch.detail?.split(' · ')[4] || 'Package',
         total_pcs: localMatch.pieces || 1,
         total_kg: localMatch.kg || 0
       };

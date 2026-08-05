@@ -58,7 +58,7 @@ export const B2BSalesTab = ({ transactions, user }: B2BSalesTabProps) => {
         setFetchedB2BRows(rows.map((r: any): Transaction => ({
           id: r.entry_ref,
           name: r.consignee_name || 'Customer',
-          detail: `${r.airline || ''} · ${r.awb_tag_number || ''}`,
+          detail: `${r.airline || ''}`,
           amount: Number(r.amount) || 0,
           amountPaid: Number(r.amount_paid) || 0,
           paymentHistory: r.payment_history || [],

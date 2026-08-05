@@ -1141,7 +1141,7 @@ export const CargoForm = ({
       : 0;
 
     // Build central ledger transaction record (Debt contract)
-    const finalTxDetail = `${selectedIntake.airline} · ${gateResolvedId} · ${selectedIntake.pieces || 1}pcs · ${weightNum}kg · ${selectedIntake.route} · ${selectedIntake.contentType || selectedIntake.content_type || 'General Goods'}`;
+    const finalTxDetail = `${selectedIntake.airline} · ${selectedIntake.pieces || 1}pcs · ${weightNum}kg · ${selectedIntake.route} · ${selectedIntake.contentType || selectedIntake.content_type || 'General Goods'}`;
 
     // Block reusing a physical AWB whose previous consignment already
     // completed delivery -- the same check the retail flow already has.
@@ -1377,7 +1377,7 @@ export const CargoForm = ({
     const nextSerial = incrementLocalSerial();
     setSerialNumber(nextSerial);
 
-    const summaryStr = `${actualAirline} · ${resolvedAwb} · ${pcs}pcs · ${kg}KG · ${route} · ${actualContentType}${isSizeTierContent && sizeInches ? ` · ${sizeInches}in` : ''}`;
+    const summaryStr = `${actualAirline} · ${pcs}pcs · ${kg}KG · ${route} · ${actualContentType}${isSizeTierContent && sizeInches ? ` · ${sizeInches}in` : ''}`;
 
     const tx: Transaction = {
       id: resolvedAwb,
@@ -1558,8 +1558,8 @@ export const CargoForm = ({
         awbTagNumber: successTx.awb_tag_number || awb,
         pieces: successTx.pieces || parseInt(pcs),
         kg: successTx.kg || parseFloat(kg),
-        route: successTx.detail.split(" · ")[4] || route,
-        contentType: successTx.detail.split(" · ")[5] || contentType,
+        route: successTx.detail.split(" · ")[3] || route,
+        contentType: successTx.detail.split(" · ")[4] || contentType,
         amount: successTx.amount,
         paymentMode: formatPaymentModeDisplay(successTx.mode, successTx.wallet_deduction_amount, successTx.amount),
         paymentNarration: successTx.paymentNarration,
@@ -1596,7 +1596,7 @@ export const CargoForm = ({
         await printCargoTagPDF({
           id: successTx.awb_tag_number || awb,
           name: successTx.name,
-          route: successTx.detail.split(" · ")[4] || route,
+          route: successTx.detail.split(" · ")[3] || route,
           pieces: successTx.pieces || parseInt(pcs) || 1,
           weight: successTx.kg || parseFloat(kg),
           airline: (() => {
@@ -1609,7 +1609,7 @@ export const CargoForm = ({
           })(),
           hubName: user?.hub || "EHI Cargo Station",
           date: `${new Date().toLocaleDateString("en-GB")} ${tnow()}`,
-          contentType: successTx.detail?.split(" · ")[5] || contentType,
+          contentType: successTx.detail?.split(" · ")[4] || contentType,
         }, preOpenedWindow);
       } catch (err) {
         console.error('Failed to open tag PDF', err);
@@ -1670,8 +1670,8 @@ export const CargoForm = ({
       awbTagNumber: successTx.awb_tag_number || awb,
       pieces: successTx.pieces || parseInt(pcs),
       kg: successTx.kg || parseFloat(kg),
-      route: successTx.detail.split(" · ")[4] || route,
-      contentType: successTx.detail.split(" · ")[5] || contentType,
+      route: successTx.detail.split(" · ")[3] || route,
+      contentType: successTx.detail.split(" · ")[4] || contentType,
       amount: successTx.amount,
       paymentMode: formatPaymentModeDisplay(successTx.mode, successTx.wallet_deduction_amount, successTx.amount),
       paymentNarration: successTx.paymentNarration,
@@ -1771,13 +1771,13 @@ export const CargoForm = ({
           <div className="flex justify-between border-b border-[var(--color-border)] pb-1">
             <span className="text-[11px] font-sans text-[var(--color-muted)]">Weight / Route</span>
             <span className="text-[12px] font-sans font-bold text-[var(--color-foreground)] truncate max-w-[65%]">
-              {successTx.kg} KG — {successTx.detail.split(" · ")[4]}
+              {successTx.kg} KG — {successTx.detail.split(" · ")[3]}
             </span>
           </div>
 
           <div className="flex justify-between border-b border-[var(--color-border)] pb-1">
             <span className="text-[11px] font-sans text-[var(--color-muted)]">Content</span>
-            <span className="text-[12px] font-sans font-bold text-[var(--color-foreground)]">{successTx.detail.split(" · ")[5] || "Package"}</span>
+            <span className="text-[12px] font-sans font-bold text-[var(--color-foreground)]">{successTx.detail.split(" · ")[4] || "Package"}</span>
           </div>
 
           <div className="flex justify-between border-b border-[var(--color-border)] pb-1">

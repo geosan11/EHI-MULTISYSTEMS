@@ -64,7 +64,7 @@ export const DebtorsTab = ({
         ]);
         const mapped: Transaction[] = [];
         (cargoRes.data || []).forEach((r: any) => mapped.push({
-          id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo', detail: `${r.airline || ''} · ${r.awb_tag_number || ''}`,
+          id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo', detail: `${r.airline || ''}`,
           amount: r.amount || 0, amountPaid: r.amount_paid || 0, paymentHistory: r.payment_history || [], mode: 'Debt',
           time: r.created_at, created_at: r.created_at, type: 'cargo', awb_tag_number: r.awb_tag_number, status: r.status || 'Intake',
           airline: r.airline, hub_id: r.hub_id, hub: r.hub, clientType: r.client_type, corporate_client_id: r.corporate_client_id,

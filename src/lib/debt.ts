@@ -164,7 +164,7 @@ export async function fetchAllDebtAndRetrievalEntries(): Promise<Transaction[]> 
 
   cargoData.forEach((r: any) => mapped.push({
     id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo',
-    detail: r.is_debt_clearance ? 'DEBT CLEARANCE' : `${r.airline || ''} · ${r.awb_tag_number || ''}`,
+    detail: r.is_debt_clearance ? 'DEBT CLEARANCE' : `${r.airline || ''}`,
     amount: r.amount || 0, amountPaid: r.amount_paid || 0, paymentHistory: r.payment_history || [],
     mode: r.receipt_mode || 'Debt', pieces: r.total_pcs ?? undefined, kg: r.total_kg ?? undefined,
     time: r.created_at, created_at: r.created_at, type: 'cargo', awb_tag_number: r.awb_tag_number, status: r.status || 'Intake',

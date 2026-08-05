@@ -220,7 +220,7 @@ export async function fetchDepartmentSalesTransactions(deptType: DepartmentType,
       allTx.push({
         id: r.entry_ref,
         name: r.consignee_name || 'Consignee',
-        detail: `${r.airline || 'Airline'} · ${r.awb_tag_number || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}`,
+        detail: `${r.airline || 'Airline'} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}`,
         amount: r.amount || 0,
         // Same 'Debt Paid' derivation as Reports.tsx's fetchTransactions --
         // receipt_mode itself never changes off 'Debt' when a debt is

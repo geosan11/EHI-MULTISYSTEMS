@@ -247,7 +247,7 @@ export async function getUnsyncedLocalTransactions(): Promise<{ transactions: an
         txs.push({
           id: r.id || r.entry_ref,
           name: r.consignee_name || 'Cargo',
-          detail: `${r.airline || ''} · ${r.awb_tag_number || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}`,
+          detail: `${r.airline || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}`,
           amount: r.amount || 0,
           mode: r.receipt_mode || 'Cash',
           time: new Date(item.created_at || Date.now()).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),

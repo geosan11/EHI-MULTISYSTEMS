@@ -71,7 +71,7 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
         const mappedDebts: Transaction[] = [];
         if (cargoDebts) {
           cargoDebts.forEach(r => mappedDebts.push({
-            id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo', detail: `${r.airline || ''} · ${r.awb_tag_number || ''}`, amount: r.amount || 0, amountPaid: r.amount_paid || 0, mode: 'Debt', time: r.created_at, type: 'cargo', awb_tag_number: r.awb_tag_number, status: r.status || 'Intake', raw: r
+            id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo', detail: `${r.airline || ''}`, amount: r.amount || 0, amountPaid: r.amount_paid || 0, mode: 'Debt', time: r.created_at, type: 'cargo', awb_tag_number: r.awb_tag_number, status: r.status || 'Intake', raw: r
           }));
         }
         if (vjDebts) {
@@ -118,7 +118,7 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
           cargoCredits.forEach(r => {
             if (r.airline) {
               mappedCredits.push({
-                id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo', detail: `${r.awb_tag_number || ''}`, amount: r.amount || 0, mode: r.receipt_mode, time: r.created_at, type: 'cargo', airline: normalizeAirlineName(r.airline), commissionRate: r.commission_rate ?? undefined, status: r.status || 'Intake'
+                id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo', detail: `${r.route || ''}`, amount: r.amount || 0, mode: r.receipt_mode, time: r.created_at, type: 'cargo', airline: normalizeAirlineName(r.airline), commissionRate: r.commission_rate ?? undefined, status: r.status || 'Intake'
               });
             }
           });

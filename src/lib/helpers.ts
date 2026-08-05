@@ -284,18 +284,20 @@ export function downloadDailyExcel(
   if (streamType === 'cargo') {
     headers = ['Ref', 'Date', 'Time', 'Consignee', 'AWB/Tag', 'Airline', 'Route', 'Pieces', 'KG', 'Content', 'Amount', 'Mode', 'Bank', 'Status', ...debtAndWalletHeaders];
     rows = transactions.map(t => {
+      // No AWB/tag segment in `detail` anymore (it always duplicated
+      // awb_tag_number/entry_ref) -- t.awb_tag_number is the only source now.
       const parts = t.detail?.split(' · ') || [];
       return [
         t.id,
         rowDate(t),
         t.time || '',
         t.name || '',
-        t.awb_tag_number || parts[1] || '',
+        t.awb_tag_number || '',
         t.airline || parts[0] || '',
-        t.route || parts[4] || '',
-        String(t.pieces != null ? t.pieces : (parts[2]?.replace(/pcs/i,'') || '')),
-        String(t.kg != null ? t.kg : (parts[3]?.replace(/kg/i,'') || '')),
-        t.contentType || parts[5] || '',
+        t.route || parts[3] || '',
+        String(t.pieces != null ? t.pieces : (parts[1]?.replace(/pcs/i,'') || '')),
+        String(t.kg != null ? t.kg : (parts[2]?.replace(/kg/i,'') || '')),
+        t.contentType || parts[4] || '',
         String(t.amount || 0),
         t.mode || '',
         t.bank || '',
@@ -367,22 +369,40 @@ export function downloadDailyExcel(
   } else {
     // 'mixed' -- generic export for the all-streams Master Ledger view,
     // where entries can be cargo/baggage/marketing/package all at once and
-    // none of the stream-specific column sets above apply uniformly.
-    headers = ['Ref', 'Date', 'Time', 'Type', 'Name', 'Detail', 'KG', 'Amount', 'Mode', 'Bank', 'Status', ...debtAndWalletHeaders];
-    rows = transactions.map(t => [
-      t.id,
-      rowDate(t),
-      t.time || '',
-      t.type || '',
-      t.name || '',
-      t.detail || '',
-      String(t.kg ?? t.totalKg ?? ''),
-      String(t.amount || 0),
-      t.mode || '',
-      t.bank || '',
-      t.status || 'Intake',
-      ...debtAndWalletCols(t),
-    ]);
+    // none of the stream-specific column sets above apply uniformly. Airline
+    // and Pieces get their own columns (matching the stream-specific exports
+    // above) instead of being buried in Detail text; Detail itself is
+    // rebuilt from each entry's own structured fields rather than reused
+    // verbatim, since the shared `detail` string embeds airline/pieces/kg
+    // that would otherwise be duplicated once those have real columns here.
+    headers = ['Ref', 'Date', 'Time', 'Type', 'Name', 'Airline', 'Detail', 'Pieces', 'KG', 'Amount', 'Mode', 'Bank', 'Status', ...debtAndWalletHeaders];
+    rows = transactions.map(t => {
+      const parts = t.detail?.split(' · ') || [];
+      let detail = t.detail || '';
+      if (t.type === 'cargo') {
+        detail = [t.route || parts[3] || '', t.contentType || parts[4] || '', t.sizeInches ? `${t.sizeInches}in` : ''].filter(Boolean).join(' · ');
+      } else if (t.type === 'baggage') {
+        detail = [t.flight || parts[0] || '', t.destination || parts[1] || ''].filter(Boolean).join(' · ');
+      } else if (t.type === 'package') {
+        detail = [t.destination || parts[0] || '', t.contentType || parts[1] || '', t.contents || parts[4] || ''].filter(Boolean).join(' · ');
+      }
+      return [
+        t.id,
+        rowDate(t),
+        t.time || '',
+        t.type || '',
+        t.name || '',
+        t.airline || '',
+        detail,
+        String(t.pieces ?? ''),
+        String(t.kg ?? t.totalKg ?? ''),
+        String(t.amount || 0),
+        t.mode || '',
+        t.bank || '',
+        t.status || 'Intake',
+        ...debtAndWalletCols(t),
+      ];
+    });
   }
 
   const streamLabel = streamType === 'cargo' ? 'Cargo'

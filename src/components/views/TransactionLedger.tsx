@@ -497,7 +497,7 @@ export const TransactionLedger = ({
         const enteredByName = r.entered_by ? (profileLookup[r.entered_by] || r.entered_by) : undefined;
         mapped.push({
           id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo',
-          detail: `${r.airline || ''} · ${r.awb_tag_number || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}${r.size_inches ? ` · ${r.size_inches}in` : ''}`,
+          detail: `${r.airline || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}${r.size_inches ? ` · ${r.size_inches}in` : ''}`,
           amount: r.amount || 0,
           mode: r.receipt_mode === 'Debt' && Number(r.amount_paid || 0) >= Number(r.amount || 0) ? 'Debt Paid' : (r.receipt_mode || 'Cash'),
           time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
@@ -990,7 +990,7 @@ export const TransactionLedger = ({
       finalTx.editedBy = user.name;
       finalTx.editedAt = new Date().toISOString();
       if (finalTx.type === 'cargo') {
-        finalTx.detail = `${finalTx.airline || ''} · ${finalTx.awb_tag_number || ''} · ${pieces}pcs · ${kg}kg · ${finalTx.route || ''} · ${finalTx.contentType || ''}`;
+        finalTx.detail = `${finalTx.airline || ''} · ${pieces}pcs · ${kg}kg · ${finalTx.route || ''} · ${finalTx.contentType || ''}`;
       } else if (finalTx.type === 'baggage') {
         finalTx.detail = `${finalTx.flight || ''} · ${finalTx.destination || ''} · ${pieces}pcs · +${finalTx.excessKg || 0}kg excess`;
       } else if (finalTx.type === 'marketing') {
@@ -1039,7 +1039,7 @@ export const TransactionLedger = ({
             pieces: tx.pieces || 1,
             kg: tx.kg || 1,
             route: tx.route || "Unknown",
-            contentType: tx.detail?.split(" · ")[5] || "General Goods",
+            contentType: tx.contentType || tx.detail?.split(" · ")[4] || "General Goods",
             amount: tx.amount,
             paymentMode: formatPaymentModeDisplay(tx.mode, tx.wallet_deduction_amount, tx.amount),
             bankName: tx.bank,
@@ -1190,7 +1190,7 @@ export const TransactionLedger = ({
           pieces: tx.pieces || 1,
           kg: tx.kg || 1,
           route: tx.route || 'Unknown',
-          contentType: tx.detail?.split(' · ')[5] || 'General Goods',
+          contentType: tx.contentType || tx.detail?.split(' · ')[4] || 'General Goods',
           amount: tx.amount,
           paymentMode: formatPaymentModeDisplay(tx.mode, tx.wallet_deduction_amount, tx.amount),
           bankName: tx.bank,
@@ -1346,7 +1346,7 @@ export const TransactionLedger = ({
       }
 
       const { printCargoTagPDF } = await import('./CargoTagPDF');
-      const route = tx.route || (tx.detail ? tx.detail.split(' · ')[4] : 'Unknown') || 'Unknown';
+      const route = tx.route || (tx.detail ? tx.detail.split(' · ')[3] : 'Unknown') || 'Unknown';
       const data = {
         id: tx.awb_tag_number || tx.entryRef || tx.id,
         name: tx.name,
@@ -1356,7 +1356,7 @@ export const TransactionLedger = ({
         airline: tx.airline,
         hubName: user?.hub || 'EHI Cargo Station',
         date: txDisplayDateTime(tx.created_at, tx.time),
-        contentType: tx.contentType || (tx.detail ? tx.detail.split(' · ')[5] : undefined),
+        contentType: tx.contentType || (tx.detail ? tx.detail.split(' · ')[4] : undefined),
       };
 
       await printCargoTagPDF(data, preOpenedWindow);
@@ -1470,7 +1470,7 @@ export const TransactionLedger = ({
       }
 
       const { printCargoTagPDF } = await import('./CargoTagPDF');
-      const route = tx.route || (tx.detail ? tx.detail.split(' · ')[4] : 'Unknown') || 'Unknown';
+      const route = tx.route || (tx.detail ? tx.detail.split(' · ')[3] : 'Unknown') || 'Unknown';
       const data = {
         id: tx.awb_tag_number || tx.entryRef || tx.id,
         name: tx.name,
@@ -1480,7 +1480,7 @@ export const TransactionLedger = ({
         airline: tx.airline,
         hubName: user?.hub || 'EHI Cargo Station',
         date: txDisplayDateTime(tx.created_at, tx.time),
-        contentType: tx.contentType || (tx.detail ? tx.detail.split(' · ')[5] : undefined),
+        contentType: tx.contentType || (tx.detail ? tx.detail.split(' · ')[4] : undefined),
       };
 
       await printCargoTagPDF(data, preOpenedWindow);

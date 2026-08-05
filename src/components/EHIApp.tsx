@@ -401,7 +401,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             allTx.push({
               id: r.entry_ref || r.id,
               name: r.consignee_name || 'Cargo',
-              detail: `${r.airline || ''} · ${r.awb_tag_number || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}${r.size_inches ? ` · ${r.size_inches}in` : ''}`,
+              detail: `${r.airline || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}${r.size_inches ? ` · ${r.size_inches}in` : ''}`,
               amount: r.amount || 0,
               mode: r.receipt_mode === 'Debt' && Number(r.amount_paid || 0) >= Number(r.amount || 0) ? 'Debt Paid' : (r.receipt_mode || 'Cash'),
               time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
@@ -908,7 +908,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           pushUnique({
             id: r.entry_ref || r.id,
             name: r.consignee_name || 'Cargo',
-            detail: `${r.airline || ''} · ${r.awb_tag_number || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}${r.size_inches ? ` · ${r.size_inches}in` : ''}`,
+            detail: `${r.airline || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}${r.size_inches ? ` · ${r.size_inches}in` : ''}`,
             amount: r.amount || 0,
             // Same 'Debt Paid' recomputation fetchInitial and this
             // channel's own UPDATE handler use -- an INSERT is rarely
@@ -1008,7 +1008,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           pushUnique({
             id: r.transaction_id || r.id,
             name: r.passenger_name || 'Baggage Passenger',
-            detail: `${r.flight_no || ''} · ${r.destination || ''} · +${r.excess_kg || 0}kg excess`,
+            detail: `${r.flight_no || ''} · ${r.destination || ''} · ${r.total_pcs || 1}pcs · +${r.excess_kg || 0}kg excess`,
             amount: r.amount || 0,
             mode: r.payment_mode === 'Debt' && Number(r.amount_paid || 0) >= Number(r.amount || 0) ? 'Debt Paid' : (r.payment_mode || 'POS'),
             time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
@@ -1372,19 +1372,22 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     } else if (tx.type === 'cargo') {
       // A debt-clearance shadow entry's `detail` is a human-readable "DEBT
       // CLEARANCE · Orig: ... · Paid: ... · Bal: ..." summary, not the
-      // structured "airline · awb · pcs · kg · route · content" format real
-      // cargo intake writes -- splitting it positionally wrote fragments of
-      // that summary into route/awb_tag_number/content_type (route became
-      // the literal "Bal: ₦50,000" once an Age segment pushed indices over).
+      // structured "airline · pcs · kg · route · content" format real cargo
+      // intake writes -- splitting it positionally wrote fragments of that
+      // summary into route/content_type (route became the literal
+      // "Bal: ₦50,000" once an Age segment pushed indices over).
       // Skip the parse entirely here; every field below already falls back
       // to a clean default when its explicit value is absent.
+      // No AWB/tag segment in this string anymore (it always duplicated
+      // entry_ref/awb_tag_number, which are already tracked as their own
+      // fields) -- awb_tag_number below has nothing left to positionally
+      // fall back to.
       const parts = tx.is_debt_clearance ? [] : tx.detail.split(' · ');
-      const awbFromDetail = parts[1] || '';
-      const pcsStr = parts[2] || '';
-      const kgStr = parts[3] || '';
-      const route = parts[4] || '';
-      const content = parts[5] || '';
-      
+      const pcsStr = parts[1] || '';
+      const kgStr = parts[2] || '';
+      const route = parts[3] || '';
+      const content = parts[4] || '';
+
       payload = {
         id: tx.id,
         entry_ref: tx.id,
@@ -1394,7 +1397,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         total_kg: (tx as any).kg != null ? Math.round((tx as any).kg) : (Math.round(parseFloat(kgStr) || 0)),
         size_inches: tx.sizeInches ?? null,
         content_type: (tx as any).contentType ?? content,
-        awb_tag_number: (tx as any).awb_tag_number || awbFromDetail,
+        awb_tag_number: (tx as any).awb_tag_number || '',
         amount: tx.amount,
         receipt_mode: tx.mode === 'Debt Paid' ? 'Debt' : tx.mode,
         bank: tx.bank,

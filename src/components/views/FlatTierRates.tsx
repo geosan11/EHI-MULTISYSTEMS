@@ -6,10 +6,7 @@ import { BackButton } from '../BackButton';
 import { useToast } from '../../lib/ToastContext';
 import { KgTierEditor, KgTier } from '../KgTierEditor';
 import { useAirlines } from '../../lib/airlines';
-import { useHubRoutes } from '../../lib/hubRoutes';
-
-const ALL_HUBS = '__all_hubs__';
-const ALL_ROUTES = '__all_routes__';
+import { useHubRoutes, useValidatedRouteSelection } from '../../lib/hubRoutes';
 
 interface RateRow { id: string; min_kg: number; max_kg: number | null; flat_amount: number; }
 
@@ -24,8 +21,12 @@ export const FlatTierRates = ({ user, onBack }: { user: User; onBack: () => void
   const [loading, setLoading] = useState(true);
   const [selectedContentTypeId, setSelectedContentTypeId] = useState('');
   const [selectedAirline, setSelectedAirline] = useState('');
-  const [selectedRoute, setSelectedRoute] = useState(ALL_ROUTES);
-  const [selectedHubId, setSelectedHubId] = useState<string>(isUnrestricted ? ALL_HUBS : (user.hub_id || ALL_HUBS));
+  // flat_tier_rates requires a specific hub_id/route_name (NOT NULL) -- there
+  // is no company-wide/all-routes bracket, so these must always resolve to a
+  // real value, never a sentinel. Restricted users are pinned to their own
+  // hub; unrestricted users default to the first loaded hub below.
+  const [selectedRoute, setSelectedRoute] = useState('');
+  const [selectedHubId, setSelectedHubId] = useState<string>(isUnrestricted ? '' : (user.hub_id || ''));
   const [rows, setRows] = useState<RateRow[]>([]);
   const [rowsLoading, setRowsLoading] = useState(false);
 
@@ -35,25 +36,34 @@ export const FlatTierRates = ({ user, onBack }: { user: User; onBack: () => void
       supabase.from('hubs').select('id, name').eq('active', true).order('name'),
     ]).then(([ct, hb]) => {
       const cts = ct.data || [];
+      const hbs = hb.data || [];
       setContentTypes(cts);
-      setHubs(hb.data || []);
+      setHubs(hbs);
       if (cts.length > 0) setSelectedContentTypeId(cts[0].id);
+      if (isUnrestricted && hbs.length > 0) setSelectedHubId(prev => prev || hbs[0].id);
       setLoading(false);
     });
-  }, []);
+  }, [isUnrestricted]);
 
   useEffect(() => { if (airlines.length && !selectedAirline) setSelectedAirline(airlines[0]); }, [airlines]);
+  useEffect(() => { if (routes.length && !selectedRoute) setSelectedRoute(routes[0]); }, [routes]);
+  // useHubRoutes() paints from a cached/bundled list before the live fetch
+  // resolves -- if that first-seeded route was since renamed/deactivated,
+  // this snaps the selection to the live list once it arrives (same
+  // pattern CargoForm/PackageForm/ExcessBaggageForm/PricingConfiguration
+  // already use for their own route pickers).
+  useValidatedRouteSelection(routes, selectedRoute, setSelectedRoute);
 
   const fetchRows = async () => {
-    if (!selectedContentTypeId || !selectedAirline) { setRows([]); return; }
+    if (!selectedContentTypeId || !selectedAirline || !selectedHubId || !selectedRoute) { setRows([]); return; }
     setRowsLoading(true);
-    let query = supabase.from('flat_tier_rates')
+    const { data, error } = await supabase.from('flat_tier_rates')
       .select('id, min_kg, max_kg, flat_amount')
       .eq('content_type_id', selectedContentTypeId)
-      .eq('airline', selectedAirline);
-    query = selectedHubId === ALL_HUBS ? query.is('hub_id', null) : query.eq('hub_id', selectedHubId);
-    query = selectedRoute === ALL_ROUTES ? query.is('route_name', null) : query.eq('route_name', selectedRoute);
-    const { data, error } = await query.order('min_kg');
+      .eq('airline', selectedAirline)
+      .eq('hub_id', selectedHubId)
+      .eq('route_name', selectedRoute)
+      .order('min_kg');
     if (error) showToast({ message: `Failed to load: ${error.message}`, type: 'error' });
     else setRows((data || []) as RateRow[]);
     setRowsLoading(false);
@@ -62,10 +72,10 @@ export const FlatTierRates = ({ user, onBack }: { user: User; onBack: () => void
 
   const handleAdd = async ({ min_kg, max_kg, price }: { min_kg: number; max_kg: number | null; price: number }) => {
     const { error } = await supabase.from('flat_tier_rates').insert({
-      hub_id: selectedHubId === ALL_HUBS ? null : selectedHubId,
+      hub_id: selectedHubId,
       content_type_id: selectedContentTypeId,
       airline: selectedAirline,
-      route_name: selectedRoute === ALL_ROUTES ? null : selectedRoute,
+      route_name: selectedRoute,
       min_kg,
       max_kg,
       flat_amount: price,
@@ -107,7 +117,7 @@ export const FlatTierRates = ({ user, onBack }: { user: User; onBack: () => void
           <p className="text-[11px] text-[var(--color-accent-cobalt)] leading-relaxed">
             Flat weight-bracket pricing for content types flagged "flat tier" in Content Types. The matching
             bracket's amount is the whole price — it overrides the per-kg route rate and any minimum charge.
-            Set brackets per airline + route + hub, or use All Hubs / All Routes defaults.
+            Set brackets per airline + route + hub.
           </p>
         </div>
         {loading ? (
@@ -127,11 +137,9 @@ export const FlatTierRates = ({ user, onBack }: { user: User; onBack: () => void
                 {airlines.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
               <select value={selectedRoute} onChange={e => setSelectedRoute(e.target.value)} className={selCls}>
-                <option value={ALL_ROUTES}>All Routes (Default)</option>
                 {routes.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
               <select value={selectedHubId} onChange={e => setSelectedHubId(e.target.value)} disabled={!isUnrestricted} className={selCls}>
-                <option value={ALL_HUBS}>All Hubs (Default)</option>
                 {hubs.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
               </select>
             </div>
