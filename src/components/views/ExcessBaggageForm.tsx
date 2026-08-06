@@ -130,15 +130,20 @@ export const ExcessBaggageForm = ({
   const officeMatch = useMemo(() => matchOfficeClient(name, corpClients), [name, corpClients]);
   const detectedOfficeClient = officeMatch.client;
   const [linkedAsOfficeWork, setLinkedAsOfficeWork] = useState(false);
+  // Neither match type auto-links anymore -- see PackageForm.tsx's identical
+  // comment for why (exact matches now require the same explicit confirm
+  // click as fuzzy ones, and any change to the matched name/client clears
+  // both the confirmation and a stale office-work-computed amount override).
+  const wasLinkedRef = useRef(false);
   useEffect(() => {
-    setLinkedAsOfficeWork(officeMatch.type === 'exact');
+    if (wasLinkedRef.current) setAmountOverride('');
+    setLinkedAsOfficeWork(false);
+    wasLinkedRef.current = false;
   }, [name, officeMatch.type]);
   const officeWorkRate = useMemo(() => {
     if (!linkedAsOfficeWork || !detectedOfficeClient) return null;
     return corpRates.find(r => r.corporate_client_id === detectedOfficeClient.id && r.route_name === dest) || null;
   }, [linkedAsOfficeWork, detectedOfficeClient, corpRates, dest]);
-  // Handles the EXACT-match case, which auto-links with no button click --
-  // see PackageForm.tsx's identical comment on why this is necessary.
   // excessKg (not kgVal/total weight) since that's the billable weight --
   // matches what the intake charges for and what officeWorkRate itself
   // is meant to price.
@@ -148,14 +153,14 @@ export const ExcessBaggageForm = ({
   // the entry can be submitted -- mirrors the same guard in handleSubmit.
   const walletRemainderBankOk = mode !== 'Wallet' || !activeWallet || activeWallet.balance >= totalAmount ||
     !(walletRemainderMode === 'Transfer' || walletRemainderMode === 'POS') || walletRemainderBank.trim().length > 0;
-  // linkedAsOfficeWork exempts the retail-computed minAmount floor -- a
-  // negotiated contract rate is authoritative pricing the company already
-  // agreed to, and can legitimately fall below standard retail (matches
-  // CargoForm.tsx's identical exemption for size/flat-tier pricing) -- but
-  // still requires parsedOverride > 0, since a route with no configured
-  // contract rate leaves this field manual and this auto-links with no
-  // button click, so a typed zero/negative override could otherwise submit.
-  const isValid = name.trim().length > 0 && flight.trim().length > 0 && dest !== '' && excessKg > 0 && (amountOverride === "" || (linkedAsOfficeWork ? parsedOverride > 0 : parsedOverride >= minAmount)) && walletRemainderBankOk;
+  // A confirmed office-work link only exempts the retail-computed minAmount
+  // floor when there's an actual contract rate backing it (officeWorkRate)
+  // -- a negotiated rate is authoritative pricing the company already
+  // agreed to and can legitimately fall below standard retail (matches
+  // CargoForm.tsx's identical exemption for size/flat-tier pricing), but
+  // linking to a client with no configured rate for this route is not
+  // itself a pricing decision, so the normal floor still applies.
+  const isValid = name.trim().length > 0 && flight.trim().length > 0 && dest !== '' && excessKg > 0 && (amountOverride === "" || ((linkedAsOfficeWork && officeWorkRate) ? parsedOverride > 0 : parsedOverride >= minAmount)) && walletRemainderBankOk;
 
   const { showToast } = useToast();
 
@@ -646,7 +651,7 @@ export const ExcessBaggageForm = ({
               <AlertTriangle size={16} className="text-[var(--color-accent-amber)] shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
                 <div className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)]">
-                  Office Work Client Detected
+                  {officeMatch.type === 'exact' ? 'Registered Client Match' : 'Office Work Client Detected'}
                 </div>
                 <div className="text-[10px] font-mono text-[var(--color-muted)] mt-0.5">
                   <span className="font-semibold text-[var(--color-foreground)]">{detectedOfficeClient.company_name}</span> is a registered corporate account.
@@ -659,6 +664,7 @@ export const ExcessBaggageForm = ({
                     type="button"
                     onClick={() => {
                       setLinkedAsOfficeWork(true);
+                      wasLinkedRef.current = true;
                       if (officeWorkRate && excessKg > 0) {
                         const computed = Math.max(excessKg * officeWorkRate.rate_per_kg, officeWorkRate.minimum_amount ?? 0);
                         setAmountOverride(String(computed));
@@ -683,7 +689,7 @@ export const ExcessBaggageForm = ({
             <div className="p-2 rounded border border-[rgba(139,92,246,0.4)] bg-[rgba(139,92,246,0.08)] flex items-center gap-2">
               <span className="text-[9px] font-bold font-mono text-[#a78bfa] uppercase tracking-wider">OFFICE WORK</span>
               <span className="text-[10px] font-mono text-[var(--color-muted)] flex-1">{detectedOfficeClient.company_name}</span>
-              <button type="button" onClick={() => setLinkedAsOfficeWork(false)} className="text-[9px] font-mono text-[var(--color-muted)] hover:text-[var(--color-error)]">
+              <button type="button" onClick={() => { setLinkedAsOfficeWork(false); setAmountOverride(''); wasLinkedRef.current = false; }} className="text-[9px] font-mono text-[var(--color-muted)] hover:text-[var(--color-error)]">
                 unlink
               </button>
             </div>
@@ -740,7 +746,15 @@ export const ExcessBaggageForm = ({
               <span className="text-[12px] font-sans font-semibold text-[var(--color-light-muted)] font-bold">Destination</span>
               <select
                 value={dest}
-                onChange={(e) => setDest(e.target.value)}
+                onChange={(e) => {
+                  setDest(e.target.value);
+                  // While linked as office work, amountOverride is driven by
+                  // officeWorkRate, which is keyed on destination (route) --
+                  // without clearing it here, switching to a destination
+                  // with no configured contract rate left the OLD route's
+                  // computed price sitting in amountOverride.
+                  if (linkedAsOfficeWork) setAmountOverride('');
+                }}
                 className={formInputClass}
                 style={{ appearance: "none" }}
               >
@@ -813,13 +827,13 @@ export const ExcessBaggageForm = ({
                 value={amountOverride !== "" ? amountOverride : (minAmount > 0 ? minAmount : "")}
                 onChange={(e) => setAmountOverride(e.target.value)}
                 onBlur={() => {
-                  if (amountOverride !== "" && parsedOverride < minAmount) {
+                  if (!(linkedAsOfficeWork && officeWorkRate) && amountOverride !== "" && parsedOverride < minAmount) {
                     setAmountOverride("");
                   }
                 }}
-                className={`${formInputClass} font-mono font-bold ${amountOverride !== "" && parsedOverride < minAmount ? "text-[var(--color-error)] border-[var(--color-error)]" : ""}`}
+                className={`${formInputClass} font-mono font-bold ${!(linkedAsOfficeWork && officeWorkRate) && amountOverride !== "" && parsedOverride < minAmount ? "text-[var(--color-error)] border-[var(--color-error)]" : ""}`}
               />
-              {amountOverride !== "" && parsedOverride < minAmount && (
+              {!(linkedAsOfficeWork && officeWorkRate) && amountOverride !== "" && parsedOverride < minAmount && (
                 <span className="text-[10px] text-[var(--color-error)] absolute right-3 top-1/2 -translate-y-1/2">
                   Min: {minAmount}
                 </span>

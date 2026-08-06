@@ -842,11 +842,22 @@ export const CargoForm = ({
     return matchWallet(customerWallets, nm, consigneePhone);
   }, [consignee, customConsignee, consigneePhone, customerWallets, selectedWalletOverride]);
 
-  // On each consignee change: auto-link when the match is EXACT (the rush-proof
-  // path), otherwise clear so a fuzzy match only shows the suggestion banner.
-  // A manual unlink afterward stays until the consignee changes again.
+  // Neither match type auto-links anymore -- an exact match used to
+  // auto-link (and, via the effect below, auto-bill) instantly with zero
+  // confirmation, which silently applied a corporate account's negotiated
+  // rate to anyone who happened to type that exact name (including a
+  // coincidentally-same-named walk-in). Both exact and fuzzy matches now
+  // only populate the suggestion banner and require the explicit "Yes,
+  // Link as Office Work" click. Any change to the consignee also
+  // un-confirms a previously confirmed link and clears a stale
+  // office-work-computed amount, so editing the name away from a confirmed
+  // match doesn't leave the corporate-rate price sitting in `amount` to be
+  // billed as a plain individual sale.
+  const wasLinkedRef = useRef(false);
   useEffect(() => {
-    setLinkedAsOfficeWork(officeMatch.type === 'exact');
+    if (wasLinkedRef.current) setAmount('');
+    setLinkedAsOfficeWork(false);
+    wasLinkedRef.current = false;
   }, [consignee, customConsignee, officeMatch.type]);
 
   // When the entry is linked as office work, try to find the corporate route
@@ -1318,8 +1329,10 @@ export const CargoForm = ({
       // company already agreed to -- it can legitimately fall below the
       // retail-computed minAmount (e.g. a bulk-volume discount), so it's
       // exempted from the floor the same way size/flat-tier pricing already
-      // is, just below.
-      (priceOverrideInfo?.type === 'size' || priceOverrideInfo?.type === 'flat' || linkedAsOfficeWork
+      // is, just below. Only when a rate actually exists for this route
+      // (officeWorkRate) -- a confirmed link with no configured rate is not
+      // itself a pricing decision, so the normal floor still applies.
+      (priceOverrideInfo?.type === 'size' || priceOverrideInfo?.type === 'flat' || (linkedAsOfficeWork && officeWorkRate)
         ? parsedAmount > 0
         : (rate == null && minCharge == null ? parsedAmount > 0 : parsedAmount >= minAmount && parsedAmount > 0)) &&
       // A short wallet paying its remainder by Transfer/POS needs a bank
@@ -1329,7 +1342,7 @@ export const CargoForm = ({
       (mode !== 'Wallet' || !activeWallet || activeWallet.balance >= parsedAmount ||
         !(walletRemainderMode === 'Transfer' || walletRemainderMode === 'POS') ||
         walletRemainderBank.trim().length > 0),
-    [actualConsignee, route, actualContentType, w, sizeInches, isSizeTierContent, piecesNum, parsedAmount, minAmount, rate, minCharge, priceOverrideInfo, linkedAsOfficeWork, mode, activeWallet, walletRemainderMode, walletRemainderBank],
+    [actualConsignee, route, actualContentType, w, sizeInches, isSizeTierContent, piecesNum, parsedAmount, minAmount, rate, minCharge, priceOverrideInfo, linkedAsOfficeWork, officeWorkRate, mode, activeWallet, walletRemainderMode, walletRemainderBank],
   );
 
   const handleRetailSubmit = async () => {
@@ -2070,7 +2083,7 @@ export const CargoForm = ({
                       <AlertTriangle size={16} className="text-[var(--color-accent-amber)] shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
                         <div className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)]">
-                          Office Work Client Detected
+                          {officeMatch.type === 'exact' ? 'Registered Client Match' : 'Office Work Client Detected'}
                         </div>
                         <div className="text-[10px] font-mono text-[var(--color-muted)] mt-0.5">
                           <span className="font-semibold text-[var(--color-foreground)]">{detectedOfficeClient.company_name}</span> is a registered corporate account.
@@ -2083,6 +2096,7 @@ export const CargoForm = ({
                             type="button"
                             onClick={() => {
                               setLinkedAsOfficeWork(true);
+                              wasLinkedRef.current = true;
                               // Auto-apply contract rate if one exists
                               if (officeWorkRate && kg) {
                                 const w = parseFloat(kg) || 0;
@@ -2114,7 +2128,7 @@ export const CargoForm = ({
                     <div className="mt-2 p-2 rounded border border-[rgba(139,92,246,0.4)] bg-[rgba(139,92,246,0.08)] flex items-center gap-2">
                       <span className="text-[9px] font-bold font-mono text-[#a78bfa] uppercase tracking-wider">OFFICE WORK</span>
                       <span className="text-[10px] font-mono text-[var(--color-muted)] flex-1">{detectedOfficeClient.company_name}</span>
-                      <button type="button" onClick={() => setLinkedAsOfficeWork(false)} className="text-[9px] font-mono text-[var(--color-muted)] hover:text-[var(--color-error)]">
+                      <button type="button" onClick={() => { setLinkedAsOfficeWork(false); setAmount(''); wasLinkedRef.current = false; }} className="text-[9px] font-mono text-[var(--color-muted)] hover:text-[var(--color-error)]">
                         unlink
                       </button>
                     </div>

@@ -146,18 +146,28 @@ export const PackageForm = ({
   const officeMatch = useMemo(() => matchOfficeClient(mode === "Debt" ? debtorName : name, corpClients), [mode, debtorName, name, corpClients]);
   const detectedOfficeClient = officeMatch.client;
   const [linkedAsOfficeWork, setLinkedAsOfficeWork] = useState(false);
+  // Neither match type auto-links anymore -- both exact and fuzzy matches
+  // only populate the suggestion banner below and require the explicit
+  // "Yes, Link as Office Work" click. An exact match used to auto-link and
+  // auto-bill instantly with zero confirmation, silently applying a
+  // corporate account's negotiated rate to anyone who happened to type
+  // that exact name (including a coincidentally-same-named walk-in).
+  // Any change to the matched name/client also un-confirms a previously
+  // confirmed link and clears a stale office-work-computed amount --
+  // otherwise editing the name away from a confirmed match (or losing the
+  // match entirely) left the corporate-rate price sitting in `amount`,
+  // which then billed as a plain individual sale with no trace of the
+  // corporate link that produced it.
+  const wasLinkedRef = useRef(false);
   useEffect(() => {
-    setLinkedAsOfficeWork(officeMatch.type === 'exact');
+    if (wasLinkedRef.current) setAmount('');
+    setLinkedAsOfficeWork(false);
+    wasLinkedRef.current = false;
   }, [name, debtorName, officeMatch.type]);
   const officeWorkRate = useMemo(() => {
     if (!linkedAsOfficeWork || !detectedOfficeClient) return null;
     return corpRates.find(r => r.corporate_client_id === detectedOfficeClient.id && r.route_name === destination) || null;
   }, [linkedAsOfficeWork, detectedOfficeClient, corpRates, destination]);
-  // Handles the EXACT-match case, which auto-links with no button click --
-  // the banner's own "Yes, Link as Office Work" button (below) only ever
-  // fires for a fuzzy match, so without this an exact match would link
-  // and stamp applied_rate_per_kg without ever actually pricing the sale
-  // at the contract rate.
   useOfficeWorkAutoPrice(linkedAsOfficeWork, officeWorkRate, parseFloat(kg) || 0, destination, setAmount);
 
   useEffect(() => {
@@ -191,17 +201,16 @@ export const PackageForm = ({
   // contentTypes[0] made it always truthy, so this never actually bit;
   // now that it starts empty, it needs an explicit check like destination
   // already has.
-  // linkedAsOfficeWork exempts the MIN_PACKAGE_AMOUNT floor -- a negotiated
-  // contract rate is authoritative pricing the company already agreed to
-  // (e.g. a bulk-volume discount), and can legitimately fall below the
-  // standard minimum package fee. Matches CargoForm.tsx's identical
-  // exemption for size/flat-tier pricing -- including keeping the
-  // parsedAmount > 0 floor even when exempted, since a route with no
-  // configured contract rate leaves amount fully manual and this
-  // auto-links with no button click, so a blank/zero/negative amount could
-  // otherwise submit silently.
+  // A confirmed office-work link only exempts the MIN_PACKAGE_AMOUNT floor
+  // when there's an actual contract rate backing it (officeWorkRate) -- a
+  // negotiated rate is authoritative pricing the company already agreed to
+  // (e.g. a bulk-volume discount) and can legitimately fall below the
+  // standard minimum package fee, but linking to a client with no
+  // configured rate for this specific route is not itself a pricing
+  // decision, so the normal retail floor still applies (matches
+  // CargoForm.tsx's identical exemption for size/flat-tier pricing).
   const isValidCore = (mode === "Debt" ? debtorName.trim().length > 0 : name.trim().length > 0)
-    && (linkedAsOfficeWork ? parsedAmount > 0 : parsedAmount >= MIN_PACKAGE_AMOUNT) && destination.trim().length > 0 && actualContents.trim().length > 0 && !!trackingRef && pcsNum > 0;
+    && ((linkedAsOfficeWork && officeWorkRate) ? parsedAmount > 0 : parsedAmount >= MIN_PACKAGE_AMOUNT) && destination.trim().length > 0 && actualContents.trim().length > 0 && !!trackingRef && pcsNum > 0;
 
   // "Today" here means the actual calendar day, not whatever the app-wide
   // date-range picker (globalDateRange, defaults to a trailing 7 days) is
@@ -262,7 +271,7 @@ export const PackageForm = ({
   const isValid = isValidCore && walletRemainderBankOk;
 
   const handleAddEntry = async () => {
-    if (!linkedAsOfficeWork && parsedAmount < MIN_PACKAGE_AMOUNT) {
+    if (!(linkedAsOfficeWork && officeWorkRate) && parsedAmount < MIN_PACKAGE_AMOUNT) {
       showToast({ message: `Amount must be at least ₦${MIN_PACKAGE_AMOUNT.toLocaleString()}`, type: 'warning' });
       return;
     }
@@ -818,7 +827,7 @@ export const PackageForm = ({
                     <AlertTriangle size={16} className="text-[var(--color-accent-amber)] shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <div className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)]">
-                        Office Work Client Detected
+                        {officeMatch.type === 'exact' ? 'Registered Client Match' : 'Office Work Client Detected'}
                       </div>
                       <div className="text-[10px] font-mono text-[var(--color-muted)] mt-0.5">
                         <span className="font-semibold text-[var(--color-foreground)]">{detectedOfficeClient.company_name}</span> is a registered corporate account.
@@ -831,6 +840,7 @@ export const PackageForm = ({
                           type="button"
                           onClick={() => {
                             setLinkedAsOfficeWork(true);
+                            wasLinkedRef.current = true;
                             if (officeWorkRate && kg) {
                               const w = parseFloat(kg) || 0;
                               if (w > 0) {
@@ -858,7 +868,7 @@ export const PackageForm = ({
                   <div className="p-2 rounded border border-[rgba(139,92,246,0.4)] bg-[rgba(139,92,246,0.08)] flex items-center gap-2">
                     <span className="text-[9px] font-bold font-mono text-[#a78bfa] uppercase tracking-wider">OFFICE WORK</span>
                     <span className="text-[10px] font-mono text-[var(--color-muted)] flex-1">{detectedOfficeClient.company_name}</span>
-                    <button type="button" onClick={() => setLinkedAsOfficeWork(false)} className="text-[9px] font-mono text-[var(--color-muted)] hover:text-[var(--color-error)]">
+                    <button type="button" onClick={() => { setLinkedAsOfficeWork(false); setAmount(''); wasLinkedRef.current = false; }} className="text-[9px] font-mono text-[var(--color-muted)] hover:text-[var(--color-error)]">
                       unlink
                     </button>
                   </div>
@@ -867,7 +877,16 @@ export const PackageForm = ({
                 <div className="flex space-x-3">
                   <select
                     value={destination}
-                    onChange={(e) => setDestination(e.target.value)}
+                    onChange={(e) => {
+                      setDestination(e.target.value);
+                      // While linked as office work, the amount is driven by
+                      // officeWorkRate, which is keyed on destination (route)
+                      // -- without clearing it here, switching to a
+                      // destination with no configured contract rate left
+                      // the OLD route's computed price sitting in `amount`
+                      // rather than falling back to manual/no-rate handling.
+                      if (linkedAsOfficeWork) setAmount('');
+                    }}
                     className={`flex-1 h-11 px-3 text-[13px] rounded bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-foreground)] font-sans min-w-0 ${focusClasses}`}
                   >
                     <option value="" disabled>-- Select Destination --</option>
@@ -999,7 +1018,7 @@ export const PackageForm = ({
                     />
                   </div>
                 </div>
-                {!linkedAsOfficeWork && amount !== "" && parsedAmount < MIN_PACKAGE_AMOUNT && (
+                {!(linkedAsOfficeWork && officeWorkRate) && amount !== "" && parsedAmount < MIN_PACKAGE_AMOUNT && (
                   <p className="text-[11px] text-red-500 font-mono -mt-2">
                     ⚠ Minimum amount is ₦{MIN_PACKAGE_AMOUNT.toLocaleString()}
                   </p>

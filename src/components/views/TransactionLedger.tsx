@@ -220,6 +220,12 @@ export const TransactionLedger = ({
   }, []);
   const [typeFilter, setTypeFilter] = useState(defaultTypeFilter || "All");
   const [modeFilter, setModeFilter] = useState("All");
+  // Office (B2B/corporate) vs Individual split for Debt entries specifically
+  // -- reuses the same clientType/linked_as_office_work/corporate_client_id
+  // classification DebtorsTab.tsx already relies on. Selecting either value
+  // narrows the ledger to unpaid Debt entries of that class regardless of
+  // modeFilter, since picking a debt-type split is inherently about debts.
+  const [debtClassFilter, setDebtClassFilter] = useState<'All' | 'Office' | 'Individual'>('All');
   // GAT (General Aviation Terminal / MM1) is a second physical Lagos
   // counter tagged on cargo/package entries, not a separate hub -- see
   // TerminalSwitch.tsx.
@@ -688,7 +694,22 @@ export const TransactionLedger = ({
     });
   }, [mergedTransactions, expenses]);
 
+  // Same classification DebtorsTab.tsx already uses for its Corporate/
+  // Individual debt filter -- corporate_client_id is only ever written
+  // alongside linked_as_office_work=true (see CargoForm.tsx/PackageForm.tsx/
+  // etc.'s submit payloads), so checking it here catches entries whose
+  // clientType/linked_as_office_work weren't fetched/mapped for some reason.
+  const isOfficeWorkEntry = (e: Entry): boolean =>
+    e.raw?.clientType === 'Corporate' || !!(e.raw as any)?.linked_as_office_work || !!(e.raw as any)?.corporate_client_id;
+
   const filteredEntries = useMemo(() => entries.filter((e) => {
+    if (debtClassFilter !== 'All') {
+      if (e.mode !== 'Debt') return false;
+      const isOffice = isOfficeWorkEntry(e);
+      if (debtClassFilter === 'Office' && !isOffice) return false;
+      if (debtClassFilter === 'Individual' && isOffice) return false;
+    }
+
     if (typeFilter !== "All") {
       if (typeFilter === "Office Work") {
         // clientType is typed to allow a literal 'Office Work' value, but
@@ -826,7 +847,7 @@ export const TransactionLedger = ({
     }
 
     return true;
-  }), [entries, typeFilter, modeFilter, terminalFilter, timeFilter, timeStart, timeEnd, searchQuery, shiftFilter, shiftBoundary, vjFlightFilter, vjDestFilter]);
+  }), [entries, typeFilter, modeFilter, terminalFilter, timeFilter, timeStart, timeEnd, searchQuery, shiftFilter, shiftBoundary, vjFlightFilter, vjDestFilter, debtClassFilter]);
 
   // Per-airline weight/pieces/revenue roll-up for whatever's currently in
   // filteredEntries -- recomputes with every filter change so it always
@@ -1944,9 +1965,14 @@ export const TransactionLedger = ({
   // TransactionLedger's Printing & Documents section below) -- previously
   // one flag controlled both, so a super_admin couldn't grant one without
   // the other. See 20260933_edit_ledger_permission.sql.
-  const canEdit = !viewOnly &&
-    ['accountant', 'admin', 'super_admin'].includes(user.role) &&
-    (user.role === 'super_admin' || user.can_edit_ledger === true);
+  // No role whitelist here (mirrors canEditRemarks below) -- a prior version
+  // additionally required role to be accountant/admin/super_admin, but
+  // Staff Management's toggle doesn't check the target's role before
+  // allowing it to be granted, so a super_admin could switch this on for
+  // any staffer and have it silently do nothing except leave Remarks
+  // editable (canEditRemarks has no role gate). The flag itself is now
+  // authoritative.
+  const canEdit = !viewOnly && (user.role === 'super_admin' || user.can_edit_ledger === true);
 
   const isAccountantOrAdmin = canEdit;
   const canEditRemarks = user.role === 'super_admin' || user.can_edit_remarks === true;
@@ -2071,23 +2097,25 @@ export const TransactionLedger = ({
   // modal open, checkbox tick). Each pass used to block the main thread for
   // 20–80ms on a 1000-5000 row ledger.
   const kpis = useMemo(() => {
-    let transfer = 0, pos = 0, debt = 0, wallet = 0, debtCount = 0;
+    let transfer = 0, pos = 0, debt = 0, wallet = 0, debtCount = 0, officeDebt = 0, individualDebt = 0;
     for (const e of filteredEntries) {
       const sign = e.source === 'expense' ? -1 : 1;
       if (e.mode === 'Transfer') transfer += sign * e.amount;
       if (e.mode === 'POS') pos += sign * e.amount;
       if (e.mode === 'Debt') {
         const tx = e.raw as Transaction;
-        debt += Math.max(0, (tx.amount || 0) - (tx.amountPaid || 0) - ((tx.raw as any)?.retrieved_amount || 0));
+        const balance = Math.max(0, (tx.amount || 0) - (tx.amountPaid || 0) - ((tx.raw as any)?.retrieved_amount || 0));
+        debt += balance;
         debtCount++;
+        if (isOfficeWorkEntry(e)) officeDebt += balance; else individualDebt += balance;
       }
       const ded = e.raw?.wallet_deduction_amount || (e.mode === 'Wallet' ? e.amount : 0);
       wallet += ded;
     }
-    return { transferAmount: transfer, posAmount: pos, debtAmount: debt, walletAmount: wallet, unpaidDebtCount: debtCount };
+    return { transferAmount: transfer, posAmount: pos, debtAmount: debt, walletAmount: wallet, unpaidDebtCount: debtCount, officeDebtAmount: officeDebt, individualDebtAmount: individualDebt };
   }, [filteredEntries]);
 
-  const { transferAmount, posAmount, debtAmount, walletAmount, unpaidDebtCount } = kpis;
+  const { transferAmount, posAmount, debtAmount, walletAmount, unpaidDebtCount, officeDebtAmount, individualDebtAmount } = kpis;
 
   const { hasNonDefaultFilters, activeFilterCount } = useMemo(() => {
     const hasNDF =
@@ -2097,7 +2125,8 @@ export const TransactionLedger = ({
       timeFilter !== "All" ||
       searchQuery.trim() !== "" ||
       vjFlightFilter !== "All" ||
-      vjDestFilter !== "All";
+      vjDestFilter !== "All" ||
+      debtClassFilter !== "All";
     const count =
       (typeFilter !== (defaultTypeFilter || "All") ? 1 : 0) +
       (modeFilter !== "All" ? 1 : 0) +
@@ -2105,9 +2134,10 @@ export const TransactionLedger = ({
       (timeFilter !== "All" ? 1 : 0) +
       (searchQuery.trim() !== "" ? 1 : 0) +
       (vjFlightFilter !== "All" ? 1 : 0) +
-      (vjDestFilter !== "All" ? 1 : 0);
+      (vjDestFilter !== "All" ? 1 : 0) +
+      (debtClassFilter !== "All" ? 1 : 0);
     return { hasNonDefaultFilters: hasNDF, activeFilterCount: count };
-  }, [typeFilter, defaultTypeFilter, modeFilter, terminalFilter, defaultTerminalFilter, timeFilter, searchQuery, vjFlightFilter, vjDestFilter]);
+  }, [typeFilter, defaultTypeFilter, modeFilter, terminalFilter, defaultTerminalFilter, timeFilter, searchQuery, vjFlightFilter, vjDestFilter, debtClassFilter]);
 
   const resetAllFilters = () => {
     setTypeFilter(defaultTypeFilter || "All");
@@ -2121,6 +2151,7 @@ export const TransactionLedger = ({
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     setVjFlightFilter("All");
     setVjDestFilter("All");
+    setDebtClassFilter("All");
   };
 
   const vjFlights = useMemo(() => {
@@ -2444,6 +2475,50 @@ export const TransactionLedger = ({
                     <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Wallet</div>
                   </div>
                   <div className="text-[14px] sm:text-[15px] font-bold font-mono text-purple-400 leading-none truncate">₦{fmt(walletAmount)}</div>
+                </button>
+              </div>
+
+              {/* Office Work (B2B) vs Individual split for unpaid Debt --
+                  labeled per DebtorsTab.tsx's existing "Office Work (B2B)"
+                  wording. Selecting one narrows the ledger to unpaid Debt
+                  entries of that class (implies Debt regardless of
+                  modeFilter); the two totals themselves are computed from
+                  filteredEntries just like the KPI tiles above, so they
+                  narrow together with every other active filter. */}
+              <div className="flex items-center gap-2 mt-2">
+                <button
+                  onClick={() => {
+                    const next = debtClassFilter === 'Office' ? 'All' : 'Office';
+                    setDebtClassFilter(next);
+                    // Selecting a debt-class filter implies mode==='Debt' --
+                    // without forcing modeFilter to match, an unrelated
+                    // active mode filter (e.g. 'Cash') would combine with
+                    // this one to silently produce zero rows.
+                    if (next !== 'All') setModeFilter('Debt');
+                  }}
+                  className={`flex-1 rounded-lg px-3 py-1.5 border text-left transition-all ${
+                    debtClassFilter === 'Office'
+                      ? 'bg-[rgba(239,68,68,0.15)] border-[var(--color-error)]'
+                      : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:border-[var(--color-error)]'
+                  }`}
+                >
+                  <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Office Debt (B2B)</div>
+                  <div className="text-[12px] font-bold font-mono text-[var(--color-error)] leading-none">₦{fmt(officeDebtAmount)}</div>
+                </button>
+                <button
+                  onClick={() => {
+                    const next = debtClassFilter === 'Individual' ? 'All' : 'Individual';
+                    setDebtClassFilter(next);
+                    if (next !== 'All') setModeFilter('Debt');
+                  }}
+                  className={`flex-1 rounded-lg px-3 py-1.5 border text-left transition-all ${
+                    debtClassFilter === 'Individual'
+                      ? 'bg-[rgba(239,68,68,0.15)] border-[var(--color-error)]'
+                      : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:border-[var(--color-error)]'
+                  }`}
+                >
+                  <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Individual Debt</div>
+                  <div className="text-[12px] font-bold font-mono text-[var(--color-error)] leading-none">₦{fmt(individualDebtAmount)}</div>
                 </button>
               </div>
             </div>

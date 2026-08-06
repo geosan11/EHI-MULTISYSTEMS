@@ -227,15 +227,20 @@ export const MarketingWorkspace = ({
   const officeMatch = useMemo(() => matchOfficeClient(mode === "Debt" ? debtorName : name, corpClients), [mode, debtorName, name, corpClients]);
   const detectedOfficeClient = officeMatch.client;
   const [linkedAsOfficeWork, setLinkedAsOfficeWork] = useState(false);
+  // Neither match type auto-links anymore -- see PackageForm.tsx's identical
+  // comment for why (exact matches now require the same explicit confirm
+  // click as fuzzy ones, and any change to the matched name/client clears
+  // both the confirmation and a stale office-work-computed amount override).
+  const wasLinkedRef = useRef(false);
   useEffect(() => {
-    setLinkedAsOfficeWork(officeMatch.type === 'exact');
+    if (wasLinkedRef.current) setAmountOverride('');
+    setLinkedAsOfficeWork(false);
+    wasLinkedRef.current = false;
   }, [name, debtorName, officeMatch.type]);
   const officeWorkRate = useMemo(() => {
     if (!linkedAsOfficeWork || !detectedOfficeClient) return null;
     return corpRates.find(r => r.corporate_client_id === detectedOfficeClient.id && r.route_name === route) || null;
   }, [linkedAsOfficeWork, detectedOfficeClient, corpRates, route]);
-  // Handles the EXACT-match case, which auto-links with no button click --
-  // see PackageForm.tsx's identical comment on why this is necessary.
   useOfficeWorkAutoPrice(linkedAsOfficeWork, officeWorkRate, totalKg, route, setAmountOverride);
 
   // Debt mode records debtorName as the transaction's name (see handleAddEntry
@@ -248,9 +253,10 @@ export const MarketingWorkspace = ({
   // an empty route already zeroes routePrices (see above), but a manually
   // typed amountOverride could still push totalAmount > 0 without a route
   // ever having been chosen.
-  // linkedAsOfficeWork exempts the retail-computed minAmount floor -- see
-  // ExcessBaggageForm.tsx's identical exemption for the reasoning.
-  const isValidCore = !!awb && !!route && (mode === "Debt" ? debtorName.trim().length > 0 : name.trim().length > 0) && phone.trim().length > 0 && totalAmount > 0 && (amountOverride === "" || linkedAsOfficeWork || parsedOverride >= minAmount);
+  // A confirmed office-work link only exempts the retail-computed minAmount
+  // floor when there's an actual contract rate backing it (officeWorkRate)
+  // -- see ExcessBaggageForm.tsx's identical exemption for the reasoning.
+  const isValidCore = !!awb && !!route && (mode === "Debt" ? debtorName.trim().length > 0 : name.trim().length > 0) && phone.trim().length > 0 && totalAmount > 0 && (amountOverride === "" || (linkedAsOfficeWork && officeWorkRate) || parsedOverride >= minAmount);
 
   // "Less Transfer" — daily adjustment for 3rd-party/corporate transfers (Govt/Honda/Zion)
   // that belong to other accounts and should be excluded from the day's cash tally
@@ -936,7 +942,7 @@ export const MarketingWorkspace = ({
                     <AlertTriangle size={16} className="text-[var(--color-accent-amber)] shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <div className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)]">
-                        Office Work Client Detected
+                        {officeMatch.type === 'exact' ? 'Registered Client Match' : 'Office Work Client Detected'}
                       </div>
                       <div className="text-[10px] font-mono text-[var(--color-muted)] mt-0.5">
                         <span className="font-semibold text-[var(--color-foreground)]">{detectedOfficeClient.company_name}</span> is a registered corporate account.
@@ -949,6 +955,7 @@ export const MarketingWorkspace = ({
                           type="button"
                           onClick={() => {
                             setLinkedAsOfficeWork(true);
+                            wasLinkedRef.current = true;
                             if (officeWorkRate && totalKg > 0) {
                               const computed = Math.max(totalKg * officeWorkRate.rate_per_kg, officeWorkRate.minimum_amount ?? 0);
                               setAmountOverride(String(computed));
@@ -973,7 +980,7 @@ export const MarketingWorkspace = ({
                   <div className="p-2 rounded border border-[rgba(139,92,246,0.4)] bg-[rgba(139,92,246,0.08)] flex items-center gap-2">
                     <span className="text-[9px] font-bold font-mono text-[#a78bfa] uppercase tracking-wider">OFFICE WORK</span>
                     <span className="text-[10px] font-mono text-[var(--color-muted)] flex-1">{detectedOfficeClient.company_name}</span>
-                    <button type="button" onClick={() => setLinkedAsOfficeWork(false)} className="text-[9px] font-mono text-[var(--color-muted)] hover:text-[var(--color-error)]">
+                    <button type="button" onClick={() => { setLinkedAsOfficeWork(false); setAmountOverride(''); wasLinkedRef.current = false; }} className="text-[9px] font-mono text-[var(--color-muted)] hover:text-[var(--color-error)]">
                       unlink
                     </button>
                   </div>
@@ -982,7 +989,15 @@ export const MarketingWorkspace = ({
                 <div className="flex space-x-3">
                   <select
                     value={route}
-                    onChange={(e) => setRoute(e.target.value)}
+                    onChange={(e) => {
+                      setRoute(e.target.value);
+                      // While linked as office work, amountOverride is driven
+                      // by officeWorkRate, which is keyed on route --
+                      // without clearing it here, switching to a route with
+                      // no configured contract rate left the OLD route's
+                      // computed price sitting in amountOverride.
+                      if (linkedAsOfficeWork) setAmountOverride('');
+                    }}
                     className={`flex-1 h-11 px-3 text-[13px] rounded bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-foreground)] font-sans min-w-0 ${mktgFocusClasses}`}
                   >
                     <option value="" disabled>-- Select Route --</option>
@@ -1144,12 +1159,12 @@ export const MarketingWorkspace = ({
                       value={amountOverride !== "" ? amountOverride : (minAmount > 0 ? minAmount : "")}
                       onChange={(e) => setAmountOverride(e.target.value)}
                       onBlur={() => {
-                        if (amountOverride !== "" && parsedOverride < minAmount) {
+                        if (!(linkedAsOfficeWork && officeWorkRate) && amountOverride !== "" && parsedOverride < minAmount) {
                           setAmountOverride("");
                         }
                       }}
                       placeholder={minAmount > 0 ? minAmount.toString() : "0"}
-                      className={`w-24 bg-transparent border-none text-right text-[18px] font-bold font-mono p-0 focus:ring-0 ${totalAmount > 0 ? "text-[var(--color-success)]" : "text-[var(--color-muted)]"} ${amountOverride !== "" && parsedOverride < minAmount ? "text-[var(--color-error)]" : ""}`}
+                      className={`w-24 bg-transparent border-none text-right text-[18px] font-bold font-mono p-0 focus:ring-0 ${totalAmount > 0 ? "text-[var(--color-success)]" : "text-[var(--color-muted)]"} ${!(linkedAsOfficeWork && officeWorkRate) && amountOverride !== "" && parsedOverride < minAmount ? "text-[var(--color-error)]" : ""}`}
                       style={{ fontFamily: "JetBrains Mono" }}
                     />
                   </div>

@@ -294,7 +294,7 @@ export function downloadDailyExcel(
         t.name || '',
         t.awb_tag_number || '',
         t.airline || parts[0] || '',
-        t.route || parts[3] || '',
+        getHubCode(t.route || parts[3] || ''),
         String(t.pieces != null ? t.pieces : (parts[1]?.replace(/pcs/i,'') || '')),
         String(t.kg != null ? t.kg : (parts[2]?.replace(/kg/i,'') || '')),
         t.contentType || parts[4] || '',
@@ -315,7 +315,7 @@ export function downloadDailyExcel(
       t.name || '',
       t.pnr || '',
       t.flight || '',
-      t.destination || '',
+      getHubCode(t.destination || ''),
       String(t.pieces || ''),
       String(t.totalKg || ''),
       String(t.excessKg || t.kg || ''),
@@ -337,7 +337,7 @@ export function downloadDailyExcel(
         t.time || '',
         t.name || '',
         '',
-        t.route || t.detail?.split(' · ')[0] || '',
+        getHubCode(t.route || t.detail?.split(' · ')[0] || ''),
         bb, mb, sb,
         String(t.amount || 0),
         formatPaymentModeDisplay(t.mode || '', t.wallet_deduction_amount, t.amount || 0),
@@ -354,7 +354,7 @@ export function downloadDailyExcel(
         rowDate(t),
         t.time || '',
         t.name || '',
-        t.destination || parts[0] || '',
+        getHubCode(t.destination || parts[0] || ''),
         t.contentType || parts[1] || '',
         String(t.pieces != null ? t.pieces : (parts[2]?.replace(/pcs/i,'') || '')),
         String(t.kg != null ? t.kg : (parts[3]?.replace(/kg/i,'') || '')),
@@ -371,20 +371,33 @@ export function downloadDailyExcel(
     // where entries can be cargo/baggage/marketing/package all at once and
     // none of the stream-specific column sets above apply uniformly. Airline
     // and Pieces get their own columns (matching the stream-specific exports
-    // above) instead of being buried in Detail text; Detail itself is
-    // rebuilt from each entry's own structured fields rather than reused
-    // verbatim, since the shared `detail` string embeds airline/pieces/kg
-    // that would otherwise be duplicated once those have real columns here.
-    headers = ['Ref', 'Date', 'Time', 'Type', 'Name', 'Airline', 'Detail', 'Pieces', 'KG', 'Amount', 'Mode', 'Bank', 'Status', ...debtAndWalletHeaders];
+    // above) instead of being buried in one combined text field. Route and
+    // Content are likewise their own columns rather than one concatenated
+    // "Detail" string -- Route is reduced to its bare 3-letter hub code
+    // (matching the stream-specific exports above) instead of the full
+    // "CODE/City" text, and Content never repeats the route/hub code that's
+    // already in its own column.
+    headers = ['Ref', 'Date', 'Time', 'Type', 'Name', 'Airline', 'Route', 'Content', 'Pieces', 'KG', 'Amount', 'Mode', 'Bank', 'Status', ...debtAndWalletHeaders];
     rows = transactions.map(t => {
       const parts = t.detail?.split(' · ') || [];
-      let detail = t.detail || '';
+      // t.route/t.destination cover essentially every real entry; the
+      // per-type parts[] index is only a fallback for legacy rows recorded
+      // before those dedicated fields existed, mirroring each type's own
+      // original position in the shared `detail` string.
+      const legacyRouteFallback = t.type === 'cargo' ? parts[3] : t.type === 'baggage' ? parts[1] : parts[0];
+      const route = getHubCode(t.route || t.destination || legacyRouteFallback || '');
+      let content = '';
       if (t.type === 'cargo') {
-        detail = [t.route || parts[3] || '', t.contentType || parts[4] || '', t.sizeInches ? `${t.sizeInches}in` : ''].filter(Boolean).join(' · ');
+        content = [t.contentType || parts[4] || '', t.sizeInches ? `${t.sizeInches}in` : ''].filter(Boolean).join(' · ');
       } else if (t.type === 'baggage') {
-        detail = [t.flight || parts[0] || '', t.destination || parts[1] || ''].filter(Boolean).join(' · ');
+        content = t.flight || parts[0] || '';
       } else if (t.type === 'package') {
-        detail = [t.destination || parts[0] || '', t.contentType || parts[1] || '', t.contents || parts[4] || ''].filter(Boolean).join(' · ');
+        content = [t.contentType || parts[1] || '', t.contents || parts[4] || ''].filter(Boolean).join(' · ');
+      } else if (t.type === 'marketing') {
+        // Bag-count breakdown, same source as the marketing-specific export
+        // above -- deliberately excludes parts[0] (the route), which is
+        // already its own column here.
+        content = parts[1] || '';
       }
       return [
         t.id,
@@ -393,7 +406,8 @@ export function downloadDailyExcel(
         t.type || '',
         t.name || '',
         t.airline || '',
-        detail,
+        route,
+        content,
         String(t.pieces ?? ''),
         String(t.kg ?? t.totalKg ?? ''),
         String(t.amount || 0),
