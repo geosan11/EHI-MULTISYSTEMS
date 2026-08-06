@@ -358,6 +358,11 @@ export const PackageForm = ({
     }
 
     setSuccessTx(tx);
+    // Never reset back to false on confirm (only on Cancel) -- left true,
+    // this reappeared as soon as "New Entry" cleared successTx and put the
+    // main form back on screen, since the modal's own render condition
+    // (`showPackageReview && <ReviewEntryModal .../>`) was still satisfied.
+    setShowPackageReview(false);
     setSubmitting(false);
     onAddTx(tx);
 

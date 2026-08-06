@@ -255,6 +255,11 @@ export const ExcessBaggageForm = ({
     }
 
     setSuccessTx({ tx, kgs: kgVal, exc: excessKg, pcs: pcsVal });
+    // Never reset back to false on confirm (only on Cancel) -- left true,
+    // this reappeared as soon as "New Entry" cleared successTx and put the
+    // main form back on screen, since the modal's own render condition
+    // (`showBaggageReview && <ReviewEntryModal .../>`) was still satisfied.
+    setShowBaggageReview(false);
     setSubmitting(false);
 
     onAddTx(tx);
