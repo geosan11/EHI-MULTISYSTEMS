@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, DollarSign } from 'lucide-react';
+import { Plus, DollarSign, Trash2 } from 'lucide-react';
 import { BackButton } from '../BackButton';
 import { User } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
@@ -11,6 +11,7 @@ export interface CorporateClient {
   company_name: string;
   contact_phone: string;
   accumulated_monthly_debt: number;
+  active: boolean;
 }
 
 export interface CorporateRouteRate {
@@ -245,17 +246,51 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
       return;
     }
 
-    const newClient: CorporateClient = { id: data.id, company_name: data.company_name, contact_phone: data.contact_phone, accumulated_monthly_debt: data.accumulated_monthly_debt };
+    const newClient: CorporateClient = { id: data.id, company_name: data.company_name, contact_phone: data.contact_phone, accumulated_monthly_debt: data.accumulated_monthly_debt, active: data.active ?? true };
     setCorpClients([...corpClients, newClient]);
     setNewClientName('');
     setNewClientPhone('');
     setSelectedRateClient(newClient);
   };
 
+  const handleToggleClientActive = async (client: CorporateClient) => {
+    const nextActive = !client.active;
+    const prev = corpClients;
+    const next = corpClients.map(c => c.id === client.id ? { ...c, active: nextActive } : c);
+    setCorpClients(next);
+    if (selectedRateClient?.id === client.id) setSelectedRateClient({ ...client, active: nextActive });
+
+    const { error } = await supabase.from('corporate_clients').update({ active: nextActive }).eq('id', client.id);
+    if (error) {
+      // Roll back -- otherwise this screen shows a status that was never
+      // actually saved, and intake forms elsewhere keep matching/ignoring
+      // this client based on the real (unchanged) server value.
+      setCorpClients(prev);
+      if (selectedRateClient?.id === client.id) setSelectedRateClient(client);
+      showToast({ message: `Failed to ${nextActive ? 'reactivate' : 'deactivate'} ${client.company_name}: ${error.message}`, type: 'error' });
+      return;
+    }
+    showToast({ message: `${client.company_name} ${nextActive ? 'reactivated' : 'deactivated'}.`, type: 'success' });
+  };
+
+  const handleDeleteCorpRate = async (rate: CorporateRouteRate) => {
+    const prev = corpRates;
+    setCorpRates(corpRates.filter(r => r.id !== rate.id));
+
+    const { error } = await supabase.from('corporate_route_rates').delete().eq('id', rate.id);
+    if (error) {
+      setCorpRates(prev);
+      showToast({ message: `Failed to delete rate for ${rate.route_name}: ${error.message}`, type: 'error' });
+    }
+  };
+
   const handleSetCorpRate = async () => {
     if (!selectedRateClient || !ratePrice) return;
     const priceNum = parseFloat(ratePrice);
-    if (isNaN(priceNum) || priceNum <= 0) return;
+    if (isNaN(priceNum) || priceNum <= 0) {
+      showToast({ message: 'Tariff must be a positive number.', type: 'warning' });
+      return;
+    }
     const minChargeNum = parseFloat(rateMinCharge) || 0;
 
     // Upsert on the (corporate_client_id, route_name) unique constraint
@@ -484,12 +519,17 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
             {/* Client List */}
             <div className="w-full md:w-1/2 space-y-2 overflow-y-auto max-h-[300px] border-r border-[var(--color-border)] pr-2">
               {corpClients.map(c => (
-                <div 
+                <div
                   key={c.id}
                   onClick={() => setSelectedRateClient(c)}
-                  className={`p-3 rounded border cursor-pointer transition-colors ${selectedRateClient?.id === c.id ? 'bg-[rgba(251,191,36,0.1)] border-[var(--color-accent-amber)]' : 'bg-[var(--color-bg)] border-[var(--color-border)] hover:border-[var(--color-muted)]'}`}
+                  className={`p-3 rounded border cursor-pointer transition-colors ${c.active === false ? 'opacity-50' : ''} ${selectedRateClient?.id === c.id ? 'bg-[rgba(251,191,36,0.1)] border-[var(--color-accent-amber)]' : 'bg-[var(--color-bg)] border-[var(--color-border)] hover:border-[var(--color-muted)]'}`}
                 >
-                  <div className="font-bold text-[12px] text-[var(--color-foreground)]">{c.company_name}</div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="font-bold text-[12px] text-[var(--color-foreground)]">{c.company_name}</div>
+                    {c.active === false && (
+                      <span className="text-[8px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[rgba(239,68,68,0.15)] text-[var(--color-error)] border border-[var(--color-error)]">Inactive</span>
+                    )}
+                  </div>
                   <div className="flex items-center justify-between mt-1">
                     <div className="text-[10px] text-[var(--color-muted)] font-mono">{corpRates.filter(r => r.corporate_client_id === c.id).length} routes configured</div>
                     <div className="text-[10px] font-mono font-bold" style={{ color: (c.accumulated_monthly_debt || 0) > 0 ? 'var(--color-error)' : 'var(--color-muted)' }}>
@@ -506,7 +546,12 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                 <div className="flex flex-col h-full space-y-4 pl-0 md:pl-2">
                   <div className="flex items-center justify-between pb-2 border-b border-[var(--color-border)]">
                     <div className="text-[14px] font-bold text-[var(--color-accent-amber)]">{selectedRateClient.company_name}</div>
-                    <div className="text-[10px] font-mono text-[var(--color-muted)] bg-[var(--color-surface-2)] px-2 py-0.5 rounded">Tariffs</div>
+                    <button
+                      onClick={() => handleToggleClientActive(selectedRateClient)}
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded transition-colors ${selectedRateClient.active === false ? 'bg-[rgba(16,185,129,0.15)] text-[var(--color-success)] hover:bg-[var(--color-success)] hover:text-[#030712]' : 'bg-[rgba(239,68,68,0.15)] text-[var(--color-error)] hover:bg-[var(--color-error)] hover:text-white'}`}
+                    >
+                      {selectedRateClient.active === false ? 'Reactivate' : 'Deactivate'}
+                    </button>
                   </div>
                   
                   <div className="bg-[var(--color-surface-2)] p-4 rounded-lg border border-[var(--color-border)] space-y-4">
@@ -546,7 +591,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                       </div>
                       <button 
                         onClick={handleSetCorpRate}
-                        disabled={!ratePrice}
+                        disabled={!ratePrice || isNaN(parseFloat(ratePrice)) || parseFloat(ratePrice) <= 0}
                         className="w-full bg-[var(--color-accent-amber)] hover:bg-amber-600 text-black py-2 rounded-md text-[12px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-1"
                       >
                         Set Rate
@@ -560,11 +605,20 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                       {corpRates.filter(r => r.corporate_client_id === selectedRateClient.id).map(r => (
                         <div key={r.id} className="flex justify-between items-center bg-[var(--color-bg)] border border-[var(--color-border)] px-3 py-2.5 rounded-md">
                           <span className="text-[12px] text-[var(--color-light-muted)] font-medium">{r.route_name}</span>
-                          <div className="text-right">
-                            <span className="text-[13px] text-[var(--color-accent-amber)] font-bold font-mono">₦{r.rate_per_kg}/KG</span>
-                            {r.minimum_amount && r.minimum_amount > 0 ? (
-                              <div className="text-[9px] font-mono text-[var(--color-muted)] mt-0.5">Min: ₦{r.minimum_amount.toLocaleString()}</div>
-                            ) : null}
+                          <div className="flex items-center gap-2">
+                            <div className="text-right">
+                              <span className="text-[13px] text-[var(--color-accent-amber)] font-bold font-mono">₦{r.rate_per_kg}/KG</span>
+                              {r.minimum_amount && r.minimum_amount > 0 ? (
+                                <div className="text-[9px] font-mono text-[var(--color-muted)] mt-0.5">Min: ₦{r.minimum_amount.toLocaleString()}</div>
+                              ) : null}
+                            </div>
+                            <button
+                              onClick={() => handleDeleteCorpRate(r)}
+                              aria-label={`Delete rate for ${r.route_name}`}
+                              className="p-1 rounded hover:bg-[var(--color-surface-2)] text-[var(--color-muted)] hover:text-[var(--color-error)] transition-colors"
+                            >
+                              <Trash2 size={12} />
+                            </button>
                           </div>
                         </div>
                       ))}

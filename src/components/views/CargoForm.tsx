@@ -71,6 +71,7 @@ interface CorporateClient {
   company_name: string;
   contact_phone: string;
   accumulated_monthly_debt: number;
+  active: boolean;
 }
 
 interface CorporateRouteRate {
@@ -733,14 +734,11 @@ export const CargoForm = ({
   // Load real corporate clients from Supabase — overrides the local seed when data exists
   useEffect(() => {
     let active = true;
-    (async () => {
+    const fetchCorpClients = async () => {
       try {
-        // No 'active' column exists on corporate_clients (nothing in the app
-        // exposes a way to deactivate one) -- filtering on it made this
-        // query error and silently fall back to an empty/stale list.
         const { data } = await supabase
           .from('corporate_clients')
-          .select('id, company_name, contact_phone, accumulated_monthly_debt')
+          .select('id, company_name, contact_phone, accumulated_monthly_debt, active')
           .order('company_name');
         if (active && data && data.length > 0) {
           const mapped = data.map((c: any) => ({
@@ -748,12 +746,29 @@ export const CargoForm = ({
             company_name: c.company_name,
             contact_phone: c.contact_phone || '',
             accumulated_monthly_debt: c.accumulated_monthly_debt ?? 0,
+            active: c.active ?? true,
           }));
           setCorpClients(mapped);
         }
       } catch { /* keep local seed if offline */ }
-    })();
-    return () => { active = false; };
+    };
+    fetchCorpClients();
+
+    // Same staleness reasoning as the corpRates fetch below: a new B2B
+    // client added (or an existing one deactivated) in Pricing
+    // Configuration mid-shift wouldn't otherwise show up here until this
+    // tab reloaded.
+    const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+    const interval = setInterval(fetchCorpClients, REFRESH_INTERVAL_MS);
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchCorpClients(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', fetchCorpClients);
+    return () => {
+      active = false;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', fetchCorpClients);
+    };
   }, []);
 
   // Customer Wallets state for detecting prepaid credit balances at point of consignment
@@ -798,11 +813,17 @@ export const CargoForm = ({
   const officeMatch = useMemo(() => {
     const raw = (consignee === 'Other' ? customConsignee : consignee).trim();
     if (raw.length < 3) return { client: null as any, type: null as 'exact' | 'fuzzy' | null };
+    // Deactivated clients are excluded from matching (not from corpClients
+    // itself -- other code here still needs the full roster, inactive
+    // clients included, for ID-based lookups like debt increments on
+    // already-in-flight corporate shipments) so a deactivated client simply
+    // stops being suggested for new work.
+    const activeClients = corpClients.filter(c => c.active !== false);
     const norm = (s: string) => s.trim().toUpperCase().replace(/\s+/g, ' ');
     const q = norm(raw);
-    const exact = corpClients.find(c => norm(c.company_name) === q);
+    const exact = activeClients.find(c => norm(c.company_name) === q);
     if (exact) return { client: exact, type: 'exact' as const };
-    const fuzzy = corpClients.find(c => norm(c.company_name).startsWith(q) || q.startsWith(norm(c.company_name).slice(0, 4)));
+    const fuzzy = activeClients.find(c => norm(c.company_name).startsWith(q) || q.startsWith(norm(c.company_name).slice(0, Math.min(8, norm(c.company_name).length))));
     return fuzzy ? { client: fuzzy, type: 'fuzzy' as const } : { client: null as any, type: null };
   }, [consignee, customConsignee, corpClients]);
 
