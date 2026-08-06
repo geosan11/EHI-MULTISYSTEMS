@@ -3181,7 +3181,7 @@ export const TransactionLedger = ({
                     {/* Amount */}
                     <td className={`py-2.5 px-2 text-right font-mono text-[11px] whitespace-nowrap ${e.source === "expense" ? "text-[var(--color-error)] font-bold" : "text-[var(--color-success)] font-bold"}`}>
                       <div>{e.source === "expense" ? "-" : ""}₦{fmt(e.amount)}</div>
-                      {e.raw?.wallet_deduction_amount > 0 && (
+                      {e.raw?.wallet_deduction_amount > 0 && e.mode !== 'Wallet' && (
                         <div className="text-[9px] text-[var(--color-accent-amber)] font-normal">
                           ₦{fmt(Math.max(0, e.amount - e.raw.wallet_deduction_amount))} {e.mode} · ₦{fmt(e.raw.wallet_deduction_amount)} Wallet
                         </div>

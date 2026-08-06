@@ -203,7 +203,7 @@ const CargoReceiptOnlyPDF = ({ data }: { data: CargoReceiptData }) => {
   if (data.qrCodeDataUrl) h += 70;
   if (data.pickupPin) h += 70;
   if (data.bankName) h += 20;
-  if (data.paymentMode === "Transfer" && data.paymentNarration) h += 25;
+  if (data.paymentMode.startsWith("Transfer") && data.paymentNarration) h += 25;
   if (data.remark) h += 35;
 
   // Consignee/route/content/airline are free text (or a long single-hub
@@ -318,7 +318,7 @@ const CargoReceiptOnlyPDF = ({ data }: { data: CargoReceiptData }) => {
         <Text style={styles.amountBoxSub}>
           {data.paymentMode}{data.bankName ? ` • ${data.bankName}` : ''}
         </Text>
-        {data.paymentMode === "Transfer" && data.paymentNarration ? (
+        {data.paymentMode.startsWith("Transfer") && data.paymentNarration ? (
           <Text style={[styles.amountBoxSub, { marginTop: 2 }]}>
             Narration: {data.paymentNarration}
           </Text>

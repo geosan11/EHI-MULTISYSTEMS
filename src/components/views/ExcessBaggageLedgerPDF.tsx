@@ -4,6 +4,7 @@ import { Transaction } from '../../lib/types';
 import { EHILogoPDF } from '../EHILogoPDF';
 import { AirlineLogoPDF } from '../AirlineLogoPDF';
 import { resolveAirlineLogoUrl } from '../../lib/airlineLogos';
+import { formatPaymentModeDisplay } from '../../lib/helpers';
 
 export interface BaggageLedgerReportData {
   airlineName: string;
@@ -91,7 +92,7 @@ const LedgerTable = ({ rows }: { rows: Transaction[] }) => (
       <View style={styles.tableColHeaderNarrow}><Text style={styles.tableCellHeader}>TOTAL KG</Text></View>
       <View style={styles.tableColHeaderNarrow}><Text style={styles.tableCellHeader}>EXCESS</Text></View>
       <View style={styles.tableColHeader}><Text style={styles.tableCellHeader}>AMOUNT (NGN)</Text></View>
-      <View style={styles.tableColHeader}><Text style={styles.tableCellHeader}>MODE</Text></View>
+      <View style={styles.tableColHeaderWide}><Text style={styles.tableCellHeader}>MODE</Text></View>
     </View>
 
     {rows.map((t, i) => (
@@ -106,7 +107,7 @@ const LedgerTable = ({ rows }: { rows: Transaction[] }) => (
         <View style={styles.tableColNarrow}><Text style={styles.tableCell}>{t.totalKg || '-'}</Text></View>
         <View style={styles.tableColNarrow}><Text style={styles.tableCell}>{t.excessKg || '-'}</Text></View>
         <View style={styles.tableCol}><Text style={styles.tableCell}>{t.amount.toLocaleString('en-NG', { maximumFractionDigits: 2 })}</Text></View>
-        <View style={styles.tableCol}><Text style={styles.tableCell}>{t.mode}</Text></View>
+        <View style={styles.tableColWide}><Text style={styles.tableCell}>{formatPaymentModeDisplay(t.mode, (t as any).wallet_deduction_amount, t.amount)}</Text></View>
       </View>
     ))}
   </View>

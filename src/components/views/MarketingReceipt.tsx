@@ -214,7 +214,7 @@ const MarketingReceiptPDF = ({ data }: { data: MarketingReceiptData }) => {
   if (data.phone) h += 14;
   if (data.airline) h += 14;
   if (data.bankName) h += 14;
-  if (data.paymentMode === "Transfer" && data.paymentNarration) h += 14;
+  if (data.paymentMode.startsWith("Transfer") && data.paymentNarration) h += 14;
   if (data.remark) h += 28;
 
   // Customer/route/remark/narration are free text with no length cap on
@@ -326,7 +326,7 @@ const MarketingReceiptPDF = ({ data }: { data: MarketingReceiptData }) => {
         <Text style={styles.amountBoxSub}>
           {data.paymentMode}{data.bankName ? ` • ${data.bankName}` : ''}
         </Text>
-        {data.paymentMode === "Transfer" && data.paymentNarration ? (
+        {data.paymentMode.startsWith("Transfer") && data.paymentNarration ? (
           <Text style={[styles.amountBoxSub, { marginTop: 2 }]}>
             Narration: {data.paymentNarration}
           </Text>

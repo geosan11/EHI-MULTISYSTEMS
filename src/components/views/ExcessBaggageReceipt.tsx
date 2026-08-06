@@ -157,7 +157,7 @@ const BaggageReceiptPDF = ({ data }: { data: BaggageReceiptData }) => {
   h += 14;
   if (data.qrCodeDataUrl) h += 60;
   if (data.bankName) h += 20;
-  if (data.paymentMode === "Transfer" && data.paymentNarration) h += 25;
+  if (data.paymentMode.startsWith("Transfer") && data.paymentNarration) h += 25;
 
   // Passenger name/destination are free text (or a long single-hub route
   // name) with no length cap in the ticketing form -- a fixed estimate
@@ -266,7 +266,7 @@ const BaggageReceiptPDF = ({ data }: { data: BaggageReceiptData }) => {
             <Text style={styles.value}>{data.bankName}</Text>
           </View>
         ) : null}
-        {data.paymentMode === "Transfer" && data.paymentNarration ? (
+        {data.paymentMode.startsWith("Transfer") && data.paymentNarration ? (
           <View style={styles.row}>
             <Text style={styles.label}>Narration:</Text>
             <Text style={styles.value}>{data.paymentNarration}</Text>

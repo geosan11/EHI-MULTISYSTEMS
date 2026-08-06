@@ -170,7 +170,7 @@ const PackageReceiptPDF = ({ data }: { data: PackageReceiptData }) => {
   if (data.qrCodeDataUrl) h += 60;
   if (data.phone) h += 14;
   if (data.bankName) h += 14;
-  if (data.paymentMode === "Transfer" && data.paymentNarration) h += 14;
+  if (data.paymentMode.startsWith("Transfer") && data.paymentNarration) h += 14;
   if (data.pieces) h += 14;
   if (data.kg) h += 14;
   if (data.contents) h += 14;
@@ -268,7 +268,7 @@ const PackageReceiptPDF = ({ data }: { data: PackageReceiptData }) => {
           <Text style={styles.amountBoxSub}>
             {data.paymentMode}{data.bankName ? ` • ${data.bankName}` : ''}
           </Text>
-          {data.paymentMode === "Transfer" && data.paymentNarration ? (
+          {data.paymentMode.startsWith("Transfer") && data.paymentNarration ? (
             <Text style={[styles.amountBoxSub, { marginTop: 2 }]}>
               Narration: {data.paymentNarration}
             </Text>

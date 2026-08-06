@@ -77,7 +77,7 @@ export async function compileMarketingReceiptStream(data: MarketingReceiptPrintD
     chunks.push(encoder.encode(fieldRow('AMOUNT:', `NGN ${data.amount.toLocaleString('en-NG')}`, maxChars)));
     chunks.push(new Uint8Array(BOLD_OFF), new Uint8Array(TEXT_NORMAL));
     chunks.push(encoder.encode(fieldRow('PAYMENT MODE:', data.paymentMode, maxChars)));
-    if (data.paymentMode === 'Transfer' && data.paymentNarration) {
+    if (data.paymentMode.startsWith('Transfer') && data.paymentNarration) {
       chunks.push(encoder.encode(fieldRow('NARRATION:', data.paymentNarration, maxChars)));
     }
     if (data.bankName) chunks.push(encoder.encode(fieldRow('BANK:', data.bankName, maxChars)));
