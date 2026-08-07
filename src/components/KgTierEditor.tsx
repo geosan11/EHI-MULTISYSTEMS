@@ -72,7 +72,7 @@ export const KgTierEditor = ({
     const min_kg = parseFloat(newMin);
     const max_kg = newMax.trim() === '' ? null : parseFloat(newMax);
     const price = parseFloat(newPrice);
-    if (isNaN(min_kg) || min_kg < 0 || isNaN(price)) return;
+    if (isNaN(min_kg) || min_kg < 0 || isNaN(price) || price < 0) return;
     if (max_kg != null && (isNaN(max_kg) || max_kg < min_kg)) return;
     if (!(await confirmOverlap(null, min_kg, max_kg))) return;
     setAdding(true);
@@ -142,6 +142,7 @@ export const KgTierEditor = ({
                   onBlur={async (e) => {
                     if (e.target.value === '') return;
                     const value = parseFloat(e.target.value);
+                    if (isNaN(value) || value < 0) { e.target.value = String(t.min_kg); return; }
                     if (await confirmOverlap(t.id, value, t.max_kg)) {
                       onUpdateField(t.id, 'min_kg', value);
                     } else {
@@ -161,6 +162,7 @@ export const KgTierEditor = ({
                   placeholder="& up"
                   onBlur={async (e) => {
                     const value = e.target.value === '' ? null : parseFloat(e.target.value);
+                    if (value != null && (isNaN(value) || value < 0)) { e.target.value = t.max_kg != null ? String(t.max_kg) : ''; return; }
                     if (await confirmOverlap(t.id, t.min_kg, value)) {
                       onUpdateField(t.id, 'max_kg', value);
                     } else {
@@ -177,7 +179,12 @@ export const KgTierEditor = ({
                   type="number"
                   defaultValue={t.price}
                   key={`price-${t.id}-${t.price}`}
-                  onBlur={(e) => e.target.value !== '' && onUpdateField(t.id, 'price', parseFloat(e.target.value))}
+                  onBlur={(e) => {
+                    if (e.target.value === '') return;
+                    const value = parseFloat(e.target.value);
+                    if (isNaN(value) || value < 0) { e.target.value = String(t.price); return; }
+                    onUpdateField(t.id, 'price', value);
+                  }}
                   className="w-full ehi-input font-mono"
                 />
               </div>

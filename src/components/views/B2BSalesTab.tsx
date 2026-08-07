@@ -47,35 +47,77 @@ export const B2BSalesTab = ({ transactions, user }: B2BSalesTabProps) => {
     let active = true;
     (async () => {
       try {
-        const rows = await fetchAllRows<any>((from, to) =>
-          supabase.from('cargo_entries')
-            .select('entry_ref, consignee_name, route, airline, awb_tag_number, total_pcs, total_kg, amount, amount_paid, receipt_mode, payment_history, status, created_at, client_type, corporate_client_id')
-            .or('corporate_client_id.not.is.null,client_type.eq.Corporate')
-            .order('created_at', { ascending: false })
-            .range(from, to)
-        );
+        // All 4 departments, not just cargo -- package/baggage/marketing
+        // corporate business was previously invisible here even though it
+        // carries the same client_type/corporate_client_id linkage (added
+        // in 20260926_office_work_all_departments.sql) and is scanned
+        // correctly by OfficeWorkReconciliation.tsx's equivalent fetch.
+        const [cargoRows, packageRows, baggageRows, marketingRows] = await Promise.all([
+          fetchAllRows<any>((from, to) =>
+            supabase.from('cargo_entries')
+              .select('entry_ref, consignee_name, route, airline, awb_tag_number, total_pcs, total_kg, amount, amount_paid, retrieved_amount, receipt_mode, payment_history, status, created_at, client_type, corporate_client_id')
+              .or('corporate_client_id.not.is.null,client_type.eq.Corporate')
+              .order('created_at', { ascending: false }).range(from, to)),
+          fetchAllRows<any>((from, to) =>
+            supabase.from('package_entries')
+              .select('entry_ref, customer_name, destination, total_pcs, total_kg, amount, amount_paid, retrieved_amount, payment_mode, payment_history, status, created_at, client_type, corporate_client_id')
+              .or('corporate_client_id.not.is.null,client_type.eq.Corporate')
+              .order('created_at', { ascending: false }).range(from, to)),
+          fetchAllRows<any>((from, to) =>
+            supabase.from('manifests')
+              .select('transaction_id, passenger_name, destination, airline, total_pcs, excess_kg, amount, amount_paid, retrieved_amount, payment_mode, payment_history, created_at, client_type, corporate_client_id')
+              .or('corporate_client_id.not.is.null,client_type.eq.Corporate')
+              .order('created_at', { ascending: false }).range(from, to)),
+          fetchAllRows<any>((from, to) =>
+            supabase.from('marketing_entries')
+              .select('entry_ref, customer_name, route, qty_big_bag, qty_med_bag, qty_small_bag, bb_kg, mb_kg, sb_kg, amount_paid, debt_amount_paid, retrieved_amount, payment_mode, payment_history, created_at, client_type, corporate_client_id')
+              .or('corporate_client_id.not.is.null,client_type.eq.Corporate')
+              .order('created_at', { ascending: false }).range(from, to)),
+        ]);
         if (!active) return;
-        setFetchedB2BRows(rows.map((r: any): Transaction => ({
-          id: r.entry_ref,
-          name: r.consignee_name || 'Customer',
-          detail: `${r.airline || ''}`,
-          amount: Number(r.amount) || 0,
-          amountPaid: Number(r.amount_paid) || 0,
-          paymentHistory: r.payment_history || [],
-          mode: r.receipt_mode || 'Cash',
-          pieces: r.total_pcs ?? undefined,
-          kg: r.total_kg ?? undefined,
-          time: r.created_at,
-          created_at: r.created_at,
-          type: 'cargo',
-          status: r.status || 'Intake',
-          airline: r.airline,
-          route: r.route,
-          awb_tag_number: r.awb_tag_number,
-          clientType: r.client_type,
-          corporate_client_id: r.corporate_client_id,
-          raw: r,
-        } as Transaction)));
+        const merged: Transaction[] = [
+          ...cargoRows.map((r: any): Transaction => ({
+            id: r.entry_ref, name: r.consignee_name || 'Customer', detail: `${r.airline || ''}`,
+            amount: Number(r.amount) || 0, amountPaid: Number(r.amount_paid) || 0,
+            paymentHistory: r.payment_history || [], mode: r.receipt_mode || 'Cash',
+            pieces: r.total_pcs ?? undefined, kg: r.total_kg ?? undefined,
+            time: r.created_at, created_at: r.created_at, type: 'cargo', status: r.status || 'Intake',
+            airline: r.airline, route: r.route, awb_tag_number: r.awb_tag_number,
+            clientType: r.client_type, corporate_client_id: r.corporate_client_id, raw: r,
+          } as Transaction)),
+          ...packageRows.map((r: any): Transaction => ({
+            id: r.entry_ref, name: r.customer_name || 'Customer', detail: '',
+            amount: Number(r.amount) || 0, amountPaid: Number(r.amount_paid) || 0,
+            paymentHistory: r.payment_history || [], mode: r.payment_mode || 'Cash',
+            pieces: r.total_pcs ?? undefined, kg: r.total_kg ?? undefined,
+            time: r.created_at, created_at: r.created_at, type: 'package', status: r.status || 'Intake',
+            route: r.destination, clientType: r.client_type, corporate_client_id: r.corporate_client_id, raw: r,
+          } as Transaction)),
+          ...baggageRows.map((r: any): Transaction => ({
+            id: r.transaction_id, name: r.passenger_name || 'Customer', detail: '',
+            amount: Number(r.amount) || 0, amountPaid: Number(r.amount_paid) || 0,
+            paymentHistory: r.payment_history || [], mode: r.payment_mode || 'Cash',
+            // excess_kg, not total_kg -- billable weight for baggage is only
+            // the portion over the airline's free allowance.
+            pieces: r.total_pcs ?? undefined, kg: r.excess_kg ?? undefined,
+            time: r.created_at, created_at: r.created_at, type: 'baggage', status: 'Delivered',
+            airline: r.airline, route: r.destination,
+            clientType: r.client_type, corporate_client_id: r.corporate_client_id, raw: r,
+          } as Transaction)),
+          ...marketingRows.map((r: any): Transaction => ({
+            id: r.entry_ref, name: r.customer_name || 'Customer', detail: '',
+            // amount_paid holds the SALE TOTAL for marketing (inverted
+            // convention -- see debt.ts's own comment); debt_amount_paid is
+            // what's actually been paid down.
+            amount: Number(r.amount_paid) || 0, amountPaid: Number(r.debt_amount_paid) || 0,
+            paymentHistory: r.payment_history || [], mode: r.payment_mode || 'Cash',
+            pieces: (r.qty_big_bag || 0) + (r.qty_med_bag || 0) + (r.qty_small_bag || 0),
+            kg: (r.bb_kg || 0) + (r.mb_kg || 0) + (r.sb_kg || 0),
+            time: r.created_at, created_at: r.created_at, type: 'marketing', status: 'Intake',
+            route: r.route, clientType: r.client_type, corporate_client_id: r.corporate_client_id, raw: r,
+          } as Transaction)),
+        ];
+        setFetchedB2BRows(merged);
       } catch (err: any) {
         showToast({ message: `Failed to load B2B sales: ${err.message || err}`, type: 'error' });
       } finally {
@@ -91,12 +133,16 @@ export const B2BSalesTab = ({ transactions, user }: B2BSalesTabProps) => {
   // entry created/edited THIS session shows immediately rather than waiting
   // for the next fetch.
   const b2bTx = useMemo(() => {
-    const byId = new Map<string, Transaction>();
-    fetchedB2BRows.forEach(t => byId.set(t.id, t));
+    // Keyed by type+id, not id alone -- entry_ref/transaction_id is only
+    // unique WITHIN one department table, and now that all 4 are merged,
+    // two different departments' ref generators could in principle collide.
+    const byKey = new Map<string, Transaction>();
+    const key = (t: Transaction) => `${t.type}:${t.id}`;
+    fetchedB2BRows.forEach(t => byKey.set(key(t), t));
     transactions.forEach(t => {
-      if (t.type === 'cargo' && (t.clientType === 'Corporate' || !!t.corporate_client_id)) byId.set(t.id, t);
+      if (['cargo', 'package', 'baggage', 'marketing'].includes(t.type) && (t.clientType === 'Corporate' || !!t.corporate_client_id)) byKey.set(key(t), t);
     });
-    return Array.from(byId.values());
+    return Array.from(byKey.values());
   }, [fetchedB2BRows, transactions]);
 
   // Filter based on search query and selected corporate client
@@ -129,9 +175,14 @@ export const B2BSalesTab = ({ transactions, user }: B2BSalesTabProps) => {
       // Revenue billed
       totalRevenue += t.amount || 0;
 
-      // Paid portion
+      // Paid portion -- Debt-mode also nets off retrieved_amount, matching
+      // DebtorsTab.tsx/OfficeWorkReconciliation.tsx's identical "remaining
+      // owed" formula; without it, a Debt entry partly settled via a
+      // retrieval (rather than a direct payment) overstated what's still
+      // outstanding here even though those two other screens report it
+      // correctly for the same row.
       if (t.mode === 'Debt') {
-        totalPaid += t.amountPaid || 0;
+        totalPaid += (t.amountPaid || 0) + ((t.raw as any)?.retrieved_amount || 0);
       } else {
         totalPaid += t.amount || 0; // Cash/POS/Transfer are 100% paid
       }
@@ -158,7 +209,7 @@ export const B2BSalesTab = ({ transactions, user }: B2BSalesTabProps) => {
     const headers = ['Ref ID', 'Date', 'Client Name', 'AWB/Tag', 'Airline', 'Route', 'Pieces', 'Weight (KG)', 'Billed Amount', 'Amount Paid', 'Outstanding', 'Payment Mode', 'Status'];
     const rows = filteredB2BTx.map(t => {
       const cName = t.corporate_client_id ? (clientNameMap.get(t.corporate_client_id) || t.name) : t.name;
-      const outstanding = Math.max(0, t.amount - (t.mode === 'Debt' ? (t.amountPaid || 0) : t.amount));
+      const outstanding = Math.max(0, t.amount - (t.mode === 'Debt' ? (t.amountPaid || 0) + ((t.raw as any)?.retrieved_amount || 0) : t.amount));
       const paid = t.mode === 'Debt' ? (t.amountPaid || 0) : t.amount;
       return [
         t.id,
@@ -291,7 +342,7 @@ export const B2BSalesTab = ({ transactions, user }: B2BSalesTabProps) => {
             <tbody className="divide-y divide-[var(--color-border)] text-[12px] font-sans">
               {filteredB2BTx.map(t => {
                 const cName = t.corporate_client_id ? (clientNameMap.get(t.corporate_client_id) || t.name) : t.name;
-                const outstanding = Math.max(0, t.amount - (t.mode === 'Debt' ? (t.amountPaid || 0) : t.amount));
+                const outstanding = Math.max(0, t.amount - (t.mode === 'Debt' ? (t.amountPaid || 0) + ((t.raw as any)?.retrieved_amount || 0) : t.amount));
                 
                 return (
                   <tr key={t.id} className="hover:bg-[rgba(255,255,255,0.01)] transition-colors">

@@ -62,14 +62,27 @@ export async function fetchSpecialGoodsRates(): Promise<SpecialGoodsRate[] | nul
 // useContentTypes()/useAirlines() -- an empty array here just means
 // resolveSpecialGoodsRate() finds no match and callers fall back to their
 // normal rate cascade, not an error state.
+// Periodic + focus/visibility refresh, matching officeWork.ts's corpRates
+// pattern -- without it, an admin editing this table mid-shift (via
+// SpecialGoodsRates.tsx) was invisible to any pricing form tab already open
+// elsewhere until it happened to remount.
 export function useSpecialGoodsRates(): SpecialGoodsRate[] {
   const [rows, setRows] = useState<SpecialGoodsRate[]>(getCached);
   useEffect(() => {
     let cancelled = false;
-    fetchSpecialGoodsRates().then(fetched => {
-      if (fetched && !cancelled) setRows(fetched);
-    });
-    return () => { cancelled = true; };
+    const refresh = () => { fetchSpecialGoodsRates().then(fetched => { if (fetched && !cancelled) setRows(fetched); }); };
+    refresh();
+    const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+    const interval = setInterval(refresh, REFRESH_INTERVAL_MS);
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', refresh);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', refresh);
+    };
   }, []);
   return rows;
 }

@@ -37,13 +37,23 @@ export const ExcessBaggageAirlines = ({ onBack }: { onBack: () => void }) => {
 
   const handleAdd = async () => {
     if (!newName.trim() || !newFlightPrefix.trim() || !newTagCode.trim()) return;
+    const freeKg = parseFloat(newFreeKg) || 0;
+    const ratePerKg = parseFloat(newRatePerKg) || 0;
+    // `|| 0` only substitutes on NaN/0, not on a negative number
+    // (parseFloat('-500') is -500, which is truthy) -- a typo'd negative
+    // free allowance or rate otherwise saved with no pushback and priced
+    // the next real excess-baggage ticket incorrectly.
+    if (freeKg < 0 || ratePerKg < 0) {
+      showToast({ message: 'Free allowance and rate must be zero or positive.', type: 'error' });
+      return;
+    }
     setAdding(true);
     const { data, error } = await supabase.from('excess_baggage_airlines').insert({
       name: newName.trim(),
       flight_prefix: newFlightPrefix.trim().toUpperCase(),
       tag_code: newTagCode.trim().toUpperCase(),
-      free_allowance_kg: parseFloat(newFreeKg) || 0,
-      rate_per_kg: parseFloat(newRatePerKg) || 0,
+      free_allowance_kg: freeKg,
+      rate_per_kg: ratePerKg,
     }).select().single();
     setAdding(false);
     if (error) {
@@ -217,7 +227,12 @@ export const ExcessBaggageAirlines = ({ onBack }: { onBack: () => void }) => {
                         type="number"
                         defaultValue={a.free_allowance_kg}
                         key={`free-${a.id}-${a.free_allowance_kg}`}
-                        onBlur={(e) => e.target.value && handleFieldChange(a.id, 'free_allowance_kg', parseFloat(e.target.value) || 0)}
+                        onBlur={(e) => {
+                          if (!e.target.value) return;
+                          const value = parseFloat(e.target.value) || 0;
+                          if (value < 0) { e.target.value = String(a.free_allowance_kg); return; }
+                          handleFieldChange(a.id, 'free_allowance_kg', value);
+                        }}
                         className="w-full ehi-input font-mono"
                       />
                     </div>
@@ -228,7 +243,12 @@ export const ExcessBaggageAirlines = ({ onBack }: { onBack: () => void }) => {
                         type="number"
                         defaultValue={a.rate_per_kg}
                         key={`rate-${a.id}-${a.rate_per_kg}`}
-                        onBlur={(e) => e.target.value && handleFieldChange(a.id, 'rate_per_kg', parseFloat(e.target.value) || 0)}
+                        onBlur={(e) => {
+                          if (!e.target.value) return;
+                          const value = parseFloat(e.target.value) || 0;
+                          if (value < 0) { e.target.value = String(a.rate_per_kg); return; }
+                          handleFieldChange(a.id, 'rate_per_kg', value);
+                        }}
                         className="w-full ehi-input font-mono"
                       />
                     </div>

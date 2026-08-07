@@ -41,14 +41,27 @@ export async function fetchContentTypes(opts: ContentTypesOptions = {}): Promise
 
 // Cached/fallback list on first render (instant paint, works offline);
 // swaps to the live Supabase list once the fetch resolves.
+// Periodic + focus/visibility refresh, matching officeWork.ts's corpRates
+// pattern -- without it, an admin editing content types in ContentTypes.tsx
+// mid-shift was invisible to any intake form tab already open elsewhere
+// until it happened to remount.
 export function useContentTypes(opts: ContentTypesOptions = {}): string[] {
   const [types, setTypes] = useState<string[]>(() => getCachedContentTypes(opts));
   useEffect(() => {
     let cancelled = false;
-    fetchContentTypes(opts).then(names => {
-      if (names && !cancelled) setTypes(names);
-    });
-    return () => { cancelled = true; };
+    const refresh = () => { fetchContentTypes(opts).then(names => { if (names && !cancelled) setTypes(names); }); };
+    refresh();
+    const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+    const interval = setInterval(refresh, REFRESH_INTERVAL_MS);
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', refresh);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', refresh);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return types;

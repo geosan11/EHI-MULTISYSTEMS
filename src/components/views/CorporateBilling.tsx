@@ -9,7 +9,7 @@ import {
 } from '@react-pdf/renderer';
 import { Building2, Calendar, FileDown, Loader, Receipt } from 'lucide-react';
 import { User } from '../../lib/types';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllRows } from '../../lib/supabase';
 import { BackButton } from '../BackButton';
 import { EHILogoPDF } from '../EHILogoPDF';
 import { useToast } from '../../lib/ToastContext';
@@ -21,7 +21,10 @@ interface CorporateClient {
   accumulated_monthly_debt: number;
 }
 
+type BillEntryType = 'cargo' | 'package' | 'baggage' | 'marketing';
+
 interface BillEntry {
+  type: BillEntryType;
   entry_ref: string;
   created_at: string;
   awb_tag_number: string | null;
@@ -34,6 +37,15 @@ interface BillEntry {
 
 function fmtNaira(n: number): string {
   return 'NGN ' + (n || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Cargo entries stay unprefixed (the historical/majority case, and the only
+// type with a real AWB/tag number); the other 3 departments get a bracketed
+// tag so a statement mixing departments doesn't read as cargo-only.
+const DEPT_LABEL: Record<BillEntryType, string> = { cargo: '', package: 'PKG', baggage: 'BAG', marketing: 'MKT' };
+function billEntryRef(e: BillEntry): string {
+  const base = e.awb_tag_number || e.entry_ref;
+  return DEPT_LABEL[e.type] ? `[${DEPT_LABEL[e.type]}] ${base}` : base;
 }
 
 // Local-date (not UTC) YYYY-MM-DD -- toISOString() would shift the boundary
@@ -113,10 +125,10 @@ const CorporateBillPDF = ({ data }: { data: CorporateBillPDFData }) => (
           <View style={styles.tableCol}><Text style={styles.tableCellHeader}>Amount (NGN)</Text></View>
         </View>
         {data.entries.map((e, i) => (
-          <View style={styles.tableRow} key={e.entry_ref}>
+          <View style={styles.tableRow} key={`${e.type}:${e.entry_ref}`}>
             <View style={styles.tableColSmallBody}><Text style={styles.tableCell}>{i + 1}</Text></View>
             <View style={styles.tableColDateBody}><Text style={styles.tableCell}>{new Date(e.created_at).toLocaleDateString('en-GB')}</Text></View>
-            <View style={styles.tableCol}><Text style={styles.tableCell}>{e.awb_tag_number || e.entry_ref}</Text></View>
+            <View style={styles.tableCol}><Text style={styles.tableCell}>{billEntryRef(e)}</Text></View>
             <View style={styles.tableColLargeBody}><Text style={styles.tableCell}>{e.route || '-'}</Text></View>
             <View style={styles.tableCol}><Text style={styles.tableCell}>{e.content_type || '-'}</Text></View>
             <View style={styles.tableColSmallBody}><Text style={styles.tableCell}>{e.total_pcs}</Text></View>
@@ -202,15 +214,65 @@ export const CorporateBilling = ({ user, onBack }: { user: User; onBack: () => v
     setGenerating(true);
     setEntries(null);
     try {
-      const { data, error } = await supabase
-        .from('cargo_entries')
-        .select('entry_ref, created_at, awb_tag_number, route, content_type, total_pcs, total_kg, amount')
-        .eq('corporate_client_id', selectedClientId)
-        .gte('created_at', rangeStart.toISOString())
-        .lt('created_at', rangeEnd.toISOString())
-        .order('created_at', { ascending: true });
-      if (error) throw error;
-      setEntries((data || []) as BillEntry[]);
+      // All 4 departments, not just cargo -- a corporate client's package/
+      // baggage/marketing business was previously invisible on their own
+      // statement even though accumulated_monthly_debt (shown right below)
+      // already reflects all 4. Each uses fetchAllRows, not a bare
+      // `.select()`, since PostgREST's default 1000-row cap could otherwise
+      // silently truncate a high-volume client's monthly statement.
+      const [cargoRows, packageRows, baggageRows, marketingRows] = await Promise.all([
+        fetchAllRows<any>((from, to) => supabase.from('cargo_entries')
+          .select('entry_ref, created_at, awb_tag_number, route, content_type, total_pcs, total_kg, amount')
+          .eq('corporate_client_id', selectedClientId)
+          .gte('created_at', rangeStart.toISOString()).lt('created_at', rangeEnd.toISOString())
+          .order('created_at', { ascending: true }).range(from, to)),
+        fetchAllRows<any>((from, to) => supabase.from('package_entries')
+          .select('entry_ref, created_at, destination, content_type, total_pcs, total_kg, amount')
+          .eq('corporate_client_id', selectedClientId)
+          .gte('created_at', rangeStart.toISOString()).lt('created_at', rangeEnd.toISOString())
+          .order('created_at', { ascending: true }).range(from, to)),
+        fetchAllRows<any>((from, to) => supabase.from('manifests')
+          .select('transaction_id, created_at, destination, total_pcs, excess_kg, amount')
+          .eq('corporate_client_id', selectedClientId)
+          .gte('created_at', rangeStart.toISOString()).lt('created_at', rangeEnd.toISOString())
+          .order('created_at', { ascending: true }).range(from, to)),
+        fetchAllRows<any>((from, to) => supabase.from('marketing_entries')
+          .select('entry_ref, created_at, route, qty_big_bag, qty_med_bag, qty_small_bag, bb_kg, mb_kg, sb_kg, amount_paid')
+          .eq('corporate_client_id', selectedClientId)
+          .gte('created_at', rangeStart.toISOString()).lt('created_at', rangeEnd.toISOString())
+          .order('created_at', { ascending: true }).range(from, to)),
+      ]);
+
+      const merged: BillEntry[] = [
+        ...cargoRows.map((r: any): BillEntry => ({
+          type: 'cargo', entry_ref: r.entry_ref, created_at: r.created_at, awb_tag_number: r.awb_tag_number,
+          route: r.route, content_type: r.content_type, total_pcs: r.total_pcs || 0, total_kg: r.total_kg || 0, amount: r.amount || 0,
+        })),
+        ...packageRows.map((r: any): BillEntry => ({
+          type: 'package', entry_ref: r.entry_ref, created_at: r.created_at, awb_tag_number: null,
+          route: r.destination, content_type: r.content_type, total_pcs: r.total_pcs || 0, total_kg: r.total_kg || 0, amount: r.amount || 0,
+        })),
+        ...baggageRows.map((r: any): BillEntry => ({
+          type: 'baggage', entry_ref: r.transaction_id, created_at: r.created_at, awb_tag_number: null,
+          // excess_kg, not total_kg -- billable weight for baggage is only
+          // the portion over the airline's free allowance, matching what
+          // ExcessBaggageForm.tsx itself charges for at intake.
+          route: r.destination, content_type: null, total_pcs: r.total_pcs || 0, total_kg: r.excess_kg || 0, amount: r.amount || 0,
+        })),
+        ...marketingRows.map((r: any): BillEntry => ({
+          type: 'marketing', entry_ref: r.entry_ref, created_at: r.created_at, awb_tag_number: null,
+          // amount_paid holds the SALE TOTAL for marketing (inverted
+          // convention -- see debt.ts's own comment on this), not what's
+          // actually been paid down; total_pcs/total_kg have no single
+          // column here, so summed from the big/medium/small bag fields.
+          route: r.route, content_type: null,
+          total_pcs: (r.qty_big_bag || 0) + (r.qty_med_bag || 0) + (r.qty_small_bag || 0),
+          total_kg: (r.bb_kg || 0) + (r.mb_kg || 0) + (r.sb_kg || 0),
+          amount: r.amount_paid || 0,
+        })),
+      ].sort((a, b) => a.created_at.localeCompare(b.created_at));
+
+      setEntries(merged);
     } catch (err: any) {
       showToast({ message: `Failed to generate bill: ${err.message}`, type: 'error' });
     } finally {
@@ -348,9 +410,9 @@ export const CorporateBilling = ({ user, onBack }: { user: User; onBack: () => v
             ) : (
               <div className="space-y-2 max-h-80 overflow-y-auto">
                 {entries.map(e => (
-                  <div key={e.entry_ref} className="flex justify-between items-center bg-[var(--color-surface-2)] rounded-lg p-2.5 text-[12px]">
+                  <div key={`${e.type}:${e.entry_ref}`} className="flex justify-between items-center bg-[var(--color-surface-2)] rounded-lg p-2.5 text-[12px]">
                     <div>
-                      <div className="font-bold text-[var(--color-foreground)]">{e.awb_tag_number || e.entry_ref}</div>
+                      <div className="font-bold text-[var(--color-foreground)]">{billEntryRef(e)}</div>
                       <div className="text-[10px] font-mono text-[var(--color-muted)]">{e.route || '-'} · {e.total_pcs} pcs · {Math.round(e.total_kg)} kg · {new Date(e.created_at).toLocaleDateString('en-GB')}</div>
                     </div>
                     <div className="font-mono font-bold text-[var(--color-foreground)]">{fmtNaira(e.amount)}</div>

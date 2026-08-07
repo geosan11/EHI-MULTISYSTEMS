@@ -43,12 +43,27 @@ export async function fetchFlatTierRates(): Promise<FlatTierRate[] | null> {
   return rows;
 }
 
+// Periodic + focus/visibility refresh, matching officeWork.ts's corpRates
+// pattern -- without it, an admin editing this table mid-shift (via
+// FlatTierRates.tsx) was invisible to any pricing form tab already open
+// elsewhere until it happened to remount.
 export function useFlatTierRates(): FlatTierRate[] {
   const [rows, setRows] = useState<FlatTierRate[]>(getCached);
   useEffect(() => {
     let cancelled = false;
-    fetchFlatTierRates().then(f => { if (f && !cancelled) setRows(f); });
-    return () => { cancelled = true; };
+    const refresh = () => { fetchFlatTierRates().then(f => { if (f && !cancelled) setRows(f); }); };
+    refresh();
+    const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+    const interval = setInterval(refresh, REFRESH_INTERVAL_MS);
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', refresh);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', refresh);
+    };
   }, []);
   return rows;
 }

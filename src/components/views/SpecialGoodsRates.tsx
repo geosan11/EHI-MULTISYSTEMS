@@ -7,6 +7,7 @@ import { useToast } from '../../lib/ToastContext';
 import { useAirlines } from '../../lib/airlines';
 import { useHubRoutes } from '../../lib/hubRoutes';
 import { User } from '../../lib/types';
+import { syncLagosRates } from '../../lib/lagosHubSync';
 
 // Sentinel for the company-wide default row (hub_id IS NULL) -- same
 // convention as HubCargoRates.tsx's HUB_DEFAULT_AIRLINE for a "wildcard"
@@ -122,6 +123,10 @@ export const SpecialGoodsRates = ({ onBack, presetContentTypeId, user }: { onBac
       showToast({ message: `Failed to add bracket: ${error.message}`, type: 'error' });
       return;
     }
+    // Keeps EHI Head Office Lagos and Lagos Air Cargo Station on identical
+    // pricing -- HubCargoRates.tsx's equivalent save already does this;
+    // this screen's own writes to the same Lagos-synced table never did.
+    syncLagosRates();
     fetchRows();
   };
 
@@ -135,6 +140,8 @@ export const SpecialGoodsRates = ({ onBack, presetContentTypeId, user }: { onBac
     if (error) {
       setRows(prev);
       showToast({ message: `Failed to save change: ${error.message}`, type: 'error' });
+    } else {
+      syncLagosRates();
     }
   };
 
@@ -147,6 +154,7 @@ export const SpecialGoodsRates = ({ onBack, presetContentTypeId, user }: { onBac
       showToast({ message: `Failed to remove bracket: ${error.message}`, type: 'error' });
       return;
     }
+    syncLagosRates();
     showToast({ message: 'Bracket removed', type: 'success' });
   };
 

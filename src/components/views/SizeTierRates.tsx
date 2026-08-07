@@ -7,6 +7,7 @@ import { useToast } from '../../lib/ToastContext';
 import { KgTierEditor, KgTier } from '../KgTierEditor';
 import { useAirlines } from '../../lib/airlines';
 import { useHubRoutes, useValidatedRouteSelection } from '../../lib/hubRoutes';
+import { syncLagosRates } from '../../lib/lagosHubSync';
 
 interface RateRow { id: string; min_inches: number; max_inches: number | null; flat_amount: number; }
 
@@ -84,6 +85,10 @@ export const SizeTierRates = ({ user, onBack }: { user: User; onBack: () => void
       updated_by: user.name,
     });
     if (error) { showToast({ message: `Failed to add: ${error.message}`, type: 'error' }); return; }
+    // Keeps EHI Head Office Lagos and Lagos Air Cargo Station on identical
+    // pricing -- HubCargoRates.tsx's equivalent save already does this;
+    // this screen's own writes to the same Lagos-synced table never did.
+    syncLagosRates();
     fetchRows();
   };
   const handleUpdateField = async (id: string, field: 'min_kg' | 'max_kg' | 'price', value: number | null) => {
@@ -92,12 +97,14 @@ export const SizeTierRates = ({ user, onBack }: { user: User; onBack: () => void
     setRows(cur => cur.map(r => r.id === id ? { ...r, [column]: value } as RateRow : r));
     const { error } = await supabase.from('size_tier_rates').update({ [column]: value, updated_at: new Date().toISOString() }).eq('id', id);
     if (error) { setRows(prev); showToast({ message: `Failed to save: ${error.message}`, type: 'error' }); }
+    else syncLagosRates();
   };
   const handleDelete = async (id: string) => {
     const prev = rows;
     setRows(cur => cur.filter(r => r.id !== id));
     const { error } = await supabase.from('size_tier_rates').delete().eq('id', id);
     if (error) { setRows(prev); showToast({ message: `Failed to remove: ${error.message}`, type: 'error' }); return; }
+    syncLagosRates();
     showToast({ message: 'Bracket removed', type: 'success' });
   };
 

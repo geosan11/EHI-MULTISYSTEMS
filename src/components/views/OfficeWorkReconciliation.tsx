@@ -11,7 +11,7 @@ const norm = (s: string) => (s || '').trim().toUpperCase().replace(/\s+/g, ' ');
 
 type DeptType = 'cargo' | 'package' | 'baggage' | 'marketing';
 
-interface Client { id: string; company_name: string; }
+interface Client { id: string; company_name: string; active: boolean | null; }
 interface Rate { corporate_client_id: string; route_name: string; rate_per_kg: number; minimum_amount: number | null; }
 interface Candidate {
   type: DeptType;
@@ -54,13 +54,16 @@ export const OfficeWorkReconciliation = ({ user, onBack }: { user: User; onBack:
     setLoading(true);
     setSelected(new Set());
     const [{ data: clients }, { data: rates }] = await Promise.all([
-      supabase.from('corporate_clients').select('id, company_name'),
+      supabase.from('corporate_clients').select('id, company_name, active'),
       supabase.from('corporate_route_rates').select('corporate_client_id, route_name, rate_per_kg, minimum_amount'),
     ]);
     const clientList: Client[] = (clients as Client[]) || [];
     const rateList: Rate[] = (rates as Rate[]) || [];
     const byNorm = new Map<string, Client>();
-    clientList.forEach(c => byNorm.set(norm(c.company_name), c));
+    // Deactivated clients are excluded, mirroring officeWork.ts's
+    // matchOfficeClient -- without this, a client retired in Pricing
+    // Configuration could still be matched/relinked/repriced here.
+    clientList.filter(c => c.active !== false).forEach(c => byNorm.set(norm(c.company_name), c));
 
     // Paginated via fetchAllRows, not `.limit(1000)` -- that cap applied to
     // the raw row stream BEFORE the corporate-name match below, ordered
@@ -187,8 +190,16 @@ export const OfficeWorkReconciliation = ({ user, onBack }: { user: User; onBack:
   const allSelected = repriceable.length > 0 && repriceable.every(c => selected.has(candKey(c)));
   const toggleAll = () => setSelected(allSelected ? new Set() : new Set(repriceable.map(candKey)));
 
+  // Mirrors reconcile_*_office_entry's own server-side math exactly: debt
+  // only ever increases for Debt-mode entries (Cash/POS/Transfer/Wallet
+  // entries add 0), and even then only by whatever remains after netting
+  // off amount_paid/retrieved_amount -- NOT by the raw repricing delta
+  // (correctedAmount - amount), which is a different number the RPC never
+  // actually applies to accumulated_monthly_debt.
   const selectedDelta = useMemo(
-    () => candidates.filter(c => selected.has(candKey(c)) && c.delta != null).reduce((s, c) => s + (c.delta || 0), 0),
+    () => candidates
+      .filter(c => selected.has(candKey(c)) && c.correctedAmount != null)
+      .reduce((s, c) => s + (c.receipt_mode === 'Debt' ? Math.max(c.correctedAmount! - c.amount_paid - c.retrieved_amount, 0) : 0), 0),
     [candidates, selected]
   );
 

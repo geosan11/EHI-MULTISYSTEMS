@@ -285,6 +285,8 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         else if (target === 'specialGoods') openSub('specialGoodsRates');
         else if (target === 'minimumCharges') openSub('minimumCharges');
         else if (target === 'airlineCommissions') openSub('airlineCommissions');
+        else if (target === 'flatTier') openSub('flatTierRates');
+        else if (target === 'sizeTier') openSub('sizeTierRates');
       }}
     />);
   }

@@ -59,14 +59,27 @@ export async function fetchBanks(opts: BankOptions = {}): Promise<string[] | nul
 
 // Cached/fallback list on first render (instant paint, works offline);
 // swaps to the live Supabase list once the fetch resolves.
+// Periodic + focus/visibility refresh, matching officeWork.ts's corpRates
+// pattern -- without it, an admin adding/removing a bank in Banks.tsx
+// mid-shift was invisible to any payment form tab already open elsewhere
+// until it happened to remount.
 export function useBanks(opts: BankOptions = {}): string[] {
   const [banks, setBanks] = useState<string[]>(() => getCachedBanks(opts));
   useEffect(() => {
     let cancelled = false;
-    fetchBanks(opts).then(names => {
-      if (names && !cancelled) setBanks(names);
-    });
-    return () => { cancelled = true; };
+    const refresh = () => { fetchBanks(opts).then(names => { if (names && !cancelled) setBanks(names); }); };
+    refresh();
+    const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+    const interval = setInterval(refresh, REFRESH_INTERVAL_MS);
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', refresh);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', refresh);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return banks;

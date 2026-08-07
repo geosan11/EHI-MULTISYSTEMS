@@ -58,14 +58,27 @@ export async function fetchAirlines(opts: AirlinesOptions = {}): Promise<string[
 
 // Cached/fallback list on first render (instant paint, works offline);
 // swaps to the live Supabase list once the fetch resolves.
+// Periodic + focus/visibility refresh, matching officeWork.ts's corpRates
+// pattern -- without it, an admin adding an airline in AirlineCommissions.tsx
+// mid-shift was invisible to any intake form tab already open elsewhere
+// until it happened to remount.
 export function useAirlines(opts: AirlinesOptions = {}): string[] {
   const [airlines, setAirlines] = useState<string[]>(() => getCachedAirlines(opts));
   useEffect(() => {
     let cancelled = false;
-    fetchAirlines(opts).then(names => {
-      if (names && !cancelled) setAirlines(names);
-    });
-    return () => { cancelled = true; };
+    const refresh = () => { fetchAirlines(opts).then(names => { if (names && !cancelled) setAirlines(names); }); };
+    refresh();
+    const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+    const interval = setInterval(refresh, REFRESH_INTERVAL_MS);
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', refresh);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', refresh);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return airlines;

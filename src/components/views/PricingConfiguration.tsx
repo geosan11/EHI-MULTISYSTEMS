@@ -34,6 +34,15 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
   const routes = useHubRoutes();
   const [rateRoute, setRateRoute] = useState(routes[0]);
   useValidatedRouteSelection(routes, rateRoute, setRateRoute);
+  // Marketing's route concept is an Origin-Destination PAIR
+  // ("LOS/Lagos - ABV/Abuja", matching marketing_route_rates.route_name and
+  // what MarketingWorkspace.tsx's officeWorkRate lookup actually compares
+  // against), not a single hub -- a corporate rate saved via the single-hub
+  // `rateRoute` select below could never match a marketing entry's route,
+  // so a negotiated marketing tariff had no way to actually be configured.
+  const [rateDept, setRateDept] = useState<'cargo' | 'marketing'>('cargo');
+  const [rateRouteOrigin, setRateRouteOrigin] = useState('');
+  const [rateRouteDest, setRateRouteDest] = useState('');
   const [ratePrice, setRatePrice] = useState('');
   const [rateMinCharge, setRateMinCharge] = useState('');
   const { showToast } = useToast();
@@ -87,8 +96,12 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
     if (nonOtherRoutes.length === 0) return;
     if (!newRouteOrigin) setNewRouteOrigin(nonOtherRoutes[0]);
     if (!newRouteDest) setNewRouteDest(nonOtherRoutes[1] || nonOtherRoutes[0]);
+    if (!rateRouteOrigin) setRateRouteOrigin(nonOtherRoutes[0]);
+    if (!rateRouteDest) setRateRouteDest(nonOtherRoutes[1] || nonOtherRoutes[0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nonOtherRoutes.join('|')]);
+
+  const rateRoutePairName = rateRouteOrigin && rateRouteDest ? `${rateRouteOrigin} - ${rateRouteDest}` : '';
 
   const newRoutePairName = newRouteOrigin && newRouteDest ? `${newRouteOrigin} - ${newRouteDest}` : '';
   const newRoutePairExists = newRoutePairName !== '' && pricedRouteNames.has(newRoutePairName);
@@ -291,7 +304,20 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
       showToast({ message: 'Tariff must be a positive number.', type: 'warning' });
       return;
     }
+    // Minimum charge must be zero or positive -- unlike the tariff above,
+    // `parseFloat(rateMinCharge) || 0` alone doesn't reject a negative
+    // number (only NaN/0), so a typo like "-1500" saved silently with no
+    // admin feedback.
     const minChargeNum = parseFloat(rateMinCharge) || 0;
+    if (minChargeNum < 0) {
+      showToast({ message: 'Minimum charge must be zero or positive.', type: 'warning' });
+      return;
+    }
+    const effectiveRoute = rateDept === 'marketing' ? rateRoutePairName : rateRoute;
+    if (rateDept === 'marketing' && (!rateRoutePairName || rateRouteOrigin === rateRouteDest)) {
+      showToast({ message: 'Pick two different hubs for the marketing origin/destination pair.', type: 'warning' });
+      return;
+    }
 
     // Upsert on the (corporate_client_id, route_name) unique constraint
     // instead of branching on whether *this device's* stale local corpRates
@@ -303,7 +329,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
     // regardless of what this device has actually seen.
     const { data, error } = await supabase.from('corporate_route_rates').upsert({
       corporate_client_id: selectedRateClient.id,
-      route_name: rateRoute,
+      route_name: effectiveRoute,
       rate_per_kg: priceNum,
       minimum_amount: minChargeNum,
       updated_at: new Date().toISOString(),
@@ -315,7 +341,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
     }
 
     setCorpRates(prev => {
-      const idx = prev.findIndex(r => r.corporate_client_id === selectedRateClient.id && r.route_name === rateRoute);
+      const idx = prev.findIndex(r => r.corporate_client_id === selectedRateClient.id && r.route_name === effectiveRoute);
       const saved: CorporateRouteRate = {
         id: data.id,
         corporate_client_id: data.corporate_client_id,
@@ -557,16 +583,59 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                   <div className="bg-[var(--color-surface-2)] p-4 rounded-lg border border-[var(--color-border)] space-y-4">
                     <div className="flex flex-col space-y-3">
                       <div>
-                        <label htmlFor="corp-route" className="text-[11px] font-medium text-[var(--color-muted)] block mb-1.5">Route</label>
+                        <label htmlFor="corp-dept" className="text-[11px] font-medium text-[var(--color-muted)] block mb-1.5">Department</label>
                         <select
-                          id="corp-route"
-                          value={rateRoute}
-                          onChange={(e) => setRateRoute(e.target.value)}
+                          id="corp-dept"
+                          value={rateDept}
+                          onChange={(e) => setRateDept(e.target.value as 'cargo' | 'marketing')}
                           className="w-full bg-[var(--color-bg)] border border-[var(--color-surface-2)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
                         >
-                          {routes.map(r => <option key={r} value={r}>{r}</option>)}
+                          <option value="cargo">Cargo / Package / Excess Baggage</option>
+                          <option value="marketing">Marketing</option>
                         </select>
                       </div>
+                      {rateDept === 'cargo' ? (
+                        <div>
+                          <label htmlFor="corp-route" className="text-[11px] font-medium text-[var(--color-muted)] block mb-1.5">Route</label>
+                          <select
+                            id="corp-route"
+                            value={rateRoute}
+                            onChange={(e) => setRateRoute(e.target.value)}
+                            className="w-full bg-[var(--color-bg)] border border-[var(--color-surface-2)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
+                          >
+                            {routes.map(r => <option key={r} value={r}>{r}</option>)}
+                          </select>
+                        </div>
+                      ) : (
+                        <div>
+                          {/* Marketing's route is an Origin-Destination pair,
+                              not a single hub -- matches
+                              marketing_route_rates.route_name and
+                              MarketingWorkspace.tsx's own route picker, so a
+                              rate saved here can actually be found by its
+                              officeWorkRate lookup. */}
+                          <label className="text-[11px] font-medium text-[var(--color-muted)] block mb-1.5">Origin → Destination</label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <select
+                              value={rateRouteOrigin}
+                              onChange={(e) => setRateRouteOrigin(e.target.value)}
+                              className="w-full bg-[var(--color-bg)] border border-[var(--color-surface-2)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
+                            >
+                              {nonOtherRoutes.map(r => <option key={r} value={r}>{r}</option>)}
+                            </select>
+                            <select
+                              value={rateRouteDest}
+                              onChange={(e) => setRateRouteDest(e.target.value)}
+                              className="w-full bg-[var(--color-bg)] border border-[var(--color-surface-2)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
+                            >
+                              {nonOtherRoutes.map(r => <option key={r} value={r}>{r}</option>)}
+                            </select>
+                          </div>
+                          {rateRouteOrigin === rateRouteDest && (
+                            <div className="text-[10px] text-[var(--color-accent-amber)] mt-1">Origin and destination must be different hubs.</div>
+                          )}
+                        </div>
+                      )}
                       <div>
                         <label htmlFor="corp-tariff" className="text-[11px] font-medium text-[var(--color-muted)] block mb-1.5">Tariff (₦/KG)</label>
                         <input
@@ -589,9 +658,9 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                           className="w-full bg-[var(--color-bg)] border border-[var(--color-surface-2)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
                         />
                       </div>
-                      <button 
+                      <button
                         onClick={handleSetCorpRate}
-                        disabled={!ratePrice || isNaN(parseFloat(ratePrice)) || parseFloat(ratePrice) <= 0}
+                        disabled={!ratePrice || isNaN(parseFloat(ratePrice)) || parseFloat(ratePrice) <= 0 || (rateDept === 'marketing' && (!rateRoutePairName || rateRouteOrigin === rateRouteDest))}
                         className="w-full bg-[var(--color-accent-amber)] hover:bg-amber-600 text-black py-2 rounded-md text-[12px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-1"
                       >
                         Set Rate

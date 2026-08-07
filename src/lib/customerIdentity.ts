@@ -5,8 +5,15 @@ import { CustomerWallet } from './types';
 export function normalizePhone(raw?: string | null): string {
   if (!raw) return '';
   let d = String(raw).replace(/\D/g, '');
-  if (d.startsWith('234')) d = '0' + d.slice(3);
-  else if (d.length === 10 && !d.startsWith('0')) d = '0' + d;
+  if (d.startsWith('234')) {
+    // The 234 prefix is sometimes typed alongside the local trunk 0 that
+    // normally replaces it (e.g. "+234 0803...") -- prepending another 0
+    // unconditionally produced a double-zero string that never matched the
+    // same number typed as plain "0803...", silently splitting one
+    // customer's wallet identity into two unmatched normalized keys.
+    d = d.slice(3);
+    if (!d.startsWith('0')) d = '0' + d;
+  } else if (d.length === 10 && !d.startsWith('0')) d = '0' + d;
   return d;
 }
 

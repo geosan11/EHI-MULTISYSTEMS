@@ -125,6 +125,7 @@ export const HubCargoRates = ({ user, onBack }: { user: User; onBack: () => void
         setHubRouteRates(prev);
         showToast({ message: `Failed to clear ${route} default rate: ${error.message}`, type: 'error' });
       } else {
+        syncLagosRates();
         showToast({ message: `${route} default rate cleared.`, type: 'success' });
       }
     } else {
@@ -138,6 +139,7 @@ export const HubCargoRates = ({ user, onBack }: { user: User; onBack: () => void
         setHubAirlineRouteRates(prev);
         showToast({ message: `Failed to clear ${route} rate for ${selectedAirline}: ${error.message}`, type: 'error' });
       } else {
+        syncLagosRates();
         showToast({ message: `${route} rate for ${selectedAirline} cleared.`, type: 'success' });
       }
     }

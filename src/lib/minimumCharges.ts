@@ -47,14 +47,27 @@ export async function fetchMinimumCharges(): Promise<MinimumCharge[] | null> {
 
 // Cached/empty on first render, swaps to the live list once the fetch
 // resolves -- same convention as useSpecialGoodsRates().
+// Periodic + focus/visibility refresh, matching officeWork.ts's corpRates
+// pattern -- without it, an admin editing this table mid-shift (via
+// MinimumCharges.tsx) was invisible to any pricing form tab already open
+// elsewhere until it happened to remount.
 export function useMinimumCharges(): MinimumCharge[] {
   const [rows, setRows] = useState<MinimumCharge[]>(getCached);
   useEffect(() => {
     let cancelled = false;
-    fetchMinimumCharges().then(fetched => {
-      if (fetched && !cancelled) setRows(fetched);
-    });
-    return () => { cancelled = true; };
+    const refresh = () => { fetchMinimumCharges().then(fetched => { if (fetched && !cancelled) setRows(fetched); }); };
+    refresh();
+    const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+    const interval = setInterval(refresh, REFRESH_INTERVAL_MS);
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', refresh);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', refresh);
+    };
   }, []);
   return rows;
 }

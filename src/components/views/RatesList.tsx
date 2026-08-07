@@ -5,8 +5,10 @@ import { supabase } from '../../lib/supabase';
 import { fmt } from '../../lib/helpers';
 import { useSpecialGoodsRates } from '../../lib/specialGoodsRates';
 import { useMinimumCharges } from '../../lib/minimumCharges';
+import { useFlatTierRates } from '../../lib/flatTierRates';
+import { useSizeTierRates } from '../../lib/sizeTierRates';
 
-export type RatesConfigTarget = 'pricing' | 'hubRates' | 'excessBaggage' | 'contentTypes' | 'specialGoods' | 'minimumCharges' | 'airlineCommissions';
+export type RatesConfigTarget = 'pricing' | 'hubRates' | 'excessBaggage' | 'contentTypes' | 'specialGoods' | 'minimumCharges' | 'airlineCommissions' | 'flatTier' | 'sizeTier';
 
 interface StandardRate { route_name: string; rate_per_kg: number; }
 interface HubRouteRate { hub_id: string; route_name: string; rate_per_kg: number; }
@@ -37,6 +39,8 @@ export const RatesList = ({ onBack, onOpenConfig }: { onBack: () => void; onOpen
 
   const specialGoodsRates = useSpecialGoodsRates();
   const minimumCharges = useMinimumCharges();
+  const flatTierRates = useFlatTierRates();
+  const sizeTierRates = useSizeTierRates();
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -103,7 +107,38 @@ export const RatesList = ({ onBack, onOpenConfig }: { onBack: () => void; onOpen
     });
   }, [minimumCharges]);
 
+  // Flat/Size Tier rates were fetched nowhere in this aggregator despite
+  // this screen's own doc-comment claiming full read coverage across every
+  // rate table -- an admin auditing "all configured rates" here had no way
+  // to discover either table existed, let alone what was in it.
+  const flatTierByGroup = useMemo(() => {
+    const groups = new Map<string, typeof flatTierRates>();
+    for (const r of flatTierRates) {
+      const key = `${r.content_type_name}|${r.airline}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(r);
+    }
+    return Array.from(groups.entries()).map(([key, tiers]) => {
+      const [content_type_name, airline] = key.split('|');
+      return { content_type_name, airline, tiers: [...tiers].sort((a, b) => a.min_kg - b.min_kg) };
+    });
+  }, [flatTierRates]);
+
+  const sizeTierByGroup = useMemo(() => {
+    const groups = new Map<string, typeof sizeTierRates>();
+    for (const r of sizeTierRates) {
+      const key = `${r.content_type_name}|${r.airline}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(r);
+    }
+    return Array.from(groups.entries()).map(([key, tiers]) => {
+      const [content_type_name, airline] = key.split('|');
+      return { content_type_name, airline, tiers: [...tiers].sort((a, b) => a.min_inches - b.min_inches) };
+    });
+  }, [sizeTierRates]);
+
   const kgLabel = (min: number, max: number | null) => max == null ? `${min}kg & up` : `${min}-${max}kg`;
+  const inchesLabel = (min: number, max: number | null) => max == null ? `${min}in & up` : `${min}-${max}in`;
 
   const Section = ({
     id, title, count, editTarget, children,
@@ -155,6 +190,8 @@ export const RatesList = ({ onBack, onOpenConfig }: { onBack: () => void; onOpen
   const filteredCommissions = Object.entries(airlineCommissions).filter(([airline]) => matches(airline));
   const filteredSpecialGoods = specialGoodsByGroup.filter(g => matches(g.content_type_name, g.airline));
   const filteredMinCharges = minChargesByGroup.filter(g => matches(g.airline, g.route_name));
+  const filteredFlatTier = flatTierByGroup.filter(g => matches(g.content_type_name, g.airline));
+  const filteredSizeTier = sizeTierByGroup.filter(g => matches(g.content_type_name, g.airline));
 
   return (
     <main className="flex flex-col h-full bg-[var(--color-obsidian)] overflow-y-auto">
@@ -239,6 +276,36 @@ export const RatesList = ({ onBack, onOpenConfig }: { onBack: () => void; onOpen
                 <div key={i} className="space-y-1 pb-1.5 mb-1.5 border-b border-[var(--color-border)] last:border-0 last:mb-0 last:pb-0">
                   <div className="text-[10px] font-bold text-[var(--color-foreground)]">{g.airline} · {g.route_name}</div>
                   {g.tiers.map(t => <Row key={t.id} label={kgLabel(t.min_kg, t.max_kg)} value={`₦${fmt(t.minimum_amount)}`} />)}
+                </div>
+              ))}
+            </Section>
+
+            <Section id="flatTier" title="Flat Tier Rates" count={filteredFlatTier.length} editTarget="flatTier">
+              {filteredFlatTier.map((g, i) => (
+                <div key={i} className="space-y-1 pb-1.5 mb-1.5 border-b border-[var(--color-border)] last:border-0 last:mb-0 last:pb-0">
+                  <div className="text-[10px] font-bold text-[var(--color-foreground)]">{g.content_type_name} · {g.airline}</div>
+                  {g.tiers.map(t => (
+                    <Row
+                      key={t.id}
+                      label={`${kgLabel(t.min_kg, t.max_kg)} · ${hubName(t.hub_id || '') || 'All Hubs'} · ${t.route_name || 'All Routes'}`}
+                      value={`₦${fmt(t.flat_amount)} flat`}
+                    />
+                  ))}
+                </div>
+              ))}
+            </Section>
+
+            <Section id="sizeTier" title="Size Tier Rates" count={filteredSizeTier.length} editTarget="sizeTier">
+              {filteredSizeTier.map((g, i) => (
+                <div key={i} className="space-y-1 pb-1.5 mb-1.5 border-b border-[var(--color-border)] last:border-0 last:mb-0 last:pb-0">
+                  <div className="text-[10px] font-bold text-[var(--color-foreground)]">{g.content_type_name} · {g.airline}</div>
+                  {g.tiers.map(t => (
+                    <Row
+                      key={t.id}
+                      label={`${inchesLabel(t.min_inches, t.max_inches)} · ${hubName(t.hub_id || '') || 'All Hubs'} · ${t.route_name || 'All Routes'}`}
+                      value={`₦${fmt(t.flat_amount)} flat`}
+                    />
+                  ))}
                 </div>
               ))}
             </Section>
