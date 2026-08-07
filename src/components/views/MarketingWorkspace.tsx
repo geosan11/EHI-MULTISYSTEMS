@@ -272,30 +272,46 @@ export const MarketingWorkspace = ({
     return matchWallet(customerWallets, name, phone);
   }, [name, phone, customerWallets, selectedWalletOverride]);
 
+  // Wallet mode requires an actual resolved wallet -- previously `!activeWallet`
+  // made this whole condition (and thus isValid) pass even with no wallet
+  // matched/selected, and handleAddEntry's wallet-charging block is itself
+  // gated on `activeWallet` truthy, so it silently no-op'd: the sale
+  // recorded mode: "Wallet" at the full amount with no money ever
+  // collected and no wallet debited.
   // A short wallet paying its remainder by Transfer/POS needs a bank before
   // the entry can be submitted -- mirrors the same guard in handleSubmit.
-  const walletRemainderBankOk = mode !== 'Wallet' || !activeWallet || activeWallet.balance >= totalAmount ||
-    !(walletRemainderMode === 'Transfer' || walletRemainderMode === 'POS') || walletRemainderBank.trim().length > 0;
+  const walletRemainderBankOk = mode !== 'Wallet' || (!!activeWallet && (activeWallet.balance >= totalAmount ||
+    !(walletRemainderMode === 'Transfer' || walletRemainderMode === 'POS') || walletRemainderBank.trim().length > 0));
   const isValid = isValidCore && walletRemainderBankOk;
 
   const marketingTxs = transactions.filter((t) => t.type === "marketing");
   const totalSales = marketingTxs.reduce((sum, t) => sum + t.amount, 0);
+  // A short wallet's remainder is recorded with `mode` set to whatever
+  // collected the gap (e.g. "Cash") but `amount` left as the FULL sale
+  // total -- only `wallet_deduction_amount` records the wallet portion.
+  // Without subtracting it here, a split sale double-counts: the
+  // wallet-covered part is credited both to the wallet AND to this
+  // physical cash/transfer total, overstating what's actually in the till.
+  // Matches AccountingConsole.tsx/EODReconciliation.tsx's identical
+  // nonWalletPortion fix for the shared reconciliation screens -- this
+  // department-local day-close total never got the same fix.
+  const nonWalletPortion = (t: Transaction) => Math.max(0, (t.amount || 0) - (t.wallet_deduction_amount || 0));
   const cashSales = marketingTxs.reduce(
-    (sum, t) => sum + (t.mode === "Cash" ? t.amount : 0),
+    (sum, t) => sum + (t.mode === "Cash" ? nonWalletPortion(t) : 0),
     0,
   );
   // "Transfer (Cash)" = transfers physically received as cash (e.g. mobile money agents)
   const transferCashSales = marketingTxs.reduce(
-    (sum, t) => sum + (t.mode === "TransferCash" ? t.amount : 0),
+    (sum, t) => sum + (t.mode === "TransferCash" ? nonWalletPortion(t) : 0),
     0,
   );
   const transferSales = marketingTxs.reduce(
     (sum, t) =>
-      sum + (t.mode === "Transfer" || t.mode === "POS" || t.mode === "TransferCash" ? t.amount : 0),
+      sum + (t.mode === "Transfer" || t.mode === "POS" || t.mode === "TransferCash" ? nonWalletPortion(t) : 0),
     0,
   );
   const debtSales = marketingTxs.reduce(
-    (sum, t) => sum + (t.mode === "Debt" ? t.amount : 0),
+    (sum, t) => sum + (t.mode === "Debt" ? nonWalletPortion(t) : 0),
     0,
   );
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
@@ -562,6 +578,18 @@ export const MarketingWorkspace = ({
     setAmountOverride("");
     setMode("Transfer");
     setNarrationCode("");
+    // Blank, not left as whatever the previous customer's route was --
+    // route starts blank on mount specifically to force a conscious pick;
+    // silently carrying it over let the next customer's sale submit
+    // priced under a route nobody actually chose for it.
+    setRoute("");
+    // Wallet override/remainder-payment state otherwise survives into the
+    // next customer's sale -- if Wallet mode is used again without
+    // explicitly re-picking a wallet, the charge would silently apply to
+    // THIS (previous) customer's wallet instead of the new one.
+    setSelectedWalletOverride(null);
+    setWalletRemainderMode('Cash');
+    setWalletRemainderBank('');
     setSuccessTx(null);
     fetchNextTag();
     setPendingEntryId(uid("MK"));

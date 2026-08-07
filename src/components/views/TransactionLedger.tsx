@@ -78,6 +78,19 @@ const RETRIEVAL_TABLE_NAME: Record<RetrievalEntryType, string> = {
   package: 'package_entries',
 };
 
+// Human-readable labels for audit_log.action, used by the transaction
+// detail modal's Activity History section below.
+const ACTION_LABELS: Record<string, string> = {
+  CREATE: 'Created',
+  UPDATE: 'Edited',
+  DELETE: 'Deleted',
+  PAYMENT_CONFIRM: 'Payment Confirmed',
+  RETRIEVAL: 'Retrieved',
+  UNRETRIEVE: 'Retrieval Reversed',
+  RETRIEVAL_APPROVE: 'Retrieval Approved',
+  DEBT_COLLECTION: 'Debt Payment Collected',
+};
+
 export const TransactionLedger = ({
   user,
   transactions,
@@ -199,6 +212,35 @@ export const TransactionLedger = ({
   const [amountInput, setAmountInput] = useState('');
   const [viewingQrTx, setViewingQrTx] = useState<Entry | null>(null);
   const [viewingDetail, setViewingDetail] = useState<Entry | null>(null);
+  // Full activity trail for whichever transaction is currently open in the
+  // detail modal -- every edit/retrieval/unretrieve/approval/debt-collection/
+  // payment-confirmation already writes an audit_log row (table_name +
+  // record_id identify exactly this transaction), but none of that was ever
+  // surfaced in the UI itself. Any staff can act on a transaction (retrieval,
+  // refund-to-wallet, unretrieve); this is the accountability mechanism that
+  // replaces blocking those actions -- everything done to a transaction is
+  // visible here, in order, with who did it and when, so it's always
+  // traceable who to hold accountable rather than who was merely allowed
+  // to click the button.
+  const [txHistory, setTxHistory] = useState<any[]>([]);
+  const [txHistoryLoading, setTxHistoryLoading] = useState(false);
+  useEffect(() => {
+    if (!viewingDetail || viewingDetail.source !== 'transaction') { setTxHistory([]); return; }
+    const tx = viewingDetail.raw as Transaction;
+    const tableName = RETRIEVAL_TABLE_NAME[tx.type as RetrievalEntryType];
+    if (!tableName || !tx.id) { setTxHistory([]); return; }
+    let cancelled = false;
+    setTxHistoryLoading(true);
+    supabase.from('audit_log').select('*')
+      .eq('table_name', tableName).eq('record_id', tx.id)
+      .order('created_at', { ascending: true })
+      .then(({ data }) => {
+        if (cancelled) return;
+        setTxHistory(data || []);
+        setTxHistoryLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [viewingDetail]);
   const [retrievalModalEntry, setRetrievalModalEntry] = useState<Entry | null>(null);
   // Guards executeRetrieval against a double-click/slow-network double
   // submit -- process_*_retrieval only rejects a retrieval that would push
@@ -826,7 +868,18 @@ export const TransactionLedger = ({
       const lastPayment = Array.isArray(raw?.paymentHistory) && raw.paymentHistory.length > 0
         ? raw.paymentHistory[raw.paymentHistory.length - 1]
         : null;
-      const candidateTimes = [e.raw?.created_at, (e as any)._sortTime, raw?.editedAt, raw?.confirmedAt, lastPayment?.at]
+      // The editedAt/confirmedAt/lastPayment broadening only applies to
+      // debt-related entries -- restricted here after this same broadening
+      // was found to inflate the Cash/Total KPI tiles: confirming an
+      // old, previously-unconfirmed CASH sale today (toggleConfirm just
+      // stamps confirmedAt) folded that entry's full original amount into
+      // today's shift totals even though no cash was actually collected
+      // today. For debt clearance specifically that's correct and
+      // intentional (the whole reason this broadening exists) since the
+      // debt-recovered figures are tracked separately from the raw
+      // `amount` the KPI tiles sum.
+      const isDebtRelated = e.mode === 'Debt' || e.mode === 'Debt Paid' || !!raw?.is_debt_clearance;
+      const candidateTimes = [e.raw?.created_at, (e as any)._sortTime, ...(isDebtRelated ? [raw?.editedAt, raw?.confirmedAt, lastPayment?.at] : [])]
         .map((v) => (v ? new Date(v).getTime() : NaN))
         .filter((t) => !isNaN(t));
       const entryTime = candidateTimes.length > 0 ? new Date(Math.max(...candidateTimes)) : null;
@@ -3528,6 +3581,45 @@ export const TransactionLedger = ({
                   <div>Confirmed at: {viewingDetail.raw.confirmedAt}</div>
                 )}
               </section>
+
+              {/* Activity History -- every edit/retrieval/unretrieve/
+                  approval/debt-collection/payment-confirmation this
+                  transaction has ever had, in order, with who did it and
+                  when. Retrieval/refund/unretrieve are open to any staff
+                  (not blocked to accountant/admin); this is the
+                  accountability mechanism instead -- everything done here
+                  is visible and traceable back to whoever did it. */}
+              {viewingDetail.source === 'transaction' && (
+                <section className="pb-4 border-t border-[var(--color-border)] pt-3">
+                  <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider mb-2">Activity History</div>
+                  {txHistoryLoading ? (
+                    <div className="text-[11px] font-mono text-[var(--color-muted)]">Loading…</div>
+                  ) : txHistory.length === 0 ? (
+                    <div className="text-[11px] font-mono text-[var(--color-muted)]">No recorded activity yet.</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {txHistory.map((h: any) => (
+                        <div key={h.id} className="flex items-start gap-2 text-[11px]">
+                          <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
+                            h.action === 'UNRETRIEVE' ? 'bg-[var(--color-error)]' :
+                            h.action === 'DEBT_COLLECTION' || h.action === 'PAYMENT_CONFIRM' ? 'bg-[var(--color-success)]' :
+                            'bg-[var(--color-accent-amber)]'
+                          }`} />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[var(--color-foreground)] font-sans">
+                              <span className="font-bold">{ACTION_LABELS[h.action as string] || h.action}</span>
+                              {' — '}{h.description}
+                            </div>
+                            <div className="text-[9px] font-mono text-[var(--color-muted)] mt-0.5">
+                              {h.user_name || 'Unknown'} · {new Date(h.created_at).toLocaleString('en-NG')}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )}
             </div>
 
             {/* Actions Footer */}
@@ -3564,6 +3656,17 @@ export const TransactionLedger = ({
                         </button>
                       )}
 
+                      {/* Deliberately open to ANY staff, not gated to
+                          isAccountantOrAdmin -- retrieval/refund is a
+                          maker-checker flow by design: any staff can
+                          action it, and canApproveRetrievals-gated
+                          "Approve" below is the accountant/admin
+                          confirmation step (a review stamp after the
+                          fact, not a block on initiating). Accountability
+                          for who did what comes from the Activity History
+                          section above (every audit_log-backed action on
+                          this transaction, in order, with who and when),
+                          not from restricting who can act. */}
                       {(['cargo', 'baggage', 'marketing', 'package'] as const).includes(viewingDetail.type as RetrievalEntryType) && !viewingDetail.raw?.retrieved && (
                         <button
                           onClick={() => handleMarkRetrievedAndDeposit(viewingDetail)}

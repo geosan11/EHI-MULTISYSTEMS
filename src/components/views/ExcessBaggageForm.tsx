@@ -149,10 +149,16 @@ export const ExcessBaggageForm = ({
   // is meant to price.
   useOfficeWorkAutoPrice(linkedAsOfficeWork, officeWorkRate, excessKg, dest, setAmountOverride);
 
+  // Wallet mode requires an actual resolved wallet -- previously `!activeWallet`
+  // made this whole condition (and thus isValid) pass even with no wallet
+  // matched/selected, and handleSubmit's wallet-charging block is itself
+  // gated on `activeWallet` truthy, so it silently no-op'd: the sale
+  // recorded mode: "Wallet" at the full amount with no money ever
+  // collected and no wallet debited.
   // A short wallet paying its remainder by Transfer/POS needs a bank before
   // the entry can be submitted -- mirrors the same guard in handleSubmit.
-  const walletRemainderBankOk = mode !== 'Wallet' || !activeWallet || activeWallet.balance >= totalAmount ||
-    !(walletRemainderMode === 'Transfer' || walletRemainderMode === 'POS') || walletRemainderBank.trim().length > 0;
+  const walletRemainderBankOk = mode !== 'Wallet' || (!!activeWallet && (activeWallet.balance >= totalAmount ||
+    !(walletRemainderMode === 'Transfer' || walletRemainderMode === 'POS') || walletRemainderBank.trim().length > 0));
   // A confirmed office-work link only exempts the retail-computed minAmount
   // floor when there's an actual contract rate backing it (officeWorkRate)
   // -- a negotiated rate is authoritative pricing the company already
@@ -295,12 +301,35 @@ export const ExcessBaggageForm = ({
     setName('');
     setPnr('');
     setFlight('');
-    setDest(routes[0]);
+    // Blank, not routes[0] -- dest starts blank on mount specifically to
+    // force a conscious pick (see its own useState('') declaration);
+    // silently repopulating a default here let the next passenger's
+    // excess baggage submit priced/filed under whatever destination
+    // happened to be first in the list, not what the agent actually chose.
+    setDest('');
     setKg('');
     setPcs('');
     setAmountOverride('');
     setPhone('');
     setSuccessTx(null);
+    // mode was never reset here at all -- if the previous passenger paid
+    // by Wallet, the next one started already in Wallet mode too. Combined
+    // with the wallet-override leak below, the very next passenger's fee
+    // could be silently charged to the PREVIOUS passenger's wallet with no
+    // further action from the agent. Reset to the same default the form
+    // mounts with (POS), not an arbitrary different one.
+    setMode('POS');
+    // Wallet override/remainder-payment state otherwise survives into the
+    // next passenger's entry -- if Wallet mode is used again without
+    // explicitly re-picking a wallet, the charge would silently apply to
+    // THIS (previous) passenger's wallet instead of the new one.
+    setSelectedWalletOverride(null);
+    setWalletRemainderMode('Cash');
+    setWalletRemainderBank('');
+    // Reused otherwise -- the same bank narration/reference code would be
+    // printed on two different passengers' Transfer receipts, breaking
+    // bank reconciliation.
+    setNarrationCode('');
     fetchPendingTag();
   };
 

@@ -223,10 +223,20 @@ export const PackageForm = ({
 
   const packageTxs = transactions.filter((t) => t.type === "package" && isToday(t.created_at));
   const totalSales = packageTxs.reduce((sum, t) => sum + t.amount, 0);
-  const cashSales = packageTxs.reduce((sum, t) => sum + (t.mode === "Cash" ? t.amount : 0), 0);
-  const posSales = packageTxs.reduce((sum, t) => sum + (t.mode === "POS" ? t.amount : 0), 0);
-  const transferSales = packageTxs.reduce((sum, t) => sum + (t.mode === "Transfer" ? t.amount : 0), 0);
-  const debtSales = packageTxs.reduce((sum, t) => sum + (t.mode === "Debt" ? t.amount : 0), 0);
+  // A short wallet's remainder is recorded with `mode` set to whatever
+  // collected the gap (e.g. "Cash") but `amount` left as the FULL sale
+  // total -- only `wallet_deduction_amount` records the wallet portion.
+  // Without subtracting it here, a split sale double-counts: the
+  // wallet-covered part is credited both to the wallet AND to this
+  // physical cash/transfer/POS total, overstating what's actually in the
+  // till. Matches AccountingConsole.tsx/EODReconciliation.tsx's identical
+  // nonWalletPortion fix for the shared reconciliation screens -- this
+  // department-local day-close total never got the same fix.
+  const nonWalletPortion = (t: Transaction) => Math.max(0, (t.amount || 0) - (t.wallet_deduction_amount || 0));
+  const cashSales = packageTxs.reduce((sum, t) => sum + (t.mode === "Cash" ? nonWalletPortion(t) : 0), 0);
+  const posSales = packageTxs.reduce((sum, t) => sum + (t.mode === "POS" ? nonWalletPortion(t) : 0), 0);
+  const transferSales = packageTxs.reduce((sum, t) => sum + (t.mode === "Transfer" ? nonWalletPortion(t) : 0), 0);
+  const debtSales = packageTxs.reduce((sum, t) => sum + (t.mode === "Debt" ? nonWalletPortion(t) : 0), 0);
   const debtCashRecoveredToday = packageTxs.reduce((sum, t) => {
     if (!t.paymentHistory) return sum;
     const todays = t.paymentHistory.filter(p => p.mode === 'Cash' && p.at && isToday(p.at));
@@ -264,10 +274,16 @@ export const PackageForm = ({
     return matchWallet(customerWallets, name, phone);
   }, [name, phone, customerWallets, selectedWalletOverride]);
 
+  // Wallet mode requires an actual resolved wallet -- previously `!activeWallet`
+  // made this whole condition (and thus isValid) pass even with no wallet
+  // matched/selected, and handleAddEntry's wallet-charging block is itself
+  // gated on `activeWallet` truthy, so it silently no-op'd: the sale
+  // recorded mode: "Wallet" at the full amount with no money ever
+  // collected and no wallet debited.
   // A short wallet paying its remainder by Transfer/POS needs a bank before
   // the entry can be submitted -- mirrors the same guard in handleAddEntry.
-  const walletRemainderBankOk = mode !== 'Wallet' || !activeWallet || activeWallet.balance >= parsedAmount ||
-    !(walletRemainderMode === 'Transfer' || walletRemainderMode === 'POS') || walletRemainderBank.trim().length > 0;
+  const walletRemainderBankOk = mode !== 'Wallet' || (!!activeWallet && (activeWallet.balance >= parsedAmount ||
+    !(walletRemainderMode === 'Transfer' || walletRemainderMode === 'POS') || walletRemainderBank.trim().length > 0));
   const isValid = isValidCore && walletRemainderBankOk;
 
   const handleAddEntry = async () => {
@@ -403,12 +419,26 @@ export const PackageForm = ({
     setDebtorName("");
     setPcs("1");
     setKg("");
-    setContents(contentTypes[0]);
+    // Blank, not contentTypes[0]/destination left untouched -- both start
+    // blank on mount specifically to force a conscious pick (see their own
+    // useState('') declarations); silently repopulating a default (or
+    // leaving the previous customer's destination in place) let the next
+    // package submit priced/filed under content/destination nobody
+    // actually chose for it.
+    setContents('');
     setCustomContents("");
+    setDestination('');
     setAmount("");
     setMode("Cash");
     setNarrationCode("");
     setSuccessTx(null);
+    // Wallet override/remainder-payment state otherwise survives into the
+    // next customer's sale -- if Wallet mode is used again without
+    // explicitly re-picking a wallet, the charge would silently apply to
+    // THIS (previous) customer's wallet instead of the new one.
+    setSelectedWalletOverride(null);
+    setWalletRemainderMode('Cash');
+    setWalletRemainderBank('');
     // Cleared synchronously, not just reassigned once the RPC below
     // resolves -- setSuccessTx(null) above immediately returns to the
     // enterable form, but trackingRef previously stayed equal to the

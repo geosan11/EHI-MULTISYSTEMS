@@ -62,7 +62,7 @@ import {
   sendReceiptWhatsApp,
   buildCargoWhatsApp,
 } from "../../lib/notifications";
-import { supabase } from "../../lib/supabase";
+import { supabase, fetchAllRows } from "../../lib/supabase";
 import { useToast } from "../../lib/ToastContext";
 import { useConfirm } from "../../lib/ConfirmContext";
 
@@ -541,8 +541,10 @@ export const CargoForm = ({
     amount: number; receipt_mode: string; route: string | null; consignee_name: string;
     airline: string | null; awb_tag_number: string | null; total_pcs: number; total_kg: number;
     content_type: string | null; bank: string | null; wallet_deduction_amount?: number | null;
+    payment_history?: any[] | null;
   }>>([]);
   const [closeExpenses, setCloseExpenses] = useState<Expense[]>([]);
+  const [closeOlderDebtPayments, setCloseOlderDebtPayments] = useState<Array<{ payment_history: any[] | null }>>([]);
 
   // datetime-local <-> Date, local time (no timezone suffix) -- toISOString()
   // would shift the displayed value by the browser's UTC offset.
@@ -594,37 +596,79 @@ export const CargoForm = ({
     (async () => {
       const startISO = startD.toISOString();
       const endISO = endD.toISOString();
-      const [entriesRes, expRes] = await Promise.all([
-        supabase.from('cargo_entries')
-          .select('amount,receipt_mode,route,consignee_name,airline,awb_tag_number,total_pcs,total_kg,content_type,bank,created_at,wallet_deduction_amount')
-          .eq('hub_id', user.hub_id)
-          .gte('created_at', startISO).lt('created_at', endISO)
-          .order('created_at', { ascending: true }).limit(1000),
-        supabase.from('expenses')
-          .select('*')
-          .eq('hub_id', user.hub_id)
-          .gte('created_at', startISO).lt('created_at', endISO)
-          .limit(1000),
-      ]);
-      if (!active) return;
-      setCloseEntries((entriesRes.data || []) as any);
-      setCloseExpenses((expRes.data || []) as Expense[]);
-      setCloseSummaryLoading(false);
+      // fetchAllRows, not a bare .limit(1000) -- a hub that runs a
+      // high-volume period (or goes a long stretch without closing) could
+      // have entries/expenses beyond the 1000th silently excluded from
+      // every total here and from the persisted cargo_day_close row, with
+      // no warning shown anywhere.
+      try {
+        const [entries, expenses, olderDebtPayments] = await Promise.all([
+          fetchAllRows<any>((from, to) => supabase.from('cargo_entries')
+            .select('amount,receipt_mode,route,consignee_name,airline,awb_tag_number,total_pcs,total_kg,content_type,bank,created_at,wallet_deduction_amount,payment_history')
+            .eq('hub_id', user.hub_id)
+            .gte('created_at', startISO).lt('created_at', endISO)
+            .order('created_at', { ascending: true }).range(from, to)),
+          fetchAllRows<any>((from, to) => supabase.from('expenses')
+            .select('*')
+            .eq('hub_id', user.hub_id)
+            .gte('created_at', startISO).lt('created_at', endISO)
+            .range(from, to)),
+          // Debts OPENED before this period but paid down (in cash or
+          // otherwise) DURING it wouldn't be fetched at all by the
+          // created_at-scoped query above -- their payment never showed up
+          // in "Debt Recovered Today" even though it was physically
+          // collected this period. Bounded to 180 days before the period
+          // start (aging debts beyond that are vanishingly rare -- see
+          // DebtorsTab.tsx's own 90-day "writeoff-risk" bucket) so this
+          // doesn't become an ever-growing unbounded scan as the business
+          // accumulates history.
+          fetchAllRows<any>((from, to) => supabase.from('cargo_entries')
+            .select('payment_history')
+            .eq('hub_id', user.hub_id)
+            .eq('receipt_mode', 'Debt')
+            .gte('created_at', new Date(startD.getTime() - 180 * 24 * 60 * 60 * 1000).toISOString())
+            .lt('created_at', startISO)
+            .range(from, to)),
+        ]);
+        if (!active) return;
+        setCloseEntries(entries);
+        setCloseExpenses(expenses as Expense[]);
+        setCloseOlderDebtPayments(olderDebtPayments);
+      } catch (err: any) {
+        if (!active) return;
+        showToast({ message: `Failed to load close summary: ${err.message || err}`, type: 'error' });
+      }
+      if (active) setCloseSummaryLoading(false);
     })();
     return () => { active = false; };
   }, [showCloseModal, periodStart, periodEnd, user.hub_id]);
 
+  // A short wallet's remainder is recorded with `receipt_mode` set to
+  // whatever collected the gap (e.g. "Cash") but `amount` left as the FULL
+  // sale total -- only `wallet_deduction_amount` records the wallet
+  // portion. Without subtracting it here, a split sale double-counts: the
+  // wallet-covered part is credited both to the wallet AND to this
+  // physical cash/transfer/POS total, overstating what's actually in the
+  // till. Matches AccountingConsole.tsx/EODReconciliation.tsx's identical
+  // nonWalletPortion fix for the shared reconciliation screens -- this
+  // department-local day-close total never got the same fix.
+  const nonWalletPortion = (t: any) => Math.max(0, (t.amount || 0) - (t.wallet_deduction_amount || 0));
   const closeTotalSales = closeEntries.reduce((s, t) => s + t.amount, 0);
-  const closeCashSales = closeEntries.reduce((s, t) => s + (t.receipt_mode === 'Cash' ? t.amount : 0), 0);
-  const closePosSales = closeEntries.reduce((s, t) => s + (t.receipt_mode === 'POS' ? t.amount : 0), 0);
-  const closeTransferSales = closeEntries.reduce((s, t) => s + (t.receipt_mode === 'Transfer' ? t.amount : 0), 0);
-  const closeDebtSales = closeEntries.reduce((s, t) => s + (t.receipt_mode === 'Debt' ? t.amount : 0), 0);
-  const closeDebtCashRecoveredToday = closeEntries.reduce((sum: number, t: any) => {
+  const closeCashSales = closeEntries.reduce((s, t) => s + (t.receipt_mode === 'Cash' ? nonWalletPortion(t) : 0), 0);
+  const closePosSales = closeEntries.reduce((s, t) => s + (t.receipt_mode === 'POS' ? nonWalletPortion(t) : 0), 0);
+  const closeTransferSales = closeEntries.reduce((s, t) => s + (t.receipt_mode === 'Transfer' ? nonWalletPortion(t) : 0), 0);
+  const closeDebtSales = closeEntries.reduce((s, t) => s + (t.receipt_mode === 'Debt' ? nonWalletPortion(t) : 0), 0);
+  // Scans in-period entries AND the bounded-lookback older-debt fetch above
+  // -- a debt opened before this period but paid down during it only ever
+  // shows up in the latter, since its own created_at falls outside
+  // [periodStart, periodEnd).
+  const closeDebtPaymentSource: Array<{ payment_history?: any[] | null }> = [...closeEntries, ...closeOlderDebtPayments];
+  const closeDebtCashRecoveredToday = closeDebtPaymentSource.reduce((sum: number, t: any) => {
     if (!t.payment_history || !Array.isArray(t.payment_history)) return sum;
     const todays = t.payment_history.filter((p: any) => p.mode === 'Cash' && p.at && new Date(p.at) >= new Date(periodStart) && new Date(p.at) <= new Date(periodEnd));
     return sum + todays.reduce((s: number, p: any) => s + (p.amount || 0), 0);
   }, 0);
-  const closeDebtTotalRecoveredToday = closeEntries.reduce((sum: number, t: any) => {
+  const closeDebtTotalRecoveredToday = closeDebtPaymentSource.reduce((sum: number, t: any) => {
     if (!t.payment_history || !Array.isArray(t.payment_history)) return sum;
     const todays = t.payment_history.filter((p: any) => p.at && new Date(p.at) >= new Date(periodStart) && new Date(p.at) <= new Date(periodEnd));
     return sum + todays.reduce((s: number, p: any) => s + (p.amount || 0), 0);
@@ -647,6 +691,14 @@ export const CargoForm = ({
     const endISO = endD.toISOString();
     if (endD <= startD) {
       showToast({ message: 'End time must be after start time.', type: 'warning' });
+      return;
+    }
+    // Starting before the hub's last recorded close would re-aggregate
+    // entries that were already counted in that prior cargo_day_close row
+    // into this new one too -- there's no "closed" flag on cargo_entries
+    // itself to stop it, so this client-side check is the only guard.
+    if (lastCloseEnd && startD < new Date(lastCloseEnd)) {
+      showToast({ message: `Start time is before the last close (${new Date(lastCloseEnd).toLocaleString('en-GB')}) -- would double-count already-closed entries.`, type: 'error' });
       return;
     }
     const ok = await confirm({
@@ -1335,6 +1387,13 @@ export const CargoForm = ({
       (priceOverrideInfo?.type === 'size' || priceOverrideInfo?.type === 'flat' || (linkedAsOfficeWork && officeWorkRate)
         ? parsedAmount > 0
         : (rate == null && minCharge == null ? parsedAmount > 0 : parsedAmount >= minAmount && parsedAmount > 0)) &&
+      // Wallet mode requires an actual resolved wallet -- without this,
+      // `activeWallet` being null (no name/phone match, nothing picked in
+      // CustomerWalletPicker) still passed validation, and the submit
+      // handler's wallet-charging block is itself gated on `activeWallet`
+      // truthy, so it silently no-ops: the sale recorded mode: "Wallet" at
+      // the full amount with no money ever collected and no wallet debited.
+      (mode !== 'Wallet' || !!activeWallet) &&
       // A short wallet paying its remainder by Transfer/POS needs a bank
       // before the entry can be submitted -- mirrors the same guard in
       // handleRetailSubmit, so the button (and the review modal it opens)
@@ -1564,8 +1623,14 @@ export const CargoForm = ({
     fetchAwbPreview();
     setPcs("1");
     setKg("");
-    setRoute(routes[0]);
-    setContentType(contentTypes[0] as string);
+    // Blank, not routes[0]/contentTypes[0] -- these start blank on mount
+    // specifically so isRetailFormValid's non-empty checks force a
+    // conscious pick (see their own useState('') declarations); silently
+    // repopulating a default here let a shipment submit priced/filed under
+    // whatever route/content happened to be first in the list, not what
+    // the agent actually chose for this customer.
+    setRoute('');
+    setContentType('');
     setCustomContentType("");
     setAmount("");
     setMode("Cash");
@@ -1574,6 +1639,17 @@ export const CargoForm = ({
     setSenderPhone("");
     setConsigneePhone("");
     setSuccessTx(null);
+    // Wallet override/remainder-payment state otherwise survives into the
+    // next customer's sale -- if Wallet mode is used again without
+    // explicitly re-picking a wallet, the charge would silently apply to
+    // THIS (previous) customer's wallet instead of the new one.
+    setSelectedWalletOverride(null);
+    setWalletRemainderMode('Cash');
+    setWalletRemainderBank('');
+    // Reused otherwise -- the same bank narration/reference code would be
+    // printed on two different customers' Transfer receipts, breaking bank
+    // reconciliation (which relies on it being unique per transaction).
+    setNarrationCode("");
   };
 
   const handlePrintReceipt = async () => {
@@ -2310,24 +2386,27 @@ export const CargoForm = ({
                     value={effectiveAmount}
                     onChange={(e) => setAmount(e.target.value)}
                     onBlur={() => {
-                      // Same flat/size-tier exemption as isRetailFormValid below --
-                      // minAmount is computed purely from the generic per-kg/
-                      // minimum-charge cascade with no content-type awareness, so
-                      // it can land higher than a deliberately-configured flat/
-                      // size-tier bracket price. Without this exemption, tabbing
-                      // off the field after a correct flat/size-tier auto-fill
-                      // silently overwrote it with the higher generic floor.
-                      if (!(priceOverrideInfo?.type === 'size' || priceOverrideInfo?.type === 'flat') && parsedAmount < minAmount) {
+                      // Same flat/size-tier/office-work exemption as
+                      // isRetailFormValid below -- minAmount is computed purely
+                      // from the generic per-kg/minimum-charge cascade with no
+                      // content-type or contract-rate awareness, so it can land
+                      // higher than a deliberately-configured flat/size-tier
+                      // bracket price, OR a confirmed office-work contract rate.
+                      // Without this exemption, tabbing off the field after a
+                      // correct auto-fill silently overwrote it with the higher
+                      // generic floor -- for office-work specifically, that meant
+                      // overbilling a corporate client above their agreed rate.
+                      if (!(priceOverrideInfo?.type === 'size' || priceOverrideInfo?.type === 'flat' || (linkedAsOfficeWork && officeWorkRate)) && parsedAmount < minAmount) {
                         setAmount(minAmount.toString());
                       }
                     }}
-                    className={`ehi-input pl-12 ${parsedAmount < minAmount ? 'border-[var(--color-error)]' : ''}`}
+                    className={`ehi-input pl-12 ${!(linkedAsOfficeWork && officeWorkRate) && parsedAmount < minAmount ? 'border-[var(--color-error)]' : ''}`}
                   />
                 </div>
                 {rate == null && minCharge == null && !priceOverrideInfo ? (
                   <div className="text-[10px] text-[var(--color-accent-amber)] mt-1">No rate configured for this hub/airline/route — enter amount manually</div>
                 ) : (
-                  parsedAmount > 0 && parsedAmount < minAmount && (
+                  !(linkedAsOfficeWork && officeWorkRate) && parsedAmount > 0 && parsedAmount < minAmount && (
                     <div className="text-[10px] text-[var(--color-error)] mt-1">Amount cannot be less than ₦{minAmount.toLocaleString()}</div>
                   )
                 )}
