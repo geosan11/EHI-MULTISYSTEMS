@@ -23,6 +23,7 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
   const [isPhotoActive, setIsPhotoActive] = useState(false);
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [hasSignature, setHasSignature] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const { showToast } = useToast();
 
   const signatureRef = useRef<SignatureCanvas>(null);
@@ -71,6 +72,13 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
 
   const handleConfirm = () => {
     if (!receiverName || signatureRef.current?.isEmpty()) return;
+    // Geolocation resolves asynchronously (up to the 5s timeout below) before
+    // savePOD ever runs -- with no guard here, a fast double-tap on "Confirm
+    // Delivery" fired this twice in that window, writing two separate
+    // proof_of_delivery rows (and two logScanEvent DELIVER calls) for one
+    // physical delivery.
+    if (submitting) return;
+    setSubmitting(true);
 
     const savePOD = async (latitude?: number, longitude?: number) => {
       const pod: ProofOfDelivery = {
@@ -272,14 +280,14 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
           >
             Cancel
           </button>
-          <button 
-            onClick={handleConfirm} 
-            disabled={!isFormValid}
+          <button
+            onClick={handleConfirm}
+            disabled={!isFormValid || submitting}
             className={`flex-[2] h-12 font-bold uppercase tracking-widest rounded border-none transition-colors flex items-center justify-center gap-2 ${
-              isFormValid ? 'bg-[var(--color-success)] text-black cursor-pointer hover:bg-emerald-500' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)] cursor-not-allowed opacity-50'
+              isFormValid && !submitting ? 'bg-[var(--color-success)] text-black cursor-pointer hover:bg-emerald-500' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)] cursor-not-allowed opacity-50'
             }`}
           >
-            Confirm Delivery
+            {submitting ? 'Saving...' : 'Confirm Delivery'}
           </button>
         </div>
       </div>

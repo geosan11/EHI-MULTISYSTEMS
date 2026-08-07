@@ -255,6 +255,7 @@ export const Scanner = ({
     destination?: string;
     time: string;
     kg?: number;
+    table?: string;
   }[]>(() => {
     try {
       const saved = localStorage.getItem(BATCH_QUEUE_KEY);
@@ -378,19 +379,41 @@ export const Scanner = ({
     setSubmittingBatch(true);
 
     try {
-      const results = await Promise.allSettled(
-        itemsToSubmit.map(item =>
-          logScanEvent(item.ref, item.mode, currentHub, user.name, item.destination)
-        )
+      // Batch items sit staged for however long it takes to review and
+      // commit the queue -- during that gap, the SAME cargo can legitimately
+      // change state via a different device/scan (e.g. someone else
+      // DELIVERs it while it's still queued here as ARRIVE). validateScan
+      // was only ever run once, at scan-TIME, to decide whether to queue
+      // the item; committing used to replay logScanEvent directly with no
+      // re-check, so a now-stale queued item could silently revert a
+      // cargo's status backward (e.g. Delivered -> Arrived) with no
+      // unique-index protection outside the DELIVER-vs-DELIVER case.
+      const outcomes = await Promise.all(
+        itemsToSubmit.map(async (item) => {
+          try {
+            const revalidated = await validateScan(item.ref, item.mode, currentHub, transactions);
+            if (
+              revalidated.type !== 'SUCCESS_ARRIVE' &&
+              revalidated.type !== 'SUCCESS_DEPART' &&
+              revalidated.type !== 'SUCCESS_DELIVER'
+            ) {
+              return { item, ok: false, reason: revalidated.message || `${item.ref} is no longer valid to log as ${item.mode}.` };
+            }
+            const ref = revalidated.cargo?.ref || item.ref;
+            const result = await logScanEvent(ref, item.mode, currentHub, user.name, revalidated.cargo?.destination || item.destination, revalidated.cargo?.table || item.table);
+            return { item, ok: result.ok, reason: result.error };
+          } catch (err: any) {
+            return { item, ok: false, reason: err?.message || 'Unexpected error' };
+          }
+        })
       );
 
-      const succeeded = results.filter(r => r.status === 'fulfilled');
-      const failed = results.filter(r => r.status === 'rejected');
+      const succeeded = outcomes.filter(o => o.ok);
+      const failed = outcomes.filter(o => !o.ok);
 
       // Add only the successfully logged items to the session history
-      const newlyLoggedItems: BatchScanItem[] = itemsToSubmit
-        .filter((_, i) => results[i].status === 'fulfilled')
-        .map(item => ({ ref: item.ref, name: item.name, result: item.result, time: item.time }));
+      const newlyLoggedItems: BatchScanItem[] = succeeded
+        .map(o => ({ ref: o.item.ref, name: o.item.name, result: o.item.result, time: o.item.time }));
 
       setBatchItems(prev => [...newlyLoggedItems, ...prev]);
 
@@ -401,13 +424,11 @@ export const Scanner = ({
         setShowQueueSummary(false);
       } else {
         // Keep only the failed items in the queue so the agent can retry
-        const failedRefs = new Set(
-          itemsToSubmit.filter((_, i) => results[i].status === 'rejected').map(item => item.ref)
-        );
+        const failedRefs = new Set(failed.map(o => o.item.ref));
         setBatchQueue(prev => prev.filter(item => failedRefs.has(item.ref)));
         if (showToast) {
           showToast({
-            message: `${succeeded.length} logged, ${failed.length} failed — failed items remain in queue.`,
+            message: `${succeeded.length} logged, ${failed.length} failed (${failed[0].reason || 'stale/no longer valid'}) — failed items remain in queue.`,
             type: 'error'
           });
         }
@@ -433,7 +454,14 @@ export const Scanner = ({
 
     try {
       const result = await validateScan(code, mode, currentHub, transactions);
-      
+      // validateScan extracts the real ref out of a tracking-URL or
+      // JSON-wrapped QR payload (code stays the raw, un-extracted scanned
+      // string in that case) -- using the raw `code` for the actual
+      // write/lookup below searched for a URL/JSON string no real row
+      // has, silently no-opping the status update for exactly those two
+      // supported payload formats.
+      const ref = result.cargo?.ref || code;
+
       // Clear previous popup timer if any
       if (popupTimerRef.current) clearTimeout(popupTimerRef.current);
 
@@ -446,7 +474,7 @@ export const Scanner = ({
           visible: true,
           type: result.type,
           mode,
-          entryRef: result.cargo?.awb || code,
+          entryRef: result.cargo?.awb || ref,
           consignee: result.cargo?.name || 'Unknown',
           hubName: currentHub,
           message: result.message || ''
@@ -462,7 +490,7 @@ export const Scanner = ({
         playBeep();
         
         if (result.type === 'SUCCESS_DELIVER') {
-          setPendingDelivery({ ref: code, expectedPin: result.cargo?.pickupPin || null, resultData: result });
+          setPendingDelivery({ ref, expectedPin: result.cargo?.pickupPin || null, resultData: result });
           processingRef.current = false;
           setProcessing(false);
           return;
@@ -471,23 +499,24 @@ export const Scanner = ({
         } else if (result.type === 'SUCCESS_DEPART') {
           message = 'Status updated to: IN TRANSIT';
         }
-        
+
         if (isBatchQueueMode) {
           // Check for duplicate in current batch queue to prevent double scanning
           let isDuplicate = false;
           setBatchQueue(prev => {
-            if (prev.some(item => item.ref === code && item.mode === mode)) {
+            if (prev.some(item => item.ref === ref && item.mode === mode)) {
               isDuplicate = true;
               return prev;
             }
             return [{
-              ref: code,
-              name: result.cargo?.name || code,
+              ref,
+              name: result.cargo?.name || ref,
               result: result.type,
               mode: mode,
               destination: result.cargo?.destination,
               time: `${new Date().toLocaleDateString('en-NG', { day: '2-digit', month: 'short' })} ${new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}`,
               kg: result.cargo?.kg,
+              table: result.cargo?.table,
             }, ...prev];
           });
 
@@ -496,27 +525,46 @@ export const Scanner = ({
               visible: true,
               type: 'ALREADY_PROCESSED',
               mode,
-              entryRef: code,
+              entryRef: ref,
               consignee: result.cargo?.name || 'Unknown',
               hubName: currentHub,
-              message: `${code} is already in the batch queue for ${mode}`,
+              message: `${ref} is already in the batch queue for ${mode}`,
             });
             return;
           }
         } else {
-          // Log the event immediately to database
-          await logScanEvent(
-            code,
+          // Log the event immediately to database -- and actually check
+          // whether it succeeded, instead of always showing success
+          // regardless of what the write returned.
+          const logResult = await logScanEvent(
+            ref,
             mode,
             currentHub,
             user.name,
-            result.cargo?.destination
+            result.cargo?.destination,
+            result.cargo?.table
           );
+
+          if (!logResult.ok) {
+            setPopup({
+              visible: true,
+              type: 'ERROR',
+              mode,
+              entryRef: ref,
+              consignee: result.cargo?.name || 'Unknown',
+              hubName: currentHub,
+              message: logResult.error || 'Failed to record this scan -- please try again.',
+            });
+            popupTimerRef.current = setTimeout(() => {
+              setPopup(prev => ({ ...prev, visible: false }));
+            }, 3000);
+            return;
+          }
 
           // Add to session batch/history list
           setBatchItems(prev => [{
-            ref: code,
-            name: result.cargo?.name || code,
+            ref,
+            name: result.cargo?.name || ref,
             result: result.type,
             time: `${new Date().toLocaleDateString('en-NG', { day: '2-digit', month: 'short' })} ${new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}`,
           }, ...prev]);
@@ -527,7 +575,7 @@ export const Scanner = ({
         visible: true,
         type: result.type,
         mode,
-        entryRef: result.cargo?.awb || code,
+        entryRef: result.cargo?.awb || ref,
         consignee: result.cargo?.name || 'Unknown',
         hubName: currentHub,
         message
@@ -719,6 +767,7 @@ export const Scanner = ({
           destination: resultData.cargo?.destination,
           time: `${new Date().toLocaleDateString('en-NG', { day: '2-digit', month: 'short' })} ${new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}`,
           kg: resultData.cargo?.kg,
+          table: resultData.cargo?.table,
         }, ...prev];
       });
 
@@ -736,13 +785,32 @@ export const Scanner = ({
         return;
       }
     } else {
-      await logScanEvent(
+      // Checks the result now -- previously this always fell through to
+      // the success popup/toast below regardless of whether the status
+      // update (and, for cargo, pin_used_at) actually landed.
+      const logResult = await logScanEvent(
         ref,
         'DELIVER',
         currentHub,
         user.name,
-        resultData.cargo?.destination
+        resultData.cargo?.destination,
+        resultData.cargo?.table
       );
+
+      if (!logResult.ok) {
+        setPopup({
+          visible: true,
+          type: 'ERROR',
+          mode: 'DELIVER',
+          entryRef: ref,
+          consignee: resultData.cargo?.name || 'Unknown',
+          hubName: currentHub,
+          message: logResult.error || 'Failed to record this delivery -- please try again.',
+        });
+        if (showToast) showToast({ message: logResult.error || 'Failed to record this delivery.', type: 'error' });
+        setActivePodCapture(null);
+        return;
+      }
 
       setBatchItems(prev => [{
         ref: ref,

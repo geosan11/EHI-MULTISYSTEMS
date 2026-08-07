@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { User } from '../../lib/types';
 import { useHubRoutes } from '../../lib/hubRoutes';
+import { lagosBusinessDate } from '../../lib/helpers';
 import { listAirlineLogos } from '../../lib/airlineLogos';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
@@ -36,8 +37,14 @@ interface WeightManifestEntry {
   created_at: string;
 }
 
+// lagosBusinessDate(), not `.toISOString().split('T')[0]` (UTC) -- the
+// latter returns yesterday's date for the first ~1hr after local midnight
+// in a UTC+ timezone (Lagos is UTC+1), same bug class already fixed in
+// AccountingConsole.tsx's own todayStr, which this mirrors but pins
+// explicitly to Africa/Lagos rather than the device's own timezone (more
+// robust than device-local for a shared multi-hub app).
 function todayStr(): string {
-  return new Date().toISOString().split('T')[0];
+  return lagosBusinessDate();
 }
 
 function fmtTime(iso: string): string {
@@ -62,16 +69,24 @@ export const WeightManifest = ({ user, onBack }: { user: User; onBack: () => voi
   const [kg, setKg] = useState('');
 
   const isAdmin = user.role === 'super_admin' || user.role === 'admin';
+  // Matches the RLS is_hub_unrestricted() role set (super_admin/admin/
+  // accountant/auditor) that every sibling view in this domain
+  // (OutboundArrivals.tsx/IncomingToHub.tsx) already uses for cross-hub
+  // visibility -- this file previously had NO admin bypass on its hub
+  // filter at all, so an unrestricted-role account whose own user.hub_id
+  // didn't match the hub they wanted to audit (or was unset) just got an
+  // empty manifest with no way to see other hubs' dispatch data.
+  const isUnrestricted = ['super_admin', 'admin', 'accountant', 'auditor'].includes(user.role);
 
   const fetchEntries = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('cargo_weight_manifests')
         .select('*')
-        .eq('manifest_date', selectedDate)
-        .eq('hub_id', user.hub_id)
-        .order('created_at', { ascending: true });
+        .eq('manifest_date', selectedDate);
+      if (!isUnrestricted) query = query.eq('hub_id', user.hub_id);
+      const { data, error } = await query.order('created_at', { ascending: true });
       if (error) throw error;
       setEntries((data || []) as WeightManifestEntry[]);
     } catch (err) {
@@ -79,7 +94,7 @@ export const WeightManifest = ({ user, onBack }: { user: User; onBack: () => voi
       showToast({ message: 'Failed to load weight manifests. Please try again.', type: 'error' });
     }
     setLoading(false);
-  }, [selectedDate, user.hub_id, showToast]);
+  }, [selectedDate, user.hub_id, isUnrestricted, showToast]);
 
   useEffect(() => { fetchEntries(); }, [fetchEntries]);
 

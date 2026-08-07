@@ -107,7 +107,9 @@
       "Bash(npx --no-install chromium-cli --help)",
       "Bash(powershell -Command \"Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess\")",
       "Bash(git ls-tree *)",
-      "Bash(git merge *)"
+      "Bash(git merge *)",
+      "Bash(npm run *)",
+      "Bash(echo \"EXIT=$?\")"
     ],
     "additionalDirectories": [
       "\\tmp"

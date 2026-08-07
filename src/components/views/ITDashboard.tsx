@@ -9,6 +9,8 @@ import { User } from '../../lib/types';
 import { BackButton } from '../BackButton';
 import { db } from '../../lib/db';
 import { supabase } from '../../lib/supabase';
+import { useToast } from '../../lib/ToastContext';
+import { FK_VIOLATION_MAX_RETRIES } from '../../lib/sync';
 
 interface BugLog {
   id: string;
@@ -146,6 +148,38 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
     apiCheck: null,
     permissionsCheck: null,
   });
+
+  // Quarantined sync records (synced=2 in the local cargo/manifests/
+  // marketing_entries/package_entries tables) previously had NO reachable
+  // recovery path in the product at all -- requeueQuarantined() existed in
+  // sync.ts but was never called from any UI, so a record quarantined by a
+  // misclassified transient error (see sync.ts's FK_VIOLATION_MAX_RETRIES
+  // comment) was stuck until a developer manually invoked it from devtools.
+  const { showToast } = useToast();
+  const [quarantineCount, setQuarantineCount] = useState<number | null>(null);
+  const [requeuing, setRequeuing] = useState(false);
+  const refreshQuarantineCount = async () => {
+    let total = 0;
+    for (const table of ['cargo_entries', 'manifests', 'marketing_entries', 'package_entries'] as const) {
+      total += await (db[table] as any).where('synced').equals(2).count().catch(() => 0);
+    }
+    setQuarantineCount(total);
+  };
+  useEffect(() => { refreshQuarantineCount(); }, []);
+  const handleRequeueQuarantined = async () => {
+    setRequeuing(true);
+    try {
+      const { requeueQuarantined, processSyncQueue } = await import('../../lib/sync');
+      const count = await requeueQuarantined();
+      await processSyncQueue();
+      await refreshQuarantineCount();
+      if (showToast) showToast({ message: count > 0 ? `${count} record(s) requeued and resynced.` : 'No quarantined records to requeue.', type: count > 0 ? 'success' : 'warning' });
+    } catch (err: any) {
+      if (showToast) showToast({ message: `Failed to requeue: ${err?.message || err}`, type: 'error' });
+    } finally {
+      setRequeuing(false);
+    }
+  };
 
   // Save changes helper
   const saveBugs = (newBugs: BugLog[]) => {
@@ -852,6 +886,30 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
               <RefreshCw size={14} className={diagRunning ? 'animate-spin' : ''} />
               <span>{diagRunning ? 'TESTING PROTOCOLS...' : 'RUN SELF-DIAGNOSTICS'}</span>
             </button>
+          </div>
+
+          {/* Quarantined offline-sync records -- see the comment on
+              quarantineCount above for why this card exists at all. */}
+          <div className="ehi-card flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-bold font-sans text-[var(--color-foreground)] mb-1">Quarantined Offline-Sync Records</h3>
+              <p className="text-xs text-[var(--color-muted)] font-mono">
+                Cargo/baggage/marketing/package entries whose sync to the server failed with an error treated as permanent (bad data, or a foreign-key reference that never resolved after {FK_VIOLATION_MAX_RETRIES} retries). These stopped retrying automatically -- requeue them after fixing the underlying issue (e.g. a hub rename/merge).
+              </p>
+            </div>
+            <div className="flex items-center gap-2 self-start md:self-auto">
+              <span className={`text-[11px] font-mono font-bold px-2 py-1 rounded ${quarantineCount ? 'text-[var(--color-error)] bg-[rgba(239,68,68,0.1)]' : 'text-emerald-400 bg-emerald-500/10'}`}>
+                {quarantineCount === null ? '…' : `${quarantineCount} quarantined`}
+              </span>
+              <button
+                onClick={handleRequeueQuarantined}
+                disabled={requeuing || !quarantineCount}
+                className="bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] disabled:opacity-50 transition-colors text-[var(--color-foreground)] font-bold px-3 py-1.5 text-xs font-mono uppercase rounded cursor-pointer flex items-center gap-1.5"
+              >
+                <RefreshCw size={13} className={requeuing ? 'animate-spin' : ''} />
+                <span>{requeuing ? 'Requeuing…' : 'Requeue & Resync'}</span>
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

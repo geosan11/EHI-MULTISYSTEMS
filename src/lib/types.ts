@@ -112,6 +112,13 @@ export interface ScanValidationResult {
     pieces?: number;
     kg?: number;
     pickupPin?: string | null;
+    // Which department table this cargo actually matched in (cargo_entries/
+    // manifests/marketing_entries/package_entries), or 'inline_qr_payload'
+    // for an offline QR payload with no DB row yet. Callers pass this
+    // straight to logScanEvent so it updates the SAME row validateScan
+    // matched against, instead of re-probing tables in a fixed priority
+    // order (which could hit a different table's colliding ref/tag first).
+    table?: string;
   };
   lastEvent?: {
     type: string;

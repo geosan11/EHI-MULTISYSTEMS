@@ -20,6 +20,14 @@ export interface SyncQueueItem {
   payload: Record<string, unknown>;
   synced: 0 | 1;
   created_at: string;
+  // Not part of any index -- Dexie stores it fine without a schema version
+  // bump. Tracks retries specifically for error codes that MIGHT be a
+  // transient timing issue rather than a truly permanent bad payload (see
+  // sync.ts's RETRYABLE_BEFORE_QUARANTINE), so a resolvable condition (e.g.
+  // a hub rename/merge mid-sync) gets a bounded number of chances before
+  // this record is quarantined, instead of either retrying forever or
+  // being quarantined on the very first attempt.
+  retryCount?: number;
 }
 
 // A locally-held pool of tag/AWB numbers pre-reserved from the atomic

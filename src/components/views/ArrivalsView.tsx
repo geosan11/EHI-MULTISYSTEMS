@@ -83,7 +83,12 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
     if (pinModalOpen) setTimeout(() => firstPinRef.current?.focus(), 100);
   }, [pinModalOpen]);
 
-  const isAdmin = ['super_admin', 'admin'].includes(user.role);
+  // Matches the RLS is_hub_unrestricted() role set (super_admin/admin/
+  // accountant/auditor) that OutboundArrivals.tsx/IncomingToHub.tsx already
+  // use for the same purpose -- this file previously used a narrower
+  // ['super_admin','admin'] set for cross-hub visibility, inconsistent with
+  // its sibling views in the same arrivals/outbound/incoming trio.
+  const isAdmin = ['super_admin', 'admin', 'accountant', 'auditor'].includes(user.role);
 
   // Both fetchCargo/fetchLog are triggered by the filter-change effect below
   // AND called imperatively (handlePodComplete's refresh, tab switches) --

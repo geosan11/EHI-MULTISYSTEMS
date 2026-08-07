@@ -215,6 +215,7 @@ export async function validateScan(
     kg: cargo.total_kg || cargo.gross_weight,
     pickupPin: cargo.pickup_pin || null,
     remark: cargo.remark || null,
+    table: cargo._table,
   };
 
   // Excess-baggage tickets (manifests) -- ValueJet or any other configured
@@ -533,75 +534,79 @@ export async function isTagAlreadyDelivered(ref: string): Promise<boolean> {
   return !!cargoMatch;
 }
 
-// Log a successful scan event
+const KNOWN_SCAN_TABLES = ['cargo_entries', 'manifests', 'marketing_entries', 'package_entries'];
+
+// Log a successful scan event. Returns { ok:false } instead of throwing so
+// callers can tell a genuine failure (RLS rejection, DB error) apart from
+// success -- previously this returned void unconditionally, so a status
+// update that silently matched zero rows (see the migration comment on
+// scan_update_entry_status) looked identical to a real success everywhere
+// in the UI: beep, "DELIVERED"/"ARRIVED" popup, and an SMS to the customer
+// all fired regardless of whether cargo_entries.status actually moved.
 export async function logScanEvent(
   ref: string,
   mode: ScanMode,
   currentHub: string,
   scannedByName: string,
-  cargoDestination?: string
-): Promise<void> {
-  await supabase.from('tracking_events').insert({
+  cargoDestination?: string,
+  table?: string
+): Promise<{ ok: boolean; error?: string }> {
+  const { error: insertError } = await supabase.from('tracking_events').insert({
     cargo_ref: ref,
     event_type: mode,
     hub_name: currentHub,
     scanned_by_name: scannedByName,
     cargo_destination: cargoDestination,
   });
+  // 23505 here means the DB's one-deliver-per-cargo unique index
+  // (20260712_dedup_deliver_events.sql) rejected a second concurrent
+  // DELIVER for the same cargo -- someone else's scan already won the
+  // race. Stop here rather than proceeding to update status/fire a
+  // duplicate delivery SMS for what the database correctly treated as a
+  // no-op.
+  if (insertError) {
+    if ((insertError as any).code === '23505') {
+      return { ok: false, error: 'This cargo was just delivered by another scan.' };
+    }
+    return { ok: false, error: insertError.message };
+  }
 
   // Map scan mode to status
   let newStatus = '';
   if (mode === 'ARRIVE')  newStatus = 'Arrived';
   if (mode === 'DEPART')  newStatus = 'In-Transit';
   if (mode === 'DELIVER') newStatus = 'Delivered';
-  if (!newStatus) return;
+  if (!newStatus) return { ok: true };
 
-  // Find which table the ref belongs to, update status, and collect phone numbers for notification
-  let consigneeName    = '';
-  let consigneePhone   = '';
-  let senderPhone      = '';
-  let pin: string | undefined;
+  // No known table (an inline offline-QR payload with no DB row yet) --
+  // nothing to update, tracking_events above is the whole action.
+  if (!table || !KNOWN_SCAN_TABLES.includes(table)) return { ok: true };
 
-  // Matches by EITHER identifier, same as fetchCargoByRef (used for
-  // validation) -- this previously only matched entry_ref, so scanning by
-  // the physical awb_tag_number (the common case for a manually-typed
-  // corporate AWB) found no row here at all, and cargo_entries.status
-  // silently never updated even though the tracking_events row and
-  // customer notification both fired normally.
-  const safeRef = ref.replace(/"/g, '');
-  const cargoHit = await supabase.from('cargo_entries').select('entry_ref, consignee_name, consignee_phone, sender_phone, pickup_pin').or(`entry_ref.eq."${safeRef}",awb_tag_number.eq."${safeRef}"`).limit(1).maybeSingle();
-  if (cargoHit.data) {
-    await supabase.from('cargo_entries').update({ status: newStatus }).eq('entry_ref', cargoHit.data.entry_ref);
-    consigneeName  = cargoHit.data.consignee_name || '';
-    consigneePhone = cargoHit.data.consignee_phone || '';
-    senderPhone    = cargoHit.data.sender_phone || '';
-    pin            = cargoHit.data.pickup_pin || undefined;
-  } else {
-    const vjHit = await supabase.from('manifests').select('transaction_id, passenger_name, passenger_phone').eq('transaction_id', ref).limit(1).maybeSingle();
-    if (vjHit.data) {
-      await supabase.from('manifests').update({ status: newStatus }).eq('transaction_id', ref);
-      consigneeName  = vjHit.data.passenger_name || '';
-      consigneePhone = vjHit.data.passenger_phone || '';
-    } else {
-      const mktHit = await supabase.from('marketing_entries').select('entry_ref, customer_name, customer_phone').or(`entry_ref.eq."${safeRef}",awb_tag_number.eq."${safeRef}"`).limit(1).maybeSingle();
-      if (mktHit.data) {
-        await supabase.from('marketing_entries').update({ status: newStatus }).eq('entry_ref', mktHit.data.entry_ref);
-        consigneeName  = mktHit.data.customer_name || '';
-        consigneePhone = mktHit.data.customer_phone || '';
-      } else {
-        // package_entries.customer_phone now exists (see the 20260904
-        // migration) -- was previously empty here, so no scan-status SMS
-        // ever fired for this stream even though PackageForm.tsx already
-        // collected a phone number at intake.
-        const pkgHit = await supabase.from('package_entries').select('entry_ref, customer_name, customer_phone').eq('entry_ref', ref).limit(1).maybeSingle();
-        if (pkgHit.data) {
-          await supabase.from('package_entries').update({ status: newStatus }).eq('entry_ref', ref);
-          consigneeName  = pkgHit.data.customer_name || '';
-          consigneePhone = pkgHit.data.customer_phone || '';
-        }
-      }
-    }
-  }
+  // scan_update_entry_status is a SECURITY DEFINER RPC (see
+  // 20260935_scan_status_update_rpc.sql) that authorizes the write against
+  // the SAME sibling-hub scope the SELECT policy already grants, instead
+  // of the raw hub-exact-match UPDATE policy that silently matched zero
+  // rows for cargo scanned at any hub other than where it was created --
+  // the entire point of ARRIVE/DEPART/DELIVER scanning. It's also handed
+  // the exact table validateScan already matched against, instead of
+  // re-probing cargo_entries -> manifests -> marketing_entries ->
+  // package_entries in a fixed order, which could silently resolve a
+  // colliding ref/tag to the wrong table's row.
+  const { data, error } = await supabase.rpc('scan_update_entry_status', {
+    p_table: table,
+    p_ref: ref,
+    p_new_status: newStatus,
+    p_set_pin_used: mode === 'DELIVER' && table === 'cargo_entries',
+  });
+  if (error) return { ok: false, error: error.message };
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row?.found) return { ok: false, error: `${ref} was not found in ${table}.` };
+
+  const consigneeName  = row.consignee_name || '';
+  const consigneePhone = row.consignee_phone || '';
+  const senderPhone    = row.sender_phone || '';
+  const pin            = row.pickup_pin || undefined;
 
   // Fire scan-status notification (no await — background)
   if (consigneePhone || senderPhone) {
@@ -619,4 +624,6 @@ export async function logScanEvent(
       }),
     }).catch(() => { /* fire and forget */ });
   }
+
+  return { ok: true };
 }

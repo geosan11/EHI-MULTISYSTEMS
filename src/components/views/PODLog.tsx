@@ -12,15 +12,19 @@ export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => 
   const [fetchError, setFetchError] = useState(false);
   const [selectedPod, setSelectedPod] = useState<ProofOfDelivery | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [capped, setCapped] = useState(false);
 
-  const isAdmin = ['super_admin', 'admin'].includes(user.role);
+  // Matches the RLS is_hub_unrestricted() role set (super_admin/admin/
+  // accountant/auditor), consistent with the other arrivals-adjacent views.
+  const isAdmin = ['super_admin', 'admin', 'accountant', 'auditor'].includes(user.role);
 
   const fetchPods = async () => {
     setLoading(true);
     setFetchError(false);
     try {
-      const data = await fetchProofOfDeliveryRecords(user.hub, isAdmin);
-      setPods(data);
+      const { records, capped: wasCapped } = await fetchProofOfDeliveryRecords(user.hub, isAdmin);
+      setPods(records);
+      setCapped(wasCapped);
     } catch (err) {
       console.error(err);
       setFetchError(true);
@@ -50,6 +54,12 @@ export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => 
           <div className="text-[12px] font-bold text-[var(--color-foreground)] tracking-wide mt-0.5">Secure Evidence</div>
         </div>
       </div>
+
+      {capped && (
+        <div className="text-[10px] font-mono text-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.08)] border border-[rgba(245,158,11,0.2)] rounded-lg px-3 py-2">
+          Showing the most recent 5,000 records -- older deliveries may not appear in search results.
+        </div>
+      )}
 
       {/* Search & Actions */}
       <div className="flex gap-2 items-center">

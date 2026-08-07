@@ -1,5 +1,5 @@
 import { db } from './db';
-import { supabase } from './supabase';
+import { supabase, fetchRowsCapped } from './supabase';
 import Dexie from 'dexie';
 import { appLogger } from './logger';
 import type { ProofOfDelivery } from './types';
@@ -9,11 +9,23 @@ import type { ProofOfDelivery } from './types';
 const PERMANENT_PG_CODES = new Set([
   '23514', // check_violation
   '23502', // not_null_violation
-  '23503', // foreign_key_violation
   '42703', // undefined_column
   '42P01', // undefined_table
   '22P02', // invalid_text_representation (bad enum/uuid/number)
 ]);
+
+// foreign_key_violation is NOT unconditionally permanent -- a queued
+// entry's hub_id can reference a hub that's mid-rename/merge (this app
+// actively supports consolidating hubs, see lagosHubSync.ts) while a
+// device was offline, in which case the reference resolves itself once
+// that operation completes. Quarantining on the very first 23503 (the
+// prior behavior) permanently dropped an entire offline device's queued
+// sales the moment any hub change raced its reconnect, with no UI-visible
+// way to recover them. Retrying a bounded number of times before finally
+// quarantining gives a genuine timing issue a real chance to resolve
+// while still not retrying a truly-bad reference forever.
+const FK_VIOLATION_CODE = '23503';
+export const FK_VIOLATION_MAX_RETRIES = 10;
 
 // ProofOfDelivery is stored locally with camelCase fields (see lib/types.ts)
 // but the Supabase table uses snake_case columns — convert between the two
@@ -62,27 +74,38 @@ function supabaseRowToPod(row: Record<string, any>): ProofOfDelivery {
 // scoped to the user's own hub unless admin) merged with whatever's on this
 // device's local Dexie table so a just-captured record shows up immediately
 // even before its background sync to Supabase completes.
+//
+// fetchRowsCapped (not a bare .limit(300)) -- once a hub (or the whole
+// company, for admins) accumulates more than 300 POD records, everything
+// older was permanently unreachable: no "load more," no date filter, and
+// PODLog.tsx's own search box only ever searched the already-truncated 300,
+// so searching for an older AWB silently returned "not found." Capped at
+// 5000 rather than a plain fetchAllRows() since this query has no date
+// bound and will keep growing indefinitely as the business operates --
+// `capped` tells the caller to warn the user the list may be incomplete,
+// same convention as EHIApp.tsx's fetchInitial 5000-row-cap warning.
 export async function fetchProofOfDeliveryRecords(
   hubName: string,
   isAdmin: boolean
-): Promise<ProofOfDelivery[]> {
-  const [localData, supaRes] = await Promise.all([
+): Promise<{ records: ProofOfDelivery[]; capped: boolean }> {
+  const [localData, { rows: supaRows, capped }] = await Promise.all([
     db.proof_of_delivery.orderBy('deliveredAt').reverse().toArray(),
-    (() => {
-      let q = supabase.from('proof_of_delivery').select('*').order('delivered_at', { ascending: false }).limit(300);
+    fetchRowsCapped<any>((from, to) => {
+      let q = supabase.from('proof_of_delivery').select('*').order('delivered_at', { ascending: false }).range(from, to);
       if (!isAdmin) q = q.eq('hub_name', hubName) as any;
       return q;
-    })(),
+    }, 5000),
   ]);
 
   const merged = new Map<string, ProofOfDelivery>();
-  (supaRes.data || []).forEach(row => merged.set(row.id, supabaseRowToPod(row)));
+  supaRows.forEach(row => merged.set(row.id, supabaseRowToPod(row)));
   // Local copies win — a record captured seconds ago on this device is more
   // current than whatever (possibly nothing yet) has reached Supabase.
   localData.forEach(pod => merged.set(pod.id, pod));
 
-  return Array.from(merged.values())
+  const records = Array.from(merged.values())
     .sort((a, b) => new Date(b.deliveredAt).getTime() - new Date(a.deliveredAt).getTime());
+  return { records, capped };
 }
 
 // Proof of Delivery records are saved to the local Dexie table first (so
@@ -423,11 +446,23 @@ export async function processSyncQueue(): Promise<{ synced: number; errors: stri
         }
         synced++;
       } else {
+        // Foreign-key violations get a bounded number of retries before
+        // being treated as permanent -- see FK_VIOLATION_MAX_RETRIES's own
+        // comment on why this isn't unconditionally quarantined on the
+        // first attempt like the codes in PERMANENT_PG_CODES.
+        const fkRetries = item.retryCount || 0;
+        const isFkExhausted = error.code === FK_VIOLATION_CODE && fkRetries >= FK_VIOLATION_MAX_RETRIES;
+        if (error.code === FK_VIOLATION_CODE && !isFkExhausted) {
+          await db.sync_queue.update(item.id!, { retryCount: fkRetries + 1 }).catch(() => {});
+          errors.push(`${item.table_name}: ${error.message} (retry ${fkRetries + 1}/${FK_VIOLATION_MAX_RETRIES})`);
+          continue;
+        }
+
         // Permanent failures (bad column, constraint, type) can't self-heal on
         // retry the way a payload backfill can — quarantine so one bad record
         // can't spam the console or block the queue forever. It stays in local
         // Dexie (synced=2) for later recovery; the retry trigger is removed.
-        if (error.code && PERMANENT_PG_CODES.has(error.code)) {
+        if ((error.code && PERMANENT_PG_CODES.has(error.code)) || isFkExhausted) {
           await db.sync_queue.delete(item.id!).catch(() => {});
           if (['cargo_entries', 'manifests', 'marketing_entries', 'package_entries'].includes(item.table_name)) {
             const recId = item.record_id || (item.payload as any).id || (item.payload as any).entry_ref || (item.payload as any).transaction_id;

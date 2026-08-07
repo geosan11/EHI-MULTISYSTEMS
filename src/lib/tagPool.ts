@@ -41,6 +41,38 @@ async function poolCount(poolKey: string): Promise<number> {
   return db.tag_pools.where('pool_key').equals(poolKey).count();
 }
 
+// Emergency-fallback entropy: a per-device random seed (drawn once,
+// persisted) plus a per-device monotonic counter (persisted, incremented
+// every fallback tag issued). A same-device fallback tag can never repeat
+// (the counter never goes backward); a cross-device collision would
+// require two devices to have independently drawn the identical seed AND
+// landed on the identical counter value, which is what actually protects
+// against the birthday-paradox collision risk a bare Math.random() 6-digit
+// number carries under concurrent offline submissions at a busy hub.
+function getDeviceFallbackSeed(): number {
+  const KEY = 'ehi_tag_fallback_device_seed';
+  try {
+    const existing = Number(localStorage.getItem(KEY));
+    if (existing && !isNaN(existing)) return existing;
+    const seed = Math.floor(Math.random() * 900000);
+    localStorage.setItem(KEY, String(seed));
+    return seed;
+  } catch {
+    return Math.floor(Math.random() * 900000);
+  }
+}
+
+function nextFallbackCounter(): number {
+  const KEY = 'ehi_tag_fallback_counter';
+  try {
+    const next = (Number(localStorage.getItem(KEY)) || 0) + 1;
+    localStorage.setItem(KEY, String(next));
+    return next;
+  } catch {
+    return Math.floor(Math.random() * 1000);
+  }
+}
+
 // Claims a fresh block from the server and adds it to the local pool.
 // Never throws -- a failed refill just leaves the pool as it was; the
 // caller (getNextTag) has its own online-RPC fallback for an empty pool.
@@ -104,10 +136,21 @@ export async function getNextTag(poolKey: string, displayPrefix: string): Promis
     }
   }
 
-  // Emergency fallback: pool empty + RPC unavailable. Generate a 6-digit pseudo-random
-  // tag sequence so tag generation NEVER fails or stalls for counter staff.
+  // Emergency fallback: pool empty + RPC unavailable. A bare Math.random()
+  // 6-digit number here (the prior implementation, despite its comment
+  // claiming "guaranteed unique") can collide across devices during an
+  // extended outage -- for cargo_entries/package_entries, entry_ref IS the
+  // tag, and sync.ts's upsert silently overwrites one real shipment's row
+  // with another's on collision; for marketing_entries, awb_tag_number's
+  // UNIQUE constraint instead throws an error that isn't treated as
+  // permanent, so the sale retries forever and never syncs. The seed+
+  // counter combination below makes a same-device collision impossible and
+  // a cross-device one require both an independently-drawn matching seed
+  // AND a matching counter value.
   refillPoolIfLow(poolKey);
-  const fallbackNum = Math.floor(100000 + Math.random() * 900000);
+  const seed = getDeviceFallbackSeed();
+  const counter = nextFallbackCounter();
+  const fallbackNum = ((seed + counter * 97) % 900000) + 100000;
   return `${displayPrefix}-${String(fallbackNum).padStart(6, '0')}`;
 }
 

@@ -7,12 +7,23 @@ export interface LagosHubsInfo {
 }
 
 let cachedLagosInfo: LagosHubsInfo | null = null;
+let cachedAt = 0;
+// Bounds how long a hub rename/creation/merge made elsewhere in the app can
+// stay invisible to this module in a long-running session -- there was
+// previously no invalidation at all, so a change was only ever picked up
+// after a full page reload.
+const CACHE_TTL_MS = 10 * 60 * 1000;
 
 export async function getLagosHubInfo(): Promise<LagosHubsInfo> {
-  if (cachedLagosInfo) return cachedLagosInfo;
+  if (cachedLagosInfo && (Date.now() - cachedAt) < CACHE_TTL_MS) return cachedLagosInfo;
 
   try {
-    const { data: hubs } = await supabase.from('hubs').select('id, name, code');
+    // Explicit order -- allLagosHubIds[0]/[1] (the fallback below) is a
+    // stable, reproducible pick with this, instead of whatever row order
+    // Postgres happens to return absent an ORDER BY (not guaranteed, and
+    // could silently swap which Lagos hub acts as "master" for
+    // syncLagosRates() between calls/sessions).
+    const { data: hubs } = await supabase.from('hubs').select('id, name, code').order('name');
     if (!hubs || hubs.length === 0) {
       return { headOfficeId: null, cargoStationId: null, allLagosHubIds: [] };
     }
@@ -24,7 +35,14 @@ export async function getLagosHubInfo(): Promise<LagosHubsInfo> {
     hubs.forEach((h: any) => {
       const nameNorm = (h.name || '').toLowerCase();
       const codeNorm = (h.code || '').toLowerCase();
-      const isLagos = nameNorm.includes('lagos') || codeNorm === 'los' || codeNorm === 'hq' || nameNorm.includes('head office') || nameNorm.includes('cargo station');
+      // 'lagos' (or the LOS code) must actually appear -- the previous
+      // version also matched ANY hub coded "HQ" or whose name contained
+      // "head office"/"cargo station" with no requirement that "lagos"
+      // appear anywhere, so a future hub like "Abuja Head Office" would
+      // have been misclassified as a Lagos hub: its transactions would
+      // leak into Lagos-scoped views, and syncLagosRates() would silently
+      // overwrite its real pricing with Lagos's rates.
+      const isLagos = nameNorm.includes('lagos') || codeNorm === 'los';
 
       if (isLagos) {
         allLagosHubIds.push(h.id);
@@ -42,10 +60,18 @@ export async function getLagosHubInfo(): Promise<LagosHubsInfo> {
     if (!cargoStationId && headOfficeId) cargoStationId = headOfficeId;
 
     cachedLagosInfo = { headOfficeId, cargoStationId, allLagosHubIds };
+    cachedAt = Date.now();
     return cachedLagosInfo;
   } catch {
     return { headOfficeId: null, cargoStationId: null, allLagosHubIds: [] };
   }
+}
+
+// Call after creating/renaming/merging a hub so this module doesn't keep
+// serving a stale classification for the rest of a long-running session.
+export function invalidateLagosHubCache(): void {
+  cachedLagosInfo = null;
+  cachedAt = 0;
 }
 
 /**
