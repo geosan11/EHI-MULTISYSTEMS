@@ -42,13 +42,15 @@ BEGIN
            corporate_client_id, receipt_mode, is_debt_clearance
     INTO v_entry
     FROM public.cargo_entries
-    WHERE entry_ref = p_entry_id;
+    WHERE entry_ref = p_entry_id
+    FOR UPDATE;
   ELSIF p_type = 'baggage' THEN
     SELECT amount, amount_paid, retrieved_amount, wallet_id, wallet_deduction_amount,
            corporate_client_id, payment_mode AS receipt_mode, is_debt_clearance
     INTO v_entry
     FROM public.manifests
-    WHERE transaction_id = p_entry_id;
+    WHERE transaction_id = p_entry_id
+    FOR UPDATE;
   ELSIF p_type = 'marketing' THEN
     -- Naming inversion (same as clear_marketing_debt): amount_paid holds
     -- the real sale total, debt_amount_paid tracks running debt repayment.
@@ -57,13 +59,15 @@ BEGIN
            is_debt_clearance
     INTO v_entry
     FROM public.marketing_entries
-    WHERE entry_ref = p_entry_id;
+    WHERE entry_ref = p_entry_id
+    FOR UPDATE;
   ELSIF p_type = 'package' THEN
     SELECT amount, amount_paid, retrieved_amount, wallet_id, wallet_deduction_amount,
            corporate_client_id, payment_mode AS receipt_mode, is_debt_clearance
     INTO v_entry
     FROM public.package_entries
-    WHERE entry_ref = p_entry_id;
+    WHERE entry_ref = p_entry_id
+    FOR UPDATE;
   ELSE
     RAISE EXCEPTION 'Unknown transaction type "%"', p_type;
   END IF;
