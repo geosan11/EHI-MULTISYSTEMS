@@ -112,7 +112,7 @@ const MORE_SUB_ROUTES = {
 } as const;
 type MoreSubKey = keyof typeof MORE_SUB_ROUTES;
 
-export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, onFullUpdateTx, onAddExpense, onUpdateExpense, onChangeTab, dateRange, onDateRangeChange, excessBaggageAirlines, activeShift, todayShifts, onStartShift, onEndShift, customerWallets, refetchCustomerWallets }: { user: User; transactions: Transaction[]; expenses: Expense[]; onLogout: () => void; onEOD?: (summary: any) => void; onAddTx: (tx: Transaction) => void; onFullUpdateTx?: (tx: Transaction) => void; onAddExpense: (e: Expense) => void; onUpdateExpense?: (expenseId: string, decision: 'approved' | 'rejected') => void; onChangeTab: (t: TabView) => void; dateRange?: { start: string; end: string }; onDateRangeChange?: (range: { start: string; end: string }) => void; excessBaggageAirlines: ExcessBaggageAirline[]; activeShift?: HubShift | null; todayShifts?: HubShift[]; onStartShift?: () => void; onEndShift?: () => void; customerWallets?: CustomerWallet[]; refetchCustomerWallets?: () => void; }) => {
+export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, onFullUpdateTx, onDeleteTx, onAddExpense, onUpdateExpense, onChangeTab, dateRange, onDateRangeChange, excessBaggageAirlines, activeShift, todayShifts, onStartShift, onEndShift, customerWallets, refetchCustomerWallets }: { user: User; transactions: Transaction[]; expenses: Expense[]; onLogout: () => void; onEOD?: (summary: any) => void; onAddTx: (tx: Transaction) => void; onFullUpdateTx?: (tx: Transaction) => void; onDeleteTx: (type: string, id: string) => void; onAddExpense: (e: Expense) => void; onUpdateExpense?: (expenseId: string, decision: 'approved' | 'rejected') => void; onChangeTab: (t: TabView) => void; dateRange?: { start: string; end: string }; onDateRangeChange?: (range: { start: string; end: string }) => void; excessBaggageAirlines: ExcessBaggageAirline[]; activeShift?: HubShift | null; todayShifts?: HubShift[]; onStartShift?: () => void; onEndShift?: () => void; customerWallets?: CustomerWallet[]; refetchCustomerWallets?: () => void; }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const activeSub: MoreSubKey | null = useMemo(() => {
@@ -194,6 +194,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         expenses={expenses}
         onBack={closeSub}
         onUpdateTx={onFullUpdateTx || onAddTx}
+        onDeleteTx={onDeleteTx}
         dateRange={dateRange}
         onDateRangeChange={onDateRangeChange}
         activeShift={activeShift}

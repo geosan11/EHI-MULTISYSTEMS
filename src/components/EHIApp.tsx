@@ -6,7 +6,7 @@ import { processSyncQueue, writeWithOfflineSupport, cleanupOldQueue, getUnsynced
 import { db } from '../lib/db';
 import Dexie from 'dexie';
 import { refillPoolIfLow } from '../lib/tagPool';
-import { getHubCode } from '../lib/helpers';
+import { getHubCode, getShiftBoundary } from '../lib/helpers';
 import { useTheme } from '../lib/useTheme';
 import { getAllowedTabs } from '../lib/permissions';
 import { Header as HeaderRaw } from './Header';
@@ -836,6 +836,110 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       showToast({ message: `Failed to end shift: ${e.message}`, type: 'error' });
     }
   }, [activeShiftsByDept, user.name, shiftDeptMatchesTx, showToast]);
+
+  // Cargo and Package now run on a fixed 18:00-to-18:00 business day, so
+  // there's nothing left for staff to resolve by clicking Start/End Day --
+  // the boundary is always knowable in advance (see getShiftBoundary).
+  // This keeps the Shift Transaction History snapshot feature working
+  // (Analytics.tsx reads hub_shifts.sales_summary) by silently rolling the
+  // shift across that boundary itself: closing a stale shift from a past
+  // window (freezing its sales_summary exactly like handleEndShift does)
+  // and opening the current window's shift, with no user action. Runs on
+  // load and periodically (see the interval below) -- unattended, so
+  // errors here are swallowed rather than toasted; a human never asked for
+  // this to happen and shouldn't be interrupted if it silently no-ops.
+  const autoRollShift = useCallback(async (department: 'cargo' | 'package') => {
+    if (!user.hub_id) return;
+    const { start } = getShiftBoundary(18);
+    const shift = activeShiftsByDept[department];
+
+    if (shift && new Date(shift.started_at) >= start) return; // already current
+
+    try {
+      if (shift) {
+        // Belt-and-suspenders .eq('status','open') -- unlike handleEndShift
+        // (a human clicks this once), this can race another tab/device's
+        // periodic check. .single() throws on 0 rows matched (already
+        // closed elsewhere) -- treated as success, not an error, below.
+        const shiftTx = transactionsRef.current.filter(t =>
+          t.hub_id === shift.hub_id &&
+          new Date(t.created_at || t.time) >= new Date(shift.started_at) &&
+          shiftDeptMatchesTx(department, t)
+        );
+        const salesSummary = {
+          totalTxCount: shiftTx.length,
+          totalSales: shiftTx.reduce((acc, t) => acc + t.amount, 0),
+          cashSales: shiftTx.filter(t => t.mode === 'Cash').reduce((acc, t) => acc + t.amount, 0),
+          transferSales: shiftTx.filter(t => t.mode === 'Transfer').reduce((acc, t) => acc + t.amount, 0),
+          posSales: shiftTx.filter(t => t.mode === 'POS').reduce((acc, t) => acc + t.amount, 0),
+          debtSales: shiftTx.filter(t => t.mode === 'Debt').reduce((acc, t) => acc + t.amount, 0),
+          transactions: shiftTx.map(t => ({
+            type: t.type, created_at: t.created_at, name: t.name, amount: t.amount, mode: t.mode,
+          })),
+        };
+        const { data } = await supabase
+          .from('hub_shifts')
+          .update({
+            status: 'closed',
+            ended_at: start.toISOString(),
+            closed_by: 'System (auto)',
+            sales_summary: salesSummary,
+          })
+          .eq('id', shift.id)
+          .eq('status', 'open')
+          .select()
+          .maybeSingle();
+        if (data) {
+          const closedShift = data as HubShift;
+          setTodayShifts(prev => prev.map(s => s.id === closedShift.id ? closedShift : s));
+        }
+      }
+
+      const { data: opened, error: insertError } = await supabase
+        .from('hub_shifts')
+        .insert({
+          hub_id: user.hub_id,
+          department,
+          opened_by: 'System (auto)',
+          started_at: start.toISOString(),
+        })
+        .select()
+        .single();
+      if (!insertError && opened) {
+        setTodayShifts(prev => [opened as HubShift, ...prev]);
+      }
+      // 23505 (unique_violation) means another tab/device's periodic check
+      // already opened this window's shift -- nothing left to do.
+    } catch {
+      // Unattended background action -- silently retried on the next
+      // periodic check rather than surfaced to whichever staff member
+      // happens to have the app open.
+    }
+  }, [activeShiftsByDept, user.hub_id, shiftDeptMatchesTx]);
+
+  // Re-checks whenever todayShifts changes (initial load, Start/End Day
+  // elsewhere, or the realtime hub_shifts channel below) -- cheap no-op if
+  // the current window's shift is already open, which is true almost every
+  // time this fires.
+  useEffect(() => {
+    if (!user.hub_id) return;
+    autoRollShift('cargo');
+    autoRollShift('package');
+  }, [user.hub_id, autoRollShift]);
+
+  // Separate periodic tick (not folded into the effect above, so it isn't
+  // torn down/recreated on every todayShifts change) -- the only thing that
+  // actually needs polling is the 18:00 boundary itself, for a tab left
+  // open across it with no other shift-state change to re-trigger the
+  // effect above.
+  useEffect(() => {
+    if (!user.hub_id) return;
+    const interval = setInterval(() => {
+      autoRollShift('cargo');
+      autoRollShift('package');
+    }, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [user.hub_id, autoRollShift]);
 
   const handleForceSync = useCallback(async () => {
     setIsOffline(false);
@@ -1853,6 +1957,13 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     }
   }, [showToast, user.hub, user.hub_id, user.id, user.name]);
 
+  // Called after TransactionLedger's delete_transaction RPC call has
+  // already succeeded server-side (see confirmDeleteTransaction) -- this
+  // only removes the row from local state, it doesn't itself touch the DB.
+  const handleDeleteTx = useCallback((_type: string, id: string) => {
+    setTransactions(prev => prev.filter(t => t.id !== id));
+  }, []);
+
   const handleAddExpense = useCallback(async (expense: Expense) => {
     // Callers (CargoForm/PackageForm/etc.) build the Expense object without
     // a hub_id -- attach this device's hub here so EODReconciliation's
@@ -2160,6 +2271,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                    onLogout={onLogout} 
                    onAddTx={handleAddTx}
                    onFullUpdateTx={handleUpdateTx}
+                   onDeleteTx={handleDeleteTx}
                    onChangeTab={setCurrentTab}
                    onAddExpense={handleAddExpense}
                    onUpdateExpense={handleUpdateExpense}
@@ -2192,6 +2304,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             transactions={filteredLedgerTransactions}
             onBack={handleCloseLedger}
             onUpdateTx={handleUpdateTx}
+            onDeleteTx={handleDeleteTx}
             defaultTypeFilter={streamLedger.streams.length === 1 ? streamLedger.streams[0] : null}
             defaultTerminalFilter={streamLedger.terminal}
             viewOnly={user.role !== 'super_admin' && !user.can_edit_ledger}
@@ -2202,6 +2315,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             onStartShift={streamLedgerDepartment ? () => handleStartShift(streamLedgerDepartment) : undefined}
             onEndShift={streamLedgerDepartment ? () => handleEndShift(streamLedgerDepartment) : undefined}
             shiftLabel={streamLedgerDepartment && streamLedgerDepartment !== 'all' ? STREAM_LEDGER_DEPT_LABEL[streamLedgerDepartment] : undefined}
+            shiftAutoManaged={streamLedgerDepartment === 'cargo' || streamLedgerDepartment === 'package'}
             customerWallets={customerWallets}
             refetchCustomerWallets={fetchWallets}
           />

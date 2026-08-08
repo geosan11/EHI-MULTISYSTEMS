@@ -6,6 +6,7 @@ import { Transaction, User, Expense } from "../../lib/types";
 import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDateTime, normalizeAirlineName, formatPaymentModeDisplay } from "../../lib/helpers";
 import { applyWalletTransaction, processRetrieval, unretrieveEntry, approveRetrieval, RetrievalEntryType } from "../../lib/wallet";
 import { clearDebt, reopenDebt, DebtEntryType } from "../../lib/debt";
+import { deleteTransaction } from "../../lib/deleteTransaction";
 import { confirmPayment, PaymentEntryType } from "../../lib/paymentConfirmation";
 import { useHubRoutes, useHubNames } from "../../lib/hubRoutes";
 import { canAccessTab } from "../../lib/permissions";
@@ -38,6 +39,7 @@ import {
   Truck,
   ChevronDown,
   Calendar,
+  Trash2,
 } from "lucide-react";
 import { QRCode } from "../QRCode";
 import TagPrintHistory from "./TagPrintHistory";
@@ -98,6 +100,7 @@ export const TransactionLedger = ({
   expenses = [],
   onBack,
   onUpdateTx,
+  onDeleteTx,
   defaultTypeFilter,
   defaultTerminalFilter,
   viewOnly = false,
@@ -108,6 +111,7 @@ export const TransactionLedger = ({
   onStartShift,
   onEndShift,
   shiftLabel,
+  shiftAutoManaged = false,
   customerWallets = [],
   refetchCustomerWallets,
 }: {
@@ -116,6 +120,9 @@ export const TransactionLedger = ({
   expenses?: Expense[];
   onBack: () => void;
   onUpdateTx: (tx: Transaction) => void;
+  // Called after delete_transaction's RPC call already succeeded server-side
+  // -- this only removes the row from local state (see confirmDeleteTransaction).
+  onDeleteTx: (type: string, id: string) => void;
   customerWallets?: CustomerWallet[];
   // Edit Transaction's wallet picker previously trusted whatever this
   // global cache currently held -- which could be stale (e.g. a wallet
@@ -141,6 +148,11 @@ export const TransactionLedger = ({
   shiftLabel?: string;
   onStartShift?: () => void;
   onEndShift?: () => void;
+  // True for Cargo/Package -- the shift boundary is now fully automatic
+  // (fixed 18:00-18:00, see EHIApp.tsx's autoRollShift), so the status
+  // text still shows but the Start Day/End Day buttons never render,
+  // regardless of activeShift.
+  shiftAutoManaged?: boolean;
 }) => {
   const navigate = useNavigate();
   const contentTypes = useContentTypes();
@@ -198,6 +210,7 @@ export const TransactionLedger = ({
   const [clearDebtBank, setClearDebtBank] = useState('');
   const [clearingDebt, setClearingDebt] = useState(false);
   const [reopeningDebt, setReopeningDebt] = useState(false);
+  const [deletingTx, setDeletingTx] = useState(false);
   // Marketing entries store bag counts inside the composed `detail` string,
   // not as discrete Transaction fields, so the edit modal keeps its own
   // working copy (seeded by parsing `detail` in handleEditClick) and
@@ -1884,6 +1897,57 @@ export const TransactionLedger = ({
     }
   };
 
+  // Permanently removes a transaction. Unlike every other action on this
+  // screen (Clear Debt, Reopen Debt, Unretrieve, Refund to Wallet), this
+  // one IS role-gated -- see the Delete Transaction button below -- because
+  // it's the only action here that isn't correctable afterward: the others
+  // all leave a row that can be edited/reopened/unretrieved again, this
+  // just removes it. delete_transaction refuses (rather than silently
+  // reversing) if the entry is wallet-paid, already retrieved, or a
+  // debt-collection shadow row -- see deleteTransaction.ts.
+  const confirmDeleteTransaction = async (entry: Entry) => {
+    if (entry.source !== 'transaction' || deletingTx) return;
+    const tx = entry.raw as Transaction;
+    const ok = await confirm({
+      title: 'Delete this transaction?',
+      message: `This permanently deletes the ₦${fmt(tx.amount)} entry for ${tx.name}. This cannot be undone -- the record will not appear anywhere in the ledger again.`,
+      confirmLabel: 'Delete Permanently',
+      tone: 'danger',
+    });
+    if (!ok) return;
+
+    setDeletingTx(true);
+    try {
+      const result = await deleteTransaction({
+        type: tx.type as DebtEntryType,
+        id: tx.id,
+        loggedBy: user.name || 'Unknown',
+      });
+
+      if (!result.ok) {
+        showToast({ message: result.error || 'Failed to delete transaction.', type: 'error' });
+        return;
+      }
+
+      writeAuditLog({
+        user_id: user.id, user_name: user.name || 'Unknown', action: 'DELETE',
+        table_name: RETRIEVAL_TABLE_NAME[tx.type as RetrievalEntryType], record_id: tx.id,
+        description: `Deleted ${tx.type} entry: ${tx.name} -- ₦${fmt(tx.amount)} (${tx.mode})`,
+        hub: hubNames[tx.hub_id || ''] || tx.hub, hub_id: tx.hub_id,
+        old_values: {
+          name: tx.name, amount: tx.amount, amount_paid: tx.amountPaid || 0, mode: tx.mode,
+          created_at: tx.created_at, awb_tag_number: (tx as any).awb_tag_number,
+        },
+      }).catch(() => {});
+
+      onDeleteTx(tx.type, tx.id);
+      setViewingDetail(null);
+      showToast({ message: 'Transaction deleted', type: 'success' });
+    } finally {
+      setDeletingTx(false);
+    }
+  };
+
   const handleMarkRetrievedAndDeposit = (entry: Entry) => {
     setRetrievalModalEntry(entry);
   };
@@ -2438,8 +2502,9 @@ export const TransactionLedger = ({
 
         {/* Always-visible shift controls — no longer buried in the row-detail
             popup. Only shown to non-viewOnly users on a station ledger where a
-            shift handler is wired. */}
-        {!viewOnly && (onStartShift || onEndShift) && (
+            shift handler is wired (or where the shift is auto-managed, see
+            shiftAutoManaged below -- Cargo/Package no longer need one). */}
+        {!viewOnly && (onStartShift || onEndShift || shiftAutoManaged) && (
           <div className="px-4 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-surface-1)] flex items-center justify-between gap-3 shrink-0 relative z-10">
             <div className="flex items-center gap-2 min-w-0">
               <span className={`w-2 h-2 rounded-full ${activeShift ? 'bg-[var(--color-success)] animate-pulse' : 'bg-[var(--color-muted)]'}`} />
@@ -2449,7 +2514,11 @@ export const TransactionLedger = ({
                   : shiftLabel ? `No open ${shiftLabel} shift` : 'No open shift'}
               </span>
             </div>
-            {!activeShift ? (
+            {/* Cargo/Package run on a fixed 18:00-18:00 business day now --
+                see EHIApp.tsx's autoRollShift -- so there's nothing left for
+                staff to resolve by clicking Start/End Day; the boundary is
+                always automatic. Every other department keeps the buttons. */}
+            {shiftAutoManaged ? null : !activeShift ? (
               <button
                 onClick={async () => {
                   const ok = await confirm({
@@ -3790,6 +3859,20 @@ export const TransactionLedger = ({
                           className="py-2.5 px-3 flex items-center justify-center gap-1.5 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] rounded-lg transition-colors border border-[var(--color-border)] text-[11px] font-medium"
                         >
                           <Edit2 size={13} /> Edit
+                        </button>
+                      )}
+
+                      {/* The one action on this screen that IS role-gated --
+                          see confirmDeleteTransaction's comment for why:
+                          every other action here is correctable afterward,
+                          deleting isn't. */}
+                      {user.role === 'super_admin' && (
+                        <button
+                          onClick={() => confirmDeleteTransaction(viewingDetail)}
+                          disabled={deletingTx}
+                          className="py-2.5 px-3 flex items-center justify-center gap-1.5 bg-[var(--color-error)] hover:brightness-110 text-white rounded-lg transition-colors border border-[var(--color-error)] text-[11px] font-bold disabled:opacity-50"
+                        >
+                          <Trash2 size={13} /> Delete Transaction
                         </button>
                       )}
                     </div>
