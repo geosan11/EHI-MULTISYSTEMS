@@ -9,6 +9,7 @@ import { clearDebt, DEBT_TABLE_NAME, DebtEntryType } from '../../lib/debt';
 import { supabase, writeAuditLog } from '../../lib/supabase';
 import { useHubNames } from '../../lib/hubRoutes';
 import { useBanks } from '../../lib/banks';
+import { isOfficeWorkEntry } from '../../lib/officeWork';
 
 export const DebtorsTab = ({
   transactions = [],
@@ -129,7 +130,12 @@ export const DebtorsTab = ({
 
         return {
           ...t,
-          clientType: t.clientType || (t.corporate_client_id ? 'Corporate' : 'Individual'),
+          // Shared classifier (src/lib/officeWork.ts) also used by
+          // TransactionLedger.tsx/Analytics.tsx -- previously this screen
+          // didn't check linked_as_office_work at all, and couldn't
+          // recognize "office work" typed into a remark without a real
+          // corporate-client link.
+          clientType: (isOfficeWorkEntry(t) ? 'Corporate' : 'Individual') as 'Corporate' | 'Individual',
           ageInDays,
           agingBucket: bucket,
           balance: amt - amtPaid - retrieved,

@@ -14,6 +14,7 @@ import { getEquivalentHubIds } from "../../lib/lagosHubSync";
 import { useAirlines } from "../../lib/airlines";
 import { MIN_PACKAGE_AMOUNT } from "../../lib/constants";
 import { useContentTypes } from "../../lib/contentTypes";
+import { isOfficeWorkEntry as isOfficeWorkEntryCore } from "../../lib/officeWork";
 import { useBanks } from "../../lib/banks";
 import { BackButton } from "../BackButton";
 import {
@@ -751,13 +752,13 @@ export const TransactionLedger = ({
     });
   }, [mergedTransactions, expenses]);
 
-  // Same classification DebtorsTab.tsx already uses for its Corporate/
-  // Individual debt filter -- corporate_client_id is only ever written
-  // alongside linked_as_office_work=true (see CargoForm.tsx/PackageForm.tsx/
-  // etc.'s submit payloads), so checking it here catches entries whose
-  // clientType/linked_as_office_work weren't fetched/mapped for some reason.
-  const isOfficeWorkEntry = (e: Entry): boolean =>
-    e.raw?.clientType === 'Corporate' || !!(e.raw as any)?.linked_as_office_work || !!(e.raw as any)?.corporate_client_id;
+  // Single source of truth (src/lib/officeWork.ts) shared with
+  // DebtorsTab.tsx and Analytics.tsx, so the Office/Individual split can't
+  // drift between screens the way it already had once (see that file's own
+  // comment). e.raw is the Transaction; isOfficeWorkEntryCore also matches
+  // "office work" typed anywhere in the remark, not just a real
+  // corporate-client link.
+  const isOfficeWorkEntry = (e: Entry): boolean => isOfficeWorkEntryCore(e.raw);
 
   const filteredEntries = useMemo(() => entries.filter((e) => {
     if (debtClassFilter !== 'All') {
@@ -769,17 +770,7 @@ export const TransactionLedger = ({
 
     if (typeFilter !== "All") {
       if (typeFilter === "Office Work") {
-        // clientType is typed to allow a literal 'Office Work' value, but
-        // nothing anywhere in the app ever assigns it -- every entry point
-        // that links a shipment to a corporate/office-work client
-        // (CargoForm.tsx's retail-link path and its GAT gate-weight path)
-        // sets clientType to 'Corporate' instead. This filter compared
-        // against the value that's never actually set, so it always
-        // returned zero results. linked_as_office_work (the same flag the
-        // ledger's own OFFICE WORK badge checks) catches the retail-link
-        // path; clientType === 'Corporate' catches both paths, including
-        // GAT gate-weight entries that never set the boolean flag.
-        if (e.raw?.clientType !== 'Corporate' && !e.raw?.linked_as_office_work) return false;
+        if (!isOfficeWorkEntry(e)) return false;
       } else if (e.type !== typeFilter.toLowerCase()) {
         return false;
       }
@@ -2410,13 +2401,70 @@ export const TransactionLedger = ({
       if (e.type === 'marketing') marketing++;
       if (e.type === 'package') pkg++;
       if (e.type === 'expense') expense++;
-      if (e.raw?.clientType === 'Corporate' || e.raw?.linked_as_office_work) officeWork++;
+      if (isOfficeWorkEntry(e)) officeWork++;
     }
     return {
       All: entries.length, Cargo: cargo, Baggage: baggage, Marketing: marketing,
       Package: pkg, Expense: expense, 'Office Work': officeWork,
     } as Record<string, number>;
   }, [entries]);
+
+  // Extracted so the two render sites below (standalone when
+  // showPrintHistory hides everything else, or as the first section inside
+  // the unified glass panel with KPI/chips/manifest otherwise) share the
+  // exact same content instead of duplicating it.
+  const shiftBarContent = (
+    <>
+      <div className="flex items-center gap-2 min-w-0">
+        <span className={`w-2 h-2 rounded-full ${activeShift ? 'bg-[var(--color-success)] animate-pulse' : 'bg-[var(--color-muted)]'}`} />
+        <span className="text-[11px] font-mono text-[var(--color-muted)] truncate">
+          {activeShift
+            ? `${shiftLabel ? shiftLabel + ' shift' : 'Shift'} open · started ${new Date(activeShift.started_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short' })}, ${new Date(activeShift.started_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`
+            : shiftLabel ? `No open ${shiftLabel} shift` : 'No open shift'}
+        </span>
+      </div>
+      {/* Cargo/Package run on a fixed 18:00-18:00 business day now -- see
+          EHIApp.tsx's autoRollShift -- so there's nothing left for staff to
+          resolve by clicking Start/End Day; the boundary is always
+          automatic. Every other department keeps the buttons, gated on
+          viewOnly. */}
+      {shiftAutoManaged || viewOnly ? null : !activeShift ? (
+        <button
+          onClick={async () => {
+            const ok = await confirm({
+              title: shiftLabel ? `Start ${shiftLabel} Day?` : 'Start the Day?',
+              message: shiftLabel
+                ? `This will open the ${shiftLabel} desk's shift, tracking all new ${shiftLabel} sales under this shift until you close it.`
+                : "This will officially open the station's shift, tracking all new sales under this shift until you close it.",
+              confirmLabel: 'Yes, Start Day',
+              tone: 'default',
+            });
+            if (ok) onStartShift && onStartShift();
+          }}
+          className="h-9 px-4 rounded-lg bg-[var(--color-success)] hover:bg-emerald-600 text-white font-bold text-[12px] flex items-center justify-center gap-2 transition-colors cursor-pointer shrink-0"
+        >
+          Start Day
+        </button>
+      ) : (
+        <button
+          onClick={async () => {
+            const ok = await confirm({
+              title: shiftLabel ? `End ${shiftLabel} Day?` : 'End the Day?',
+              message: shiftLabel
+                ? `This will close the ${shiftLabel} desk's current shift and generate its final sales analysis.`
+                : 'This will close the current shift and generate the final sales analysis.',
+              confirmLabel: 'Yes, End Day',
+              tone: 'danger',
+            });
+            if (ok) onEndShift && onEndShift();
+          }}
+          className="h-9 px-4 rounded-lg bg-[var(--color-error)] hover:bg-red-600 text-white font-bold text-[12px] flex items-center justify-center gap-2 transition-colors cursor-pointer shrink-0"
+        >
+          End Day
+        </button>
+      )}
+    </>
+  );
 
   return (
     <div className="flex flex-row h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] relative animate-in slide-in-from-right overflow-hidden">
@@ -2571,58 +2619,14 @@ export const TransactionLedger = ({
             permission-sensitive action -- it's shown to viewOnly users too
             (e.g. a Cargo agent without can_edit_ledger opening History
             should still be able to see "Cargo shift open"); only the
-            Start/End Day buttons below are gated on viewOnly. */}
-        {(onStartShift || onEndShift || shiftAutoManaged) && (
-          <div className="px-4 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-surface-1)] flex items-center justify-between gap-3 shrink-0 relative z-10">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className={`w-2 h-2 rounded-full ${activeShift ? 'bg-[var(--color-success)] animate-pulse' : 'bg-[var(--color-muted)]'}`} />
-              <span className="text-[11px] font-mono text-[var(--color-muted)] truncate">
-                {activeShift
-                  ? `${shiftLabel ? shiftLabel + ' shift' : 'Shift'} open · started ${new Date(activeShift.started_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short' })}, ${new Date(activeShift.started_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`
-                  : shiftLabel ? `No open ${shiftLabel} shift` : 'No open shift'}
-              </span>
-            </div>
-            {/* Cargo/Package run on a fixed 18:00-18:00 business day now --
-                see EHIApp.tsx's autoRollShift -- so there's nothing left for
-                staff to resolve by clicking Start/End Day; the boundary is
-                always automatic. Every other department keeps the buttons,
-                gated on viewOnly (moved down from the section-level check
-                above, which used to hide the status text along with them). */}
-            {shiftAutoManaged || viewOnly ? null : !activeShift ? (
-              <button
-                onClick={async () => {
-                  const ok = await confirm({
-                    title: shiftLabel ? `Start ${shiftLabel} Day?` : 'Start the Day?',
-                    message: shiftLabel
-                      ? `This will open the ${shiftLabel} desk's shift, tracking all new ${shiftLabel} sales under this shift until you close it.`
-                      : "This will officially open the station's shift, tracking all new sales under this shift until you close it.",
-                    confirmLabel: 'Yes, Start Day',
-                    tone: 'default',
-                  });
-                  if (ok) onStartShift && onStartShift();
-                }}
-                className="h-9 px-4 rounded-lg bg-[var(--color-success)] hover:bg-emerald-600 text-white font-bold text-[12px] flex items-center justify-center gap-2 transition-colors cursor-pointer shrink-0"
-              >
-                Start Day
-              </button>
-            ) : (
-              <button
-                onClick={async () => {
-                  const ok = await confirm({
-                    title: shiftLabel ? `End ${shiftLabel} Day?` : 'End the Day?',
-                    message: shiftLabel
-                      ? `This will close the ${shiftLabel} desk's current shift and generate its final sales analysis.`
-                      : 'This will close the current shift and generate the final sales analysis.',
-                    confirmLabel: 'Yes, End Day',
-                    tone: 'danger',
-                  });
-                  if (ok) onEndShift && onEndShift();
-                }}
-                className="h-9 px-4 rounded-lg bg-[var(--color-error)] hover:bg-red-600 text-white font-bold text-[12px] flex items-center justify-center gap-2 transition-colors cursor-pointer shrink-0"
-              >
-                End Day
-              </button>
-            )}
+            Start/End Day buttons below are gated on viewOnly.
+            Standalone here (own rounded glass panel) only when
+            showPrintHistory is hiding everything that would normally follow
+            it -- otherwise it's the first section inside the single unified
+            panel below, alongside KPI/chips/manifest. */}
+        {showPrintHistory && (onStartShift || onEndShift || shiftAutoManaged) && (
+          <div className="mx-3 mt-2.5 px-4 py-2.5 rounded-2xl bg-[var(--color-surface-card-glass)] backdrop-blur-xl border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.25)] flex items-center justify-between gap-3 shrink-0 relative z-10">
+            {shiftBarContent}
           </div>
         )}
 
@@ -2632,8 +2636,19 @@ export const TransactionLedger = ({
           </div>
         ) : (
           <>
-            {/* ── KPI Summary Cards ───────────────────────────── */}
-            <div className="px-4 py-3 border-b border-[var(--color-border)] shrink-0 bg-[var(--color-surface-card)]">
+            {/* Unified rounded glass panel: shift status + KPI + quick-filter
+                chips + airline manifest all in one continuous rounded
+                containment, instead of separate flush strips -- matches the
+                Top Bar/Filter Strip's glass treatment above/below it. */}
+            <div className="mx-3 mt-2.5 rounded-2xl bg-[var(--color-surface-card-glass)] backdrop-blur-xl border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.25)] overflow-hidden shrink-0">
+              {(onStartShift || onEndShift || shiftAutoManaged) && (
+                <div className="px-4 py-2.5 border-b border-white/10 flex items-center justify-between gap-3 relative z-10">
+                  {shiftBarContent}
+                </div>
+              )}
+
+              {/* ── KPI Summary Cards ───────────────────────────── */}
+              <div className="px-4 py-3 border-b border-white/10">
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                 {/* Total */}
                 <div
@@ -2781,8 +2796,8 @@ export const TransactionLedger = ({
               </div>
             </div>
 
-            {/* ── Type Quick-Filter Chips ──────────────────────── */}
-            <div className="px-4 py-2 border-b border-[var(--color-border)] shrink-0">
+              {/* ── Type Quick-Filter Chips ──────────────────────── */}
+              <div className="px-4 py-2 border-b border-white/10">
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
                 {([
                   { label: 'All',        value: 'All',        activeClass: 'bg-[var(--color-surface-2)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
@@ -2817,31 +2832,33 @@ export const TransactionLedger = ({
               </div>
             </div>
 
-            {/* ── Airline Weight Manifest Summary ──────────────────────
-                Read-only roll-up of whatever's currently filtered above --
-                not the manually-entered cargo_weight_manifests tool
-                (that's a separate feature, unchanged). */}
-            {airlineManifestSummary.length > 0 && (
-              <div className="px-4 py-2.5 border-b border-[var(--color-border)] shrink-0 bg-[var(--color-surface-1)] overflow-x-auto">
-                <div className="flex items-center gap-2 flex-nowrap min-w-max">
-                  <span className="text-[9px] font-mono font-bold text-[var(--color-muted)] uppercase tracking-wider shrink-0">
-                    Airline Weight Manifest:
-                  </span>
-                  {airlineManifestSummary.map((a) => (
-                    <div
-                      key={a.airline}
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--color-surface-card)] border border-[var(--color-border)] shrink-0"
-                      title={`${a.entries} entries`}
-                    >
-                      <span className="text-[10px] font-bold font-mono text-[var(--color-foreground)]">{a.airline}</span>
-                      <span className="text-[9px] font-mono text-[var(--color-accent-cobalt)]">{a.kg.toFixed(0)}KG</span>
-                      <span className="text-[9px] font-mono text-[var(--color-muted)]">{a.pieces}PC</span>
-                      <span className="text-[9px] font-mono text-[var(--color-success)] font-bold">₦{fmt(a.amount)}</span>
-                    </div>
-                  ))}
+              {/* ── Airline Weight Manifest Summary ──────────────────────
+                  Read-only roll-up of whatever's currently filtered above --
+                  not the manually-entered cargo_weight_manifests tool
+                  (that's a separate feature, unchanged). Last section in the
+                  unified panel, so no bottom border of its own. */}
+              {airlineManifestSummary.length > 0 && (
+                <div className="px-4 py-2.5 overflow-x-auto">
+                  <div className="flex items-center gap-2 flex-nowrap min-w-max">
+                    <span className="text-[9px] font-mono font-bold text-[var(--color-muted)] uppercase tracking-wider shrink-0">
+                      Airline Weight Manifest:
+                    </span>
+                    {airlineManifestSummary.map((a) => (
+                      <div
+                        key={a.airline}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--color-surface-card)] border border-[var(--color-border)] shrink-0"
+                        title={`${a.entries} entries`}
+                      >
+                        <span className="text-[10px] font-bold font-mono text-[var(--color-foreground)]">{a.airline}</span>
+                        <span className="text-[9px] font-mono text-[var(--color-accent-cobalt)]">{a.kg.toFixed(0)}KG</span>
+                        <span className="text-[9px] font-mono text-[var(--color-muted)]">{a.pieces}PC</span>
+                        <span className="text-[9px] font-mono text-[var(--color-success)] font-bold">₦{fmt(a.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* ── Filter Strip ─────────────────────────────────── */}
             {/* Same frosted-glass treatment as the Top Bar above -- see its
@@ -3458,7 +3475,7 @@ export const TransactionLedger = ({
                             PARTIAL: {(e.raw as any).raw.retrieved_kg || 0}KG · {(e.raw as any).raw.retrieved_pieces || 0}PC · ₦{fmt((e.raw as any).raw.retrieved_amount)}
                           </span>
                         )}
-                        {e.raw?.linked_as_office_work && (
+                        {isOfficeWorkEntry(e) && (
                           <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(139,92,246,0.15)] text-[#a78bfa] border border-[rgba(139,92,246,0.3)]">
                             OFFICE WORK
                           </span>

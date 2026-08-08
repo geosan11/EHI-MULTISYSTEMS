@@ -55,6 +55,36 @@ export function matchOfficeClient(rawName: string, corpClients: CorporateClient[
   return fuzzy ? { client: fuzzy, type: 'fuzzy' } : { client: null, type: null };
 }
 
+// Single source of truth for "is this entry office-work/B2B" -- was
+// previously duplicated (and drifted -- see Analytics.tsx's own comment on
+// its now-fixed always-false comparison) across TransactionLedger.tsx (3
+// separate copies), DebtorsTab.tsx, and Analytics.tsx. Every caller should
+// go through this instead of re-checking these fields itself.
+//
+// Also recognizes "office work" typed anywhere in the free-text remark
+// (case-insensitive), even mixed with other text -- lets staff flag an
+// entry as office work after the fact without needing a real corporate-
+// client link. This is a computed check, not a persisted flag: it
+// re-evaluates the live remark every time, so it applies retroactively to
+// every existing entry with no backfill needed, and correctly un-flags an
+// entry if the remark is later edited to remove the phrase. Known
+// limitation: substring matching can't detect negation ("not office
+// work" still matches) -- an inherent limit of text matching, not
+// something worth a regex trying to solve.
+export function isOfficeWorkEntry(entry: {
+  clientType?: string;
+  linked_as_office_work?: boolean;
+  corporate_client_id?: string | null;
+  remarks?: string | null;
+  raw?: { remark?: string | null } | null;
+}): boolean {
+  if (entry.clientType === 'Corporate') return true;
+  if (entry.linked_as_office_work) return true;
+  if (entry.corporate_client_id) return true;
+  const remarkText = entry.remarks ?? entry.raw?.remark ?? '';
+  return /office\s*work/i.test(remarkText);
+}
+
 export function useCorporateClients(): CorporateClient[] {
   const [clients, setClients] = useState<CorporateClient[]>([]);
   useEffect(() => {

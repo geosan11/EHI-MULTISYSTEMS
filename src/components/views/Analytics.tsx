@@ -3,6 +3,7 @@ import { User, Transaction, Expense } from '../../lib/types';
 import { fmt, getShiftBoundary, normalizeAirlineName, sanitizeSpreadsheetRows, autoFitWorksheetColumns } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
 import { fetchAllDebtAndRetrievalEntries, buildShadowRowExclusionCounts, extractPaymentHistoryEvents } from '../../lib/debt';
+import { isOfficeWorkEntry } from '../../lib/officeWork';
 import { AnimatedNumber } from '../ui/AnimatedNumber';
 import { useToast } from '../../lib/ToastContext';
 import { 
@@ -331,13 +332,15 @@ export const Analytics = ({
 
     // Identify non-liquid/non-revenue transactions
     const debtTxs = periodFilteredTxs.filter(t => t.mode === 'Debt');
-    // clientType is typed to allow 'Office Work' but nothing ever assigns
-    // it -- CargoForm.tsx's B2B/monthly-billed paths both set 'Corporate'
-    // instead (see its own comment on this). This comparison always
-    // resolved to false, so officeWorkTxs was permanently empty and every
-    // real B2B office-work debt fell into individualDebtTxs instead.
-    const officeWorkTxs = debtTxs.filter(t => t.clientType === 'Corporate');
-    const individualDebtTxs = debtTxs.filter(t => t.clientType !== 'Corporate');
+    // Shared classifier (src/lib/officeWork.ts), also used by
+    // TransactionLedger.tsx/DebtorsTab.tsx -- this used to be a bare
+    // `t.clientType === 'Corporate'` check, which always resolved to false
+    // (CargoForm.tsx's B2B/monthly-billed paths never actually set
+    // clientType to the literal 'Office Work' this compared against), so
+    // officeWorkTxs was permanently empty and every real B2B office-work
+    // debt fell into individualDebtTxs instead.
+    const officeWorkTxs = debtTxs.filter(t => isOfficeWorkEntry(t));
+    const individualDebtTxs = debtTxs.filter(t => !isOfficeWorkEntry(t));
     const retrievedTxs = periodFilteredTxs.filter(t => t.retrieved === true);
 
     const totalRevenue = validLiquidTxs.reduce((sum, t) => sum + t.amount, 0); // Pure liquid
