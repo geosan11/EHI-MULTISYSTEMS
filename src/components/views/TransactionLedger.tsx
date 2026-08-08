@@ -2164,13 +2164,9 @@ export const TransactionLedger = ({
   // different, edit-specific permission.
   const canSeePin = ['admin', 'super_admin', 'accountant'].includes(user.role);
 
-  const unverifiedCash = filteredEntries.filter(e => e.mode === 'Cash' && !e.raw.paymentConfirmed);
-  const unconfirmedTransfer = filteredEntries.filter(e => e.mode === 'Transfer' && !e.raw.paymentConfirmed);
-  // POS sits unconfirmed until a staff member manually enters the approval
-  // code (savePosCode) -- unlike Cash/Transfer, it previously had zero
-  // passive visibility anywhere on this screen, so a POS sale nobody came
-  // back to enter a code for could sit unconfirmed indefinitely unnoticed.
-  const unconfirmedPOS = filteredEntries.filter(e => e.mode === 'POS' && !e.raw.paymentConfirmed);
+  // unverifiedCash/unconfirmedTransfer/unconfirmedPOS (POS sits unconfirmed
+  // until a staff member manually enters the approval code via savePosCode)
+  // are computed inside the kpis useMemo below, not here -- see its comment.
 
   const selectAllCash = async () => {
     if (bulkConfirming) return;
@@ -2217,14 +2213,8 @@ export const TransactionLedger = ({
     }
   };
 
-  // 'Debt Paid' entries must be excluded here -- the same double-count
-  // Analytics.tsx's validLiquidTxs comment already documents: once a debt
-  // is cleared, its original entry flips to mode 'Debt Paid' (still
-  // showing its full original amount) AND a separate DC- shadow entry is
-  // created for the actual cash collected (see handleClearDebt/DebtorsTab's
-  // handleRecordPayment). Summing both counts the same money twice.
-  const totalAmount = filteredEntries.filter(e => e.mode !== 'Debt Paid').reduce((acc, e) => acc + (e.source === 'expense' ? -e.amount : e.amount), 0);
-  const cashAmount = filteredEntries.filter(e => e.mode === 'Cash').reduce((acc, e) => acc + (e.source === 'expense' ? -e.amount : e.amount), 0);
+  // totalAmount/cashAmount (excluding 'Debt Paid' -- see the kpis useMemo's
+  // comment on why) are computed inside the kpis useMemo below.
 
   // Insert shift start/end markers into the visible array. `shifts` (all of
   // today's, open or closed) is preferred so both "Day started" and "Day
@@ -2273,6 +2263,23 @@ export const TransactionLedger = ({
     estimateSize: () => 72,
     overscan: 4, // reduced from 10 — fewer off-screen rows rendered per frame
   });
+  // Separate instance for the mobile card list below (same displayEntries,
+  // same scroll container) -- card height genuinely varies (badges, PIN,
+  // is_debt_clearance styling) unlike the desktop table's uniform 72px
+  // rows, so this one measures actual rendered height via measureElement
+  // instead of trusting a single fixed estimate. Before this, the mobile
+  // card branch rendered every entry unconditionally regardless of
+  // viewport -- Tailwind's `block sm:hidden` only hides it with CSS, React
+  // still mounted and diffed all ~1,300 full cards on every render
+  // (including every scroll-triggered re-render from rowVirtualizer
+  // above), which was the dominant cause of the ledger lagging at that
+  // row count.
+  const cardVirtualizer = useVirtualizer({
+    count: displayEntries.length,
+    getScrollElement: () => tableRef.current,
+    estimateSize: () => 190,
+    overscan: 4,
+  });
 
   // ─── KPI Math ─────────────────────────────────────────────────────────────
   // All five reduce passes are wrapped in a single useMemo so they only run
@@ -2281,6 +2288,15 @@ export const TransactionLedger = ({
   // 20–80ms on a 1000-5000 row ledger.
   const kpis = useMemo(() => {
     let transfer = 0, pos = 0, debt = 0, wallet = 0, debtCount = 0, officeDebt = 0, individualDebt = 0;
+    // total/cash and the three unconfirmed-payment lists used to be separate
+    // unmemoized `.filter()`/`.reduce()` passes over filteredEntries, run
+    // fresh on every render (including every scroll-triggered re-render
+    // from the row virtualizers) -- folded into this same single pass for
+    // the same reason the comment above already gives.
+    let total = 0, cash = 0;
+    const unverifiedCashArr: Entry[] = [];
+    const unconfirmedTransferArr: Entry[] = [];
+    const unconfirmedPOSArr: Entry[] = [];
     for (const e of filteredEntries) {
       const sign = e.source === 'expense' ? -1 : 1;
       if (e.mode === 'Transfer') transfer += sign * e.amount;
@@ -2294,11 +2310,33 @@ export const TransactionLedger = ({
       }
       const ded = e.raw?.wallet_deduction_amount || (e.mode === 'Wallet' ? e.amount : 0);
       wallet += ded;
+
+      // 'Debt Paid' entries are excluded from total -- the same double-count
+      // Analytics.tsx's validLiquidTxs comment already documents: once a
+      // debt is cleared, its original entry flips to mode 'Debt Paid'
+      // (still showing its full original amount) AND a separate DC- shadow
+      // entry is created for the actual cash collected. Summing both
+      // counts the same money twice.
+      if (e.mode !== 'Debt Paid') total += sign * e.amount;
+      if (e.mode === 'Cash') {
+        cash += sign * e.amount;
+        if (!e.raw.paymentConfirmed) unverifiedCashArr.push(e);
+      }
+      if (e.mode === 'Transfer' && !e.raw.paymentConfirmed) unconfirmedTransferArr.push(e);
+      if (e.mode === 'POS' && !e.raw.paymentConfirmed) unconfirmedPOSArr.push(e);
     }
-    return { transferAmount: transfer, posAmount: pos, debtAmount: debt, walletAmount: wallet, unpaidDebtCount: debtCount, officeDebtAmount: officeDebt, individualDebtAmount: individualDebt };
+    return {
+      transferAmount: transfer, posAmount: pos, debtAmount: debt, walletAmount: wallet,
+      unpaidDebtCount: debtCount, officeDebtAmount: officeDebt, individualDebtAmount: individualDebt,
+      totalAmount: total, cashAmount: cash,
+      unverifiedCash: unverifiedCashArr, unconfirmedTransfer: unconfirmedTransferArr, unconfirmedPOS: unconfirmedPOSArr,
+    };
   }, [filteredEntries]);
 
-  const { transferAmount, posAmount, debtAmount, walletAmount, unpaidDebtCount, officeDebtAmount, individualDebtAmount } = kpis;
+  const {
+    transferAmount, posAmount, debtAmount, walletAmount, unpaidDebtCount, officeDebtAmount, individualDebtAmount,
+    totalAmount, cashAmount, unverifiedCash, unconfirmedTransfer, unconfirmedPOS,
+  } = kpis;
 
   const { hasNonDefaultFilters, activeFilterCount } = useMemo(() => {
     const hasNDF =
@@ -2358,6 +2396,27 @@ export const TransactionLedger = ({
     });
     return Array.from(set).sort();
   }, [entries, defaultTypeFilter]);
+
+  // Type Quick-Filter Chips' per-chip counts -- previously ran a fresh
+  // entries.filter(...).length scan inline inside that bar's render .map(),
+  // for 6 of its 7 chips, on every render (that bar is always visible, not
+  // gated behind an open dropdown). Computed once here instead, keyed only
+  // on entries (the pre-filter array these counts are meant to reflect).
+  const typeChipCounts = useMemo(() => {
+    let cargo = 0, baggage = 0, marketing = 0, pkg = 0, expense = 0, officeWork = 0;
+    for (const e of entries) {
+      if (e.type === 'cargo') cargo++;
+      if (e.type === 'baggage') baggage++;
+      if (e.type === 'marketing') marketing++;
+      if (e.type === 'package') pkg++;
+      if (e.type === 'expense') expense++;
+      if (e.raw?.clientType === 'Corporate' || e.raw?.linked_as_office_work) officeWork++;
+    }
+    return {
+      All: entries.length, Cargo: cargo, Baggage: baggage, Marketing: marketing,
+      Package: pkg, Expense: expense, 'Office Work': officeWork,
+    } as Record<string, number>;
+  }, [entries]);
 
   return (
     <div className="flex flex-row h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] relative animate-in slide-in-from-right overflow-hidden">
@@ -2723,11 +2782,7 @@ export const TransactionLedger = ({
                   { label: 'Expense',    value: 'Expense',    activeClass: 'bg-[rgba(239,68,68,0.15)] border-[var(--color-error)] text-[var(--color-error)]' },
                   { label: 'Office Work',value: 'Office Work',activeClass: 'bg-[var(--color-surface-2)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
                 ] as const).map(({ label, value, activeClass }) => {
-                  const count = value === 'All'
-                    ? entries.length
-                    : value === 'Office Work'
-                      ? entries.filter(e => e.raw?.clientType === 'Corporate' || e.raw?.linked_as_office_work).length
-                      : entries.filter(e => e.type === value.toLowerCase()).length;
+                  const count = typeChipCounts[value] ?? 0;
                   const isActive = typeFilter === value;
                   return (
                     <button
@@ -3023,18 +3078,35 @@ export const TransactionLedger = ({
 
             {/* Table / Mobile Cards Container */}
             <div ref={tableRef} className="flex-1 overflow-auto p-3 sm:p-4 pb-4 relative">
-              {/* Mobile Card List View (Visible on < 640px) */}
-              <div className="block sm:hidden space-y-2.5">
+              {/* Mobile Card List View (Visible on < 640px) -- virtualized via
+                  cardVirtualizer (see its declaration above): only the
+                  cards actually in/near the viewport are ever mounted,
+                  positioned with translateY against the sizer div's total
+                  height instead of relying on document flow. */}
+              <div className="block sm:hidden">
                 {displayEntries.length === 0 ? (
                   <div className="py-8 text-center text-[var(--color-muted)] text-[12px] font-mono">
                     No entries found matching filters.
                   </div>
                 ) : (
-                  displayEntries.map((e) => {
+                  <div style={{ position: 'relative', height: cardVirtualizer.getTotalSize() }}>
+                  {cardVirtualizer.getVirtualItems().map((virtualRow) => {
+                    const e = displayEntries[virtualRow.index];
+                    const wrapperStyle: React.CSSProperties = {
+                      position: 'absolute', top: 0, left: 0, width: '100%',
+                      transform: `translateY(${virtualRow.start}px)`,
+                      // Reproduces the gap the old space-y-2.5 wrapper gave
+                      // sibling cards -- padding on the measured element
+                      // (not a sibling margin, which doesn't apply to
+                      // absolutely-positioned/reordered virtual items).
+                      paddingBottom: 10,
+                    };
                     if (e.type === 'shift-marker') {
                       return (
-                        <div key={e.id} className="bg-[rgba(245,158,11,0.1)] border border-[var(--color-accent-amber)] rounded-lg p-2.5 text-center font-bold text-[var(--color-accent-amber)] text-[11px] font-mono">
-                          {e.name} — {e.detail}
+                        <div key={e.id} data-index={virtualRow.index} ref={cardVirtualizer.measureElement} style={wrapperStyle}>
+                          <div className="bg-[rgba(245,158,11,0.1)] border border-[var(--color-accent-amber)] rounded-lg p-2.5 text-center font-bold text-[var(--color-accent-amber)] text-[11px] font-mono">
+                            {e.name} — {e.detail}
+                          </div>
                         </div>
                       );
                     }
@@ -3050,8 +3122,8 @@ export const TransactionLedger = ({
                       'text-[var(--color-muted)] bg-[rgba(255,255,255,0.06)] border-[var(--color-border)]';
 
                     return (
+                      <div key={e.id} data-index={virtualRow.index} ref={cardVirtualizer.measureElement} style={wrapperStyle}>
                       <div
-                        key={e.id}
                         onClick={() => setViewingDetail(e)}
                         className={`ehi-card p-3 rounded-xl border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] transition-all cursor-pointer space-y-2 ${
                           e.raw?.retrieved ? 'opacity-50' : ''
@@ -3187,8 +3259,10 @@ export const TransactionLedger = ({
                         </div>
 
                       </div>
+                      </div>
                     );
-                  })
+                  })}
+                  </div>
                 )}
               </div>
 
