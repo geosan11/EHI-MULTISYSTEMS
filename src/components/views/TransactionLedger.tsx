@@ -2560,10 +2560,14 @@ export const TransactionLedger = ({
         </div>
 
         {/* Always-visible shift controls — no longer buried in the row-detail
-            popup. Only shown to non-viewOnly users on a station ledger where a
-            shift handler is wired (or where the shift is auto-managed, see
-            shiftAutoManaged below -- Cargo/Package no longer need one). */}
-        {!viewOnly && (onStartShift || onEndShift || shiftAutoManaged) && (
+            popup. Shown on any station ledger where a shift handler is wired
+            (or where the shift is auto-managed, see shiftAutoManaged below).
+            The status text itself is read-only information, not a
+            permission-sensitive action -- it's shown to viewOnly users too
+            (e.g. a Cargo agent without can_edit_ledger opening History
+            should still be able to see "Cargo shift open"); only the
+            Start/End Day buttons below are gated on viewOnly. */}
+        {(onStartShift || onEndShift || shiftAutoManaged) && (
           <div className="px-4 py-2.5 border-b border-[var(--color-border)] bg-[var(--color-surface-1)] flex items-center justify-between gap-3 shrink-0 relative z-10">
             <div className="flex items-center gap-2 min-w-0">
               <span className={`w-2 h-2 rounded-full ${activeShift ? 'bg-[var(--color-success)] animate-pulse' : 'bg-[var(--color-muted)]'}`} />
@@ -2576,8 +2580,10 @@ export const TransactionLedger = ({
             {/* Cargo/Package run on a fixed 18:00-18:00 business day now --
                 see EHIApp.tsx's autoRollShift -- so there's nothing left for
                 staff to resolve by clicking Start/End Day; the boundary is
-                always automatic. Every other department keeps the buttons. */}
-            {shiftAutoManaged ? null : !activeShift ? (
+                always automatic. Every other department keeps the buttons,
+                gated on viewOnly (moved down from the section-level check
+                above, which used to hide the status text along with them). */}
+            {shiftAutoManaged || viewOnly ? null : !activeShift ? (
               <button
                 onClick={async () => {
                   const ok = await confirm({

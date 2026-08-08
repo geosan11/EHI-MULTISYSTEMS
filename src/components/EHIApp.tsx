@@ -2302,6 +2302,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           <TransactionLedger
             user={user}
             transactions={filteredLedgerTransactions}
+            expenses={expenses}
             onBack={handleCloseLedger}
             onUpdateTx={handleUpdateTx}
             onDeleteTx={handleDeleteTx}
