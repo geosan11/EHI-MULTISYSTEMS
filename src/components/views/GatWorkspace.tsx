@@ -15,6 +15,10 @@ interface GatWorkspaceProps {
   transactions: Transaction[];
   expenses: Expense[];
   onAddTx: (tx: Transaction) => void;
+  // Forwarded to <PackageForm>'s Mark Paid action, which routes through
+  // clear_package_debt (see PackageForm.tsx's handleMarkDebtPaid) and needs
+  // a real update callback, not just onAddTx's upsert.
+  onUpdateTx: (tx: Transaction) => void;
   onAddExpense: (exp: Expense) => void;
   customerWallets?: CustomerWallet[];
   setCustomerWallets?: React.Dispatch<React.SetStateAction<CustomerWallet[]>>;
@@ -83,6 +87,7 @@ export const GatWorkspace = (props: GatWorkspaceProps) => {
             transactions={props.transactions}
             expenses={props.expenses}
             onAddTx={props.onAddTx}
+            onUpdateTx={props.onUpdateTx}
             onAddExpense={props.onAddExpense}
             customerWallets={props.customerWallets}
             setCustomerWallets={props.setCustomerWallets}

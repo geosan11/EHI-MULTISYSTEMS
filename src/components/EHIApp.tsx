@@ -2121,6 +2121,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                   transactions={transactions}
                   expenses={expenses}
                   onAddTx={handleAddTx}
+                  onUpdateTx={handleUpdateTx}
                   onAddExpense={handleAddExpense}
                   onShowHistory={handleShowPackageHistory}
                   customerWallets={customerWallets}
@@ -2133,6 +2134,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                   transactions={transactions}
                   expenses={expenses}
                   onAddTx={handleAddTx}
+                  onUpdateTx={handleUpdateTx}
                   onAddExpense={handleAddExpense}
                   onShowHistory={handleShowGatHistory}
                   customerWallets={customerWallets}

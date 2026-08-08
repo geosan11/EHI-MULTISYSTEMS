@@ -5,7 +5,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { Transaction, User, Expense } from "../../lib/types";
 import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDateTime, normalizeAirlineName, formatPaymentModeDisplay } from "../../lib/helpers";
 import { applyWalletTransaction, processRetrieval, unretrieveEntry, approveRetrieval, RetrievalEntryType } from "../../lib/wallet";
-import { clearDebt, DebtEntryType } from "../../lib/debt";
+import { clearDebt, reopenDebt, DebtEntryType } from "../../lib/debt";
 import { confirmPayment, PaymentEntryType } from "../../lib/paymentConfirmation";
 import { useHubRoutes, useHubNames } from "../../lib/hubRoutes";
 import { canAccessTab } from "../../lib/permissions";
@@ -89,6 +89,7 @@ const ACTION_LABELS: Record<string, string> = {
   UNRETRIEVE: 'Retrieval Reversed',
   RETRIEVAL_APPROVE: 'Retrieval Approved',
   DEBT_COLLECTION: 'Debt Payment Collected',
+  DEBT_REOPENED: 'Debt Reopened',
 };
 
 export const TransactionLedger = ({
@@ -196,6 +197,7 @@ export const TransactionLedger = ({
   const [clearDebtMode, setClearDebtMode] = useState<'Cash' | 'Transfer' | 'POS'>('Cash');
   const [clearDebtBank, setClearDebtBank] = useState('');
   const [clearingDebt, setClearingDebt] = useState(false);
+  const [reopeningDebt, setReopeningDebt] = useState(false);
   // Marketing entries store bag counts inside the composed `detail` string,
   // not as discrete Transaction fields, so the edit modal keeps its own
   // working copy (seeded by parsing `detail` in handleEditClick) and
@@ -1815,6 +1817,70 @@ export const TransactionLedger = ({
       setClearDebtEntry(null);
     } finally {
       setClearingDebt(false);
+    }
+  };
+
+  // Reverses the most recent debt-collection payment via reopen_*_debt --
+  // same any-staff, audited policy as Clear Debt above (see the comment on
+  // the Reopen Debt button). Undoes the LAST payment_history entry only
+  // (not the whole balance), matching Unretrieve's "undo the last action"
+  // shape rather than resetting the entry to a fully-unpaid state, since a
+  // debt may have had legitimate partial payments before the clearance
+  // being corrected.
+  const confirmReopenDebt = async (entry: Entry) => {
+    if (entry.source !== 'transaction' || reopeningDebt) return;
+    const tx = entry.raw as Transaction;
+    const lastPayment = (tx.paymentHistory || [])[(tx.paymentHistory || []).length - 1];
+    const reverseAmount = lastPayment?.amount ?? (tx.amountPaid || 0);
+    const ok = await confirm({
+      title: 'Reopen this debt?',
+      message: `This undoes the most recent payment recorded against ${tx.name}'s debt (₦${fmt(reverseAmount)}${lastPayment ? ` via ${lastPayment.mode}` : ''}) and marks the entry as Debt again. Use this only to correct a mistaken clearance.`,
+      confirmLabel: 'Reopen Debt',
+      tone: 'danger',
+    });
+    if (!ok) return;
+
+    setReopeningDebt(true);
+    try {
+      const result = await reopenDebt({
+        type: tx.type as DebtEntryType,
+        id: tx.id,
+        loggedBy: user.name || 'Unknown',
+        expectedAmountPaid: tx.amountPaid,
+      });
+
+      if (!result.ok) {
+        showToast({ message: result.error || 'Failed to reopen debt.', type: 'error' });
+        return;
+      }
+
+      const updated: Transaction = {
+        ...tx,
+        amountPaid: result.newAmountPaid ?? 0,
+        paymentHistory: (tx.paymentHistory || []).slice(0, -1),
+        mode: 'Debt',
+        paymentConfirmed: false,
+        confirmedBy: undefined,
+        confirmedAt: undefined,
+        ...(tx.type === 'package' ? { debtPaid: false, debtPaidAt: undefined } : {}),
+      };
+      onUpdateTx(updated);
+
+      writeAuditLog({
+        user_id: user.id, user_name: user.name || 'Unknown', action: 'DEBT_REOPENED',
+        table_name: RETRIEVAL_TABLE_NAME[tx.type as RetrievalEntryType], record_id: tx.id,
+        description: `₦${fmt(result.reversedAmount ?? reverseAmount)} payment reversed on ${tx.name}'s debt -- entry reopened`,
+        hub: hubNames[tx.hub_id || ''] || tx.hub, hub_id: tx.hub_id,
+        old_values: { amount_paid: tx.amountPaid || 0 },
+        new_values: { amount_paid: result.newAmountPaid, mode: 'Debt' },
+      }).catch(() => {});
+
+      showToast({ message: 'Debt reopened', type: 'success' });
+      if (viewingDetail && viewingDetail.id === tx.id) {
+        setViewingDetail({ ...viewingDetail, mode: 'Debt', raw: updated });
+      }
+    } finally {
+      setReopeningDebt(false);
     }
   };
 
@@ -3601,7 +3667,7 @@ export const TransactionLedger = ({
                       {txHistory.map((h: any) => (
                         <div key={h.id} className="flex items-start gap-2 text-[11px]">
                           <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
-                            h.action === 'UNRETRIEVE' ? 'bg-[var(--color-error)]' :
+                            h.action === 'UNRETRIEVE' || h.action === 'DEBT_REOPENED' ? 'bg-[var(--color-error)]' :
                             h.action === 'DEBT_COLLECTION' || h.action === 'PAYMENT_CONFIRM' ? 'bg-[var(--color-success)]' :
                             'bg-[var(--color-accent-amber)]'
                           }`} />
@@ -3637,12 +3703,33 @@ export const TransactionLedger = ({
                         <QrCode size={13} /> Scan QR
                       </button>
 
-                      {viewingDetail.mode === 'Debt' && !viewOnly && (
-                        <button 
+                      {/* Deliberately open to ANY staff, not gated to
+                          can_edit_ledger/super_admin -- clearing a debt is a
+                          maker-checker flow like retrieval/refund below: any
+                          staff can collect against it, accountability comes
+                          from the Activity History section's audit_log
+                          trail (who cleared it, when, how much), not from
+                          restricting who can act. */}
+                      {viewingDetail.mode === 'Debt' && (
+                        <button
                           onClick={(evt) => openClearDebt(viewingDetail, evt)}
                           className="py-2.5 px-3 flex items-center justify-center gap-1.5 bg-[rgba(16,185,129,0.15)] hover:bg-[rgba(16,185,129,0.25)] text-[var(--color-success)] rounded-lg transition-colors border border-[rgba(16,185,129,0.3)] text-[11px] font-bold"
                         >
                           <CheckSquare size={13} /> Clear Debt
+                        </button>
+                      )}
+
+                      {/* Same any-staff, audited policy as Clear Debt above --
+                          reverses the most recent debt-collection payment via
+                          reopen_*_debt (see confirmReopenDebt). */}
+                      {viewingDetail.mode === 'Debt Paid' && (
+                        <button
+                          onClick={() => confirmReopenDebt(viewingDetail)}
+                          disabled={reopeningDebt}
+                          className="py-2.5 px-3 flex items-center justify-center gap-1.5 bg-[rgba(239,68,68,0.08)] hover:bg-[var(--color-error)] hover:text-white text-[var(--color-error)] rounded-lg transition-colors border border-[rgba(239,68,68,0.25)] text-[11px] font-mono font-bold disabled:opacity-50"
+                          title="Undo the most recent debt-clearing payment on this entry"
+                        >
+                          <Undo2 size={13} /> Reopen Debt
                         </button>
                       )}
 
@@ -4221,7 +4308,13 @@ export const TransactionLedger = ({
                   <option value="Cash">Cash</option>
                   <option value="Transfer">Bank Transfer</option>
                   <option value="POS">POS / Card</option>
-                  <option value="Debt">Debt</option>
+                  {/* Picking "Debt" here never actually reopens a cleared
+                      debt -- amount_paid isn't editable in this form and
+                      gets written back unchanged, so a "Debt Paid" entry
+                      silently reverts to Debt Paid on the next reload.
+                      Disabled for an already-cleared entry so staff aren't
+                      misled; use the dedicated Reopen Debt button instead. */}
+                  <option value="Debt" disabled={editOriginalMode === 'Debt Paid'}>Debt</option>
                   <option value="Wallet">Customer Wallet</option>
                 </select>
               </div>

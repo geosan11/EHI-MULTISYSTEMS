@@ -84,6 +84,61 @@ export async function clearDebt(params: {
   };
 }
 
+export interface ReopenDebtResult {
+  ok: boolean;
+  newAmountPaid?: number;
+  remainingBalance?: number;
+  reversedAmount?: number;
+  error?: string;
+}
+
+const REOPEN_RPC_BY_TYPE: Record<DebtEntryType, { name: string; idParam: string }> = {
+  cargo: { name: 'reopen_cargo_debt', idParam: 'p_entry_ref' },
+  baggage: { name: 'reopen_baggage_debt', idParam: 'p_transaction_id' },
+  marketing: { name: 'reopen_marketing_debt', idParam: 'p_entry_ref' },
+  package: { name: 'reopen_package_debt', idParam: 'p_entry_ref' },
+};
+
+// Reverses the most recent payment_history entry on a fully-paid Debt
+// entry, undoing a clear_*_debt call -- same "any staff, audited" policy as
+// clearDebt above (see reopen_*_debt in
+// supabase/migrations/20260936_reopen_debt_rpcs.sql), not a role-restricted
+// action. Undoes only the last collection event, not the whole payment
+// history, since a debt may have had legitimate partial payments before the
+// clearance being corrected.
+export async function reopenDebt(params: {
+  type: DebtEntryType;
+  id: string;
+  loggedBy: string;
+  // The amount_paid as displayed to the user right before this call -- the
+  // RPC re-checks it against the real, just-locked row and rejects the call
+  // if it's changed, same concurrency guard as clearDebt's expectedRemaining.
+  expectedAmountPaid?: number;
+}): Promise<ReopenDebtResult> {
+  const rpc = REOPEN_RPC_BY_TYPE[params.type];
+  if (!rpc) {
+    return { ok: false, error: `Reopening a debt isn't supported for transaction type "${params.type}"` };
+  }
+
+  const { data, error } = await supabase.rpc(rpc.name, {
+    [rpc.idParam]: params.id,
+    p_logged_by: params.loggedBy,
+    p_expected_amount_paid: params.expectedAmountPaid ?? null,
+  });
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    ok: true,
+    // Same new_debt_amount_paid naming inversion as clear_marketing_debt.
+    newAmountPaid: Number(row?.new_amount_paid ?? row?.new_debt_amount_paid ?? 0),
+    remainingBalance: Number(row?.remaining_balance ?? 0),
+    reversedAmount: Number(row?.reversed_amount ?? 0),
+  };
+}
+
 // ============================================================
 // Shared debt-collection / retrieval event data layer
 // ============================================================

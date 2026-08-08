@@ -14,7 +14,8 @@ import { useBanks } from "../../lib/banks";
 import {  MIN_PACKAGE_AMOUNT , CARGO_ROUTES } from "../../lib/constants";
 import { getNextTag } from "../../lib/tagPool";
 import { Plus, CheckCircle, Loader2, ClipboardList, BarChart2, Printer, MessageSquare, Bluetooth, Copy, AlertTriangle } from "lucide-react";
-import { supabase } from "../../lib/supabase";
+import { supabase, writeAuditLog } from "../../lib/supabase";
+import { clearDebt, DEBT_TABLE_NAME } from "../../lib/debt";
 import { sendReceiptWhatsApp, buildPackageWhatsApp } from "../../lib/notifications";
 import { useToast } from "../../lib/ToastContext";
 import { useConfirm } from "../../lib/ConfirmContext";
@@ -31,6 +32,7 @@ export const PackageForm = ({
   transactions,
   expenses,
   onAddTx,
+  onUpdateTx,
   onAddExpense,
   onShowHistory,
   customerWallets = [],
@@ -41,6 +43,7 @@ export const PackageForm = ({
   transactions: Transaction[];
   expenses: Expense[];
   onAddTx: (tx: Transaction) => void;
+  onUpdateTx: (tx: Transaction) => void;
   onAddExpense: (exp: Expense) => void;
   onShowHistory?: () => void;
   customerWallets?: CustomerWallet[];
@@ -80,6 +83,7 @@ export const PackageForm = ({
   // No 'Other' option and no bundled-constant cold fallback, matching this
   // form's original behavior exactly.
   const { showToast } = useToast();
+  const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
   const confirm = useConfirm();
   const destinations = useHubRoutes({ includeOther: false, coldFallback: false });
   const contentTypes = useContentTypes();
@@ -471,21 +475,54 @@ export const PackageForm = ({
     setExpDesc("");
   };
 
-  const handleMarkDebtPaid = (tx: Transaction) => {
-    // Mirrors DebtorsTab.handleRecordPayment's full-payoff case (amountPaid/
-    // paymentHistory/mode) so a debt marked paid here is also correctly
-    // reflected there, instead of only flipping the package-specific
-    // debtPaid flag DebtorsTab never looks at. debtPaid/debtPaidAt are kept
-    // too, for anything still relying on them.
-    const historyEntry = { amount: tx.amount - (tx.amountPaid || 0), mode: 'Cash' as const, by: user.name || 'Unknown', at: new Date().toISOString() };
-    onAddTx({
-      ...tx,
-      debtPaid: true,
-      debtPaidAt: new Date().toISOString(),
-      amountPaid: tx.amount,
-      paymentHistory: [...(tx.paymentHistory || []), historyEntry],
-      mode: 'Debt Paid',
-    });
+  const handleMarkDebtPaid = async (tx: Transaction) => {
+    if (markingPaidId) return;
+    // Routed through clear_package_debt (the same RPC TransactionLedger's
+    // Clear Debt and DebtorsTab's Confirm already use) instead of a bare
+    // onAddTx upsert -- that upsert bypassed the entry's row lock/balance
+    // re-check entirely and logged a misleading `action: 'CREATE'` audit
+    // entry for what is actually a debt collection. Any staff can still do
+    // this (no role gate), same as the other two entry points -- see
+    // TransactionLedger.tsx's comment on the Clear Debt button for the
+    // maker-checker rationale.
+    const remaining = tx.amount - (tx.amountPaid || 0) - ((tx.raw as any)?.retrieved_amount || 0);
+    if (remaining <= 0) return;
+    setMarkingPaidId(tx.id);
+    try {
+      const result = await clearDebt({
+        type: 'package',
+        id: tx.id,
+        paymentAmount: remaining,
+        paymentMode: 'Cash',
+        loggedBy: user.name || 'Unknown',
+        expectedRemaining: remaining,
+      });
+      if (!result.ok) {
+        showToast({ message: result.error || 'Failed to mark debt paid.', type: 'error' });
+        return;
+      }
+      const historyEntry = { amount: remaining, mode: 'Cash' as const, by: user.name || 'Unknown', at: new Date().toISOString() };
+      const fullyPaid = result.fullyPaid ?? true;
+      onUpdateTx({
+        ...tx,
+        debtPaid: fullyPaid,
+        debtPaidAt: fullyPaid ? new Date().toISOString() : undefined,
+        amountPaid: result.newAmountPaid ?? tx.amount,
+        paymentHistory: [...(tx.paymentHistory || []), historyEntry],
+        mode: fullyPaid ? 'Debt Paid' : 'Debt',
+      });
+      writeAuditLog({
+        user_id: user.id, user_name: user.name || 'Unknown', action: 'DEBT_COLLECTION',
+        table_name: DEBT_TABLE_NAME.package, record_id: tx.id,
+        description: `₦${fmt(remaining)} collected against ${tx.name}'s debt via Cash (fully cleared)`,
+        hub: tx.hub || user.hub, hub_id: tx.hub_id || user.hub_id,
+        old_values: { amount_paid: tx.amountPaid || 0 },
+        new_values: { amount_paid: result.newAmountPaid, mode: 'Cash', amount: remaining },
+      }).catch(() => {});
+      showToast({ message: 'Debt marked paid', type: 'success' });
+    } finally {
+      setMarkingPaidId(null);
+    }
   };
 
   const handleCloseDay = async () => {
@@ -1127,8 +1164,12 @@ export const PackageForm = ({
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-[12px] font-bold font-mono text-orange-400">{fmt(t.amount)}</span>
-                      <button onClick={() => handleMarkDebtPaid(t)} className="text-[9px] font-mono font-bold uppercase px-2 py-1 rounded bg-[rgba(16,185,129,0.1)] text-[var(--color-success)] border border-[rgba(16,185,129,0.25)] cursor-pointer hover:bg-[rgba(16,185,129,0.2)]">
-                        Mark Paid
+                      <button
+                        onClick={() => handleMarkDebtPaid(t)}
+                        disabled={markingPaidId === t.id}
+                        className="text-[9px] font-mono font-bold uppercase px-2 py-1 rounded bg-[rgba(16,185,129,0.1)] text-[var(--color-success)] border border-[rgba(16,185,129,0.25)] cursor-pointer hover:bg-[rgba(16,185,129,0.2)] disabled:opacity-50"
+                      >
+                        {markingPaidId === t.id ? 'Saving…' : 'Mark Paid'}
                       </button>
                     </div>
                   </div>
