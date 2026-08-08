@@ -2423,7 +2423,12 @@ export const TransactionLedger = ({
       <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
 
         {/* ── Top Bar ─────────────────────────────────────── */}
-        <div className="px-4 py-3 border-b border-[var(--color-border)] flex items-center justify-between shrink-0 bg-[var(--color-surface-card)]">
+        {/* Frosted-glass panel (bg-*-glass + backdrop-blur + rounded corners)
+            floating over the app's global film-grain noise overlay
+            (index.css's body::before) -- same recipe already used for
+            ResetPasswordScreen's card, applied here instead of the old
+            flush/flat bg-surface-card + border-b strip. */}
+        <div className="mx-3 mt-3 px-4 py-3 rounded-2xl flex items-center justify-between shrink-0 bg-[var(--color-surface-card-glass)] backdrop-blur-xl border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
           <div className="flex items-center gap-3 min-w-0">
             <BackButton onClick={onBack} label="Back" />
             <div className="min-w-0">
@@ -2493,7 +2498,7 @@ export const TransactionLedger = ({
                   });
                 }
               }}
-              className="h-8 w-8 flex items-center justify-center bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg text-[var(--color-muted)] hover:text-[var(--color-success)] hover:border-[var(--color-success)] transition-colors"
+              className="h-8 w-8 flex items-center justify-center bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl text-[var(--color-muted)] hover:text-[var(--color-success)] hover:border-[var(--color-success)] transition-colors"
             >
               <Download size={13} />
             </button>
@@ -2509,7 +2514,7 @@ export const TransactionLedger = ({
               <button
                 title="Every debt payment and cargo retrieval, one line each"
                 onClick={() => { onBack(); navigate('/more/debt-collection-log'); }}
-                className="h-8 px-2 flex items-center gap-1.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] font-mono text-[10px] font-bold transition-colors cursor-pointer"
+                className="h-8 px-2 flex items-center gap-1.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] font-mono text-[10px] font-bold transition-colors cursor-pointer"
               >
                 <HandCoins size={13} />
                 <span>Debt &amp; Retrievals</span>
@@ -2519,7 +2524,7 @@ export const TransactionLedger = ({
             <button
               title="Print Compact 80mm Ledger Summary"
               onClick={handlePrint80mmLedger}
-              className="h-8 px-2 flex items-center gap-1.5 bg-[rgba(245,158,11,0.12)] border border-[rgba(245,158,11,0.3)] rounded-lg text-[var(--color-accent-amber)] hover:bg-[var(--color-accent-amber)] hover:text-black font-mono text-[10px] font-bold transition-colors cursor-pointer"
+              className="h-8 px-2 flex items-center gap-1.5 bg-[rgba(245,158,11,0.12)] border border-[rgba(245,158,11,0.3)] rounded-xl text-[var(--color-accent-amber)] hover:bg-[var(--color-accent-amber)] hover:text-black font-mono text-[10px] font-bold transition-colors cursor-pointer"
             >
               <Printer size={13} />
               <span>80mm</span>
@@ -2536,7 +2541,7 @@ export const TransactionLedger = ({
                     downloadAirlineManifestExcel(txs, user.hub || 'EHI Hub');
                   });
                 }}
-                className="h-8 px-2 flex items-center gap-1.5 bg-[rgba(59,130,246,0.12)] border border-[rgba(59,130,246,0.3)] rounded-lg text-[var(--color-accent-cobalt)] hover:bg-[var(--color-accent-cobalt)] hover:text-white font-mono text-[10px] font-bold transition-colors cursor-pointer"
+                className="h-8 px-2 flex items-center gap-1.5 bg-[rgba(59,130,246,0.12)] border border-[rgba(59,130,246,0.3)] rounded-xl text-[var(--color-accent-cobalt)] hover:bg-[var(--color-accent-cobalt)] hover:text-white font-mono text-[10px] font-bold transition-colors cursor-pointer"
               >
                 <Plane size={13} />
                 <span>Airline Excel</span>
@@ -2547,7 +2552,7 @@ export const TransactionLedger = ({
               <button
                 title={showPrintHistory ? 'Close Print Logs' : 'Print Logs'}
                 onClick={() => setShowPrintHistory(!showPrintHistory)}
-                className={`h-8 w-8 flex items-center justify-center border rounded-lg transition-colors ${
+                className={`h-8 w-8 flex items-center justify-center border rounded-xl transition-colors ${
                   showPrintHistory
                     ? 'bg-[var(--color-accent-amber)] border-[var(--color-accent-amber)] text-black'
                     : 'bg-[var(--color-surface-1)] border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)]'
@@ -2839,7 +2844,9 @@ export const TransactionLedger = ({
             )}
 
             {/* ── Filter Strip ─────────────────────────────────── */}
-            <div className="px-4 py-3 border-b border-[var(--color-border)] space-y-2.5 shrink-0 bg-[var(--color-surface-card)]">
+            {/* Same frosted-glass treatment as the Top Bar above -- see its
+                comment. */}
+            <div className="mx-3 mt-2.5 px-4 py-3 rounded-2xl space-y-2.5 shrink-0 bg-[var(--color-surface-card-glass)] backdrop-blur-xl border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
               {/* Row 1: Search + Shift Scope */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
                 <div className="w-full sm:flex-1 relative group">
@@ -2926,7 +2933,7 @@ export const TransactionLedger = ({
               <div className="flex items-center gap-2 flex-wrap">
                 {/* Date range */}
                 {dateRange && onDateRangeChange && (
-                  <div className="flex items-center gap-2 h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-lg font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
+                  <div className="flex items-center gap-2 h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-xl font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
                     <Calendar size={11} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
                     <input
                       id="ledger-date-start"
@@ -2949,7 +2956,7 @@ export const TransactionLedger = ({
                 )}
 
                 {/* Type filter */}
-                <div className="relative flex items-center h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-lg font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
+                <div className="relative flex items-center h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-xl font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
                   <Filter size={10} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] mr-2 shrink-0 transition-colors" />
                   <select
                     value={typeFilter}
@@ -2968,7 +2975,7 @@ export const TransactionLedger = ({
                 </div>
 
                 {/* Mode filter */}
-                <div className="relative flex items-center h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-lg font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
+                <div className="relative flex items-center h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-xl font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
                   <HandCoins size={10} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] mr-2 shrink-0 transition-colors" />
                   <select
                     value={modeFilter}
@@ -2992,7 +2999,7 @@ export const TransactionLedger = ({
 
                 {/* Terminal filter */}
                 {(userHubCode === 'LOS' || hasGat) && (
-                  <div className="flex items-center gap-1.5 h-8 p-1 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg font-mono text-[10px]">
+                  <div className="flex items-center gap-1.5 h-8 p-1 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl font-mono text-[10px]">
                     {(['All', 'MMA2', 'GAT'] as const).map((t) => (
                       <button
                         key={t}
@@ -3010,7 +3017,7 @@ export const TransactionLedger = ({
                 )}
 
                 {/* Time filter */}
-                <div className="relative flex items-center h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-lg font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
+                <div className="relative flex items-center h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-xl font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
                   <Clock size={10} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] mr-2 shrink-0 transition-colors" />
                   <select
                     value={timeFilter}
@@ -3028,7 +3035,7 @@ export const TransactionLedger = ({
 
                 {/* Custom Time range */}
                 {timeFilter === "Custom" && (
-                  <div className="flex items-center gap-1.5 h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-lg font-mono text-[10px] text-[var(--color-foreground)] transition-colors">
+                  <div className="flex items-center gap-1.5 h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-xl font-mono text-[10px] text-[var(--color-foreground)] transition-colors">
                     <input
                       id="ledger-time-start"
                       name="time-start"
