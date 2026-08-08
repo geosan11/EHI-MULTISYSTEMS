@@ -5,6 +5,7 @@ import { fmt } from '../../lib/helpers';
 import { ChevronDown, ChevronUp, Printer, Plus, HandCoins } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '../../lib/ToastContext';
+import { useConfirm } from '../../lib/ConfirmContext';
 import { clearDebt, DEBT_TABLE_NAME, DebtEntryType } from '../../lib/debt';
 import { supabase, writeAuditLog } from '../../lib/supabase';
 import { useHubNames } from '../../lib/hubRoutes';
@@ -21,6 +22,7 @@ export const DebtorsTab = ({
   onUpdateTx?: (tx: Transaction) => void;
 }) => {
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const banks = useBanks();
   // hub_id -> name, for the DEBT_COLLECTION audit log's `hub` field below --
   // (debt as any).hub is unreliable (see useHubNames' own comment), so this
@@ -38,6 +40,16 @@ export const DebtorsTab = ({
 
   const [statementPrint, setStatementPrint] = useState<Transaction | null>(null);
   const [submittingPaymentId, setSubmittingPaymentId] = useState<string | null>(null);
+
+  // Bulk clear -- Office Work (B2B) only (see handleBulkClear's own
+  // comment on why). Selection is dropped on any filter change so leaving
+  // the Corporate tab can't leave a stale selection armed underneath a
+  // different filter.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkClearing, setBulkClearing] = useState(false);
+  const [bulkMode, setBulkMode] = useState<'Cash' | 'Transfer' | 'POS'>('Cash');
+  const [bulkBank, setBulkBank] = useState('');
+  useEffect(() => { setSelectedIds(new Set()); }, [filter]);
 
   // This screen only ever received the `transactions` prop, which
   // EHIApp.tsx's fetchInitial windows to `globalDateRange` (defaults to
@@ -185,6 +197,78 @@ export const DebtorsTab = ({
     }
   };
 
+  // Shared by handleRecordPayment (one debt) and handleBulkClear (many at
+  // once) -- applies a successful clearDebt() result to local state and
+  // writes its audit trail entry. Extracted so bulk-clear doesn't carry its
+  // own second copy of this that could drift from the single-debt path.
+  // Returns the amount still owed after this payment.
+  const applyClearResult = (
+    debt: (typeof debts)[number],
+    cappedPaid: number,
+    mode: 'Cash' | 'Transfer' | 'POS',
+    result: Awaited<ReturnType<typeof clearDebt>>
+  ): number => {
+    const remaining = debt.balance - cappedPaid;
+
+    // Optimistically update the original transaction in global state
+    let updatedTx: Transaction | null = null;
+    if (onUpdateTx) {
+      const stillOwed = result.remainingBalance ?? remaining;
+      const fullyPaid = result.fullyPaid ?? (stillOwed <= 0);
+      const historyEntry = {
+        amount: cappedPaid,
+        mode,
+        by: user?.name || 'Unknown',
+        at: new Date().toISOString()
+      };
+      updatedTx = {
+        ...debt,
+        amountPaid: result.newAmountPaid ?? ((debt.amountPaid || 0) + cappedPaid),
+        paymentHistory: [...(debt.paymentHistory || []), historyEntry],
+        mode: fullyPaid ? 'Debt Paid' : 'Debt',
+        paymentConfirmed: fullyPaid,
+        confirmedBy: fullyPaid ? (user?.name || 'Unknown') : debt.confirmedBy,
+        confirmedAt: fullyPaid ? new Date().toISOString() : debt.confirmedAt,
+        ...(debt.type === 'package' && fullyPaid ? {
+          debtPaid: true,
+          debtPaidAt: new Date().toISOString()
+        } : {})
+      };
+      onUpdateTx(updatedTx);
+    }
+    // handleUpdateTx's setTransactions(prev => prev.map(...)) in
+    // EHIApp.tsx is a no-op for any debt whose id isn't already in the
+    // `transactions` prop -- true for most aged debts, since this screen's
+    // whole reason for a separate `fetchedDebts` fetch (see the effect
+    // above) is that they fall outside the app's default 7-day
+    // globalDateRange window. Updating fetchedDebts directly here
+    // guarantees `debts` (and therefore `visibleDebts`) recomputes and
+    // drops/adjusts this debt immediately, regardless of whether EHIApp's
+    // own transactions array had it.
+    if (updatedTx) {
+      const finalTx = updatedTx;
+      setFetchedDebts(prev => prev.map(d => d.id === debt.id ? { ...d, ...finalTx } : d));
+    }
+
+    // Record this collection in the audit trail -- see src/lib/debt.ts's
+    // own comment on why this reads straight off the original entry's
+    // payment_history instead of a second synthetic "DC-..." row.
+    // hubNames resolves the debt's real hub_id to its real name (debt.hub
+    // is unreliable) so a super_admin clearing a sibling branch's debt
+    // still attributes it correctly.
+    writeAuditLog({
+      user_id: user?.id, user_name: user?.name || 'Unknown', action: 'DEBT_COLLECTION',
+      table_name: DEBT_TABLE_NAME[(debt as any).type as DebtEntryType], record_id: debt.id,
+      description: `₦${fmt(cappedPaid)} collected against ${debt.name}'s debt via ${mode}${remaining > 0 ? ` (₦${fmt(remaining)} still owed)` : ' (fully cleared)'}`,
+      hub: hubNames[(debt as any).hub_id] || (debt as any).hub || user?.hub,
+      hub_id: (debt as any).hub_id || user?.hub_id,
+      old_values: { amount_paid: debt.amountPaid || 0 },
+      new_values: { amount_paid: result.newAmountPaid, mode, amount: cappedPaid },
+    }).catch(() => {});
+
+    return remaining;
+  };
+
   const handleRecordPayment = async (id: string) => {
     // Synchronous, first line -- this Confirm button previously had zero
     // double-submit protection (unlike every other submit path in the
@@ -211,9 +295,8 @@ export const DebtorsTab = ({
     setSubmittingPaymentId(id);
     try {
       const cappedPaid = Math.min(paidNow, debt.balance);
-      const remaining = debt.balance - cappedPaid;
 
-      // 1. Update the original debt entry via clear_*_debt (see
+      // Update the original debt entry via clear_*_debt (see
       // src/lib/debt.ts) instead of the generic onUpdateTx path -- that
       // path's plain UPDATE is hub-locked and silently affects 0 rows (no
       // error) when the debtor belongs to a sibling hub the agent can see
@@ -236,72 +319,7 @@ export const DebtorsTab = ({
         return;
       }
 
-      // Optimistically update the original transaction in global state
-      let updatedTx: Transaction | null = null;
-      if (onUpdateTx) {
-        const stillOwed = result.remainingBalance ?? remaining;
-        const fullyPaid = result.fullyPaid ?? (stillOwed <= 0);
-        const historyEntry = {
-          amount: cappedPaid,
-          mode: paymentMode,
-          by: user?.name || 'Unknown',
-          at: new Date().toISOString()
-        };
-        updatedTx = {
-          ...debt,
-          amountPaid: result.newAmountPaid ?? ((debt.amountPaid || 0) + cappedPaid),
-          paymentHistory: [...(debt.paymentHistory || []), historyEntry],
-          mode: fullyPaid ? 'Debt Paid' : 'Debt',
-          paymentConfirmed: fullyPaid,
-          confirmedBy: fullyPaid ? (user?.name || 'Unknown') : debt.confirmedBy,
-          confirmedAt: fullyPaid ? new Date().toISOString() : debt.confirmedAt,
-          ...(debt.type === 'package' && fullyPaid ? {
-            debtPaid: true,
-            debtPaidAt: new Date().toISOString()
-          } : {})
-        };
-        onUpdateTx(updatedTx);
-      }
-      // handleUpdateTx's setTransactions(prev => prev.map(...)) in
-      // EHIApp.tsx is a no-op for any debt whose id isn't already in the
-      // `transactions` prop -- true for most aged debts, since this
-      // screen's whole reason for a separate `fetchedDebts` fetch (see the
-      // effect above) is that they fall outside the app's default 7-day
-      // globalDateRange window. Without this, the payment succeeds in the
-      // database but this screen keeps showing the debt as still owed
-      // until a full page reload re-runs that mount-once fetch. Updating
-      // fetchedDebts directly here guarantees `debts` (and therefore
-      // `visibleDebts`) recomputes and drops/adjusts this debt immediately,
-      // regardless of whether EHIApp's own transactions array had it.
-      if (updatedTx) {
-        const finalTx = updatedTx;
-        setFetchedDebts(prev => prev.map(d => d.id === id ? { ...d, ...finalTx } : d));
-      }
-
-      // 2. Record this collection in the audit trail. Previously this spot
-      //    inserted a visible "DC-..." shadow transaction into the same
-      //    department table as the original sale, so today's ledger/EOD
-      //    could see where the cash came from -- but that meant one
-      //    physical payment showed as two rows in the ledger (the original
-      //    sale, now "Debt Paid", plus a synthetic second "sale"), which is
-      //    exactly the double-entry confusion staff/accountants flagged.
-      //    EOD/Analytics/Reports/AccountingConsole now derive "collected
-      //    today" straight from the payment_history entry just appended to
-      //    the ORIGINAL entry above (see src/lib/debt.ts), so no second row
-      //    is needed here -- the Debt Collection & Retrieval Log view reads
-      //    the same payment_history for its own display. hubNames resolves
-      //    the debt's real hub_id to its real name (debt.hub is unreliable
-      //    -- see the historical comment this replaced) so a super_admin
-      //    clearing a sibling branch's debt still attributes it correctly.
-      writeAuditLog({
-        user_id: user?.id, user_name: user?.name || 'Unknown', action: 'DEBT_COLLECTION',
-        table_name: DEBT_TABLE_NAME[(debt as any).type as DebtEntryType], record_id: id,
-        description: `₦${fmt(cappedPaid)} collected against ${debt.name}'s debt via ${paymentMode}${remaining > 0 ? ` (₦${fmt(remaining)} still owed)` : ' (fully cleared)'}`,
-        hub: hubNames[(debt as any).hub_id] || (debt as any).hub || user?.hub,
-        hub_id: (debt as any).hub_id || user?.hub_id,
-        old_values: { amount_paid: debt.amountPaid || 0 },
-        new_values: { amount_paid: result.newAmountPaid, mode: paymentMode, amount: cappedPaid },
-      }).catch(() => {});
+      const remaining = applyClearResult(debt, cappedPaid, paymentMode, result);
 
       setShowPaymentForm(null);
       setPaymentAmount('');
@@ -311,6 +329,73 @@ export const DebtorsTab = ({
       // unexpectedly -- without this, an unhandled exception left the
       // Confirm button permanently disabled for this debtor until reload.
       setSubmittingPaymentId(null);
+    }
+  };
+
+  // Bulk-clears every currently-selected Office Work (B2B) debt for its
+  // full remaining balance in one action -- a corporate client settling
+  // several outstanding shipments in one payment previously meant clicking
+  // Confirm separately on every row. Deliberately scoped to the Corporate
+  // filter only (selectedIds is reset on any filter change, see its own
+  // state comment) -- bulk-clearing a mix of unrelated individual
+  // customers carries more accidental-mass-clear risk than this narrower
+  // office-client case.
+  const handleBulkClear = async () => {
+    if (bulkClearing || selectedIds.size === 0) return;
+    if (bulkMode === 'Transfer' && !bulkBank.trim()) {
+      showToast({ message: 'Select the bank for this transfer payment.', type: 'warning' });
+      return;
+    }
+    const selected = visibleDebts.filter(d => selectedIds.has(d.id));
+    const total = selected.reduce((sum, d) => sum + d.balance, 0);
+    const ok = await confirm({
+      title: 'Clear selected debts?',
+      message: `This clears ${selected.length} office-work debt${selected.length === 1 ? '' : 's'} totalling ₦${fmt(total)} via ${bulkMode}. This cannot be undone.`,
+      confirmLabel: `Clear ${selected.length} Debt${selected.length === 1 ? '' : 's'}`,
+      tone: 'danger',
+    });
+    if (!ok) return;
+
+    setBulkClearing(true);
+    try {
+      // Parallel dispatch -- same pattern TransactionLedger.tsx's
+      // selectAllCash already uses for bulk actions. Each clearDebt() call
+      // is independently row-locked and expectedRemaining-guarded, and
+      // clear_*_debt's `accumulated_monthly_debt = accumulated_monthly_debt
+      // - x` update is a single atomic UPDATE, so two selected debts
+      // belonging to the same corporate client are safe to clear
+      // concurrently -- Postgres serializes same-row updates on its own.
+      const results = await Promise.all(selected.map(async (debt) => {
+        const result = await clearDebt({
+          type: (debt as any).type,
+          id: debt.id,
+          paymentAmount: debt.balance,
+          paymentMode: bulkMode,
+          bank: bulkMode === 'Transfer' ? bulkBank : undefined,
+          loggedBy: user?.name || 'Unknown',
+          expectedRemaining: debt.balance,
+        });
+        return { debt, result };
+      }));
+
+      let cleared = 0;
+      let clearedTotal = 0;
+      let failed = 0;
+      results.forEach(({ debt, result }) => {
+        if (!result.ok) { failed++; return; }
+        applyClearResult(debt, debt.balance, bulkMode, result);
+        cleared++;
+        clearedTotal += debt.balance;
+      });
+
+      setSelectedIds(new Set());
+      if (failed === 0) {
+        showToast({ message: `${cleared} debt${cleared === 1 ? '' : 's'} cleared (₦${fmt(clearedTotal)}).`, type: 'success' });
+      } else {
+        showToast({ message: `${cleared} of ${selected.length} debts cleared (₦${fmt(clearedTotal)}). ${failed} failed -- their balances may have changed, refresh and retry.`, type: 'warning' });
+      }
+    } finally {
+      setBulkClearing(false);
     }
   };
 
@@ -456,6 +541,55 @@ export const DebtorsTab = ({
         </select>
       </div>
 
+      {/* BULK CLEAR BAR -- Office Work (B2B) only, see handleBulkClear's comment */}
+      {filter === 'Corporate' && visibleDebts.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-3">
+          <label className="flex items-center gap-2 text-[12px] font-sans font-semibold text-[var(--color-foreground)] cursor-pointer select-none shrink-0">
+            <input
+              type="checkbox"
+              checked={selectedIds.size > 0 && selectedIds.size === visibleDebts.length}
+              onChange={(e) => setSelectedIds(e.target.checked ? new Set(visibleDebts.map(d => d.id)) : new Set())}
+              className="w-4 h-4 cursor-pointer"
+            />
+            Select All ({visibleDebts.length})
+          </label>
+
+          {selectedIds.size > 0 && (
+            <div className="flex flex-1 flex-wrap items-center gap-2">
+              <span className="text-[12px] font-mono font-bold text-[var(--color-foreground)]">
+                {selectedIds.size} selected · ₦{fmt(visibleDebts.filter(d => selectedIds.has(d.id)).reduce((s, d) => s + d.balance, 0))}
+              </span>
+              <select
+                value={bulkMode}
+                onChange={e => setBulkMode(e.target.value as any)}
+                className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg px-2.5 py-1.5 text-[12px] font-sans text-[var(--color-foreground)] focus:outline-none"
+              >
+                <option value="Cash">Cash</option>
+                <option value="Transfer">Transfer</option>
+                <option value="POS">POS</option>
+              </select>
+              {bulkMode === 'Transfer' && (
+                <select
+                  value={bulkBank}
+                  onChange={e => setBulkBank(e.target.value)}
+                  className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg px-2.5 py-1.5 text-[12px] font-sans text-[var(--color-foreground)] focus:outline-none"
+                >
+                  <option value="">Select Bank</option>
+                  {banks.map((b) => <option key={b} value={b}>{b}</option>)}
+                </select>
+              )}
+              <button
+                onClick={handleBulkClear}
+                disabled={bulkClearing || (bulkMode === 'Transfer' && !bulkBank.trim())}
+                className="bg-[var(--color-success)] text-[#0B0F19] px-4 py-1.5 rounded-lg text-[12px] font-sans font-bold hover:bg-opacity-90 transition-opacity focus:outline-none disabled:opacity-50 ml-auto"
+              >
+                {bulkClearing ? 'Clearing...' : `Clear ${selectedIds.size} Debt${selectedIds.size === 1 ? '' : 's'}`}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* DEBT LIST */}
       {visibleDebts.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-8 py-16 text-center bg-[var(--color-surface-card)] rounded-xl border border-dashed border-[var(--color-surface-2)]">
@@ -478,10 +612,25 @@ export const DebtorsTab = ({
                   className="bg-[var(--color-surface-card)] rounded-xl border border-[var(--color-border)] overflow-hidden"
                 >
                   {/* COLLAPSED ROW */}
-                  <div 
+                  <div
                     onClick={() => setExpandedId(isExpanded ? null : d.id)}
                     className="p-4 flex items-center justify-between cursor-pointer hover:bg-[rgba(255,255,255,0.02)] transition-colors"
                   >
+                    {filter === 'Corporate' && (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(d.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          setSelectedIds(prev => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(d.id); else next.delete(d.id);
+                            return next;
+                          });
+                        }}
+                        className="w-4 h-4 mr-3 shrink-0 cursor-pointer"
+                      />
+                    )}
                     <div className="flex-1 min-w-0 pr-4">
                       <div className="flex items-center space-x-2 mb-1">
                         <div className={`w-2 h-2 rounded-full shrink-0 ${getBucketDot(d.agingBucket)}`} />
