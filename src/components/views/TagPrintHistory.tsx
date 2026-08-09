@@ -81,8 +81,8 @@ export default function TagPrintHistory({ user }: { user: User }) {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="h-full flex flex-col gap-6 min-h-0">
+      <div className="shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-sans font-bold text-[var(--color-foreground)] flex items-center gap-2">
             <Printer size={20} className="text-[var(--color-accent-amber)]" />
@@ -115,8 +115,8 @@ export default function TagPrintHistory({ user }: { user: User }) {
         </div>
       </div>
 
-      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
+        <div className="flex-1 overflow-auto">
           <table className="w-full min-w-[760px] text-left border-collapse">
             <thead>
               <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface-2)]">
