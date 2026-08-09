@@ -48,21 +48,21 @@
 }
 
 /* Smooth View Transitions API animations for Dark / Light theme toggle --
-   deliberately slower than .page-transition below (2.4s vs 2s) so a theme
+   deliberately slower than .page-transition below (1.5s vs 1s) so a theme
    switch reads as a distinct, unhurried settle rather than a quick flash,
    giving the eyes time to adjust to the new light/dark palette. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: 2.4s;
+  animation-duration: 1.5s;
   animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 ::view-transition-old(root) {
-  animation: fade-out-theme 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: fade-out-theme 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 ::view-transition-new(root) {
-  animation: fade-in-theme 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: fade-in-theme 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 @keyframes fade-out-theme {
@@ -894,11 +894,11 @@ input[type="date"] {
      page). will-change is removed for the same reason -- it forces the
      same containing-block behavior even with no transform ever applied. */
   /* Slowed from 0.32s and switched off the fast expo-out curve (which
-     would front-load all motion into the first ~500-800ms and then sit
-     idle) to an evenly-paced ease so the full 2s reads as one continuous,
-     subtle settle instead of a snap -- deliberately gentle so switching
-     tabs doesn't hit the eye with a sudden change. */
-  animation: page-slide-in 2s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+     would front-load all motion into the first fraction of a second and
+     then sit idle) to an evenly-paced ease so the full duration reads as
+     one continuous, subtle settle instead of a snap -- deliberately
+     gentle so switching tabs doesn't hit the eye with a sudden change. */
+  animation: page-slide-in 1s cubic-bezier(0.4, 0, 0.2, 1) backwards;
 }
 
 /* ─── Spring-Physics Modal / Popup Animations ───────────────────────────── */
