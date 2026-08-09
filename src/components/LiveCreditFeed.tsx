@@ -36,12 +36,13 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
   const activeWalletsCount = wallets.filter((w) => (w.balance || 0) > 0).length;
 
   const searchLower = (searchQuery || '').trim().toLowerCase();
-  const displayedWallets = searchLower
-    ? wallets.filter((w) =>
-        (w.customer_name || '').toLowerCase().includes(searchLower) ||
-        (w.customer_phone || '').includes(searchLower)
-      )
-    : wallets;
+  const displayedWallets = wallets
+    .filter((w) => (w.balance || 0) > 0)
+    .filter((w) =>
+      !searchLower ||
+      (w.customer_name || '').toLowerCase().includes(searchLower) ||
+      (w.customer_phone || '').includes(searchLower)
+    );
 
   // Extract recent retrieval and wallet deduction activities from transactions
   const walletActivities = transactions
