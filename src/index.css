@@ -740,6 +740,17 @@ main {
   flex-direction: column;
 }
 
+@media (min-width: 768px) {
+  .ehi-main-content {
+    /* .ehi-sidenav is position:fixed (floats above the page instead of
+       sitting in normal flex flow) -- this reserves matching space so
+       content never renders underneath it. Set on :root by SideNav.tsx,
+       kept in sync with whatever width it's currently rendering at. */
+    padding-left: var(--sidenav-offset, 240px);
+    transition: padding-left 0.3s cubic-bezier(0.2, 0, 0, 1);
+  }
+}
+
 .ehi-card,
 .ehi-input,
 .ehi-sidenav {

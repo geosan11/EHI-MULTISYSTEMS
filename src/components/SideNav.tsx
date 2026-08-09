@@ -78,6 +78,16 @@ export const SideNav = ({
     localStorage.setItem("ehi_sidebar_expanded", String(nextState));
   };
 
+  // The nav is position:fixed (floats above the page instead of sitting in
+  // normal flex flow), so .ehi-main-content can no longer rely on flexbox
+  // to make room for it -- it reads this CSS var (set on the root so no
+  // prop-drilling into EHIApp is needed) to reserve matching space, kept in
+  // sync with the same width this component renders at.
+  useEffect(() => {
+    const width = isExpanded ? 220 : 72;
+    document.documentElement.style.setProperty("--sidenav-offset", `${width + 20}px`);
+  }, [isExpanded]);
+
   // getAllowedTabs is the single source of truth for which ids this user
   // can see -- their super-admin-set view_overrides if present, else the
   // normal role-derived default (src/lib/permissions.ts). This component
@@ -115,7 +125,10 @@ export const SideNav = ({
         display: "flex",
         flexDirection: "column",
         width: isExpanded ? 220 : 72,
-        margin: "10px 0 10px 10px",
+        position: "fixed",
+        top: 10,
+        left: 10,
+        zIndex: 30,
         background: "var(--color-surface-card)",
         border: "1px solid var(--color-border)",
         borderRadius: "var(--radius-2xl)",
