@@ -4010,7 +4010,7 @@ export const TransactionLedger = ({
                             </button>
                             <button
                               onClick={() => handleReprintTagPDF()}
-                              className="py-2 px-3 flex items-center justify-center gap-1.5 bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)] text-[var(--color-foreground)] rounded-full transition-all duration-200 border border-[var(--color-border)] text-[11px] font-semibold shadow-[0_2px_6px_rgba(0,0,0,0.08),0_0_18px_var(--glow-amber)] hover:shadow-[0_4px_14px_rgba(0,0,0,0.12),0_0_28px_var(--glow-amber)] hover:-translate-y-0.5"
+                              className="py-2 px-3 flex items-center justify-center gap-1.5 bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)] text-[var(--color-foreground)] rounded-full transition-all duration-200 whitespace-nowrap border border-[rgba(217,119,6,0.45)] text-[11px] font-semibold shadow-[0_0_0_1px_rgba(217,119,6,0.2),0_3px_10px_rgba(0,0,0,0.18),0_0_28px_rgba(217,119,6,0.55)] hover:shadow-[0_0_0_1px_rgba(217,119,6,0.35),0_5px_16px_rgba(0,0,0,0.22),0_0_40px_rgba(217,119,6,0.8)] hover:-translate-y-0.5"
                               title="Open 100×80mm PDF tag"
                             >
                               <Printer size={13} /> Tag PDF
@@ -4021,7 +4021,7 @@ export const TransactionLedger = ({
                         {(viewingDetail.raw.type === 'cargo' || viewingDetail.raw.type === 'baggage' || viewingDetail.raw.type === 'package') && (
                           <button
                             onClick={() => handleReprintReceiptPDF()}
-                            className="py-2 px-3 flex items-center justify-center gap-1.5 bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)] text-[var(--color-foreground)] rounded-full transition-all duration-200 border border-[var(--color-border)] text-[11px] font-semibold shadow-[0_2px_6px_rgba(0,0,0,0.08),0_0_18px_var(--glow-amber)] hover:shadow-[0_4px_14px_rgba(0,0,0,0.12),0_0_28px_var(--glow-amber)] hover:-translate-y-0.5 col-span-2 sm:col-span-1"
+                            className="py-2 px-3 flex items-center justify-center gap-1.5 bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)] text-[var(--color-foreground)] rounded-full transition-all duration-200 whitespace-nowrap border border-[rgba(217,119,6,0.45)] text-[11px] font-semibold shadow-[0_0_0_1px_rgba(217,119,6,0.2),0_3px_10px_rgba(0,0,0,0.18),0_0_28px_rgba(217,119,6,0.55)] hover:shadow-[0_0_0_1px_rgba(217,119,6,0.35),0_5px_16px_rgba(0,0,0,0.22),0_0_40px_rgba(217,119,6,0.8)] hover:-translate-y-0.5 col-span-2 sm:col-span-1"
                             title="Open PDF receipt for viewing or printing"
                           >
                             <Printer size={13} /> PDF Receipt
