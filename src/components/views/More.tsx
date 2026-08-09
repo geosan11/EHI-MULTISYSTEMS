@@ -30,7 +30,7 @@ import { CustomerWallets } from './CustomerWallets';
 import { GatPrintQueue } from './GatPrintQueue';
 import { DebtCollectionRetrievalLog } from './DebtCollectionRetrievalLog';
 
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { User, TabView, Transaction, Expense, ExcessBaggageAirline, HubShift, CustomerWallet } from '../../lib/types';
 import { fmt } from '../../lib/helpers';
@@ -134,6 +134,17 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
   // cleared shortly after so a later, unrelated visit to More (e.g.
   // switching tabs away and back) gets the normal entrance again.
   const [revealFromBack, setRevealFromBack] = useState(false);
+  // BrowserRouter defers navigate()'s effect on location (and therefore
+  // activeSub, derived from it) via React.startTransition -- it does NOT
+  // land in the same commit as sibling setState calls issued in the same
+  // synchronous callback, even ones scheduled together in a setTimeout.
+  // Setting revealFromBack directly alongside navigate() raced that
+  // deferred commit and was sometimes already stale by the time the menu
+  // actually appeared. This ref just remembers "a close is in flight";
+  // the effect below only flips revealFromBack once React has actually
+  // committed the render where activeSub became null, so it's ordered
+  // against the real transition instead of guessing at its timing.
+  const wasClosingRef = useRef(false);
 
   const closeSub = useCallback(() => {
     const prefersReducedMotion = typeof window !== 'undefined'
@@ -143,12 +154,19 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
       return;
     }
     setClosingSubKey(activeSub);
+    wasClosingRef.current = true;
     setTimeout(() => {
       navigate('/more');
       setClosingSubKey(null);
-      setRevealFromBack(true);
     }, 500);
   }, [navigate, activeSub]);
+
+  useEffect(() => {
+    if (activeSub === null && wasClosingRef.current) {
+      wasClosingRef.current = false;
+      setRevealFromBack(true);
+    }
+  }, [activeSub]);
 
   useEffect(() => {
     if (!revealFromBack) return;
