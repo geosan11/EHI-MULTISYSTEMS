@@ -13,7 +13,7 @@ import { useExpenseCategories } from "../../lib/expenseCategories";
 import { useBanks } from "../../lib/banks";
 import {  MIN_PACKAGE_AMOUNT , CARGO_ROUTES } from "../../lib/constants";
 import { getNextTag } from "../../lib/tagPool";
-import { Plus, CheckCircle, Loader2, ClipboardList, BarChart2, Printer, MessageSquare, Bluetooth, Copy, AlertTriangle } from "lucide-react";
+import { Plus, CheckCircle, Loader2, ClipboardList, BarChart2, Printer, MessageSquare, Bluetooth, Copy, AlertTriangle, User as UserIcon, Banknote, CreditCard, Landmark, MapPin, Layers, Hash, Package as PackageIcon } from "lucide-react";
 import { supabase, writeAuditLog } from "../../lib/supabase";
 import { clearDebt, DEBT_TABLE_NAME } from "../../lib/debt";
 import { sendReceiptWhatsApp, buildPackageWhatsApp } from "../../lib/notifications";
@@ -565,6 +565,25 @@ export const PackageForm = ({
 
   const focusClasses = "focus:outline-none focus:ring-2 focus:ring-[rgba(59,130,246,0.5)] focus:border-[rgba(59,130,246,0.5)] transition-colors";
 
+  // Mirrors CargoForm.tsx's formInputClass/renderLabel pattern (bigger,
+  // labeled fields instead of placeholder-only ghost text) but keeps
+  // Package's own cobalt focus color instead of Cargo's amber, so this
+  // desk stays visually distinct from Cargo's.
+  const formInputClass =
+    "w-full h-12 px-4 text-[16px] rounded-[var(--radius-sm)] bg-[var(--color-input-bg)] text-[var(--color-input-text)] border border-[var(--color-border)] font-sans focus:outline-none focus:border-[rgba(59,130,246,0.5)] focus:ring-2 focus:ring-[rgba(59,130,246,0.3)] transition-all";
+
+  const renderLabel = (icon: any, text: string) => {
+    const Icon = icon;
+    return (
+      <div className="flex items-center space-x-1.5 mb-1.5">
+        <Icon size={14} style={{ color: "var(--color-light-muted)" }} />
+        <label className="text-[13px] font-sans font-semibold text-[var(--color-light-muted)]">
+          {text}
+        </label>
+      </div>
+    );
+  };
+
   const formRootRef = useRef<HTMLDivElement>(null);
   useEnterToNextField(formRootRef);
 
@@ -587,11 +606,11 @@ export const PackageForm = ({
         <div>{new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</div>
         <div className="flex items-center gap-3">
           {userHubCode === 'LOS' && !forcedTerminal && <TerminalSwitch value={terminal} onChange={setTerminal} />}
-          <button onClick={() => setShowSalesAnalysis(true)} className="flex items-center gap-1.5 px-3 py-1.5 border border-[var(--color-border)] rounded-lg text-[11px] font-mono text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] transition-colors normal-case tracking-normal">
+          <button onClick={() => setShowSalesAnalysis(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-surface-2)] border border-[var(--color-border-strong)] rounded-lg text-[11px] font-mono font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-surface-3)] hover:border-[var(--color-accent-amber)] hover:text-[var(--color-accent-amber)] transition-colors shadow-[var(--shadow-xs)] normal-case tracking-normal">
             <BarChart2 size={14} /> <span>Sales Analysis</span>
           </button>
           {onShowHistory && (
-            <button onClick={onShowHistory} className="flex items-center gap-1.5 px-3 py-1.5 border border-[var(--color-border)] rounded-lg text-[11px] font-mono text-[var(--color-muted)] hover:text-[var(--color-accent-cobalt)] hover:border-[var(--color-accent-cobalt)] transition-colors normal-case tracking-normal">
+            <button onClick={onShowHistory} className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-surface-2)] border border-[var(--color-border-strong)] rounded-lg text-[11px] font-mono font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-surface-3)] hover:border-[var(--color-accent-amber)] hover:text-[var(--color-accent-amber)] transition-colors shadow-[var(--shadow-xs)] normal-case tracking-normal">
               <ClipboardList size={14} /> <span>History</span>
             </button>
           )}
@@ -852,23 +871,27 @@ export const PackageForm = ({
               </div>
 
               <div className="space-y-3">
-                <div className="flex items-center justify-between px-3 h-9 rounded bg-[var(--color-surface-1)] border border-[rgba(59,130,246,0.2)]">
-                  <span className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Tracking Ref</span>
-                  <span className="text-[11px] font-mono text-[var(--color-accent-cobalt)] font-bold">{trackingRef || 'Allocating...'}</span>
+                <div>
+                  {renderLabel(Hash, "Tracking Ref (Auto-generated)")}
+                  <div className={`${formInputClass} flex items-center justify-between cursor-default`}>
+                    <span className="text-[var(--color-muted)]">{trackingRef ? 'Assigned' : 'Allocating…'}</span>
+                    <span className="text-[var(--color-accent-cobalt)] font-bold font-mono">{trackingRef || '—'}</span>
+                  </div>
                 </div>
 
                 {mode !== "Debt" && (
                   <>
+                    {renderLabel(UserIcon, "Customer")}
                     <input
                       id="pkg-name"
                       name="name"
                       placeholder="Customer Name"
                       value={name}
                       onChange={upperOnChange(setName)}
-                      className={`w-full h-11 px-3 text-sm rounded bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-foreground)] font-sans ${focusClasses}`}
+                      className={formInputClass}
                     />
                     <div className="relative">
-                      <MessageSquare size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
+                      <MessageSquare size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
                       <input
                         id="pkg-phone"
                         name="phone"
@@ -876,7 +899,7 @@ export const PackageForm = ({
                         placeholder="Phone (required)"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
-                        className={`w-full h-11 pl-9 pr-3 text-sm rounded bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-foreground)] font-sans ${focusClasses}`}
+                        className={`${formInputClass} pl-10`}
                       />
                     </div>
                   </>
@@ -942,61 +965,74 @@ export const PackageForm = ({
                 )}
 
                 <div className="flex space-x-3">
-                  <select
-                    value={destination}
-                    onChange={(e) => {
-                      setDestination(e.target.value);
-                      // While linked as office work, the amount is driven by
-                      // officeWorkRate, which is keyed on destination (route)
-                      // -- without clearing it here, switching to a
-                      // destination with no configured contract rate left
-                      // the OLD route's computed price sitting in `amount`
-                      // rather than falling back to manual/no-rate handling.
-                      if (linkedAsOfficeWork) setAmount('');
-                    }}
-                    className={`flex-1 h-11 px-3 text-[13px] rounded bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-foreground)] font-sans min-w-0 ${focusClasses}`}
-                  >
-                    <option value="" disabled>-- Select Destination --</option>
-                    {destinations.map((d) => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                  <select
-                    value={contentType}
-                    onChange={(e) => setContentType(e.target.value as 'Package' | 'Parcel')}
-                    className={`flex-1 h-11 px-3 text-sm rounded bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-foreground)] font-sans min-w-0 ${focusClasses}`}
-                  >
-                    <option value="Package">Package</option>
-                    <option value="Parcel">Parcel</option>
-                  </select>
+                  <div className="flex-1 min-w-0">
+                    {renderLabel(MapPin, "Destination")}
+                    <select
+                      value={destination}
+                      onChange={(e) => {
+                        setDestination(e.target.value);
+                        // While linked as office work, the amount is driven by
+                        // officeWorkRate, which is keyed on destination (route)
+                        // -- without clearing it here, switching to a
+                        // destination with no configured contract rate left
+                        // the OLD route's computed price sitting in `amount`
+                        // rather than falling back to manual/no-rate handling.
+                        if (linkedAsOfficeWork) setAmount('');
+                      }}
+                      className={formInputClass}
+                    >
+                      <option value="" disabled>-- Select Destination --</option>
+                      {destinations.map((d) => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {renderLabel(PackageIcon, "Type")}
+                    <select
+                      value={contentType}
+                      onChange={(e) => setContentType(e.target.value as 'Package' | 'Parcel')}
+                      className={formInputClass}
+                    >
+                      <option value="Package">Package</option>
+                      <option value="Parcel">Parcel</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="flex space-x-3">
-                  <input
-                    id="pkg-pcs"
-                    name="pcs"
-                    type="number"
-                    min="1"
-                    placeholder="Pcs"
-                    value={pcs}
-                    onChange={(e) => setPcs(e.target.value)}
-                    className={`flex-1 h-11 px-3 text-sm rounded bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-foreground)] font-sans min-w-0 ${focusClasses}`}
-                  />
-                  <input
-                    id="pkg-kg"
-                    name="kg"
-                    type="number"
-                    min="0"
-                    step="0.1"
-                    placeholder="KG (optional)"
-                    value={kg}
-                    onChange={(e) => setKg(e.target.value)}
-                    className={`flex-1 h-11 px-3 text-sm rounded bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-foreground)] font-sans min-w-0 ${focusClasses}`}
-                  />
+                  <div className="flex-1 min-w-0">
+                    {renderLabel(PackageIcon, "Pcs")}
+                    <input
+                      id="pkg-pcs"
+                      name="pcs"
+                      type="number"
+                      min="1"
+                      placeholder="Pcs"
+                      value={pcs}
+                      onChange={(e) => setPcs(e.target.value)}
+                      className={formInputClass}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {renderLabel(PackageIcon, "KG (optional)")}
+                    <input
+                      id="pkg-kg"
+                      name="kg"
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      placeholder="KG (optional)"
+                      value={kg}
+                      onChange={(e) => setKg(e.target.value)}
+                      className={formInputClass}
+                    />
+                  </div>
                 </div>
 
+                {renderLabel(Layers, "Contents")}
                 <select
                   value={contents}
                   onChange={(e) => setContents(e.target.value)}
-                  className={`w-full h-11 px-3 text-sm rounded bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-foreground)] font-sans ${focusClasses}`}
+                  className={formInputClass}
                 >
                   <option value="" disabled>-- Select Contents --</option>
                   {contentTypes.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -1008,21 +1044,53 @@ export const PackageForm = ({
                     placeholder="Enter content type"
                     value={customContents}
                     onChange={upperOnChange(setCustomContents)}
-                    className={`w-full h-11 px-3 text-sm rounded bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-foreground)] font-sans ${focusClasses}`}
+                    className={`${formInputClass} mt-2`}
                   />
                 )}
 
-                <select
-                  value={mode}
-                  onChange={(e) => setMode(e.target.value as any)}
-                  className={`w-full h-11 px-3 text-sm rounded bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-foreground)] font-sans ${focusClasses}`}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "12px 14px",
+                    margin: "24px 0 16px 0",
+                    background: "linear-gradient(90deg, rgba(59,130,246,0.06) 0%, transparent 100%)",
+                    borderLeft: "3px solid var(--color-accent-cobalt)",
+                    borderRadius: "0 var(--radius-sm) var(--radius-sm) 0",
+                  }}
                 >
-                  <option value="Cash">Cash</option>
-                  <option value="POS">POS</option>
-                  <option value="Transfer">Bank Transfer</option>
-                  <option value="Wallet">💰 Customer Credit Wallet</option>
-                  <option value="Debt">Debt / Credit</option>
-                </select>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      color: "var(--color-accent-cobalt)",
+                    }}
+                  >
+                    Payment Details
+                  </span>
+                </div>
+
+                {renderLabel(CreditCard, "Payment Mode")}
+                <div className="flex bg-[var(--color-surface-3)] rounded-[var(--radius-sm)] p-1 border border-[var(--color-border)] mb-3">
+                  {["Cash", "POS", "Transfer", "Wallet"].map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setMode(m as any)}
+                      style={{
+                        background: mode === m ? "var(--color-surface-1)" : "transparent",
+                        color: mode === m ? "var(--color-accent-cobalt)" : "var(--color-muted)",
+                        border: "none",
+                      }}
+                      className="flex-1 py-2 text-[13px] font-sans font-semibold rounded-[var(--radius-xs)] shadow-sm transition-all focus:outline-none cursor-pointer flex items-center justify-center gap-1"
+                    >
+                      {m === "Wallet" ? "💰 Wallet" : m}
+                    </button>
+                  ))}
+                </div>
 
                 {mode === "Wallet" && (
                   <div className="mb-3 space-y-2">
@@ -1047,32 +1115,63 @@ export const PackageForm = ({
                   </div>
                 )}
 
+                <div className="flex items-center justify-center space-x-3 my-3">
+                  <div className="flex-1 h-px bg-[var(--color-border)]" />
+                  <div className="text-[11px] font-mono text-[var(--color-muted)] tracking-wider">
+                    OR
+                  </div>
+                  <div className="flex-1 h-px bg-[var(--color-border)]" />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setMode("Debt")}
+                  className={`w-full py-2.5 text-[13px] font-sans font-semibold rounded-[var(--radius-sm)] border transition-colors cursor-pointer focus:outline-none ${mode === "Debt" ? "bg-[rgba(239,68,68,0.1)] border-[var(--color-error)] text-[var(--color-error)] shadow-sm" : "bg-transparent border-[var(--color-border-strong)] text-[var(--color-error)] hover:bg-[rgba(239,68,68,0.05)]"}`}
+                >
+                  Log as Credit Sale (Debt)
+                </button>
+
+                {mode === "Debt" && (
+                  <div className="mt-2 text-[12px] font-sans text-[var(--color-error)] bg-[rgba(239,68,68,0.05)] p-2.5 rounded-[var(--radius-sm)] border border-[rgba(239,68,68,0.1)]">
+                    This entry will be logged as a credit sale. Collect payment
+                    before dispatch or arrange with management.
+                  </div>
+                )}
+
                 {(mode === "Transfer" || mode === "POS") && (
-                  <select
-                    value={bank}
-                    onChange={(e) => setBank(e.target.value)}
-                    className={`w-full h-11 px-3 text-sm rounded bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-foreground)] font-sans ${focusClasses}`}
-                  >
-                    {banks.map((b) => <option key={b} value={b}>{b}</option>)}
-                  </select>
+                  <div>
+                    {renderLabel(Landmark, mode === "POS" ? "POS Terminal / Bank" : "Bank")}
+                    <select
+                      value={bank}
+                      onChange={(e) => setBank(e.target.value)}
+                      className={formInputClass}
+                    >
+                      {banks.map((b) => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
                 )}
 
                 {mode === "Debt" && (
-                  <input
-                    id="pkg-debtor-name"
-                    name="debtor-name"
-                    type="text"
-                    placeholder="Debtor Name"
-                    value={debtorName}
-                    onChange={(e) => setDebtorName(e.target.value)}
-                    className={`w-full h-11 px-3 text-sm rounded bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-foreground)] font-sans ${focusClasses}`}
-                  />
+                  <div>
+                    {renderLabel(UserIcon, "Debtor Name")}
+                    <input
+                      id="pkg-debtor-name"
+                      name="debtor-name"
+                      type="text"
+                      placeholder="Debtor Name"
+                      value={debtorName}
+                      onChange={(e) => setDebtorName(e.target.value)}
+                      className={formInputClass}
+                    />
+                  </div>
                 )}
 
-                <div className="flex justify-between items-center py-2 bg-[var(--color-surface-1)] px-3 rounded border border-[var(--color-border)]">
-                  <span className="text-[10px] font-mono text-[var(--color-light-muted)]">AMOUNT</span>
-                  <div className="flex items-center">
-                    <span className="text-[14px] font-bold font-mono text-[var(--color-muted)] mr-1">₦</span>
+                <div>
+                  {renderLabel(Banknote, "Amount")}
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-muted)] font-mono text-[18px]">
+                      ₦
+                    </span>
                     <input
                       id="pkg-amount"
                       name="amount"
@@ -1081,20 +1180,20 @@ export const PackageForm = ({
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       placeholder="0"
-                      className="w-24 bg-transparent border-none text-right text-[18px] font-bold font-mono p-0 focus:ring-0 text-[var(--color-accent-cobalt)]"
+                      className={`${formInputClass} pl-12`}
                     />
                   </div>
+                  {!(linkedAsOfficeWork && officeWorkRate) && amount !== "" && parsedAmount < MIN_PACKAGE_AMOUNT && (
+                    <p className="text-[11px] text-red-500 font-mono mt-1">
+                      ⚠ Minimum amount is ₦{MIN_PACKAGE_AMOUNT.toLocaleString()}
+                    </p>
+                  )}
                 </div>
-                {!(linkedAsOfficeWork && officeWorkRate) && amount !== "" && parsedAmount < MIN_PACKAGE_AMOUNT && (
-                  <p className="text-[11px] text-red-500 font-mono -mt-2">
-                    ⚠ Minimum amount is ₦{MIN_PACKAGE_AMOUNT.toLocaleString()}
-                  </p>
-                )}
 
                 <button
                   onClick={() => setShowPackageReview(true)}
                   disabled={!isValid || submitting}
-                  className={`w-full py-3 rounded font-bold font-mono text-[12px] flex items-center justify-center gap-2 transition-all focus:outline-none ${
+                  className={`w-full py-4 rounded-[var(--radius-sm)] font-bold font-mono text-[16px] flex items-center justify-center gap-2 transition-all focus:outline-none ${
                     submitting ? "opacity-80 cursor-wait bg-[var(--color-accent-cobalt)] text-white"
                     : !isValid ? "bg-[var(--color-surface-2)] text-[var(--color-muted)] cursor-not-allowed"
                     : "bg-[var(--color-accent-cobalt)] text-white cursor-pointer hover:bg-opacity-90"

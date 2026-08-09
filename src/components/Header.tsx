@@ -60,12 +60,14 @@ export const Header = ({
   return (
     <div
       className="flex flex-col w-full shrink-0 z-40 relative"
-      style={{
-        background: 'var(--color-nav-bg)',
-        borderBottom: '1px solid var(--color-border)',
-      }}
     >
-      <div className="flex items-center justify-between px-4 py-3 min-h-[60px]">
+      <div
+        className="ehi-header-row flex items-center justify-between px-4 py-3 min-h-[60px]"
+        style={{
+          background: 'var(--color-nav-bg)',
+          borderBottom: '1px solid var(--color-border)',
+        }}
+      >
 
         {/* Brand -- the real logo asset (same file SideNav uses on desktop) */}
         <div className="flex items-center gap-2.5 ehi-header-brand">
@@ -90,8 +92,10 @@ export const Header = ({
           </div>
         </div>
 
-        {/* Right controls */}
-        <div className="flex items-center gap-2 ml-auto">
+        {/* Right controls -- ehi-header-controls floats this cluster as a
+            fixed overlay on desktop (see index.css), matching SideNav's
+            floating treatment instead of sitting in the header's flow. */}
+        <div className="ehi-header-controls flex items-center gap-2 ml-auto">
 
           {/* User info */}
           <div className="text-right mr-1 hidden sm:block">

@@ -47,19 +47,22 @@
   }
 }
 
-/* Smooth View Transitions API animations for Dark / Light theme toggle */
+/* Smooth View Transitions API animations for Dark / Light theme toggle --
+   deliberately slower than .page-transition below (2.4s vs 2s) so a theme
+   switch reads as a distinct, unhurried settle rather than a quick flash,
+   giving the eyes time to adjust to the new light/dark palette. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: 0.4s;
+  animation-duration: 2.4s;
   animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 ::view-transition-old(root) {
-  animation: fade-out-theme 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: fade-out-theme 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 ::view-transition-new(root) {
-  animation: fade-in-theme 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: fade-in-theme 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 @keyframes fade-out-theme {
@@ -747,7 +750,38 @@ main {
        content never renders underneath it. Set on :root by SideNav.tsx,
        kept in sync with whatever width it's currently rendering at. */
     padding-left: var(--sidenav-offset, 240px);
+    /* Matching reservation for .ehi-header-controls below, which floats
+       fixed at top:10px and is roughly 54px tall including its padding. */
+    padding-top: 64px;
     transition: padding-left 0.3s cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  /* Desktop already hides .ehi-header-brand here (see the brand rule
+     further down), and .ehi-header-controls (below) is extracted out of
+     flow -- so once both are gone this row has nothing left to show.
+     Collapse its chrome to nothing rather than leaving an empty colored
+     bar sitting at the true top of the page. */
+  .ehi-header-row {
+    padding: 0 !important;
+    min-height: 0 !important;
+    background: transparent !important;
+    border-bottom: none !important;
+  }
+
+  /* Floats the username/theme/wifi/avatar cluster the same way
+     .ehi-sidenav floats -- position:fixed, detached from the header's
+     flex flow, styled as its own rounded card instead of sitting flush
+     in the full-width header bar. */
+  .ehi-header-controls {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 30;
+    background: var(--color-surface-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    box-shadow: var(--shadow-dropdown);
+    padding: 6px 10px;
   }
 }
 
@@ -859,7 +893,12 @@ input[type="date"] {
      instead of the viewport, appearing to open at the bottom of the
      page). will-change is removed for the same reason -- it forces the
      same containing-block behavior even with no transform ever applied. */
-  animation: page-slide-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  /* Slowed from 0.32s and switched off the fast expo-out curve (which
+     would front-load all motion into the first ~500-800ms and then sit
+     idle) to an evenly-paced ease so the full 2s reads as one continuous,
+     subtle settle instead of a snap -- deliberately gentle so switching
+     tabs doesn't hit the eye with a sudden change. */
+  animation: page-slide-in 2s cubic-bezier(0.4, 0, 0.2, 1) backwards;
 }
 
 /* ─── Spring-Physics Modal / Popup Animations ───────────────────────────── */
