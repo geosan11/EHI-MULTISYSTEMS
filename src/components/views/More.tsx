@@ -199,8 +199,16 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         onDateRangeChange={onDateRangeChange}
         activeShift={activeShift}
         shifts={todayShifts}
-        onStartShift={onStartShift}
-        onEndShift={onEndShift}
+        // Master Ledger no longer shows the Start/End Day button/status bar
+        // -- omitting onStartShift/onEndShift (rather than adding a new
+        // hide-this-bar prop) is enough: TransactionLedger.tsx's shift bar
+        // only renders when onStartShift, onEndShift, or shiftAutoManaged is
+        // truthy, and none of those are passed here. activeShift/shifts stay
+        // wired so the "current shift" date-boundary fallback and inline
+        // SHIFT STARTED/ENDED row markers (both separate features) are
+        // unaffected -- Baggage/Marketing keep their own Start/End Day
+        // exactly as before via EHIApp.tsx's per-department streamLedger
+        // overlay, which isn't touched by this.
         customerWallets={customerWallets}
         refetchCustomerWallets={refetchCustomerWallets}
       />
