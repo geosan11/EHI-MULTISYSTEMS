@@ -981,6 +981,41 @@ input[type="date"] {
   will-change: transform, opacity, filter;
 }
 
+/* ─── Back-button screen push/pop navigation ────────────────────────────
+   For screens reached via a BackButton (More.tsx's sub-views): opening
+   one pushes it in from the right; clicking Back plays a slide-out on
+   the closing screen (More.tsx defers the actual route change for 0.5s
+   to let it play) before the menu underneath reveals itself sliding in
+   from the left -- a directional push/pop, distinct from the generic
+   fade-based .page-transition used for top-level tab switches. */
+@keyframes slide-in-from-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes slide-out-to-right {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+@keyframes slide-in-from-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.page-slide-in-right {
+  animation: slide-in-from-right 0.5s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+}
+.page-slide-out-right {
+  /* "forwards" (not "backwards") is deliberate here: the element needs to
+     stay slid out at translateX(100%) until More.tsx's matching setTimeout
+     actually unmounts it moments later -- unlike .page-transition's
+     lingering-transform hazard, this is a short-lived exit, not a
+     permanent state on an always-mounted container. */
+  animation: slide-out-to-right 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.page-slide-in-left {
+  animation: slide-in-from-left 0.5s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+}
+
 /* Tactile Spring Physics Utilities */
 .tactile-btn {
   transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, opacity 0.15s ease;
@@ -998,7 +1033,10 @@ input[type="date"] {
   .animate-modal-backdrop-in,
   .animate-modal-backdrop-out,
   .animate-modal-slide-in,
-  .animate-modal-slide-out {
+  .animate-modal-slide-out,
+  .page-slide-in-right,
+  .page-slide-out-right,
+  .page-slide-in-left {
     animation: none !important;
   }
 }

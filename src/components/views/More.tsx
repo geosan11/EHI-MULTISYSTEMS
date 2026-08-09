@@ -30,7 +30,7 @@ import { CustomerWallets } from './CustomerWallets';
 import { GatPrintQueue } from './GatPrintQueue';
 import { DebtCollectionRetrievalLog } from './DebtCollectionRetrievalLog';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { User, TabView, Transaction, Expense, ExcessBaggageAirline, HubShift, CustomerWallet } from '../../lib/types';
 import { fmt } from '../../lib/helpers';
@@ -123,17 +123,59 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
     return (entry ? entry[0] : null) as MoreSubKey | null;
   }, [location.pathname]);
   const openSub = useCallback((key: MoreSubKey) => navigate('/more/' + MORE_SUB_ROUTES[key]), [navigate]);
-  const closeSub = useCallback(() => navigate('/more'), [navigate]);
+
+  // The key currently playing its slide-out-right exit animation -- while
+  // set, wrapSub keeps rendering that same sub-view (the actual route
+  // change is deferred) instead of instantly swapping to the menu
+  // underneath it, so the exit has time to actually play.
+  const [closingSubKey, setClosingSubKey] = useState<MoreSubKey | null>(null);
+  // True for exactly one mount of the menu right after a back-navigation,
+  // so it slides in from the left instead of using the default fade --
+  // cleared shortly after so a later, unrelated visit to More (e.g.
+  // switching tabs away and back) gets the normal entrance again.
+  const [revealFromBack, setRevealFromBack] = useState(false);
+
+  const closeSub = useCallback(() => {
+    const prefersReducedMotion = typeof window !== 'undefined'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion || !activeSub) {
+      navigate('/more');
+      return;
+    }
+    setClosingSubKey(activeSub);
+    setTimeout(() => {
+      navigate('/more');
+      setClosingSubKey(null);
+      setRevealFromBack(true);
+    }, 500);
+  }, [navigate, activeSub]);
+
+  useEffect(() => {
+    if (!revealFromBack) return;
+    const t = setTimeout(() => setRevealFromBack(false), 600);
+    return () => clearTimeout(t);
+  }, [revealFromBack]);
 
   // Only remaining piece of view-local state -- not a "which screen" flag,
   // just data carried across the ContentTypes -> SpecialGoodsRates handoff
   // (see onManageRates/onBack below).
   const [specialGoodsPreset, setSpecialGoodsPreset] = useState<string | undefined>(undefined);
 
-  // View controllers — each wrapped in a keyed div to trigger the
-  // page-transition scroll-slide animation on every sub-view change.
+  // View controllers — each wrapped in a keyed div that pushes in from the
+  // right on open. display:'contents' (no real box) previously meant
+  // transform-based animation couldn't actually apply here -- swapped for
+  // a transparent flex:1 box (same available height/width passed through
+  // to the child as before) so the slide genuinely renders. While this
+  // key is the one closeSub() marked as closing, it keeps rendering here
+  // (the route change is deferred) with the exit class instead.
   const wrapSub = (key: string, el: React.ReactElement) => (
-    <div key={key} className="page-transition" style={{ display: 'contents' }}>{el}</div>
+    <div
+      key={key}
+      className={closingSubKey === key ? 'page-slide-out-right' : 'page-slide-in-right'}
+      style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}
+    >
+      {el}
+    </div>
   );
 
   if (activeSub === 'eod') {
@@ -358,7 +400,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
   );
 
   return (
-    <div key="more-menu" className="page-transition p-4 pb-8 select-none">
+    <div key="more-menu" className={`${revealFromBack ? 'page-slide-in-left' : 'page-transition'} p-4 pb-8 select-none`}>
 
       {/* Daily Operations */}
       <SectionLabel label="Daily Operations" />
