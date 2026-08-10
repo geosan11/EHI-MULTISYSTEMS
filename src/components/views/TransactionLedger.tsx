@@ -41,6 +41,14 @@ import {
   ChevronDown,
   Calendar,
   Trash2,
+  LayoutGrid,
+  Banknote,
+  ArrowLeftRight,
+  CreditCard,
+  AlertTriangle,
+  Wallet,
+  Building2,
+  User as UserIcon,
 } from "lucide-react";
 import { QRCode } from "../QRCode";
 import TagPrintHistory from "./TagPrintHistory";
@@ -2653,101 +2661,129 @@ export const TransactionLedger = ({
                 {/* Total */}
                 <div
                   onClick={() => setModeFilter('All')}
-                  className={`rounded-xl px-3 py-2.5 border text-left transition-all cursor-pointer ${
+                  className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all cursor-pointer ${
                     modeFilter === 'All'
-                      ? 'bg-[rgba(251,191,36,0.15)] border-[var(--color-accent-amber)] shadow-[var(--shadow-amber)]'
-                      : 'bg-[rgba(251,191,36,0.05)] border-[rgba(251,191,36,0.18)] hover:border-[var(--color-accent-amber)] shadow-[var(--shadow-sm)]'
+                      ? 'bg-[rgba(251,191,36,0.06)] border-[var(--color-accent-amber)] shadow-[var(--shadow-amber)]'
+                      : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-accent-amber)] shadow-[var(--shadow-sm)]'
                   }`}
                 >
-                  <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider mb-1">Total</div>
-                  <div className="text-[14px] sm:text-[15px] font-bold font-mono text-[var(--color-foreground)] leading-none truncate">₦{fmt(totalAmount)}</div>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'All' ? 'bg-[rgba(251,191,36,0.22)]' : 'bg-[rgba(251,191,36,0.12)]'}`}>
+                    <LayoutGrid size={16} className="text-[var(--color-accent-amber)]" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider truncate">Total</div>
+                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-foreground)] leading-tight truncate">₦{fmt(totalAmount)}</div>
+                  </div>
                 </div>
 
                 {/* Cash */}
                 <button
                   onClick={() => setModeFilter(modeFilter === 'Cash' ? 'All' : 'Cash')}
-                  className={`rounded-xl px-3 py-2.5 border text-left transition-all ${
+                  className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
                     modeFilter === 'Cash'
-                      ? 'bg-[rgba(16,185,129,0.15)] border-[var(--color-success)] shadow-[var(--shadow-success)]'
-                      : 'bg-[rgba(16,185,129,0.06)] border-[rgba(16,185,129,0.18)] hover:border-[var(--color-success)] shadow-[var(--shadow-sm)]'
+                      ? 'bg-[rgba(16,185,129,0.06)] border-[var(--color-success)] shadow-[var(--shadow-success)]'
+                      : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-success)] shadow-[var(--shadow-sm)]'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Cash</div>
-                    {isAccountantOrAdmin && unverifiedCash.length > 0 && (
-                      <span className="text-[8px] font-mono font-bold bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded">!{unverifiedCash.length}</span>
-                    )}
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'Cash' ? 'bg-[rgba(16,185,129,0.22)]' : 'bg-[rgba(16,185,129,0.12)]'}`}>
+                    <Banknote size={16} className="text-[var(--color-success)]" />
                   </div>
-                  <div className="text-[14px] sm:text-[15px] font-bold font-mono text-[var(--color-success)] leading-none truncate">₦{fmt(cashAmount)}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider truncate">Cash</div>
+                      {isAccountantOrAdmin && unverifiedCash.length > 0 && (
+                        <span className="text-[8px] font-mono font-bold bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unverifiedCash.length}</span>
+                      )}
+                    </div>
+                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-success)] leading-tight truncate">₦{fmt(cashAmount)}</div>
+                  </div>
                 </button>
 
                 {/* Transfer */}
                 <button
                   onClick={() => setModeFilter(modeFilter === 'Transfer' ? 'All' : 'Transfer')}
-                  className={`rounded-xl px-3 py-2.5 border text-left transition-all ${
+                  className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
                     modeFilter === 'Transfer'
-                      ? 'bg-[rgba(59,130,246,0.15)] border-[var(--color-accent-cobalt)] shadow-[var(--shadow-cobalt)]'
-                      : 'bg-[rgba(59,130,246,0.06)] border-[rgba(59,130,246,0.18)] hover:border-[var(--color-accent-cobalt)] shadow-[var(--shadow-sm)]'
+                      ? 'bg-[rgba(59,130,246,0.06)] border-[var(--color-accent-cobalt)] shadow-[var(--shadow-cobalt)]'
+                      : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-accent-cobalt)] shadow-[var(--shadow-sm)]'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Transfer</div>
-                    {isAccountantOrAdmin && unconfirmedTransfer.length > 0 && (
-                      <span className="text-[8px] font-mono font-bold bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded">!{unconfirmedTransfer.length}</span>
-                    )}
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'Transfer' ? 'bg-[rgba(59,130,246,0.22)]' : 'bg-[rgba(59,130,246,0.12)]'}`}>
+                    <ArrowLeftRight size={16} className="text-[var(--color-accent-cobalt)]" />
                   </div>
-                  <div className="text-[14px] sm:text-[15px] font-bold font-mono text-[var(--color-accent-cobalt)] leading-none truncate">₦{fmt(transferAmount)}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider truncate">Transfer</div>
+                      {isAccountantOrAdmin && unconfirmedTransfer.length > 0 && (
+                        <span className="text-[8px] font-mono font-bold bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unconfirmedTransfer.length}</span>
+                      )}
+                    </div>
+                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-accent-cobalt)] leading-tight truncate">₦{fmt(transferAmount)}</div>
+                  </div>
                 </button>
 
                 {/* POS */}
                 <button
                   onClick={() => setModeFilter(modeFilter === 'POS' ? 'All' : 'POS')}
-                  className={`rounded-xl px-3 py-2.5 border text-left transition-all ${
+                  className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
                     modeFilter === 'POS'
-                      ? 'bg-[rgba(245,158,11,0.15)] border-[var(--color-accent-amber)] shadow-[var(--shadow-amber)]'
-                      : 'bg-[rgba(245,158,11,0.06)] border-[rgba(245,158,11,0.18)] hover:border-[var(--color-accent-amber)] shadow-[var(--shadow-sm)]'
+                      ? 'bg-[rgba(245,158,11,0.06)] border-[var(--color-accent-amber)] shadow-[var(--shadow-amber)]'
+                      : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-accent-amber)] shadow-[var(--shadow-sm)]'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider">POS</div>
-                    {isAccountantOrAdmin && unconfirmedPOS.length > 0 && (
-                      <span className="text-[8px] font-mono font-bold bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded">!{unconfirmedPOS.length}</span>
-                    )}
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'POS' ? 'bg-[rgba(245,158,11,0.22)]' : 'bg-[rgba(245,158,11,0.12)]'}`}>
+                    <CreditCard size={16} className="text-[var(--color-accent-amber)]" />
                   </div>
-                  <div className="text-[14px] sm:text-[15px] font-bold font-mono text-[var(--color-accent-amber)] leading-none truncate">₦{fmt(posAmount)}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider truncate">POS</div>
+                      {isAccountantOrAdmin && unconfirmedPOS.length > 0 && (
+                        <span className="text-[8px] font-mono font-bold bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unconfirmedPOS.length}</span>
+                      )}
+                    </div>
+                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-accent-amber)] leading-tight truncate">₦{fmt(posAmount)}</div>
+                  </div>
                 </button>
 
                 {/* Debt */}
                 <button
                   onClick={() => setModeFilter(modeFilter === 'Debt' ? 'All' : 'Debt')}
-                  className={`rounded-xl px-3 py-2.5 border text-left transition-all ${
+                  className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
                     modeFilter === 'Debt'
-                      ? 'bg-[rgba(239,68,68,0.15)] border-[var(--color-error)] shadow-[var(--shadow-error)]'
-                      : 'bg-[rgba(239,68,68,0.06)] border-[rgba(239,68,68,0.18)] hover:border-[var(--color-error)] shadow-[var(--shadow-sm)]'
+                      ? 'bg-[rgba(239,68,68,0.06)] border-[var(--color-error)] shadow-[var(--shadow-error)]'
+                      : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-error)] shadow-[var(--shadow-sm)]'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Debt</div>
-                    {unpaidDebtCount > 0 && (
-                      <span className="text-[8px] font-mono font-bold bg-[rgba(239,68,68,0.2)] text-[var(--color-error)] px-1 py-0.5 rounded">{unpaidDebtCount}</span>
-                    )}
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'Debt' ? 'bg-[rgba(239,68,68,0.22)]' : 'bg-[rgba(239,68,68,0.12)]'}`}>
+                    <AlertTriangle size={16} className="text-[var(--color-error)]" />
                   </div>
-                  <div className="text-[14px] sm:text-[15px] font-bold font-mono text-[var(--color-error)] leading-none truncate">₦{fmt(debtAmount)}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider truncate">Debt</div>
+                      {unpaidDebtCount > 0 && (
+                        <span className="text-[8px] font-mono font-bold bg-[rgba(239,68,68,0.2)] text-[var(--color-error)] px-1 py-0.5 rounded shrink-0">{unpaidDebtCount}</span>
+                      )}
+                    </div>
+                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">₦{fmt(debtAmount)}</div>
+                  </div>
                 </button>
 
                 {/* Wallet */}
                 <button
                   onClick={() => setModeFilter(modeFilter === 'Wallet' ? 'All' : 'Wallet')}
-                  className={`rounded-xl px-3 py-2.5 border text-left transition-all ${
+                  className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
                     modeFilter === 'Wallet'
-                      ? 'bg-[rgba(168,85,247,0.15)] border-purple-400 shadow-[var(--shadow-purple)]'
-                      : 'bg-[rgba(168,85,247,0.06)] border-[rgba(168,85,247,0.18)] hover:border-purple-400 shadow-[var(--shadow-sm)]'
+                      ? 'bg-[rgba(168,85,247,0.06)] border-purple-400 shadow-[var(--shadow-purple)]'
+                      : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-purple-400 shadow-[var(--shadow-sm)]'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Wallet</div>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'Wallet' ? 'bg-[rgba(168,85,247,0.22)]' : 'bg-[rgba(168,85,247,0.12)]'}`}>
+                    <Wallet size={16} className="text-purple-400" />
                   </div>
-                  <div className="text-[14px] sm:text-[15px] font-bold font-mono text-purple-400 leading-none truncate">₦{fmt(walletAmount)}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider truncate">Wallet</div>
+                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-purple-400 leading-tight truncate">₦{fmt(walletAmount)}</div>
+                  </div>
                 </button>
               </div>
 
@@ -2769,14 +2805,19 @@ export const TransactionLedger = ({
                     // this one to silently produce zero rows.
                     if (next !== 'All') setModeFilter('Debt');
                   }}
-                  className={`flex-1 rounded-lg px-3 py-1.5 border text-left transition-all ${
+                  className={`flex-1 rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
                     debtClassFilter === 'Office'
-                      ? 'bg-[rgba(239,68,68,0.15)] border-[var(--color-error)] shadow-[var(--shadow-error)]'
-                      : 'bg-[rgba(239,68,68,0.06)] border-[rgba(239,68,68,0.18)] hover:border-[var(--color-error)] shadow-[var(--shadow-sm)]'
+                      ? 'bg-[rgba(239,68,68,0.06)] border-[var(--color-error)] shadow-[var(--shadow-error)]'
+                      : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-error)] shadow-[var(--shadow-sm)]'
                   }`}
                 >
-                  <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Office Debt (B2B)</div>
-                  <div className="text-[12px] font-bold font-mono text-[var(--color-error)] leading-none">₦{fmt(officeDebtAmount)}</div>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${debtClassFilter === 'Office' ? 'bg-[rgba(239,68,68,0.22)]' : 'bg-[rgba(239,68,68,0.12)]'}`}>
+                    <Building2 size={14} className="text-[var(--color-error)]" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider truncate">Office Debt (B2B)</div>
+                    <div className="text-[12px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">₦{fmt(officeDebtAmount)}</div>
+                  </div>
                 </button>
                 <button
                   onClick={() => {
@@ -2784,14 +2825,19 @@ export const TransactionLedger = ({
                     setDebtClassFilter(next);
                     if (next !== 'All') setModeFilter('Debt');
                   }}
-                  className={`flex-1 rounded-lg px-3 py-1.5 border text-left transition-all ${
+                  className={`flex-1 rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
                     debtClassFilter === 'Individual'
-                      ? 'bg-[rgba(239,68,68,0.15)] border-[var(--color-error)] shadow-[var(--shadow-error)]'
-                      : 'bg-[rgba(239,68,68,0.06)] border-[rgba(239,68,68,0.18)] hover:border-[var(--color-error)] shadow-[var(--shadow-sm)]'
+                      ? 'bg-[rgba(239,68,68,0.06)] border-[var(--color-error)] shadow-[var(--shadow-error)]'
+                      : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-error)] shadow-[var(--shadow-sm)]'
                   }`}
                 >
-                  <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Individual Debt</div>
-                  <div className="text-[12px] font-bold font-mono text-[var(--color-error)] leading-none">₦{fmt(individualDebtAmount)}</div>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${debtClassFilter === 'Individual' ? 'bg-[rgba(239,68,68,0.22)]' : 'bg-[rgba(239,68,68,0.12)]'}`}>
+                    <UserIcon size={14} className="text-[var(--color-error)]" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider truncate">Individual Debt</div>
+                    <div className="text-[12px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">₦{fmt(individualDebtAmount)}</div>
+                  </div>
                 </button>
               </div>
             </div>
@@ -2800,14 +2846,14 @@ export const TransactionLedger = ({
               <div className="px-4 py-2 border-b border-white/10">
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
                 {([
-                  { label: 'All',        value: 'All',        activeClass: 'bg-[var(--color-surface-2)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]', restClass: 'bg-[rgba(251,191,36,0.05)] border-[rgba(251,191,36,0.18)] text-[var(--color-muted)] hover:border-[var(--color-accent-amber)]' },
-                  { label: 'Cargo',      value: 'Cargo',      activeClass: 'bg-[rgba(59,130,246,0.15)] border-[var(--color-accent-cobalt)] text-[var(--color-accent-cobalt)]', restClass: 'bg-[rgba(59,130,246,0.06)] border-[rgba(59,130,246,0.18)] text-[var(--color-muted)] hover:border-[var(--color-accent-cobalt)]' },
-                  { label: 'Baggage',    value: 'Baggage',    activeClass: 'bg-[rgba(245,158,11,0.15)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]', restClass: 'bg-[rgba(245,158,11,0.06)] border-[rgba(245,158,11,0.18)] text-[var(--color-muted)] hover:border-[var(--color-accent-amber)]' },
-                  { label: 'Marketing',  value: 'Marketing',  activeClass: 'bg-[rgba(16,185,129,0.15)] border-[var(--color-success)] text-[var(--color-success)]', restClass: 'bg-[rgba(16,185,129,0.06)] border-[rgba(16,185,129,0.18)] text-[var(--color-muted)] hover:border-[var(--color-success)]' },
-                  { label: 'Package',    value: 'Package',    activeClass: 'bg-[rgba(168,85,247,0.15)] border-purple-400 text-purple-400', restClass: 'bg-[rgba(168,85,247,0.06)] border-[rgba(168,85,247,0.18)] text-[var(--color-muted)] hover:border-purple-400' },
-                  { label: 'Expense',    value: 'Expense',    activeClass: 'bg-[rgba(239,68,68,0.15)] border-[var(--color-error)] text-[var(--color-error)]', restClass: 'bg-[rgba(239,68,68,0.06)] border-[rgba(239,68,68,0.18)] text-[var(--color-muted)] hover:border-[var(--color-error)]' },
-                  { label: 'Office Work',value: 'Office Work',activeClass: 'bg-[var(--color-surface-2)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]', restClass: 'bg-[rgba(251,191,36,0.05)] border-[rgba(251,191,36,0.18)] text-[var(--color-muted)] hover:border-[var(--color-accent-amber)]' },
-                ] as const).map(({ label, value, activeClass, restClass }) => {
+                  { label: 'All',        value: 'All',        activeClass: 'bg-[var(--color-surface-2)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
+                  { label: 'Cargo',      value: 'Cargo',      activeClass: 'bg-[rgba(59,130,246,0.15)] border-[var(--color-accent-cobalt)] text-[var(--color-accent-cobalt)]' },
+                  { label: 'Baggage',    value: 'Baggage',    activeClass: 'bg-[rgba(245,158,11,0.15)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
+                  { label: 'Marketing',  value: 'Marketing',  activeClass: 'bg-[rgba(16,185,129,0.15)] border-[var(--color-success)] text-[var(--color-success)]' },
+                  { label: 'Package',    value: 'Package',    activeClass: 'bg-[rgba(168,85,247,0.15)] border-purple-400 text-purple-400' },
+                  { label: 'Expense',    value: 'Expense',    activeClass: 'bg-[rgba(239,68,68,0.15)] border-[var(--color-error)] text-[var(--color-error)]' },
+                  { label: 'Office Work',value: 'Office Work',activeClass: 'bg-[var(--color-surface-2)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
+                ] as const).map(({ label, value, activeClass }) => {
                   const count = typeChipCounts[value] ?? 0;
                   const isActive = typeFilter === value;
                   return (
@@ -2815,7 +2861,9 @@ export const TransactionLedger = ({
                       key={value}
                       onClick={() => setTypeFilter(value)}
                       className={`shrink-0 h-7 px-2.5 rounded-full text-[10px] font-mono font-bold border transition-all cursor-pointer flex items-center gap-1 ${
-                        isActive ? activeClass : restClass
+                        isActive
+                          ? activeClass
+                          : 'bg-[var(--color-surface-1)] border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-muted)]'
                       }`}
                     >
                       {label}
