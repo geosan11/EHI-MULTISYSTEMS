@@ -30,7 +30,8 @@ import { CustomerWallets } from './CustomerWallets';
 import { GatPrintQueue } from './GatPrintQueue';
 import { DebtCollectionRetrievalLog } from './DebtCollectionRetrievalLog';
 
-import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { User, TabView, Transaction, Expense, ExcessBaggageAirline, HubShift, CustomerWallet } from '../../lib/types';
 import { fmt } from '../../lib/helpers';
@@ -115,6 +116,7 @@ type MoreSubKey = keyof typeof MORE_SUB_ROUTES;
 export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, onFullUpdateTx, onDeleteTx, onAddExpense, onUpdateExpense, onChangeTab, dateRange, onDateRangeChange, excessBaggageAirlines, activeShift, todayShifts, onStartShift, onEndShift, customerWallets, refetchCustomerWallets }: { user: User; transactions: Transaction[]; expenses: Expense[]; onLogout: () => void; onEOD?: (summary: any) => void; onAddTx: (tx: Transaction) => void; onFullUpdateTx?: (tx: Transaction) => void; onDeleteTx: (type: string, id: string) => void; onAddExpense: (e: Expense) => void; onUpdateExpense?: (expenseId: string, decision: 'approved' | 'rejected') => void; onChangeTab: (t: TabView) => void; dateRange?: { start: string; end: string }; onDateRangeChange?: (range: { start: string; end: string }) => void; excessBaggageAirlines: ExcessBaggageAirline[]; activeShift?: HubShift | null; todayShifts?: HubShift[]; onStartShift?: () => void; onEndShift?: () => void; customerWallets?: CustomerWallet[]; refetchCustomerWallets?: () => void; }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const prefersReducedMotion = useReducedMotion();
   const activeSub: MoreSubKey | null = useMemo(() => {
     const m = location.pathname.match(/^\/more\/([^/]+)/);
     if (!m) return null;
@@ -122,259 +124,225 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
     const entry = Object.entries(MORE_SUB_ROUTES).find(([, s]) => s === slug);
     return (entry ? entry[0] : null) as MoreSubKey | null;
   }, [location.pathname]);
-  const openSub = useCallback((key: MoreSubKey) => navigate('/more/' + MORE_SUB_ROUTES[key]), [navigate]);
-
-  // The key currently playing its slide-out-right exit animation -- while
-  // set, wrapSub keeps rendering that same sub-view (the actual route
-  // change is deferred) instead of instantly swapping to the menu
-  // underneath it, so the exit has time to actually play.
-  const [closingSubKey, setClosingSubKey] = useState<MoreSubKey | null>(null);
-  // True for exactly one mount of the menu right after a back-navigation,
-  // so it slides in from the left instead of using the default fade --
-  // cleared shortly after so a later, unrelated visit to More (e.g.
-  // switching tabs away and back) gets the normal entrance again.
-  const [revealFromBack, setRevealFromBack] = useState(false);
-  // BrowserRouter defers navigate()'s effect on location (and therefore
-  // activeSub, derived from it) via React.startTransition -- it does NOT
-  // land in the same commit as sibling setState calls issued in the same
-  // synchronous callback, even ones scheduled together in a setTimeout.
-  // Setting revealFromBack directly alongside navigate() raced that
-  // deferred commit and was sometimes already stale by the time the menu
-  // actually appeared. This ref just remembers "a close is in flight";
-  // the effect below only flips revealFromBack once React has actually
-  // committed the render where activeSub became null, so it's ordered
-  // against the real transition instead of guessing at its timing.
-  const wasClosingRef = useRef(false);
-
+  // 1 = pushing a screen open (slides in from the right, old one exits
+  // left); -1 = Back (closing screen exits right, revealed screen enters
+  // from the left). Read by AnimatePresence/motion.div below whenever
+  // that render actually happens -- unlike the previous approach (which
+  // tried to set a "reveal" flag in the same tick as navigate() and lost
+  // the race against BrowserRouter's startTransition-deferred location
+  // update, see the router-startTransition-gotcha memory), this is just
+  // a passive "which way are we going" flag with no timing dependency.
+  const [direction, setDirection] = useState<1 | -1>(1);
+  const openSub = useCallback((key: MoreSubKey) => {
+    setDirection(1);
+    navigate('/more/' + MORE_SUB_ROUTES[key]);
+  }, [navigate]);
   const closeSub = useCallback(() => {
-    const prefersReducedMotion = typeof window !== 'undefined'
-      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReducedMotion || !activeSub) {
-      navigate('/more');
-      return;
-    }
-    setClosingSubKey(activeSub);
-    wasClosingRef.current = true;
-    setTimeout(() => {
-      navigate('/more');
-      setClosingSubKey(null);
-    }, 500);
-  }, [navigate, activeSub]);
-
-  useEffect(() => {
-    if (activeSub === null && wasClosingRef.current) {
-      wasClosingRef.current = false;
-      setRevealFromBack(true);
-    }
-  }, [activeSub]);
-
-  useEffect(() => {
-    if (!revealFromBack) return;
-    const t = setTimeout(() => setRevealFromBack(false), 600);
-    return () => clearTimeout(t);
-  }, [revealFromBack]);
+    setDirection(-1);
+    navigate('/more');
+  }, [navigate]);
 
   // Only remaining piece of view-local state -- not a "which screen" flag,
   // just data carried across the ContentTypes -> SpecialGoodsRates handoff
   // (see onManageRates/onBack below).
   const [specialGoodsPreset, setSpecialGoodsPreset] = useState<string | undefined>(undefined);
 
-  // View controllers — each wrapped in a keyed div that pushes in from the
-  // right on open. display:'contents' (no real box) previously meant
-  // transform-based animation couldn't actually apply here -- swapped for
-  // a transparent flex:1 box (same available height/width passed through
-  // to the child as before) so the slide genuinely renders. While this
-  // key is the one closeSub() marked as closing, it keeps rendering here
-  // (the route change is deferred) with the exit class instead.
-  const wrapSub = (key: string, el: React.ReactElement) => (
-    <div
-      key={key}
-      className={closingSubKey === key ? 'page-slide-out-right' : 'page-slide-in-right'}
-      style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}
-    >
-      {el}
-    </div>
-  );
+  // Same branches as before, unchanged props/JSX per screen -- only the
+  // wrapping shape changed (return a {key, element} pair instead of
+  // returning straight out of the component) so the single AnimatePresence
+  // below can render whichever one is active alongside the menu, instead
+  // of each screen unmounting/remounting the whole component tree.
+  const getActiveSubView = (): { key: string; element: React.ReactElement } | null => {
+    if (activeSub === 'eod') {
+      return { key: 'eod', element: <EODReconciliation user={user} transactions={transactions} expenses={expenses} onBack={closeSub} onEOD={onEOD || (() => {})} /> };
+    }
 
-  if (activeSub === 'eod') {
-    return wrapSub('eod', <EODReconciliation user={user} transactions={transactions} expenses={expenses} onBack={closeSub} onEOD={onEOD || (() => {})} />);
-  }
+    if (activeSub === 'accounting') {
+      return { key: 'accounting', element: <AccountingConsole user={user} transactions={transactions} expenses={expenses} onBack={closeSub} onAddExpense={onAddExpense} onUpdateExpense={onUpdateExpense} onOpenBankRecon={() => openSub('bankRecon')} onFullUpdateTx={onFullUpdateTx} dateRange={dateRange} onDateRangeChange={onDateRangeChange} /> };
+    }
 
-  if (activeSub === 'accounting') {
-    return wrapSub('accounting', <AccountingConsole user={user} transactions={transactions} expenses={expenses} onBack={closeSub} onAddExpense={onAddExpense} onUpdateExpense={onUpdateExpense} onOpenBankRecon={() => openSub('bankRecon')} onFullUpdateTx={onFullUpdateTx} dateRange={dateRange} onDateRangeChange={onDateRangeChange} />);
-  }
+    if (activeSub === 'reports') {
+      return { key: 'reports', element: <Reports user={user} transactions={transactions} onBack={closeSub} /> };
+    }
 
-  if (activeSub === 'reports') {
-    return wrapSub('reports', <Reports user={user} transactions={transactions} onBack={closeSub} />);
-  }
+    if (activeSub === 'settings') {
+      return { key: 'settings', element: <Settings user={user} onBack={closeSub} onOpenAirlineCommissions={() => openSub('airlineCommissions')} /> };
+    }
 
-  if (activeSub === 'settings') {
-    return wrapSub('settings', <Settings user={user} onBack={closeSub} onOpenAirlineCommissions={() => openSub('airlineCommissions')} />);
-  }
-
-  if (activeSub === 'bankRecon') {
-    return wrapSub('bankRecon', <BankReconciliation
-      transactions={transactions}
-      onBack={closeSub}
-      user={user}
-      onConfirm={({ matchedIds }) => {
-        if (onFullUpdateTx) {
-          matchedIds.forEach(id => {
-            const tx = transactions.find(t => t.id === id);
-            if (tx) {
-              onFullUpdateTx({ ...tx, paymentConfirmed: true, confirmedAt: new Date().toLocaleTimeString('en-NG'), confirmedBy: user.name });
+    if (activeSub === 'bankRecon') {
+      return { key: 'bankRecon', element: (
+        <BankReconciliation
+          transactions={transactions}
+          onBack={closeSub}
+          user={user}
+          onConfirm={({ matchedIds }) => {
+            if (onFullUpdateTx) {
+              matchedIds.forEach(id => {
+                const tx = transactions.find(t => t.id === id);
+                if (tx) {
+                  onFullUpdateTx({ ...tx, paymentConfirmed: true, confirmedAt: new Date().toLocaleTimeString('en-NG'), confirmedBy: user.name });
+                }
+              });
             }
-          });
-        }
-      }}
-    />);
-  }
+          }}
+        />
+      ) };
+    }
 
-  if (activeSub === 'fleet') {
-    return wrapSub('fleet', <Fleet onBack={closeSub} />);
-  }
+    if (activeSub === 'fleet') {
+      return { key: 'fleet', element: <Fleet onBack={closeSub} /> };
+    }
 
-  if (activeSub === 'forecasting') {
-    return wrapSub('forecasting', <Forecasting onBack={closeSub} />);
-  }
+    if (activeSub === 'forecasting') {
+      return { key: 'forecasting', element: <Forecasting onBack={closeSub} /> };
+    }
 
-  if (activeSub === 'fraudAlerts') {
-    return wrapSub('fraudAlerts', <FraudAlerts user={user} onBack={closeSub} />);
-  }
+    if (activeSub === 'fraudAlerts') {
+      return { key: 'fraudAlerts', element: <FraudAlerts user={user} onBack={closeSub} /> };
+    }
 
-  if (activeSub === 'customerWallets') {
-    return wrapSub('customerWallets', <CustomerWallets user={user} onBack={closeSub} />);
-  }
+    if (activeSub === 'customerWallets') {
+      return { key: 'customerWallets', element: <CustomerWallets user={user} onBack={closeSub} /> };
+    }
 
-  if (activeSub === 'ledger') {
-    return wrapSub('ledger', (
-      <TransactionLedger
-        user={user}
-        transactions={transactions}
-        expenses={expenses}
-        onBack={closeSub}
-        onUpdateTx={onFullUpdateTx || onAddTx}
-        onDeleteTx={onDeleteTx}
-        dateRange={dateRange}
-        onDateRangeChange={onDateRangeChange}
-        activeShift={activeShift}
-        shifts={todayShifts}
-        // Master Ledger no longer shows the Start/End Day button/status bar
-        // -- omitting onStartShift/onEndShift (rather than adding a new
-        // hide-this-bar prop) is enough: TransactionLedger.tsx's shift bar
-        // only renders when onStartShift, onEndShift, or shiftAutoManaged is
-        // truthy, and none of those are passed here. activeShift/shifts stay
-        // wired so the "current shift" date-boundary fallback and inline
-        // SHIFT STARTED/ENDED row markers (both separate features) are
-        // unaffected -- Baggage/Marketing keep their own Start/End Day
-        // exactly as before via EHIApp.tsx's per-department streamLedger
-        // overlay, which isn't touched by this.
-        customerWallets={customerWallets}
-        refetchCustomerWallets={refetchCustomerWallets}
-      />
-    ));
-  }
+    if (activeSub === 'ledger') {
+      return { key: 'ledger', element: (
+        <TransactionLedger
+          user={user}
+          transactions={transactions}
+          expenses={expenses}
+          onBack={closeSub}
+          onUpdateTx={onFullUpdateTx || onAddTx}
+          onDeleteTx={onDeleteTx}
+          dateRange={dateRange}
+          onDateRangeChange={onDateRangeChange}
+          activeShift={activeShift}
+          shifts={todayShifts}
+          // Master Ledger no longer shows the Start/End Day button/status bar
+          // -- omitting onStartShift/onEndShift (rather than adding a new
+          // hide-this-bar prop) is enough: TransactionLedger.tsx's shift bar
+          // only renders when onStartShift, onEndShift, or shiftAutoManaged is
+          // truthy, and none of those are passed here. activeShift/shifts stay
+          // wired so the "current shift" date-boundary fallback and inline
+          // SHIFT STARTED/ENDED row markers (both separate features) are
+          // unaffected -- Baggage/Marketing keep their own Start/End Day
+          // exactly as before via EHIApp.tsx's per-department streamLedger
+          // overlay, which isn't touched by this.
+          customerWallets={customerWallets}
+          refetchCustomerWallets={refetchCustomerWallets}
+        />
+      ) };
+    }
 
-  if (activeSub === 'gatPrintQueue') {
-    return wrapSub('gatPrintQueue', <GatPrintQueue user={user} onBack={closeSub} />);
-  }
+    if (activeSub === 'gatPrintQueue') {
+      return { key: 'gatPrintQueue', element: <GatPrintQueue user={user} onBack={closeSub} /> };
+    }
 
-  if (activeSub === 'auditLog') {
-    return wrapSub('auditLog', <AuditLog onBack={closeSub} />);
-  }
+    if (activeSub === 'auditLog') {
+      return { key: 'auditLog', element: <AuditLog onBack={closeSub} /> };
+    }
 
-  if (activeSub === 'podLog') {
-    return wrapSub('podLog', <PODLog user={user} onBack={closeSub} />);
-  }
+    if (activeSub === 'podLog') {
+      return { key: 'podLog', element: <PODLog user={user} onBack={closeSub} /> };
+    }
 
-  if (activeSub === 'debtCollectionLog') {
-    return wrapSub('debtCollectionLog', <DebtCollectionRetrievalLog transactions={transactions} onBack={closeSub} />);
-  }
+    if (activeSub === 'debtCollectionLog') {
+      return { key: 'debtCollectionLog', element: <DebtCollectionRetrievalLog transactions={transactions} onBack={closeSub} /> };
+    }
 
-  if (activeSub === 'dispatch') {
-    return wrapSub('dispatch', <Dispatch onBack={closeSub} />);
-  }
+    if (activeSub === 'dispatch') {
+      return { key: 'dispatch', element: <Dispatch onBack={closeSub} /> };
+    }
 
-  if (activeSub === 'airlineCommissions') {
-    return wrapSub('airlineCommissions', <AirlineCommissions onBack={closeSub} />);
-  }
+    if (activeSub === 'airlineCommissions') {
+      return { key: 'airlineCommissions', element: <AirlineCommissions onBack={closeSub} /> };
+    }
 
-  if (activeSub === 'corporateBilling') {
-    return wrapSub('corporateBilling', <CorporateBilling user={user} onBack={closeSub} />);
-  }
+    if (activeSub === 'corporateBilling') {
+      return { key: 'corporateBilling', element: <CorporateBilling user={user} onBack={closeSub} /> };
+    }
 
-  if (activeSub === 'officeReconcile') {
-    return wrapSub('officeReconcile', <OfficeWorkReconciliation user={user} onBack={closeSub} />);
-  }
+    if (activeSub === 'officeReconcile') {
+      return { key: 'officeReconcile', element: <OfficeWorkReconciliation user={user} onBack={closeSub} /> };
+    }
 
-  if (activeSub === 'pricing') {
-    return wrapSub('pricing', <PricingConfiguration user={user} onBack={closeSub} />);
-  }
+    if (activeSub === 'pricing') {
+      return { key: 'pricing', element: <PricingConfiguration user={user} onBack={closeSub} /> };
+    }
 
-  if (activeSub === 'hubCargoRates') {
-    return wrapSub('hubCargoRates', <HubCargoRates user={user} onBack={closeSub} />);
-  }
+    if (activeSub === 'hubCargoRates') {
+      return { key: 'hubCargoRates', element: <HubCargoRates user={user} onBack={closeSub} /> };
+    }
 
-  if (activeSub === 'excessBaggageAirlines') {
-    return wrapSub('excessBaggageAirlines', <ExcessBaggageAirlines onBack={closeSub} />);
-  }
+    if (activeSub === 'excessBaggageAirlines') {
+      return { key: 'excessBaggageAirlines', element: <ExcessBaggageAirlines onBack={closeSub} /> };
+    }
 
-  if (activeSub === 'contentTypes') {
-    return wrapSub('contentTypes', <ContentTypes onBack={closeSub} onManageRates={(contentTypeId, rateType) => {
-      if (rateType === 'flat') { openSub('flatTierRates'); }
-      else if (rateType === 'size') { openSub('sizeTierRates'); }
-      else { setSpecialGoodsPreset(contentTypeId); openSub('specialGoodsRates'); }
-    }} />);
-  }
+    if (activeSub === 'contentTypes') {
+      return { key: 'contentTypes', element: (
+        <ContentTypes onBack={closeSub} onManageRates={(contentTypeId, rateType) => {
+          if (rateType === 'flat') { openSub('flatTierRates'); }
+          else if (rateType === 'size') { openSub('sizeTierRates'); }
+          else { setSpecialGoodsPreset(contentTypeId); openSub('specialGoodsRates'); }
+        }} />
+      ) };
+    }
 
-  if (activeSub === 'specialGoodsRates') {
-    return wrapSub('specialGoodsRates', <SpecialGoodsRates user={user} onBack={() => { setSpecialGoodsPreset(undefined); closeSub(); }} presetContentTypeId={specialGoodsPreset} />);
-  }
+    if (activeSub === 'specialGoodsRates') {
+      return { key: 'specialGoodsRates', element: <SpecialGoodsRates user={user} onBack={() => { setSpecialGoodsPreset(undefined); closeSub(); }} presetContentTypeId={specialGoodsPreset} /> };
+    }
 
-  if (activeSub === 'minimumCharges') {
-    return wrapSub('minimumCharges', <MinimumCharges onBack={closeSub} />);
-  }
+    if (activeSub === 'minimumCharges') {
+      return { key: 'minimumCharges', element: <MinimumCharges onBack={closeSub} /> };
+    }
 
-  if (activeSub === 'flatTierRates') {
-    return wrapSub('flatTierRates', <FlatTierRates user={user} onBack={closeSub} />);
-  }
+    if (activeSub === 'flatTierRates') {
+      return { key: 'flatTierRates', element: <FlatTierRates user={user} onBack={closeSub} /> };
+    }
 
-  if (activeSub === 'sizeTierRates') {
-    return wrapSub('sizeTierRates', <SizeTierRates user={user} onBack={closeSub} />);
-  }
+    if (activeSub === 'sizeTierRates') {
+      return { key: 'sizeTierRates', element: <SizeTierRates user={user} onBack={closeSub} /> };
+    }
 
-  if (activeSub === 'ratesList') {
-    return wrapSub('ratesList', <RatesList
-      onBack={closeSub}
-      onOpenConfig={(target) => {
-        if (target === 'pricing') openSub('pricing');
-        else if (target === 'hubRates') openSub('hubCargoRates');
-        else if (target === 'excessBaggage') openSub('excessBaggageAirlines');
-        else if (target === 'contentTypes') openSub('contentTypes');
-        else if (target === 'specialGoods') openSub('specialGoodsRates');
-        else if (target === 'minimumCharges') openSub('minimumCharges');
-        else if (target === 'airlineCommissions') openSub('airlineCommissions');
-        else if (target === 'flatTier') openSub('flatTierRates');
-        else if (target === 'sizeTier') openSub('sizeTierRates');
-      }}
-    />);
-  }
+    if (activeSub === 'ratesList') {
+      return { key: 'ratesList', element: (
+        <RatesList
+          onBack={closeSub}
+          onOpenConfig={(target) => {
+            if (target === 'pricing') openSub('pricing');
+            else if (target === 'hubRates') openSub('hubCargoRates');
+            else if (target === 'excessBaggage') openSub('excessBaggageAirlines');
+            else if (target === 'contentTypes') openSub('contentTypes');
+            else if (target === 'specialGoods') openSub('specialGoodsRates');
+            else if (target === 'minimumCharges') openSub('minimumCharges');
+            else if (target === 'airlineCommissions') openSub('airlineCommissions');
+            else if (target === 'flatTier') openSub('flatTierRates');
+            else if (target === 'sizeTier') openSub('sizeTierRates');
+          }}
+        />
+      ) };
+    }
 
-  if (activeSub === 'expenseCategories') {
-    return wrapSub('expenseCategories', <ExpenseCategories onBack={closeSub} />);
-  }
+    if (activeSub === 'expenseCategories') {
+      return { key: 'expenseCategories', element: <ExpenseCategories onBack={closeSub} /> };
+    }
 
-  if (activeSub === 'banks') {
-    return wrapSub('banks', <Banks onBack={closeSub} />);
-  }
+    if (activeSub === 'banks') {
+      return { key: 'banks', element: <Banks onBack={closeSub} /> };
+    }
 
-  if (activeSub === 'support') {
-    return wrapSub('support', <SupportTickets user={user} onBack={closeSub} />);
-  }
+    if (activeSub === 'support') {
+      return { key: 'support', element: <SupportTickets user={user} onBack={closeSub} /> };
+    }
 
-  if (activeSub === 'staff') {
-    return wrapSub('staff', <StaffManagement user={user} onBack={closeSub} />);
-  }
+    if (activeSub === 'staff') {
+      return { key: 'staff', element: <StaffManagement user={user} onBack={closeSub} /> };
+    }
+
+    return null;
+  };
+
+  const activeView = getActiveSubView();
 
 
   const MenuItem = ({
@@ -417,8 +385,27 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
     </div>
   );
 
+  const slideVariants = {
+    enter: (dir: 1 | -1) => ({ x: dir === 1 ? '100%' : '-100%' }),
+    center: { x: 0 },
+    exit: (dir: 1 | -1) => ({ x: dir === 1 ? '-100%' : '100%' }),
+  };
+
   return (
-    <div key="more-menu" className={`${revealFromBack ? 'page-slide-in-left' : 'page-transition'} p-4 pb-8 select-none`}>
+    <div style={{ position: 'relative', overflow: 'hidden', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <AnimatePresence initial={false} mode="popLayout" custom={direction}>
+        <motion.div
+          key={activeView?.key ?? 'more-menu'}
+          custom={direction}
+          variants={slideVariants}
+          initial="enter"
+          animate="center"
+          exit="exit"
+          transition={{ duration: prefersReducedMotion ? 0 : 0.5, ease: [0.4, 0, 0.2, 1] }}
+          style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+        >
+          {activeView ? activeView.element : (
+            <div className="p-4 pb-8 select-none">
 
       {/* Daily Operations */}
       <SectionLabel label="Daily Operations" />
@@ -789,6 +776,10 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         </div>
       </button>
 
+    </div>
+    )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 };
