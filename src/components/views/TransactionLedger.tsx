@@ -2467,7 +2467,7 @@ export const TransactionLedger = ({
   );
 
   return (
-    <div className="flex flex-row h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] relative animate-in slide-in-from-right overflow-hidden">
+    <div className="ehi-ledger-textured flex flex-row h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] relative animate-in slide-in-from-right overflow-hidden">
       <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
 
         {/* ── Top Bar ─────────────────────────────────────── */}
@@ -2655,8 +2655,8 @@ export const TransactionLedger = ({
                   onClick={() => setModeFilter('All')}
                   className={`rounded-xl px-3 py-2.5 border text-left transition-all cursor-pointer ${
                     modeFilter === 'All'
-                      ? 'bg-[var(--color-surface-2)] border-[var(--color-accent-amber)]'
-                      : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:border-[var(--color-muted)]'
+                      ? 'bg-[rgba(251,191,36,0.15)] border-[var(--color-accent-amber)] shadow-[var(--shadow-amber)]'
+                      : 'bg-[rgba(251,191,36,0.05)] border-[rgba(251,191,36,0.18)] hover:border-[var(--color-accent-amber)] shadow-[var(--shadow-sm)]'
                   }`}
                 >
                   <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider mb-1">Total</div>
@@ -2668,8 +2668,8 @@ export const TransactionLedger = ({
                   onClick={() => setModeFilter(modeFilter === 'Cash' ? 'All' : 'Cash')}
                   className={`rounded-xl px-3 py-2.5 border text-left transition-all ${
                     modeFilter === 'Cash'
-                      ? 'bg-[rgba(16,185,129,0.15)] border-[var(--color-success)]'
-                      : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:border-[var(--color-success)]'
+                      ? 'bg-[rgba(16,185,129,0.15)] border-[var(--color-success)] shadow-[var(--shadow-success)]'
+                      : 'bg-[rgba(16,185,129,0.06)] border-[rgba(16,185,129,0.18)] hover:border-[var(--color-success)] shadow-[var(--shadow-sm)]'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
@@ -2686,8 +2686,8 @@ export const TransactionLedger = ({
                   onClick={() => setModeFilter(modeFilter === 'Transfer' ? 'All' : 'Transfer')}
                   className={`rounded-xl px-3 py-2.5 border text-left transition-all ${
                     modeFilter === 'Transfer'
-                      ? 'bg-[rgba(59,130,246,0.15)] border-[var(--color-accent-cobalt)]'
-                      : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:border-[var(--color-accent-cobalt)]'
+                      ? 'bg-[rgba(59,130,246,0.15)] border-[var(--color-accent-cobalt)] shadow-[var(--shadow-cobalt)]'
+                      : 'bg-[rgba(59,130,246,0.06)] border-[rgba(59,130,246,0.18)] hover:border-[var(--color-accent-cobalt)] shadow-[var(--shadow-sm)]'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
@@ -2704,8 +2704,8 @@ export const TransactionLedger = ({
                   onClick={() => setModeFilter(modeFilter === 'POS' ? 'All' : 'POS')}
                   className={`rounded-xl px-3 py-2.5 border text-left transition-all ${
                     modeFilter === 'POS'
-                      ? 'bg-[rgba(245,158,11,0.15)] border-[var(--color-accent-amber)]'
-                      : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:border-[var(--color-accent-amber)]'
+                      ? 'bg-[rgba(245,158,11,0.15)] border-[var(--color-accent-amber)] shadow-[var(--shadow-amber)]'
+                      : 'bg-[rgba(245,158,11,0.06)] border-[rgba(245,158,11,0.18)] hover:border-[var(--color-accent-amber)] shadow-[var(--shadow-sm)]'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
@@ -2722,8 +2722,8 @@ export const TransactionLedger = ({
                   onClick={() => setModeFilter(modeFilter === 'Debt' ? 'All' : 'Debt')}
                   className={`rounded-xl px-3 py-2.5 border text-left transition-all ${
                     modeFilter === 'Debt'
-                      ? 'bg-[rgba(239,68,68,0.15)] border-[var(--color-error)]'
-                      : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:border-[var(--color-error)]'
+                      ? 'bg-[rgba(239,68,68,0.15)] border-[var(--color-error)] shadow-[var(--shadow-error)]'
+                      : 'bg-[rgba(239,68,68,0.06)] border-[rgba(239,68,68,0.18)] hover:border-[var(--color-error)] shadow-[var(--shadow-sm)]'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
@@ -2740,8 +2740,8 @@ export const TransactionLedger = ({
                   onClick={() => setModeFilter(modeFilter === 'Wallet' ? 'All' : 'Wallet')}
                   className={`rounded-xl px-3 py-2.5 border text-left transition-all ${
                     modeFilter === 'Wallet'
-                      ? 'bg-[rgba(168,85,247,0.15)] border-purple-400'
-                      : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:border-purple-400'
+                      ? 'bg-[rgba(168,85,247,0.15)] border-purple-400 shadow-[var(--shadow-purple)]'
+                      : 'bg-[rgba(168,85,247,0.06)] border-[rgba(168,85,247,0.18)] hover:border-purple-400 shadow-[var(--shadow-sm)]'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
@@ -2771,8 +2771,8 @@ export const TransactionLedger = ({
                   }}
                   className={`flex-1 rounded-lg px-3 py-1.5 border text-left transition-all ${
                     debtClassFilter === 'Office'
-                      ? 'bg-[rgba(239,68,68,0.15)] border-[var(--color-error)]'
-                      : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:border-[var(--color-error)]'
+                      ? 'bg-[rgba(239,68,68,0.15)] border-[var(--color-error)] shadow-[var(--shadow-error)]'
+                      : 'bg-[rgba(239,68,68,0.06)] border-[rgba(239,68,68,0.18)] hover:border-[var(--color-error)] shadow-[var(--shadow-sm)]'
                   }`}
                 >
                   <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Office Debt (B2B)</div>
@@ -2786,8 +2786,8 @@ export const TransactionLedger = ({
                   }}
                   className={`flex-1 rounded-lg px-3 py-1.5 border text-left transition-all ${
                     debtClassFilter === 'Individual'
-                      ? 'bg-[rgba(239,68,68,0.15)] border-[var(--color-error)]'
-                      : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:border-[var(--color-error)]'
+                      ? 'bg-[rgba(239,68,68,0.15)] border-[var(--color-error)] shadow-[var(--shadow-error)]'
+                      : 'bg-[rgba(239,68,68,0.06)] border-[rgba(239,68,68,0.18)] hover:border-[var(--color-error)] shadow-[var(--shadow-sm)]'
                   }`}
                 >
                   <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Individual Debt</div>
@@ -2800,14 +2800,14 @@ export const TransactionLedger = ({
               <div className="px-4 py-2 border-b border-white/10">
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
                 {([
-                  { label: 'All',        value: 'All',        activeClass: 'bg-[var(--color-surface-2)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
-                  { label: 'Cargo',      value: 'Cargo',      activeClass: 'bg-[rgba(59,130,246,0.15)] border-[var(--color-accent-cobalt)] text-[var(--color-accent-cobalt)]' },
-                  { label: 'Baggage',    value: 'Baggage',    activeClass: 'bg-[rgba(245,158,11,0.15)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
-                  { label: 'Marketing',  value: 'Marketing',  activeClass: 'bg-[rgba(16,185,129,0.15)] border-[var(--color-success)] text-[var(--color-success)]' },
-                  { label: 'Package',    value: 'Package',    activeClass: 'bg-[rgba(168,85,247,0.15)] border-purple-400 text-purple-400' },
-                  { label: 'Expense',    value: 'Expense',    activeClass: 'bg-[rgba(239,68,68,0.15)] border-[var(--color-error)] text-[var(--color-error)]' },
-                  { label: 'Office Work',value: 'Office Work',activeClass: 'bg-[var(--color-surface-2)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
-                ] as const).map(({ label, value, activeClass }) => {
+                  { label: 'All',        value: 'All',        activeClass: 'bg-[var(--color-surface-2)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]', restClass: 'bg-[rgba(251,191,36,0.05)] border-[rgba(251,191,36,0.18)] text-[var(--color-muted)] hover:border-[var(--color-accent-amber)]' },
+                  { label: 'Cargo',      value: 'Cargo',      activeClass: 'bg-[rgba(59,130,246,0.15)] border-[var(--color-accent-cobalt)] text-[var(--color-accent-cobalt)]', restClass: 'bg-[rgba(59,130,246,0.06)] border-[rgba(59,130,246,0.18)] text-[var(--color-muted)] hover:border-[var(--color-accent-cobalt)]' },
+                  { label: 'Baggage',    value: 'Baggage',    activeClass: 'bg-[rgba(245,158,11,0.15)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]', restClass: 'bg-[rgba(245,158,11,0.06)] border-[rgba(245,158,11,0.18)] text-[var(--color-muted)] hover:border-[var(--color-accent-amber)]' },
+                  { label: 'Marketing',  value: 'Marketing',  activeClass: 'bg-[rgba(16,185,129,0.15)] border-[var(--color-success)] text-[var(--color-success)]', restClass: 'bg-[rgba(16,185,129,0.06)] border-[rgba(16,185,129,0.18)] text-[var(--color-muted)] hover:border-[var(--color-success)]' },
+                  { label: 'Package',    value: 'Package',    activeClass: 'bg-[rgba(168,85,247,0.15)] border-purple-400 text-purple-400', restClass: 'bg-[rgba(168,85,247,0.06)] border-[rgba(168,85,247,0.18)] text-[var(--color-muted)] hover:border-purple-400' },
+                  { label: 'Expense',    value: 'Expense',    activeClass: 'bg-[rgba(239,68,68,0.15)] border-[var(--color-error)] text-[var(--color-error)]', restClass: 'bg-[rgba(239,68,68,0.06)] border-[rgba(239,68,68,0.18)] text-[var(--color-muted)] hover:border-[var(--color-error)]' },
+                  { label: 'Office Work',value: 'Office Work',activeClass: 'bg-[var(--color-surface-2)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]', restClass: 'bg-[rgba(251,191,36,0.05)] border-[rgba(251,191,36,0.18)] text-[var(--color-muted)] hover:border-[var(--color-accent-amber)]' },
+                ] as const).map(({ label, value, activeClass, restClass }) => {
                   const count = typeChipCounts[value] ?? 0;
                   const isActive = typeFilter === value;
                   return (
@@ -2815,9 +2815,7 @@ export const TransactionLedger = ({
                       key={value}
                       onClick={() => setTypeFilter(value)}
                       className={`shrink-0 h-7 px-2.5 rounded-full text-[10px] font-mono font-bold border transition-all cursor-pointer flex items-center gap-1 ${
-                        isActive
-                          ? activeClass
-                          : 'bg-[var(--color-surface-1)] border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-muted)]'
+                        isActive ? activeClass : restClass
                       }`}
                     >
                       {label}
