@@ -2671,7 +2671,7 @@ export const TransactionLedger = ({
                     <LayoutGrid size={16} className="text-[var(--color-accent-amber)]" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider truncate">Total</div>
+                    <div className="text-[9px] font-mono text-[var(--color-accent-amber)] uppercase tracking-wider truncate">Total</div>
                     <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-foreground)] leading-tight truncate">₦{fmt(totalAmount)}</div>
                   </div>
                 </div>
@@ -2690,7 +2690,7 @@ export const TransactionLedger = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1">
-                      <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider truncate">Cash</div>
+                      <div className="text-[9px] font-mono text-[var(--color-success)] uppercase tracking-wider truncate">Cash</div>
                       {isAccountantOrAdmin && unverifiedCash.length > 0 && (
                         <span className="text-[8px] font-mono font-bold bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unverifiedCash.length}</span>
                       )}
@@ -2713,7 +2713,7 @@ export const TransactionLedger = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1">
-                      <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider truncate">Transfer</div>
+                      <div className="text-[9px] font-mono text-[var(--color-accent-cobalt)] uppercase tracking-wider truncate">Transfer</div>
                       {isAccountantOrAdmin && unconfirmedTransfer.length > 0 && (
                         <span className="text-[8px] font-mono font-bold bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unconfirmedTransfer.length}</span>
                       )}
@@ -2736,7 +2736,7 @@ export const TransactionLedger = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1">
-                      <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider truncate">POS</div>
+                      <div className="text-[9px] font-mono text-[var(--color-accent-amber)] uppercase tracking-wider truncate">POS</div>
                       {isAccountantOrAdmin && unconfirmedPOS.length > 0 && (
                         <span className="text-[8px] font-mono font-bold bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unconfirmedPOS.length}</span>
                       )}
@@ -2759,7 +2759,7 @@ export const TransactionLedger = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1">
-                      <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider truncate">Debt</div>
+                      <div className="text-[9px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Debt</div>
                       {unpaidDebtCount > 0 && (
                         <span className="text-[8px] font-mono font-bold bg-[rgba(239,68,68,0.2)] text-[var(--color-error)] px-1 py-0.5 rounded shrink-0">{unpaidDebtCount}</span>
                       )}
@@ -2781,7 +2781,7 @@ export const TransactionLedger = ({
                     <Wallet size={16} className="text-purple-400" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider truncate">Wallet</div>
+                    <div className="text-[9px] font-mono text-purple-400 uppercase tracking-wider truncate">Wallet</div>
                     <div className="text-[13px] sm:text-[14px] font-bold font-mono text-purple-400 leading-tight truncate">₦{fmt(walletAmount)}</div>
                   </div>
                 </button>
@@ -2815,7 +2815,7 @@ export const TransactionLedger = ({
                     <Building2 size={14} className="text-[var(--color-error)]" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider truncate">Office Debt (B2B)</div>
+                    <div className="text-[9px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Office Debt (B2B)</div>
                     <div className="text-[12px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">₦{fmt(officeDebtAmount)}</div>
                   </div>
                 </button>
@@ -2835,7 +2835,7 @@ export const TransactionLedger = ({
                     <UserIcon size={14} className="text-[var(--color-error)]" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider truncate">Individual Debt</div>
+                    <div className="text-[9px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Individual Debt</div>
                     <div className="text-[12px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">₦{fmt(individualDebtAmount)}</div>
                   </div>
                 </button>
