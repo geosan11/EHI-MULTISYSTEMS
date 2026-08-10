@@ -2298,7 +2298,13 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
       {/* Per-stream view-only ledger overlay */}
       {streamLedger && createPortal(
-        <div className="fixed inset-0 z-50 flex flex-col bg-[var(--color-obsidian)]">
+        // overflow-hidden is required: this fixed/inset-0 box has no ancestor
+        // scroll container to fall back on (unlike the Master Ledger path,
+        // which lives inside <main>'s own overflow-y-auto) -- without it,
+        // content taller than the viewport just gets pushed past the visible
+        // frame instead of triggering TransactionLedger's own internal
+        // overflow-auto scroll region.
+        <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-[var(--color-obsidian)]">
           <TransactionLedger
             user={user}
             transactions={filteredLedgerTransactions}

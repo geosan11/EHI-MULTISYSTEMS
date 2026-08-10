@@ -750,9 +750,6 @@ main {
        content never renders underneath it. Set on :root by SideNav.tsx,
        kept in sync with whatever width it's currently rendering at. */
     padding-left: var(--sidenav-offset, 240px);
-    /* Matching reservation for .ehi-header-controls below, which floats
-       fixed at top:10px and is roughly 54px tall including its padding. */
-    padding-top: 64px;
     transition: padding-left 0.3s cubic-bezier(0.2, 0, 0, 1);
   }
 
