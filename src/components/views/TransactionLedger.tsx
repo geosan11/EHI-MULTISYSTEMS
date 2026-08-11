@@ -61,6 +61,7 @@ import { CustomerWallet } from "../../lib/types";
 import { CustomerWalletPicker } from "../CustomerWalletPicker";
 import { WalletRemainderSelector } from "../WalletRemainderSelector";
 import { chargeWalletForSale } from "../../lib/walletPayment";
+import { fetchLedgerPage, fetchLedgerTotals, fetchProfileLookup, LedgerSearchParams, LedgerCursor, LedgerEntryType, LedgerTotals } from "../../lib/ledgerSearch";
 
 type Entry = {
   id: string;
@@ -502,189 +503,172 @@ export const TransactionLedger = ({
     return getShiftBoundary(shiftHour);
   }, [shiftHour, activeShift, shifts]);
 
-  // "All Time" previously only widened the SHARED globalDateRange to 5
-  // years, still capped at .limit(5000)/table in EHIApp.tsx's fetchInitial
-  // -- wider, not literally "every transaction ever." Raising/removing that
-  // shared cap wasn't an option: it also feeds Tower/Analytics/Dashboard,
-  // which would then have to load and process years of data on every
-  // click regardless of whether the user is even looking at the ledger.
-  // Dedicated, ledger-local, fully paginated (fetchAllRows) fetch instead,
-  // triggered once when "All Time" is first engaged. Mapping mirrors
-  // EHIApp.tsx's fetchInitial field-for-field (same duplication already
-  // accepted for src/lib/debt.ts's fetchAllDebtAndRetrievalEntries) so
-  // every edit/retrieval/debt-clearance action works identically on a
-  // historical row as on one from the normal windowed fetch.
-  const [allTimeTransactions, setAllTimeTransactions] = useState<Transaction[]>([]);
-  const [loadingAllTime, setLoadingAllTime] = useState(false);
-  const [allTimeLoaded, setAllTimeLoaded] = useState(false);
+  // "All Time" previously eagerly fetched up to 20,000 rows PER TABLE (up
+  // to 80,000 total) into memory the instant it was clicked, then filtered
+  // that giant in-memory set client-side. Replaced with server-side
+  // keyset pagination via ledger_search_page/ledger_search_totals
+  // (supabase/migrations/20260938_ledger_search_and_totals_rpc.sql): one
+  // 500-row page across ALL entry types combined (not per table), newest
+  // first, with search/type/terminal/office-work/debt-class narrowing
+  // pushed server-side so a search or filter change doesn't require
+  // downloading everything first. The KPI tiles source from a SEPARATE
+  // always-correct aggregate RPC so they reflect every matching row, not
+  // just whatever's currently loaded on screen (see displayTotals below).
+  //
+  // modeFilter's pseudo-values (Revenue/Expense/Unverified/Retrieved/Debt
+  // Paid/Debt Clearance) and timeFilter/vjFlightFilter/vjDestFilter have
+  // no server-side equivalent and deliberately keep applying only to
+  // whatever's currently loaded (filteredEntries below already does this
+  // unconditionally) -- a documented limitation for this first pass, not
+  // a silent gap: see the caption rendered near the KPI tiles when one of
+  // those is active while All Time is engaged.
+  const [allTimeTxRows, setAllTimeTxRows] = useState<Transaction[]>([]);
+  const [allTimeExpenseRows, setAllTimeExpenseRows] = useState<Expense[]>([]);
+  const [allTimeCursor, setAllTimeCursor] = useState<LedgerCursor | null>(null);
+  const [allTimeHasMore, setAllTimeHasMore] = useState(true);
+  const [loadingAllTimeFirst, setLoadingAllTimeFirst] = useState(false);
+  const [loadingAllTimeMore, setLoadingAllTimeMore] = useState(false);
+  const [allTimeEngaged, setAllTimeEngaged] = useState(false);
+  const [allTimeTotals, setAllTimeTotals] = useState<LedgerTotals | null>(null);
+  const allTimeProfileLookupRef = useRef<Record<string, string>>({});
 
-  const fetchAllTimeTransactions = async () => {
-    if (allTimeLoaded || loadingAllTime) return;
-    setLoadingAllTime(true);
-    try {
-      // Paginated -- a plain .select() silently truncates past PostgREST's
-      // ~1000-row cap, which would show a raw UUID instead of the agent's
-      // name on some All Time entries once staff headcount crossed that.
-      // Isolated in its own try/catch: fetchAllRows throws on error (unlike
-      // the old `const {data} = await supabase...`, which just resolved
-      // null) -- this is decoration (a name lookup), not core data, so a
-      // failure here must degrade to raw IDs, not abort the entire All Time
-      // transaction load below.
-      const profiles = await fetchAllRows<any>((from, to) => supabase.from('user_profiles').select('id,name').order('id').range(from, to)).catch(() => []);
-      const profileLookup: Record<string, string> = {};
-      profiles.forEach((p: any) => { if (p.id) profileLookup[p.id] = p.name || ''; });
+  // p_mode on the RPC only accepts the 5 raw DB values -- the modeFilter
+  // dropdown also has pseudo-values with no direct column equivalent
+  // (see comment above), which stay client-side instead of being sent.
+  const RAW_MODE_VALUES = ['Cash', 'Transfer', 'POS', 'Debt', 'Wallet'];
 
-      const wantsCargo = !defaultTypeFilter || defaultTypeFilter === 'cargo';
-      const wantsBaggage = !defaultTypeFilter || defaultTypeFilter === 'baggage';
-      const wantsMarketing = !defaultTypeFilter || defaultTypeFilter === 'marketing';
-      const wantsPackage = !defaultTypeFilter || defaultTypeFilter === 'package';
+  const allTimeFilterParams: LedgerSearchParams = useMemo(() => {
+    const typeFilterLower = typeFilter.toLowerCase();
+    const isRealType = ['cargo', 'baggage', 'marketing', 'package'].includes(typeFilterLower);
+    const types: LedgerEntryType[] | null = isRealType
+      ? [typeFilterLower as LedgerEntryType]
+      : (typeFilter === 'Expense' ? [] : null);
+    return {
+      query: searchQuery,
+      types,
+      terminal: terminalFilter !== 'All' ? terminalFilter : null,
+      mode: RAW_MODE_VALUES.includes(modeFilter) ? modeFilter : null,
+      officeWorkOnly: typeFilter === 'Office Work',
+      debtClass: debtClassFilter !== 'All' ? debtClassFilter : null,
+      includeExpenses: typeFilter === 'All' || typeFilter === 'Expense',
+    };
+  }, [searchQuery, typeFilter, terminalFilter, modeFilter, debtClassFilter]);
 
-      // "All Time" is intentionally unbounded by date, so unlike every
-      // other fetchAllRows() call in this codebase (already narrowed by a
-      // specific filter or window), this one WILL keep growing as the
-      // underlying tables do. A hard per-table cap keeps a busy hub's
-      // history from eventually hanging the UI or ballooning memory with
-      // no ceiling -- at 2026-08 volume this is 10x+ current table sizes,
-      // so it changes nothing today; it's a safety net for growth, not a
-      // real limit yet. Mirrors EHIApp.tsx's fetchInitial 5000-row-cap
-      // warning pattern.
-      const ALL_TIME_ROW_CAP = 20000;
-      const emptyCapped = { rows: [] as any[], capped: false };
-      const [cargoResult, baggageResult, marketingResult, packageResult] = await Promise.all([
-        wantsCargo ? fetchRowsCapped<any>((from, to) => supabase.from('cargo_entries').select('entry_ref,consignee_name,airline,awb_tag_number,total_pcs,total_kg,size_inches,route,content_type,amount,receipt_mode,pickup_pin,status,created_at,commission_rate,bank,hub_id,terminal,remark,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,consignee_phone,client_type,corporate_client_id,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id').order('created_at', { ascending: false }).range(from, to), ALL_TIME_ROW_CAP) : Promise.resolve(emptyCapped),
-        wantsBaggage ? fetchRowsCapped<any>((from, to) => supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs,amount_paid,payment_history,airline,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark').order('created_at', { ascending: false }).range(from, to), ALL_TIME_ROW_CAP) : Promise.resolve(emptyCapped),
-        wantsMarketing ? fetchRowsCapped<any>((from, to) => supabase.from('marketing_entries').select('entry_ref,awb_tag_number,customer_name,route,airline,qty_big_bag,qty_med_bag,qty_small_bag,bb_kg,mb_kg,sb_kg,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,last_edited_by,last_edited_at,debt_amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark,customer_phone').order('created_at', { ascending: false }).range(from, to), ALL_TIME_ROW_CAP) : Promise.resolve(emptyCapped),
-        wantsPackage ? fetchRowsCapped<any>((from, to) => supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,total_pcs,total_kg,contents,status,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,amount_paid,payment_history,created_at,hub_id,terminal,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark,customer_phone').order('created_at', { ascending: false }).range(from, to), ALL_TIME_ROW_CAP) : Promise.resolve(emptyCapped),
-      ]);
-      const cargoRows = cargoResult.rows, baggageRows = baggageResult.rows, marketingRows = marketingResult.rows, packageRows = packageResult.rows;
-
-      const cappedTables: string[] = [];
-      if (cargoResult.capped) cappedTables.push('Cargo');
-      if (baggageResult.capped) cappedTables.push('Excess Baggage');
-      if (marketingResult.capped) cappedTables.push('Marketing');
-      if (packageResult.capped) cappedTables.push('Package Desk');
-      if (cappedTables.length > 0) {
-        showToast({
-          message: `"All Time" is showing only the most recent ${ALL_TIME_ROW_CAP.toLocaleString()} records for: ${cappedTables.join(', ')}. Use a narrower custom date range to see older entries in this window.`,
-          type: 'warning',
-        });
-      }
-
-      const mapped: Transaction[] = [];
-
-      cargoRows.forEach((r: any) => {
-        const enteredByName = r.entered_by ? (profileLookup[r.entered_by] || r.entered_by) : undefined;
-        mapped.push({
-          id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo',
-          detail: `${r.airline || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}${r.size_inches ? ` · ${r.size_inches}in` : ''}`,
-          amount: r.amount || 0,
-          mode: r.receipt_mode === 'Debt' && Number(r.amount_paid || 0) >= Number(r.amount || 0) ? 'Debt Paid' : (r.receipt_mode || 'Cash'),
-          time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
-          type: 'cargo', status: r.status || 'Intake', awb_tag_number: r.awb_tag_number, kg: r.total_kg,
-          sizeInches: r.size_inches ?? undefined, pieces: r.total_pcs, pickupPin: r.pickup_pin || undefined,
-          created_at: r.created_at, airline: r.airline, commissionRate: r.commission_rate ?? undefined,
-          bank: r.bank, route: r.route, hub_id: r.hub_id, terminal: r.terminal, contentType: r.content_type,
-          remarks: r.remark || undefined, enteredByName: enteredByName || undefined, editedBy: r.last_edited_by || undefined,
-          editedAt: r.last_edited_at || undefined, amountPaid: r.amount_paid || 0, paymentHistory: r.payment_history || [],
-          paymentConfirmed: r.payment_confirmed, posApprovalCode: r.pos_approval_code || undefined, confirmedBy: r.confirmed_by || undefined,
-          confirmedAt: r.confirmed_at || undefined, consigneePhone: r.consignee_phone || undefined, clientType: r.client_type || undefined,
-          corporate_client_id: r.corporate_client_id || undefined, bankReference: r.bank_reference || undefined, bankSender: r.bank_sender || undefined,
-          bankAlertText: r.bank_alert_text || undefined, wallet_id: r.wallet_id || undefined, wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
-          retrieved: r.retrieved ?? undefined, retrievalNote: r.retrieval_note ?? undefined, retrievedAt: r.retrieved_at ?? undefined,
-          retrievedBy: r.retrieved_by ?? undefined, retrievalApproved: r.retrieval_approved ?? undefined, retrievalApprovedBy: r.retrieval_approved_by ?? undefined,
-          retrievalApprovedAt: r.retrieval_approved_at ?? undefined, is_debt_clearance: r.is_debt_clearance || undefined, related_tx_id: r.related_tx_id || undefined,
-          raw: r,
-        } as Transaction);
-      });
-
-      baggageRows.forEach((r: any) => {
-        const enteredByName = r.entered_by ? (profileLookup[r.entered_by] || r.entered_by) : undefined;
-        mapped.push({
-          id: r.transaction_id || r.id, name: r.passenger_name || 'Baggage Passenger',
-          detail: `${r.flight_no || ''} · ${r.destination || ''} · ${r.total_pcs || 1}pcs · +${r.excess_kg || 0}kg excess`,
-          amount: r.amount || 0,
-          mode: r.payment_mode === 'Debt' && Number(r.amount_paid || 0) >= Number(r.amount || 0) ? 'Debt Paid' : (r.payment_mode || 'POS'),
-          time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
-          type: 'baggage', status: 'Delivered', created_at: r.created_at, bank: r.bank, hub_id: r.hub_id, airline: r.airline,
-          destination: r.destination, excessKg: r.excess_kg, totalKg: r.total_kg, flight: r.flight_no, pnr: r.pnr || undefined,
-          kg: r.excess_kg, pieces: r.total_pcs, enteredByName: enteredByName || undefined, editedBy: r.last_edited_by || undefined,
-          editedAt: r.last_edited_at || undefined, amountPaid: r.amount_paid || 0, paymentHistory: r.payment_history || [],
-          paymentConfirmed: r.payment_confirmed, posApprovalCode: r.pos_approval_code || undefined, confirmedBy: r.confirmed_by || undefined,
-          confirmedAt: r.confirmed_at || undefined, bankReference: r.bank_reference || undefined, bankSender: r.bank_sender || undefined,
-          bankAlertText: r.bank_alert_text || undefined, wallet_id: r.wallet_id || undefined, wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
-          retrieved: r.retrieved ?? undefined, retrievalNote: r.retrieval_note ?? undefined, retrievedAt: r.retrieved_at ?? undefined,
-          retrievedBy: r.retrieved_by ?? undefined, retrievalApproved: r.retrieval_approved ?? undefined, retrievalApprovedBy: r.retrieval_approved_by ?? undefined,
-          retrievalApprovedAt: r.retrieval_approved_at ?? undefined, is_debt_clearance: r.is_debt_clearance || undefined, related_tx_id: r.related_tx_id || undefined,
-          remarks: r.remark || undefined, raw: r,
-        } as Transaction);
-      });
-
-      marketingRows.forEach((r: any) => {
-        const enteredByName = r.entered_by ? (profileLookup[r.entered_by] || r.entered_by) : undefined;
-        mapped.push({
-          id: r.entry_ref || r.id, awb_tag_number: r.awb_tag_number || undefined, name: r.customer_name || 'Customer',
-          detail: `${r.route || ''} · ${r.qty_big_bag || 0}BB ${r.qty_med_bag || 0}MB ${r.qty_small_bag || 0}SB`,
-          amount: r.amount_paid || 0,
-          mode: r.payment_mode === 'Debt' && Number(r.debt_amount_paid || 0) >= Number(r.amount_paid || 0) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
-          time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
-          type: 'marketing', status: 'Intake', created_at: r.created_at, bank: r.bank, hub_id: r.hub_id, route: r.route,
-          airline: r.airline || undefined, enteredByName: enteredByName || undefined, editedBy: r.last_edited_by || undefined,
-          editedAt: r.last_edited_at || undefined, amountPaid: r.debt_amount_paid || 0, paymentHistory: r.payment_history || [],
-          paymentConfirmed: r.payment_confirmed, posApprovalCode: r.pos_approval_code || undefined, confirmedBy: r.confirmed_by || undefined,
-          confirmedAt: r.confirmed_at || undefined, bankReference: r.bank_reference || undefined, bankSender: r.bank_sender || undefined,
-          bankAlertText: r.bank_alert_text || undefined, wallet_id: r.wallet_id || undefined, wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
-          retrieved: r.retrieved ?? undefined, retrievalNote: r.retrieval_note ?? undefined, retrievedAt: r.retrieved_at ?? undefined,
-          retrievedBy: r.retrieved_by ?? undefined, retrievalApproved: r.retrieval_approved ?? undefined, retrievalApprovedBy: r.retrieval_approved_by ?? undefined,
-          retrievalApprovedAt: r.retrieval_approved_at ?? undefined, consigneePhone: r.customer_phone || undefined,
-          is_debt_clearance: r.is_debt_clearance || undefined, related_tx_id: r.related_tx_id || undefined, remarks: r.remark || undefined,
-          raw: r,
-        } as Transaction);
-      });
-
-      packageRows.forEach((r: any) => {
-        const enteredByName = r.entered_by ? (profileLookup[r.entered_by] || r.entered_by) : undefined;
-        mapped.push({
-          id: r.entry_ref || r.id, name: r.customer_name || 'Customer',
-          detail: `${r.destination || ''} · ${r.content_type || 'Package'} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg${r.contents ? ` · ${r.contents}` : ''}`,
-          amount: r.amount || 0,
-          mode: r.payment_mode === 'Debt' && (r.debt_paid === true || Number(r.amount_paid || 0) >= Number(r.amount || 0)) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
-          time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
-          type: 'package', status: r.status || 'Intake', created_at: r.created_at, bank: r.bank, hub_id: r.hub_id, terminal: r.terminal,
-          destination: r.destination, contentType: r.content_type, pieces: r.total_pcs || undefined, kg: r.total_kg || undefined,
-          contents: r.contents || undefined, paymentNarration: r.payment_narration || undefined, debtPaid: r.debt_paid ?? undefined,
-          debtPaidAt: r.debt_paid_at || undefined, enteredByName: enteredByName || undefined, editedBy: r.last_edited_by || undefined,
-          editedAt: r.last_edited_at || undefined, amountPaid: r.amount_paid || 0, paymentHistory: r.payment_history || [],
-          paymentConfirmed: r.payment_confirmed, posApprovalCode: r.pos_approval_code || undefined, confirmedBy: r.confirmed_by || undefined,
-          confirmedAt: r.confirmed_at || undefined, wallet_id: r.wallet_id || undefined, wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
-          retrieved: r.retrieved ?? undefined, retrievalNote: r.retrieval_note ?? undefined, retrievedAt: r.retrieved_at ?? undefined,
-          retrievedBy: r.retrieved_by ?? undefined, retrievalApproved: r.retrieval_approved ?? undefined, retrievalApprovedBy: r.retrieval_approved_by ?? undefined,
-          retrievalApprovedAt: r.retrieval_approved_at ?? undefined, consigneePhone: r.customer_phone || undefined,
-          is_debt_clearance: r.is_debt_clearance || undefined, related_tx_id: r.related_tx_id || undefined, remarks: r.remark || undefined,
-          raw: r,
-        } as Transaction);
-      });
-
-      setAllTimeTransactions(mapped);
-      setAllTimeLoaded(true);
-    } catch (err: any) {
-      showToast({ message: `Failed to load full history: ${err.message || err}`, type: 'error' });
-    } finally {
-      setLoadingAllTime(false);
-    }
+  const splitPageRows = (rows: { transaction?: Transaction; expense?: Expense }[]) => {
+    const tx: Transaction[] = [], exp: Expense[] = [];
+    rows.forEach((r) => { if (r.transaction) tx.push(r.transaction); else if (r.expense) exp.push(r.expense); });
+    return { tx, exp };
   };
 
-  // shiftFilter === 'all' (All Time engaged) sources from the dedicated
-  // fetch above, merged with the live `transactions` prop (prop wins on id
-  // collision, so a same-session create/edit shows immediately without
-  // waiting for a refetch) -- otherwise unchanged, sourcing from
-  // `transactions` alone exactly as before this fix.
+  const fetchAllTimeFirstPage = useCallback(async (paramsOverride?: LedgerSearchParams) => {
+    const activeParams = paramsOverride || allTimeFilterParams;
+    setLoadingAllTimeFirst(true);
+    try {
+      if (Object.keys(allTimeProfileLookupRef.current).length === 0) {
+        allTimeProfileLookupRef.current = await fetchProfileLookup();
+      }
+      const [page, totals] = await Promise.all([
+        fetchLedgerPage(activeParams, null, allTimeProfileLookupRef.current),
+        fetchLedgerTotals(activeParams),
+      ]);
+      const { tx, exp } = splitPageRows(page.rows);
+      setAllTimeTxRows(tx);
+      setAllTimeExpenseRows(exp);
+      setAllTimeCursor(page.nextCursor);
+      setAllTimeHasMore(page.hasMore);
+      setAllTimeTotals(totals);
+      setAllTimeEngaged(true);
+    } catch (err: any) {
+      showToast({ message: `Failed to load ledger history: ${err.message || err}`, type: 'error' });
+    } finally {
+      setLoadingAllTimeFirst(false);
+    }
+  }, [allTimeFilterParams, showToast]);
+
+  const fetchAllTimeNextPage = useCallback(async () => {
+    if (!allTimeHasMore || loadingAllTimeMore || loadingAllTimeFirst || !allTimeCursor) return;
+    setLoadingAllTimeMore(true);
+    try {
+      const page = await fetchLedgerPage(allTimeFilterParams, allTimeCursor, allTimeProfileLookupRef.current);
+      const { tx, exp } = splitPageRows(page.rows);
+      setAllTimeTxRows(prev => [...prev, ...tx]);
+      setAllTimeExpenseRows(prev => [...prev, ...exp]);
+      setAllTimeCursor(page.nextCursor);
+      setAllTimeHasMore(page.hasMore);
+    } catch (err: any) {
+      showToast({ message: `Failed to load more history: ${err.message || err}`, type: 'error' });
+    } finally {
+      setLoadingAllTimeMore(false);
+    }
+  }, [allTimeFilterParams, allTimeCursor, allTimeHasMore, loadingAllTimeMore, loadingAllTimeFirst, showToast]);
+
+  // Infinite scroll for All Time -- reuses the same scroll container the
+  // row/card virtualizers already watch (tableRef, declared below) rather
+  // than adding a second scroll-tracking mechanism; a plain scroll-position
+  // check is simpler and just as reliable as correlating virtual item
+  // indices against displayEntries (which also holds non-data shift-marker
+  // rows), for the same "fetch when near the bottom" outcome.
+  const handleLedgerScroll = useCallback(() => {
+    if (shiftFilter !== 'all' || !allTimeHasMore || loadingAllTimeMore || loadingAllTimeFirst) return;
+    const el = tableRef.current;
+    if (!el) return;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 600) {
+      fetchAllTimeNextPage();
+    }
+  }, [shiftFilter, allTimeHasMore, loadingAllTimeMore, loadingAllTimeFirst, fetchAllTimeNextPage]);
+
+  // Search/type/terminal/mode/debt-class change while All Time is already
+  // engaged -> reset to page 1 under the new params. The scope button's
+  // own onClick handles the FIRST engagement (see below); this effect only
+  // fires on subsequent param changes so switching to All Time doesn't
+  // double-fetch.
+  const allTimeParamsKey = JSON.stringify(allTimeFilterParams);
+  const prevAllTimeParamsKeyRef = useRef(allTimeParamsKey);
+  useEffect(() => {
+    if (shiftFilter !== 'all' || !allTimeEngaged) { prevAllTimeParamsKeyRef.current = allTimeParamsKey; return; }
+    if (prevAllTimeParamsKeyRef.current === allTimeParamsKey) return;
+    prevAllTimeParamsKeyRef.current = allTimeParamsKey;
+    fetchAllTimeFirstPage(allTimeFilterParams);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allTimeParamsKey, shiftFilter, allTimeEngaged]);
+
+  // After any write action while All Time is engaged (clear debt, confirm
+  // payment, retrieval, edit-save all funnel through onUpdateTx/onDeleteTx,
+  // which changes the `transactions`/`expenses` props), re-fetch just the
+  // aggregate totals (cheap) so the KPI tiles don't go stale relative to an
+  // edit made against a currently-loaded row -- the row list itself already
+  // reflects the edit immediately via mergedTransactions'/mergedExpenses'
+  // merge-by-id logic below, only the server-computed aggregate needs an
+  // explicit nudge. Debounced since a bulk action can touch several rows.
+  useEffect(() => {
+    if (shiftFilter !== 'all' || !allTimeEngaged) return;
+    const t = setTimeout(() => {
+      fetchLedgerTotals(allTimeFilterParams).then(setAllTimeTotals).catch(() => {});
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions, expenses]);
+
+  // shiftFilter === 'all' (All Time engaged) sources from the paginated
+  // fetch above, merged with the live `transactions`/`expenses` props (prop
+  // wins on id collision, so a same-session create/edit shows immediately
+  // without waiting for a refetch) -- otherwise unchanged, sourcing from
+  // `transactions`/`expenses` alone exactly as before this fix.
   const mergedTransactions = useMemo(() => {
-    if (shiftFilter !== 'all' || !allTimeLoaded) return transactions;
+    if (shiftFilter !== 'all' || !allTimeEngaged) return transactions;
     const byId = new Map<string, Transaction>();
-    allTimeTransactions.forEach(t => byId.set(t.id, t));
+    allTimeTxRows.forEach(t => byId.set(t.id, t));
     transactions.forEach(t => byId.set(t.id, t));
     return Array.from(byId.values());
-  }, [transactions, allTimeTransactions, allTimeLoaded, shiftFilter]);
+  }, [transactions, allTimeTxRows, allTimeEngaged, shiftFilter]);
+
+  const mergedExpenses = useMemo(() => {
+    if (shiftFilter !== 'all' || !allTimeEngaged) return expenses;
+    const byId = new Map<string, Expense>();
+    allTimeExpenseRows.forEach(e => byId.set(e.id, e));
+    expenses.forEach(e => byId.set(e.id, e));
+    return Array.from(byId.values());
+  }, [expenses, allTimeExpenseRows, allTimeEngaged, shiftFilter]);
 
   const entries = useMemo(() => {
     const list: Entry[] = [
@@ -711,7 +695,7 @@ export const TransactionLedger = ({
           displayTime,
         };
       }),
-      ...expenses.map((e) => {
+      ...mergedExpenses.map((e) => {
         const dtStr = e.time;
         const d = dtStr ? new Date(dtStr) : null;
         let displayDate = 'Unknown date';
@@ -758,7 +742,7 @@ export const TransactionLedger = ({
       if (a.time < b.time) return 1;
       return 0;
     });
-  }, [mergedTransactions, expenses]);
+  }, [mergedTransactions, mergedExpenses]);
 
   // Single source of truth (src/lib/officeWork.ts) shared with
   // DebtorsTab.tsx and Analytics.tsx, so the Office/Individual split can't
@@ -1247,12 +1231,12 @@ export const TransactionLedger = ({
             shiftDate: new Date().toLocaleDateString('en-GB'),
             agentName: user.name || 'Staff',
             printedAt: `${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`,
-            totalAmount,
-            cashAmount,
-            transferAmount,
-            posAmount,
-            debtAmount,
-            walletAmount,
+            totalAmount: displayTotals.totalAmount,
+            cashAmount: displayTotals.cashAmount,
+            transferAmount: displayTotals.transferAmount,
+            posAmount: displayTotals.posAmount,
+            debtAmount: displayTotals.debtAmount,
+            walletAmount: displayTotals.walletAmount,
           }
         );
       });
@@ -2337,6 +2321,39 @@ export const TransactionLedger = ({
     totalAmount, cashAmount, unverifiedCash, unconfirmedTransfer, unconfirmedPOS,
   } = kpis;
 
+  // While All Time is engaged, the KPI tiles show the server-computed
+  // aggregate (allTimeTotals, reflecting every matching row across the
+  // whole table, not just loaded pages) instead of the client-computed
+  // `kpis` above (which only ever reduces over filteredEntries -- whatever
+  // happens to be loaded). unverifiedCash/unconfirmedTransfer/unconfirmedPOS
+  // (used for row badges, not the tiles) intentionally keep coming from
+  // `kpis` -- there's no equivalent server aggregate for "which specific
+  // rows are unconfirmed," and those only ever need to reflect loaded rows.
+  const displayTotals = useMemo(() => {
+    if (shiftFilter === 'all' && allTimeEngaged && allTimeTotals) {
+      return {
+        totalAmount: allTimeTotals.totalAmount, cashAmount: allTimeTotals.cashAmount,
+        transferAmount: allTimeTotals.transferAmount, posAmount: allTimeTotals.posAmount,
+        debtAmount: allTimeTotals.debtAmount, walletAmount: allTimeTotals.walletAmount,
+        unpaidDebtCount: allTimeTotals.unpaidDebtCount, officeDebtAmount: allTimeTotals.officeDebtAmount,
+        individualDebtAmount: allTimeTotals.individualDebtAmount,
+      };
+    }
+    return { totalAmount, cashAmount, transferAmount, posAmount, debtAmount, walletAmount, unpaidDebtCount, officeDebtAmount, individualDebtAmount };
+  }, [shiftFilter, allTimeEngaged, allTimeTotals, totalAmount, cashAmount, transferAmount, posAmount, debtAmount, walletAmount, unpaidDebtCount, officeDebtAmount, individualDebtAmount]);
+
+  // Server totals above only account for search/type/terminal/office-work/
+  // debt-class -- timeFilter/vjFlightFilter/vjDestFilter and modeFilter's
+  // pseudo-values have no server equivalent (see allTimeFilterParams'
+  // comment) and only narrow the on-screen ROWS, not displayTotals. True
+  // whenever one of those is active so the tiles can flag the mismatch
+  // instead of silently looking wrong.
+  const allTimeTotalsExcludeSomeActiveFilters =
+    shiftFilter === 'all' && allTimeEngaged && (
+      timeFilter !== 'All' || vjFlightFilter !== 'All' || vjDestFilter !== 'All' ||
+      (modeFilter !== 'All' && !RAW_MODE_VALUES.includes(modeFilter))
+    );
+
   const { hasNonDefaultFilters, activeFilterCount } = useMemo(() => {
     const hasNDF =
       typeFilter !== (defaultTypeFilter || "All") ||
@@ -2546,7 +2563,7 @@ export const TransactionLedger = ({
                     });
                   });
                 } else {
-                  import('../../lib/helpers').then(({ downloadDailyExcel }) => {
+                  import('../../lib/excelExport').then(({ downloadDailyExcel }) => {
                     const txs = filteredEntries
                       .filter(e => e.source === 'transaction')
                       .map(e => e.raw as Transaction);
@@ -2590,7 +2607,7 @@ export const TransactionLedger = ({
               <button
                 title="Download per-airline manifest Excel file (tag number, content, kg, route, amount — grouped and ordered by airline)"
                 onClick={() => {
-                  import('../../lib/helpers').then(({ downloadAirlineManifestExcel }) => {
+                  import('../../lib/excelExport').then(({ downloadAirlineManifestExcel }) => {
                     const txs = filteredEntries
                       .filter(e => e.source === 'transaction')
                       .map(e => e.raw as Transaction);
@@ -2672,7 +2689,7 @@ export const TransactionLedger = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-[9px] font-mono text-[var(--color-accent-amber)] uppercase tracking-wider truncate">Total</div>
-                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-foreground)] leading-tight truncate">₦{fmt(totalAmount)}</div>
+                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-foreground)] leading-tight truncate">₦{fmt(displayTotals.totalAmount)}</div>
                   </div>
                 </div>
 
@@ -2695,7 +2712,7 @@ export const TransactionLedger = ({
                         <span className="text-[8px] font-mono font-bold bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unverifiedCash.length}</span>
                       )}
                     </div>
-                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-success)] leading-tight truncate">₦{fmt(cashAmount)}</div>
+                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-success)] leading-tight truncate">₦{fmt(displayTotals.cashAmount)}</div>
                   </div>
                 </button>
 
@@ -2718,7 +2735,7 @@ export const TransactionLedger = ({
                         <span className="text-[8px] font-mono font-bold bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unconfirmedTransfer.length}</span>
                       )}
                     </div>
-                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-accent-cobalt)] leading-tight truncate">₦{fmt(transferAmount)}</div>
+                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-accent-cobalt)] leading-tight truncate">₦{fmt(displayTotals.transferAmount)}</div>
                   </div>
                 </button>
 
@@ -2741,7 +2758,7 @@ export const TransactionLedger = ({
                         <span className="text-[8px] font-mono font-bold bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unconfirmedPOS.length}</span>
                       )}
                     </div>
-                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-accent-amber)] leading-tight truncate">₦{fmt(posAmount)}</div>
+                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-accent-amber)] leading-tight truncate">₦{fmt(displayTotals.posAmount)}</div>
                   </div>
                 </button>
 
@@ -2760,11 +2777,11 @@ export const TransactionLedger = ({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1">
                       <div className="text-[9px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Debt</div>
-                      {unpaidDebtCount > 0 && (
-                        <span className="text-[8px] font-mono font-bold bg-[rgba(239,68,68,0.2)] text-[var(--color-error)] px-1 py-0.5 rounded shrink-0">{unpaidDebtCount}</span>
+                      {displayTotals.unpaidDebtCount > 0 && (
+                        <span className="text-[8px] font-mono font-bold bg-[rgba(239,68,68,0.2)] text-[var(--color-error)] px-1 py-0.5 rounded shrink-0">{displayTotals.unpaidDebtCount}</span>
                       )}
                     </div>
-                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">₦{fmt(debtAmount)}</div>
+                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">₦{fmt(displayTotals.debtAmount)}</div>
                   </div>
                 </button>
 
@@ -2782,7 +2799,7 @@ export const TransactionLedger = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-[9px] font-mono text-purple-400 uppercase tracking-wider truncate">Wallet</div>
-                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-purple-400 leading-tight truncate">₦{fmt(walletAmount)}</div>
+                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-purple-400 leading-tight truncate">₦{fmt(displayTotals.walletAmount)}</div>
                   </div>
                 </button>
               </div>
@@ -2816,7 +2833,7 @@ export const TransactionLedger = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-[9px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Office Debt (B2B)</div>
-                    <div className="text-[12px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">₦{fmt(officeDebtAmount)}</div>
+                    <div className="text-[12px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">₦{fmt(displayTotals.officeDebtAmount)}</div>
                   </div>
                 </button>
                 <button
@@ -2836,7 +2853,7 @@ export const TransactionLedger = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-[9px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Individual Debt</div>
-                    <div className="text-[12px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">₦{fmt(individualDebtAmount)}</div>
+                    <div className="text-[12px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">₦{fmt(displayTotals.individualDebtAmount)}</div>
                   </div>
                 </button>
               </div>
@@ -2931,14 +2948,17 @@ export const TransactionLedger = ({
                       key={scope}
                       onClick={() => {
                         setShiftFilter(scope);
-                        if (scope === 'all') {
-                          // Kicks off the genuinely-unbounded dedicated fetch
-                          // (see fetchAllTimeTransactions above) -- no-ops
-                          // if already loaded/loading. Widening
+                        if (scope === 'all' && !allTimeEngaged) {
+                          // First engagement only -- kicks off the paginated
+                          // fetch (see allTimeFilterParams/fetchAllTimeFirstPage
+                          // above). Subsequent search/filter changes while
+                          // already engaged are picked up by their own effect
+                          // instead of here, so switching tabs and back
+                          // doesn't force a wasted refetch. Widening
                           // globalDateRange below is kept too: it's still
                           // what other screens sharing that state (Tower/
                           // Analytics) see if the user switches tabs.
-                          fetchAllTimeTransactions();
+                          fetchAllTimeFirstPage();
                         }
                         if (scope === 'all' && dateRange && onDateRangeChange) {
                           onDateRangeChange({
@@ -2985,10 +3005,17 @@ export const TransactionLedger = ({
                 </div>
               )}
 
-              {shiftFilter === 'all' && loadingAllTime && (
+              {shiftFilter === 'all' && loadingAllTimeFirst && (
                 <div className="text-[9.5px] font-mono text-[var(--color-accent-amber)] flex items-center gap-1">
                   <Loader2 size={10} className="animate-spin" />
-                  <span>Loading full history — this can take a moment for a busy hub…</span>
+                  <span>Loading history…</span>
+                </div>
+              )}
+
+              {allTimeTotalsExcludeSomeActiveFilters && (
+                <div className="text-[9.5px] font-mono text-[var(--color-muted)] flex items-center gap-1">
+                  <AlertTriangle size={10} className="text-[var(--color-accent-amber)]" />
+                  <span>Totals above don't account for Time/Flight/Dest filters or this Mode filter yet — they only narrow what's currently loaded on screen.</span>
                 </div>
               )}
 
@@ -3153,7 +3180,7 @@ export const TransactionLedger = ({
             )}
 
             {/* Table / Mobile Cards Container */}
-            <div ref={tableRef} className="flex-1 overflow-auto p-3 sm:p-4 pb-4 relative">
+            <div ref={tableRef} onScroll={handleLedgerScroll} className="flex-1 overflow-auto p-3 sm:p-4 pb-4 relative">
               {/* Mobile Card List View (Visible on < 640px) -- virtualized via
                   cardVirtualizer (see its declaration above): only the
                   cards actually in/near the viewport are ever mounted,
@@ -3661,6 +3688,22 @@ export const TransactionLedger = ({
           </table>
           </div>
         </div>
+
+        {/* All Time pagination footer -- sits after both the mobile card
+            list and desktop table above (both always mounted, one hidden
+            via CSS per breakpoint) so it shows regardless of viewport. */}
+        {shiftFilter === 'all' && allTimeEngaged && (
+          <div className="py-4 text-center">
+            {loadingAllTimeMore ? (
+              <div className="flex items-center justify-center gap-1.5 text-[10px] font-mono text-[var(--color-muted)]">
+                <Loader2 size={12} className="animate-spin" />
+                <span>Loading more…</span>
+              </div>
+            ) : !allTimeHasMore && (allTimeTxRows.length + allTimeExpenseRows.length) > 0 ? (
+              <div className="text-[10px] font-mono text-[var(--color-muted)]">— End of results —</div>
+            ) : null}
+          </div>
+        )}
       </div>
 
       {/* Detail Popup Overlay */}

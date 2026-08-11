@@ -5,8 +5,7 @@ import { BackButton } from '../BackButton';
 import { supabase } from '../../lib/supabase';
 import { User } from '../../lib/types';
 import { EmptyState } from './EmptyState';
-import { sanitizeSpreadsheetAoA, autoFitWorksheetColumns } from '../../lib/helpers';
-import * as XLSX from 'xlsx';
+import { sanitizeSpreadsheetAoA } from '../../lib/helpers';
 
 interface AuditLogEntry {
   id: string;
@@ -124,8 +123,12 @@ export const AuditLog = ({ onBack, user }: { onBack: () => void; user?: User }) 
     return matchesAction && matchesSearch;
   });
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (filtered.length === 0) return;
+    const [XLSX, { autoFitWorksheetColumns }] = await Promise.all([
+      import('xlsx'),
+      import('../../lib/excelExport'),
+    ]);
     const headers = ['Timestamp', 'User', 'Hub', 'Action', 'Table', 'Record ID', 'Description', 'Old Values', 'New Values'];
     const rows = filtered.map(l => [
       l.timestamp, l.userName, l.hub, l.action, l.tableName, l.recordId, l.description,

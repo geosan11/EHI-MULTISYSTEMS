@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { User, Transaction } from '../../lib/types';
-import { fmt, tnow, getShiftBoundary, normalizeAirlineName, sanitizeSpreadsheetRows, autoFitWorksheetColumns } from '../../lib/helpers';
+import { fmt, tnow, getShiftBoundary, normalizeAirlineName, sanitizeSpreadsheetRows } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
 import { BackButton } from '../BackButton';
 import { useAirlines } from '../../lib/airlines';
@@ -18,7 +18,6 @@ import {
   BarChart3,
   Layers
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 
 interface AirlinePerformanceProps {
   user: User;
@@ -252,7 +251,11 @@ export const AirlinePerformance = ({ user, onBack }: AirlinePerformanceProps) =>
   const topAirline = useMemo(() => (sortedStatsList.length > 0 ? sortedStatsList[0].airline : 'N/A'), [sortedStatsList]);
 
   // Export to Excel
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
+    const [XLSX, { autoFitWorksheetColumns }] = await Promise.all([
+      import('xlsx'),
+      import('../../lib/excelExport'),
+    ]);
     const rows = sortedStatsList.map((st) => ({
       'Airline Name': st.airline,
       'Cargo Revenue (₦)': st.cargoSales,

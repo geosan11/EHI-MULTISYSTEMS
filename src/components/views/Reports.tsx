@@ -1,13 +1,12 @@
 import { useState, useMemo, useEffect } from 'react';
 import { User, Transaction } from '../../lib/types';
-import { fmt, sanitizeSpreadsheetAoA, normalizeAirlineName, autoFitWorksheetColumns } from '../../lib/helpers';
+import { fmt, sanitizeSpreadsheetAoA, normalizeAirlineName } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
 import { Calendar, FileText, Download, Printer, ChevronRight, Filter, Loader2 } from 'lucide-react';
 import { BackButton } from '../BackButton';
 import { DepartmentSalesAnalysisView } from '../DepartmentSalesAnalysis';
 import { DepartmentSalesAnalysis, computeDepartmentSalesAnalysis, computeReportDateRange } from '../../lib/salesAnalysis';
 import { fetchAllDebtAndRetrievalEntries, buildShadowRowExclusionCounts, extractPaymentHistoryEvents, sumPaymentHistoryByMode } from '../../lib/debt';
-import * as XLSX from 'xlsx';
 
 const REPORT_TYPES = [
   { id: 'revenue',       label: 'Revenue Summary',                  desc: 'Stream, mode, and total breakdown' },
@@ -531,7 +530,11 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
 
   // ── Export functions ─────────────────────────────
 
-  const handleDownloadExcel = () => {
+  const handleDownloadExcel = async () => {
+    const [XLSX, { autoFitWorksheetColumns }] = await Promise.all([
+      import('xlsx'),
+      import('../../lib/excelExport'),
+    ]);
     let wsData: any[][] = [];
     if (selectedReport === 'revenue') {
       wsData = [

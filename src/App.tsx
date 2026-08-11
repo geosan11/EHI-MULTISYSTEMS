@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { BrowserRouter, Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import { LoginScreen } from './components/LoginScreen';
 import { ResetPasswordScreen } from './components/ResetPasswordScreen';
@@ -425,11 +425,34 @@ const AuthenticatedApp = () => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
+  // Distinguishes *why* the login screen is showing, so a genuine
+  // "your session expired" or "you're offline" case doesn't just look
+  // like an unexplained blank login form (previously indistinguishable
+  // from "never logged in on this device" / "wrong password"). Cleared
+  // on a successful login since LoginScreen unmounts then anyway.
+  const [loginNotice, setLoginNotice] = useState<{ type: 'expired' | 'offline'; message: string } | null>(null);
+  // supabase.auth.signOut() (called from handleLogout below) fires the
+  // exact same SIGNED_OUT event as an SDK-forced sign-out due to a
+  // genuinely expired/rejected refresh token -- without this flag, a
+  // deliberate "Sign Out" click would incorrectly show "Your session
+  // expired" on the next login screen.
+  const isDeliberateSignOutRef = useRef(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     getSession().then((profile) => {
-      if (profile) setUser(profile);
+      if (profile) {
+        setUser(profile);
+      } else if (!navigator.onLine) {
+        // No profile resolved and we're offline -- could be a device
+        // that's never loaded the app before, or one whose cached
+        // profile/session lookup just couldn't complete without a
+        // network round-trip. Either way the honest message is the
+        // same: reconnect to confirm who's signed in, not "wrong
+        // password" (a plain login form with no explanation reads as
+        // broken/wrong credentials, not as "you're offline").
+        setLoginNotice({ type: 'offline', message: "You're offline — connect to the internet to sign in." });
+      }
       setAuthLoading(false);
     }).catch((err) => {
       console.warn('getSession catch:', err);
@@ -448,6 +471,18 @@ const AuthenticatedApp = () => {
           return;
         }
         if (!session) {
+          // SIGNED_OUT specifically means the SDK actually tore down the
+          // session (see auth.ts/supabase.ts's notes on this -- a plain
+          // offline/network failure during token refresh is retryable
+          // and does NOT reach this branch; only a genuine rejected
+          // refresh, e.g. a refresh token that's actually expired after
+          // a long time offline, does). INITIAL_SESSION with no session
+          // is the ordinary "not logged in yet" case and shouldn't carry
+          // this messaging.
+          if (event === 'SIGNED_OUT' && !isDeliberateSignOutRef.current) {
+            setLoginNotice({ type: 'expired', message: 'Your session expired. Please sign in again.' });
+          }
+          isDeliberateSignOutRef.current = false;
           setUser(null);
         }
       }
@@ -471,10 +506,11 @@ const AuthenticatedApp = () => {
   }
 
   if (!user) {
-    return <LoginScreen onLogin={setUser} />;
+    return <LoginScreen onLogin={(u) => { setLoginNotice(null); setUser(u); }} notice={loginNotice} />;
   }
 
   const handleLogout = async () => {
+    isDeliberateSignOutRef.current = true;
     await signOut();
     setUser(null);
     // Otherwise the URL stays wherever it was (e.g. /more/audit-log) --

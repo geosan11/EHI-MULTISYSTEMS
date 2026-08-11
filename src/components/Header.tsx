@@ -95,14 +95,14 @@ export const Header = ({
         {/* Right controls -- ehi-header-controls floats this cluster as a
             fixed overlay on desktop (see index.css), matching SideNav's
             floating treatment instead of sitting in the header's flow. */}
-        <div className="ehi-header-controls flex items-center gap-2 ml-auto">
+        <div className="ehi-header-controls flex items-center gap-1.5 ml-auto">
 
           {/* User info */}
-          <div className="text-right mr-1 hidden sm:block">
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-foreground)' }}>
+          <div className="text-right mr-0.5 hidden sm:block">
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-foreground)' }}>
               {user.name}
             </div>
-            <div style={{ fontSize: 10, color: 'var(--color-muted)' }}>
+            <div style={{ fontSize: 9, color: 'var(--color-muted)' }}>
               {getHubCode(user.hub)}
             </div>
           </div>
@@ -113,13 +113,13 @@ export const Header = ({
             className="group relative transition-all duration-200 hover:scale-105 active:scale-95 active:translate-y-0.5 cursor-pointer"
             title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             style={{
-              width: 36, height: 36,
+              width: 28, height: 28,
               borderRadius: 'var(--radius-full)',
               background: 'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.08) 60%, rgba(100,110,130,0.18) 100%)',
               border: '1px solid rgba(255,255,255,0.40)',
               boxShadow: theme === 'dark'
-                ? '0 4px 12px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.2)'
-                : '0 4px 12px rgba(0,0,0,0.12), inset 0 0 0 1px rgba(255,255,255,0.6)',
+                ? '0 3px 9px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.2)'
+                : '0 3px 9px rgba(0,0,0,0.12), inset 0 0 0 1px rgba(255,255,255,0.6)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               position: 'relative', overflow: 'hidden', backdropFilter: 'blur(8px)',
             }}
@@ -128,11 +128,11 @@ export const Header = ({
             <div
               className="transition-all duration-300 group-hover:scale-110"
               style={{
-                position: 'absolute', width: 22, height: 22, borderRadius: '50%',
+                position: 'absolute', width: 17, height: 17, borderRadius: '50%',
                 background: theme === 'dark'
                   ? 'radial-gradient(circle at 40% 35%, #fde68a 0%, #fbbf24 60%, #b45309 100%)'
                   : 'radial-gradient(circle at 40% 35%, #60a5fa 0%, #3b82f6 60%, #1d4ed8 100%)',
-                boxShadow: theme === 'dark' ? '0 0 12px rgba(251,191,36,0.7)' : '0 0 12px rgba(59,130,246,0.7)',
+                boxShadow: theme === 'dark' ? '0 0 9px rgba(251,191,36,0.7)' : '0 0 9px rgba(59,130,246,0.7)',
               }}
             />
             {/* Top specular lens highlight */}
@@ -143,8 +143,8 @@ export const Header = ({
               borderRadius: '50%', filter: 'blur(0.4px)', pointerEvents: 'none',
             }} />
             {theme === 'dark'
-              ? <Sun size={15} strokeWidth={2} style={{ color: '#451a03', position: 'relative', zIndex: 1 }} className="group-hover:rotate-45 transition-transform duration-300" />
-              : <Moon size={15} strokeWidth={2} style={{ color: '#ffffff', position: 'relative', zIndex: 1 }} className="group-hover:-rotate-12 transition-transform duration-300" />
+              ? <Sun size={12} strokeWidth={2} style={{ color: '#451a03', position: 'relative', zIndex: 1 }} className="group-hover:rotate-45 transition-transform duration-300" />
+              : <Moon size={12} strokeWidth={2} style={{ color: '#ffffff', position: 'relative', zIndex: 1 }} className="group-hover:-rotate-12 transition-transform duration-300" />
             }
           </button>
 
@@ -167,13 +167,13 @@ export const Header = ({
             onClick={onToggleWifi}
             className="group relative transition-all duration-200 hover:scale-105 active:scale-95 active:translate-y-0.5 cursor-pointer"
             style={{
-              width: 36, height: 36,
+              width: 28, height: 28,
               borderRadius: 'var(--radius-full)',
               background: 'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.08) 60%, rgba(100,110,130,0.18) 100%)',
               border: isOffline ? '1px solid rgba(239,68,68,0.55)' : '1px solid rgba(255,255,255,0.40)',
               boxShadow: isOffline
-                ? '0 4px 14px rgba(239,68,68,0.45), inset 0 0 0 1px rgba(255,255,255,0.2)'
-                : '0 4px 12px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.2)',
+                ? '0 3px 11px rgba(239,68,68,0.45), inset 0 0 0 1px rgba(255,255,255,0.2)'
+                : '0 3px 9px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.2)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               position: 'relative', overflow: 'hidden', backdropFilter: 'blur(8px)',
             }}
@@ -182,11 +182,11 @@ export const Header = ({
             <div
               className="transition-all duration-300 group-hover:scale-110"
               style={{
-                position: 'absolute', width: 22, height: 22, borderRadius: '50%',
+                position: 'absolute', width: 17, height: 17, borderRadius: '50%',
                 background: isOffline
                   ? 'radial-gradient(circle at 40% 35%, #fca5a5 0%, #ef4444 60%, #991b1b 100%)'
                   : 'radial-gradient(circle at 40% 35%, #86efac 0%, #22c55e 60%, #15803d 100%)',
-                boxShadow: isOffline ? '0 0 12px rgba(239,68,68,0.7)' : '0 0 12px rgba(34,197,94,0.7)',
+                boxShadow: isOffline ? '0 0 9px rgba(239,68,68,0.7)' : '0 0 9px rgba(34,197,94,0.7)',
               }}
             />
             {/* Top specular lens highlight */}
@@ -197,8 +197,8 @@ export const Header = ({
               borderRadius: '50%', filter: 'blur(0.4px)', pointerEvents: 'none',
             }} />
             {isOffline
-              ? <WifiOff size={14} strokeWidth={2.5} style={{ color: '#ffffff', position: 'relative', zIndex: 1 }} className="group-hover:scale-110 transition-transform duration-200" />
-              : <Wifi size={14} strokeWidth={2.5} style={{ color: '#052e16', position: 'relative', zIndex: 1 }} className="group-hover:scale-110 transition-transform duration-200" />
+              ? <WifiOff size={11} strokeWidth={2.5} style={{ color: '#ffffff', position: 'relative', zIndex: 1 }} className="group-hover:scale-110 transition-transform duration-200" />
+              : <Wifi size={11} strokeWidth={2.5} style={{ color: '#052e16', position: 'relative', zIndex: 1 }} className="group-hover:scale-110 transition-transform duration-200" />
             }
           </button>
 
@@ -208,13 +208,13 @@ export const Header = ({
               onClick={() => setShowDropdown(!showDropdown)}
               className="group relative transition-all duration-200 hover:scale-105 active:scale-95 active:translate-y-0.5 cursor-pointer"
               style={{
-                width: 38, height: 38,
+                width: 30, height: 30,
                 borderRadius: 'var(--radius-full)',
                 background: 'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.35) 0%, rgba(251,191,36,0.2) 60%, rgba(180,83,9,0.3) 100%)',
                 border: showDropdown ? '1.5px solid rgba(253,230,138,0.9)' : '1px solid rgba(255,255,255,0.45)',
                 boxShadow: showDropdown
-                  ? '0 0 0 4px rgba(251,191,36,0.35), 0 6px 18px rgba(251,191,36,0.6)'
-                  : '0 4px 14px rgba(251,191,36,0.45), inset 0 0 0 1px rgba(255,255,255,0.3)',
+                  ? '0 0 0 3px rgba(251,191,36,0.35), 0 5px 14px rgba(251,191,36,0.6)'
+                  : '0 3px 11px rgba(251,191,36,0.45), inset 0 0 0 1px rgba(255,255,255,0.3)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 position: 'relative', overflow: 'hidden', backdropFilter: 'blur(8px)',
               }}
@@ -223,9 +223,9 @@ export const Header = ({
               <div
                 className="transition-all duration-300 group-hover:scale-110"
                 style={{
-                  position: 'absolute', width: 26, height: 26, borderRadius: '50%',
+                  position: 'absolute', width: 20, height: 20, borderRadius: '50%',
                   background: 'radial-gradient(circle at 40% 35%, #fde68a 0%, #fbbf24 60%, #b45309 100%)',
-                  boxShadow: '0 0 14px rgba(251,191,36,0.8)',
+                  boxShadow: '0 0 11px rgba(251,191,36,0.8)',
                 }}
               />
               {/* Top specular lens highlight */}
@@ -235,7 +235,7 @@ export const Header = ({
                 background: 'radial-gradient(ellipse, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 100%)',
                 borderRadius: '50%', filter: 'blur(0.4px)', pointerEvents: 'none',
               }} />
-              <span style={{ fontSize: 13, fontWeight: 800, color: '#451a03', position: 'relative', zIndex: 1 }} className="group-hover:scale-110 transition-transform duration-200">
+              <span style={{ fontSize: 11, fontWeight: 800, color: '#451a03', position: 'relative', zIndex: 1 }} className="group-hover:scale-110 transition-transform duration-200">
                 {user.name.charAt(0).toUpperCase()}
               </span>
             </button>
@@ -259,7 +259,7 @@ export const Header = ({
                 )}
                 <div
                   style={{
-                    position: 'absolute', right: 0, top: 42, width: 200,
+                    position: 'absolute', right: 0, top: 36, width: 200,
                     background: 'var(--color-surface-1)',
                     border: '1px solid var(--color-border-strong)',
                     borderRadius: 'var(--radius-md)',

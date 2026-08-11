@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Transaction, User } from '../../lib/types';
-import { fmt, sanitizeSpreadsheetAoA, autoFitWorksheetColumns } from '../../lib/helpers';
-import * as XLSX from 'xlsx';
+import { fmt, sanitizeSpreadsheetAoA } from '../../lib/helpers';
 import { supabase, fetchAllRows } from '../../lib/supabase';
 import { Search, FileDown, Briefcase, Scale, DollarSign, AlertCircle } from 'lucide-react';
 import { useToast } from '../../lib/ToastContext';
@@ -200,11 +199,16 @@ export const B2BSalesTab = ({ transactions, user }: B2BSalesTabProps) => {
     };
   }, [filteredB2BTx]);
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (filteredB2BTx.length === 0) {
       showToast({ message: 'No B2B sales data available to download.', type: 'warning' });
       return;
     }
+
+    const [XLSX, { autoFitWorksheetColumns }] = await Promise.all([
+      import('xlsx'),
+      import('../../lib/excelExport'),
+    ]);
 
     const headers = ['Ref ID', 'Date', 'Client Name', 'AWB/Tag', 'Airline', 'Route', 'Pieces', 'Weight (KG)', 'Billed Amount', 'Amount Paid', 'Outstanding', 'Payment Mode', 'Status'];
     const rows = filteredB2BTx.map(t => {

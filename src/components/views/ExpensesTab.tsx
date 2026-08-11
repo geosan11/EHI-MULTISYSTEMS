@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Expense, User } from '../../lib/types';
-import { fmt, uid, tnow, sanitizeSpreadsheetRows, autoFitWorksheetColumns } from '../../lib/helpers';
+import { fmt, uid, tnow, sanitizeSpreadsheetRows } from '../../lib/helpers';
 import { Car, Truck, Bus, Box, Package, Briefcase, Download, Plus, AlertCircle, Edit2, CheckCircle, XCircle } from 'lucide-react';
 import { EmptyState } from './EmptyState';
 import { useExpenseCategories, useExpenseBudgets, saveExpenseBudget } from '../../lib/expenseCategories';
 import { useToast } from '../../lib/ToastContext';
-import * as XLSX from 'xlsx';
 
 export const ExpensesTab = ({ expenses = [], user, period = 'today', onAddExpense, onUpdateExpense }: { expenses?: Expense[], user?: User, period?: string, onAddExpense?: (e: Expense) => void, onUpdateExpense?: (expenseId: string, decision: 'approved' | 'rejected') => void }) => {
   const { showToast } = useToast();
@@ -51,7 +50,11 @@ export const ExpensesTab = ({ expenses = [], user, period = 'today', onAddExpens
     refetchBudgets();
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
+    const [XLSX, { autoFitWorksheetColumns }] = await Promise.all([
+      import('xlsx'),
+      import('../../lib/excelExport'),
+    ]);
     const rows = expenses.map(e => ({
       Date: e.created_at ? e.created_at.split('T')[0] : '',
       Time: e.time,

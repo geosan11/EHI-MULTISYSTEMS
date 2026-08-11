@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { User, Transaction, Expense } from '../../lib/types';
-import { fmt, getShiftBoundary, normalizeAirlineName, sanitizeSpreadsheetRows, autoFitWorksheetColumns } from '../../lib/helpers';
+import { fmt, getShiftBoundary, normalizeAirlineName, sanitizeSpreadsheetRows } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
 import { fetchAllDebtAndRetrievalEntries, buildShadowRowExclusionCounts, extractPaymentHistoryEvents } from '../../lib/debt';
 import { isOfficeWorkEntry } from '../../lib/officeWork';
@@ -44,7 +44,6 @@ import {
   ComposedChart,
   Line
 } from 'recharts';
-import * as XLSX from 'xlsx';
 
 interface GeminiInsight {
   title: string;
@@ -625,8 +624,12 @@ export const Analytics = ({
   }, [dualAxisTrendData, metrics.avgYieldPerKg]);
 
   // Excel Export Handler
-  const exportExcelReport = useCallback(() => {
+  const exportExcelReport = useCallback(async () => {
     try {
+      const [XLSX, { autoFitWorksheetColumns }] = await Promise.all([
+        import('xlsx'),
+        import('../../lib/excelExport'),
+      ]);
       const summaryRows = [
         { Metric: 'Total Handling Revenue', Value: `₦${metrics.totalRevenue.toLocaleString()}` },
         { Metric: 'Total Handling Tonnage', Value: `${metrics.totalKg.toLocaleString()} KG` },

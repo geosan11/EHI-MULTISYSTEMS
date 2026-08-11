@@ -796,7 +796,7 @@ main {
     border: 1px solid var(--color-border);
     border-radius: var(--radius-full);
     box-shadow: var(--shadow-dropdown);
-    padding: 6px 10px;
+    padding: 4px 8px;
     /* This pill's own bounding box is mostly empty padding/whitespace
        (plus non-interactive user-info text) -- without this, it swallows
        clicks meant for whatever page content is now allowed to scroll
@@ -923,7 +923,7 @@ input[type="date"] {
      then sit idle) to an evenly-paced ease so the full duration reads as
      one continuous, subtle settle instead of a snap -- deliberately
      gentle so switching tabs doesn't hit the eye with a sudden change. */
-  animation: page-slide-in 1s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+  animation: page-slide-in 0.5s cubic-bezier(0.4, 0, 0.2, 1) backwards;
 }
 
 /* ─── Spring-Physics Modal / Popup Animations ───────────────────────────── */

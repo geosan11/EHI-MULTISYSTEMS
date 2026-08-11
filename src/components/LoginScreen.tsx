@@ -7,7 +7,7 @@ import { User, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
 
 type ConnStatus = 'checking' | 'live' | 'offline' | 'unconfigured';
 
-export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void }) => {
+export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) => void; notice?: { type: 'expired' | 'offline'; message: string } | null }) => {
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -159,6 +159,22 @@ export const LoginScreen = ({ onLogin }: { onLogin: (user: UserProfile) => void 
                 </span>
               </div>
             </div>
+
+            {/* Why-am-I-here notice -- distinguishes a genuinely expired
+                session or being offline from an unexplained blank login
+                form, which otherwise reads as "wrong password"/broken. */}
+            {notice && (
+              <div
+                className="w-full flex items-center gap-2.5 backdrop-blur-md rounded-xl px-3.5 py-2.5 mb-4 animate-in fade-in"
+                style={{
+                  background: notice.type === 'offline' ? 'rgba(148,163,184,0.12)' : 'rgba(245,158,11,0.12)',
+                  border: `1px solid ${notice.type === 'offline' ? 'rgba(148,163,184,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                }}
+              >
+                <AlertCircle size={15} className="shrink-0" style={{ color: notice.type === 'offline' ? '#94a3b8' : '#fbbf24' }} />
+                <p className="text-[11.5px] font-sans leading-snug font-medium" style={{ color: notice.type === 'offline' ? '#cbd5e1' : '#fde68a' }}>{notice.message}</p>
+              </div>
+            )}
 
             {/* Login Form */}
             <form onSubmit={handleSubmit} className="w-full space-y-4">

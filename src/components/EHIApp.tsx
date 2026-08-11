@@ -987,7 +987,26 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       if (navigator.onLine) handleOnline();
     }, 60000);
 
+    // autoRefreshToken manages its own internal timer independent of
+    // connectivity -- after a real offline stretch, the SDK's next
+    // scheduled refresh attempt could still be minutes away even though
+    // the network just came back. Nudging a refresh right at the
+    // reconnect moment closes that gap instead of leaving a
+    // soon-to-expire token sitting unrefreshed. Deliberately only on the
+    // actual browser 'online' event (a genuine reconnect), not folded
+    // into handleOnline above, which also fires from the 60s poll and a
+    // mount-time check -- refreshing the token every 60s while already
+    // online would be wasteful, not a reliability fix. Errors here are
+    // expected/harmless when the refresh token has genuinely expired --
+    // App.tsx's onAuthStateChange listener handles that as a real
+    // SIGNED_OUT; this is just a proactive nudge, not the thing
+    // responsible for reacting to failure.
+    const handleOnlineRefreshNudge = () => {
+      supabase.auth.refreshSession().catch(() => {});
+    };
+
     window.addEventListener('online', handleOnline);
+    window.addEventListener('online', handleOnlineRefreshNudge);
     window.addEventListener('offline', handleOffline);
 
     const handleEhiNav = (e: Event) => {
@@ -1003,6 +1022,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     return () => {
       window.clearInterval(syncInterval);
       window.removeEventListener('online', handleOnline);
+      window.removeEventListener('online', handleOnlineRefreshNudge);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('ehi-nav', handleEhiNav);
     };
@@ -2095,6 +2115,36 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     cargo: 'Cargo', package: 'Package', marketing: 'Marketing', baggage: 'Baggage', gat: 'GAT',
   };
 
+  // TransactionLedger is wrapped in memo() -- these three were previously
+  // recreated (new array/function references) on every single EHIApp
+  // render, which silently defeated that memo() for the whole ledger
+  // (both virtualized row/card lists re-diffing on every unrelated
+  // EHIApp state change: realtime events, toasts, tab switches...).
+  const streamLedgerShifts = useMemo(
+    () => streamLedgerDepartment ? todayShifts.filter(s => s.department === streamLedgerDepartment) : [],
+    [todayShifts, streamLedgerDepartment]
+  );
+  // useMemo (not useCallback) so this can still resolve to undefined when
+  // there's no department -- TransactionLedger.tsx only renders its shift
+  // bar when onStartShift/onEndShift/shiftAutoManaged is truthy, so this
+  // has to stay undefined in that case rather than becoming an
+  // always-defined no-op function.
+  const handleStreamLedgerStartShift = useMemo(
+    () => streamLedgerDepartment ? () => handleStartShift(streamLedgerDepartment) : undefined,
+    [handleStartShift, streamLedgerDepartment]
+  );
+  const handleStreamLedgerEndShift = useMemo(
+    () => streamLedgerDepartment ? () => handleEndShift(streamLedgerDepartment) : undefined,
+    [handleEndShift, streamLedgerDepartment]
+  );
+
+  // Same memo-defeating-props issue as above, for <More> (also memo()'d,
+  // EHIApp.tsx:49) -- its own inline filter/closures below were rebuilt
+  // every render too.
+  const allDeptShifts = useMemo(() => todayShifts.filter(s => s.department === 'all'), [todayShifts]);
+  const handleStartShiftAll = useCallback(() => handleStartShift('all'), [handleStartShift]);
+  const handleEndShiftAll = useCallback(() => handleEndShift('all'), [handleEndShift]);
+
   const filteredLedgerTransactions = useMemo(() => {
     if (!streamLedger) return [];
     return transactions.filter(t => {
@@ -2280,9 +2330,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                    onEOD={handleEOD}
                    excessBaggageAirlines={excessBaggageAirlines}
                    activeShift={activeShiftsByDept['all'] || null}
-                   todayShifts={todayShifts.filter(s => s.department === 'all')}
-                   onStartShift={() => handleStartShift('all')}
-                   onEndShift={() => handleEndShift('all')}
+                   todayShifts={allDeptShifts}
+                   onStartShift={handleStartShiftAll}
+                   onEndShift={handleEndShiftAll}
                    customerWallets={customerWallets}
                    refetchCustomerWallets={fetchWallets}
                 />
@@ -2318,9 +2368,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             dateRange={globalDateRange}
             onDateRangeChange={setGlobalDateRange}
             activeShift={streamLedgerDepartment ? (activeShiftsByDept[streamLedgerDepartment] || null) : null}
-            shifts={streamLedgerDepartment ? todayShifts.filter(s => s.department === streamLedgerDepartment) : []}
-            onStartShift={streamLedgerDepartment ? () => handleStartShift(streamLedgerDepartment) : undefined}
-            onEndShift={streamLedgerDepartment ? () => handleEndShift(streamLedgerDepartment) : undefined}
+            shifts={streamLedgerShifts}
+            onStartShift={handleStreamLedgerStartShift}
+            onEndShift={handleStreamLedgerEndShift}
             shiftLabel={streamLedgerDepartment && streamLedgerDepartment !== 'all' ? STREAM_LEDGER_DEPT_LABEL[streamLedgerDepartment] : undefined}
             shiftAutoManaged={streamLedgerDepartment === 'cargo' || streamLedgerDepartment === 'package'}
             customerWallets={customerWallets}

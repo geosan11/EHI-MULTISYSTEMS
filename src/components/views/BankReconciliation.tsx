@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Upload, CheckCircle2, AlertCircle, RefreshCw, Layers, DollarSign, FileSpreadsheet, Loader2, AlertTriangle, Download } from 'lucide-react';
 import { BackButton } from '../BackButton';
-import { fmt, sanitizeSpreadsheetAoA, autoFitWorksheetColumns } from '../../lib/helpers';
-import * as XLSX from 'xlsx';
+import { fmt, sanitizeSpreadsheetAoA } from '../../lib/helpers';
 import { Transaction, User } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
 import { useBanksWithFormat } from '../../lib/banks';
@@ -291,7 +290,11 @@ export const BankReconciliation = ({
     setShowSuccess(true);
   };
 
-  const downloadReport = () => {
+  const downloadReport = async () => {
+    const [XLSX, { autoFitWorksheetColumns }] = await Promise.all([
+      import('xlsx'),
+      import('../../lib/excelExport'),
+    ]);
     const headers = ['Bank Ref', 'Bank Description', 'Amount', 'Status', 'System Match ID', 'System Client Name'];
     const rows = bankTxList.map(b => {
       const sys = b.matchedId ? systemPayments.find(s => s.id === b.matchedId) : null;
