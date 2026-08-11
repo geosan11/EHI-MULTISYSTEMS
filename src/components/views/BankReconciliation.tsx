@@ -137,7 +137,8 @@ export const BankReconciliation = ({
     amount: t.amount,
     time: t.time,
     date: new Date().toISOString().split('T')[0],
-    matched: false
+    matched: false,
+    enteredByName: t.enteredByName,
   }));
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent) => {
@@ -295,10 +296,10 @@ export const BankReconciliation = ({
       import('xlsx'),
       import('../../lib/excelExport'),
     ]);
-    const headers = ['Bank Ref', 'Bank Description', 'Amount', 'Status', 'System Match ID', 'System Client Name'];
+    const headers = ['Bank Ref', 'Bank Description', 'Amount', 'Status', 'System Match ID', 'System Client Name', 'Agent'];
     const rows = bankTxList.map(b => {
       const sys = b.matchedId ? systemPayments.find(s => s.id === b.matchedId) : null;
-      return [b.reference, b.description || '', b.credit, b.status, b.matchedId || '', sys ? sys.name : ''];
+      return [b.reference, b.description || '', b.credit, b.status, b.matchedId || '', sys ? sys.name : '', sys?.enteredByName || ''];
     });
     // sanitizeSpreadsheetAoA (same helper every other export screen uses)
     // guards free-text fields (bank statement description, matched client

@@ -665,7 +665,8 @@ export const Analytics = ({
         'Amount (NGN)': t.amount,
         'Payment Mode': t.mode,
         'Confirmed': t.paymentConfirmed ? 'YES' : 'NO',
-        'Date Time': t.created_at ? new Date(t.created_at).toLocaleString() : ''
+        'Date Time': t.created_at ? new Date(t.created_at).toLocaleString() : '',
+        'Agent': t.enteredByName || '',
       }));
 
       const wb = XLSX.utils.book_new();

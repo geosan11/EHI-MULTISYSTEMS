@@ -57,7 +57,7 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
 
   if (collapsed) {
     return (
-      <div className="w-10 overflow-hidden bg-[var(--color-surface-1)] border-l border-[var(--color-border)] flex flex-col items-center py-4 space-y-4 shrink-0 transition-all z-20 select-none">
+      <div className="ehi-credit-feed w-10 overflow-hidden bg-[var(--color-surface-1)] border-l border-[var(--color-border)] flex flex-col items-center py-4 space-y-4 shrink-0 transition-all z-20 select-none">
         <button
           type="button"
           onClick={() => setCollapsed(false)}
@@ -90,7 +90,7 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
   }
 
   return (
-    <div className="w-64 bg-[var(--color-surface-1)] border-l border-[var(--color-border)] flex flex-col h-full shrink-0 shadow-2xl transition-all">
+    <div className="ehi-credit-feed w-64 bg-[var(--color-surface-1)] border-l border-[var(--color-border)] flex flex-col h-full shrink-0 shadow-2xl transition-all">
       {/* Feed Header */}
       <div className="p-2 bg-[var(--color-surface-2)] border-b border-[var(--color-border)] flex items-center justify-between">
         <div className="flex items-center gap-1.5 min-w-0">

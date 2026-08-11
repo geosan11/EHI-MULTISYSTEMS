@@ -63,6 +63,7 @@ export const ExpensesTab = ({ expenses = [], user, period = 'today', onAddExpens
       Amount: e.amount,
       Mode: e.mode || '',
       Status: e.status || 'approved',
+      'Logged By': e.logged_by || '',
     }));
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(sanitizeSpreadsheetRows(rows));

@@ -210,7 +210,7 @@ export const B2BSalesTab = ({ transactions, user }: B2BSalesTabProps) => {
       import('../../lib/excelExport'),
     ]);
 
-    const headers = ['Ref ID', 'Date', 'Client Name', 'AWB/Tag', 'Airline', 'Route', 'Pieces', 'Weight (KG)', 'Billed Amount', 'Amount Paid', 'Outstanding', 'Payment Mode', 'Status'];
+    const headers = ['Ref ID', 'Date', 'Client Name', 'AWB/Tag', 'Airline', 'Route', 'Pieces', 'Weight (KG)', 'Billed Amount', 'Amount Paid', 'Outstanding', 'Payment Mode', 'Status', 'Agent'];
     const rows = filteredB2BTx.map(t => {
       const cName = t.corporate_client_id ? (clientNameMap.get(t.corporate_client_id) || t.name) : t.name;
       const outstanding = Math.max(0, t.amount - (t.mode === 'Debt' ? (t.amountPaid || 0) + ((t.raw as any)?.retrieved_amount || 0) : t.amount));
@@ -228,7 +228,8 @@ export const B2BSalesTab = ({ transactions, user }: B2BSalesTabProps) => {
         paid,
         outstanding,
         t.mode || '',
-        t.status || ''
+        t.status || '',
+        t.enteredByName || ''
       ];
     });
 

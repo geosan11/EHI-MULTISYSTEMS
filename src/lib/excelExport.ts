@@ -123,7 +123,7 @@ export function downloadDailyExcel(
   ];
 
   if (streamType === 'cargo') {
-    headers = ['Ref', 'Date', 'Time', 'Consignee', 'AWB/Tag', 'Airline', 'Route', 'Pieces', 'KG', 'Content', 'Amount', 'Mode', 'Bank', 'Status', ...debtAndWalletHeaders];
+    headers = ['Ref', 'Date', 'Time', 'Consignee', 'AWB/Tag', 'Airline', 'Route', 'Pieces', 'KG', 'Content', 'Amount', 'Mode', 'Bank', 'Status', 'Agent', ...debtAndWalletHeaders];
     rows = transactions.map(t => {
       // No AWB/tag segment in `detail` anymore (it always duplicated
       // awb_tag_number/entry_ref) -- t.awb_tag_number is the only source now.
@@ -143,11 +143,12 @@ export function downloadDailyExcel(
         formatPaymentModeDisplay(t.mode || '', t.wallet_deduction_amount, t.amount || 0),
         t.bank || '',
         t.status || 'Intake',
+        t.enteredByName || '',
         ...debtAndWalletCols(t),
       ];
     });
   } else if (streamType === 'baggage') {
-    headers = ['Ref', 'Date', 'Time', 'Airline', 'Passenger', 'PNR', 'Flight', 'Destination', 'PCS', 'Total KG', 'Excess KG', 'Amount', 'Mode', 'Bank', ...debtAndWalletHeaders];
+    headers = ['Ref', 'Date', 'Time', 'Airline', 'Passenger', 'PNR', 'Flight', 'Destination', 'PCS', 'Total KG', 'Excess KG', 'Amount', 'Mode', 'Bank', 'Agent', ...debtAndWalletHeaders];
     rows = transactions.map(t => [
       t.id,
       rowDate(t),
@@ -163,10 +164,11 @@ export function downloadDailyExcel(
       String(t.amount || 0),
       formatPaymentModeDisplay(t.mode || '', t.wallet_deduction_amount, t.amount || 0),
       t.bank || '',
+      t.enteredByName || '',
       ...debtAndWalletCols(t),
     ]);
   } else if (streamType === 'marketing') {
-    headers = ['Ref', 'Date', 'Time', 'Customer', 'Phone', 'Route', 'Big Bags', 'Med Bags', 'Sm Bags', 'Amount', 'Mode', 'Bank', ...debtAndWalletHeaders];
+    headers = ['Ref', 'Date', 'Time', 'Customer', 'Phone', 'Route', 'Big Bags', 'Med Bags', 'Sm Bags', 'Amount', 'Mode', 'Bank', 'Agent', ...debtAndWalletHeaders];
     rows = transactions.map(t => {
       const bags = t.detail?.split(' · ')[1] || '';
       const bb = bags.match(/(\d+)BB/)?.[1] || '';
@@ -183,11 +185,12 @@ export function downloadDailyExcel(
         String(t.amount || 0),
         formatPaymentModeDisplay(t.mode || '', t.wallet_deduction_amount, t.amount || 0),
         t.bank || '',
+        t.enteredByName || '',
         ...debtAndWalletCols(t),
       ];
     });
   } else if (streamType === 'package') {
-    headers = ['Ref', 'Date', 'Time', 'Name', 'Destination', 'Content Type', 'Pieces', 'KG', 'Contents', 'Amount', 'Mode', 'Bank', 'Status', ...debtAndWalletHeaders];
+    headers = ['Ref', 'Date', 'Time', 'Name', 'Destination', 'Content Type', 'Pieces', 'KG', 'Contents', 'Amount', 'Mode', 'Bank', 'Status', 'Agent', ...debtAndWalletHeaders];
     rows = transactions.map(t => {
       const parts = t.detail?.split(' · ') || [];
       return [
@@ -204,6 +207,7 @@ export function downloadDailyExcel(
         formatPaymentModeDisplay(t.mode || '', t.wallet_deduction_amount, t.amount || 0),
         t.bank || '',
         t.status || 'Intake',
+        t.enteredByName || '',
         ...debtAndWalletCols(t),
       ];
     });
@@ -218,7 +222,7 @@ export function downloadDailyExcel(
     // (matching the stream-specific exports above) instead of the full
     // "CODE/City" text, and Content never repeats the route/hub code that's
     // already in its own column.
-    headers = ['Ref', 'Date', 'Time', 'Type', 'Name', 'Airline', 'Route', 'Content', 'Pieces', 'KG', 'Amount', 'Mode', 'Bank', 'Status', ...debtAndWalletHeaders];
+    headers = ['Ref', 'Date', 'Time', 'Type', 'Name', 'Airline', 'Route', 'Content', 'Pieces', 'KG', 'Amount', 'Mode', 'Bank', 'Status', 'Agent', ...debtAndWalletHeaders];
     rows = transactions.map(t => {
       const parts = t.detail?.split(' · ') || [];
       // t.route/t.destination cover essentially every real entry; the
@@ -255,6 +259,7 @@ export function downloadDailyExcel(
         formatPaymentModeDisplay(t.mode || '', t.wallet_deduction_amount, t.amount || 0),
         t.bank || '',
         t.status || 'Intake',
+        t.enteredByName || '',
         ...debtAndWalletCols(t),
       ];
     });
@@ -313,7 +318,7 @@ export function downloadAirlineManifestExcel(
   });
   const airlineNames = Array.from(byAirline.keys()).sort();
 
-  const headers = ['Airline', 'Tag Number', 'Content', 'KG', 'Route', 'Amount'];
+  const headers = ['Airline', 'Tag Number', 'Content', 'KG', 'Route', 'Amount', 'Agent'];
   const aoa: unknown[][] = [
     [`EHI Multisystems Nigeria Ltd — Airline Manifest`],
     [`Hub: ${hubName} | Generated: ${generatedLabel}`],
@@ -339,15 +344,15 @@ export function downloadAirlineManifestExcel(
       const amount = Number(t.amount || 0);
       airlineKg += kg;
       airlineAmount += amount;
-      aoa.push([airline, t.awb_tag_number || t.id || '', content, kg, route, amount]);
+      aoa.push([airline, t.awb_tag_number || t.id || '', content, kg, route, amount, t.enteredByName || '']);
     });
-    aoa.push([`${airline} SUBTOTAL`, '', '', airlineKg, '', airlineAmount]);
+    aoa.push([`${airline} SUBTOTAL`, '', '', airlineKg, '', airlineAmount, '']);
     aoa.push([]);
     grandKg += airlineKg;
     grandAmount += airlineAmount;
   });
 
-  aoa.push(['GRAND TOTAL', '', '', grandKg, '', grandAmount]);
+  aoa.push(['GRAND TOTAL', '', '', grandKg, '', grandAmount, '']);
 
   const ws = XLSX.utils.aoa_to_sheet(sanitizeSpreadsheetAoA(aoa));
   autoFitWorksheetColumns(ws);

@@ -808,6 +808,18 @@ main {
   .ehi-header-controls > * {
     pointer-events: auto;
   }
+
+  /* Unlike the main scrollable content (which deliberately scrolls
+     underneath the floating header controls above), this panel's own
+     title/tabs are static chrome pinned to the top of a narrow right-hand
+     column -- the same corner .ehi-header-controls floats in -- so they'd
+     sit permanently under it with no scroll to ever reveal them. Reserve
+     space instead: 58px clears .ehi-header-controls' tallest state
+     (10px top + ~30px avatar orb + 8px vertical padding, plus a little
+     breathing room). */
+  .ehi-credit-feed {
+    padding-top: 58px !important;
+  }
 }
 
 .ehi-card,
