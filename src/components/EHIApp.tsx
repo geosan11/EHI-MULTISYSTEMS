@@ -37,7 +37,7 @@ import { AirlineLedger } from './views/AirlineLedger';
 import { WeightManifest } from './views/WeightManifest';
 
 import { ErrorBoundary } from './ErrorBoundary';
-import { syncLagosRates } from '../lib/lagosHubSync';
+import { syncLagosRates, getEquivalentHubIds } from '../lib/lagosHubSync';
 
 const Header = memo(HeaderRaw);
 const BottomNav = memo(BottomNavRaw);
@@ -178,6 +178,20 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     start: new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0]
   });
+  // Off by default -- non-admin staff are scoped to their own hub's ledger.
+  // Turning this on opts into the state-wide view (own hub + sibling hubs,
+  // e.g. Lagos HQ + Lagos Cargo) added in commit 1a81dac, which otherwise
+  // every non-admin fetch pulled unconditionally on every tab switch.
+  const [stateWideView, setStateWideView] = useState(false);
+  const [hasSiblingHubs, setHasSiblingHubs] = useState(false);
+  useEffect(() => {
+    let active = true;
+    if (!user.hub_id) { setHasSiblingHubs(false); return; }
+    getEquivalentHubIds(user.hub_id).then(ids => {
+      if (active) setHasSiblingHubs(ids.length > 1);
+    });
+    return () => { active = false; };
+  }, [user.hub_id]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -364,11 +378,14 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         // specifically admin/super_admin/accountant, not auditor.
         const canSeePin = ['admin', 'super_admin', 'accountant'].includes(user.role);
 
-        // Admins see all hubs. All other staff now see transactions from all hubs in
-        // their state (e.g. Lagos HQ + Lagos Cargo) via the backend RLS policies.
-        // We remove the strict frontend .eq('hub_id', user.hub_id) filter so Supabase
-        // can return the full state-wide ledger.
-        const addHubFilter = (q: any) => q;
+        // Admins always see every hub. Non-admin staff default to their own
+        // hub -- the backend RLS policy allows the wider state-level view
+        // (e.g. Lagos HQ + Lagos Cargo), but pulling it on every fetch was
+        // costing 14 active users several GB/month in egress they mostly
+        // didn't need. stateWideView is an explicit opt-in (Header dropdown)
+        // for staff who actually want the sibling-hub rows.
+        const addHubFilter = (q: any) =>
+          (!isAdmin && user.hub_id && !stateWideView) ? q.eq('hub_id', user.hub_id) : q;
         const startDate = new Date(globalDateRange.start);
         startDate.setHours(0,0,0,0);
         const endDate = new Date(globalDateRange.end);
@@ -735,7 +752,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         console.error("Failed to fetch initial tx:", err);
         setInitError(true);
       }
-  }, [globalDateRange, user.role, user.hub_id]);
+  }, [globalDateRange, user.role, user.hub_id, stateWideView]);
 
   // Maps a shift department to the Transaction.type(s) its sales_summary
   // should be computed from at End Day. 'all' (the Master Ledger's
@@ -1072,6 +1089,18 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     prevTabRef.current = currentTab;
     if (isOffline || prevTab === currentTab) return;
 
+    // Non-admin realtime channels (needsCargo/Baggage/Marketing/Package
+    // below) are always fully subscribed regardless of currentTab, so their
+    // in-memory transactions/expenses stay live without a fresh 5-table
+    // pull on every tab switch -- that pull was most of the egress driving
+    // 14 MAU past 5GB. Admins' channels ARE scoped to the active tab (see
+    // isAggregateView below): switching e.g. Cargo -> Marketing tears down
+    // the cargo channel, so a cargo entry made elsewhere while an admin sat
+    // on Marketing would otherwise stay invisible until the next full
+    // fetch. Refetching here is that catch-up, and only admins need it.
+    const isAdmin = ['super_admin','admin','accountant','auditor'].includes(user.role);
+    if (!isAdmin) return;
+
     const isDataTab =
       currentTab === 'Cargo' ||
       currentTab === 'Marketing' ||
@@ -1081,22 +1110,23 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       ['Tower', 'Scan', 'More'].includes(currentTab);
 
     if (isDataTab) fetchInitial();
-  }, [currentTab, isOffline, fetchInitial]);
+  }, [currentTab, isOffline, fetchInitial, user.role]);
 
   useEffect(() => {
     if (isOffline) return;
 
     const isAdmin = ['super_admin','admin','accountant','auditor'].includes(user.role);
     const canSeePin = ['admin', 'super_admin', 'accountant'].includes(user.role);
-    // No per-hub channel filter on cargo/baggage/marketing/package below:
-    // fetchInitial is state-wide (RLS-scoped) since the frontend hub filter
-    // was removed, and a channel filtered to one hub made the live feed
-    // silently miss sister-hub entries that the initial fetch DID show.
-    // Realtime events are RLS-filtered server-side for authenticated
-    // channels, so scoping stays consistent with fetch. If per-hub live
-    // feeds are ever needed again, both layers must change together --
-    // never one without the other. hub_shifts stays hub-local below (a
-    // shift is deliberately per-hub, not state-wide).
+    // Must stay in lockstep with fetchInitial's own addHubFilter: whichever
+    // rows the initial fetch scoped to is exactly what the live channel
+    // below needs to match, or the two go silently inconsistent -- either a
+    // channel filtered to one hub while the initial fetch was state-wide
+    // (live feed silently missing sibling-hub entries the initial load DID
+    // show), or the reverse (an unfiltered channel leaking sibling-hub rows
+    // into a hub-scoped view behind the user's back). hub_shifts stays
+    // hub-local below regardless (a shift is deliberately per-hub, not
+    // state-wide).
+    const hubFilter = (!isAdmin && user.hub_id && !stateWideView) ? `hub_id=eq.${user.hub_id}` : undefined;
 
     let needsCargo = true;
     let needsBaggage = true;
@@ -1124,7 +1154,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     const cargoChannel = needsCargo ? supabase
       .channel('ehi-cargo-live')
       .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'cargo_entries' },
+        { event: 'INSERT', schema: 'public', table: 'cargo_entries', filter: hubFilter },
         payload => {
           const r = payload.new as any;
           pushUnique({
@@ -1171,7 +1201,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         }
       )
       .on('postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'cargo_entries' },
+        { event: 'UPDATE', schema: 'public', table: 'cargo_entries', filter: hubFilter },
         payload => {
           const r = payload.new as any;
           setTransactions(prev => prev.map(t =>
@@ -1224,7 +1254,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     const baggageChannel = needsBaggage ? supabase
       .channel('ehi-baggage-live')
       .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'manifests' },
+        { event: 'INSERT', schema: 'public', table: 'manifests', filter: hubFilter },
         payload => {
           const r = payload.new as any;
           pushUnique({
@@ -1262,7 +1292,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         }
       )
       .on('postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'manifests' },
+        { event: 'UPDATE', schema: 'public', table: 'manifests', filter: hubFilter },
         payload => {
           const r = payload.new as any;
           setTransactions(prev => prev.map(t =>
@@ -1297,7 +1327,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     const marketingChannel = needsMarketing ? supabase
       .channel('ehi-marketing-live')
       .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'marketing_entries' },
+        { event: 'INSERT', schema: 'public', table: 'marketing_entries', filter: hubFilter },
         payload => {
           const r = payload.new as any;
           pushUnique({
@@ -1331,7 +1361,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         }
       )
       .on('postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'marketing_entries' },
+        { event: 'UPDATE', schema: 'public', table: 'marketing_entries', filter: hubFilter },
         payload => {
           const r = payload.new as any;
           setTransactions(prev => prev.map(t =>
@@ -1369,7 +1399,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     const packageChannel = needsPackage ? supabase
       .channel('ehi-package-live')
       .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'package_entries' },
+        { event: 'INSERT', schema: 'public', table: 'package_entries', filter: hubFilter },
         payload => {
           const r = payload.new as any;
           pushUnique({
@@ -1406,7 +1436,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         }
       )
       .on('postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'package_entries' },
+        { event: 'UPDATE', schema: 'public', table: 'package_entries', filter: hubFilter },
         payload => {
           const r = payload.new as any;
           setTransactions(prev => prev.map(t =>
@@ -1480,7 +1510,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       if (shiftsChannel) supabase.removeChannel(shiftsChannel);
       if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
     };
-  }, [isOffline, flushPendingTx, user.hub_id, user.role, currentTab]);
+  }, [isOffline, flushPendingTx, user.hub_id, user.role, currentTab, stateWideView]);
 
   const handleAddTx = useCallback(async (tx: Transaction) => {
     const tableName = tx.type === 'marketing' ? 'marketing_entries'
@@ -2195,6 +2225,12 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           theme={theme}
           onToggleTheme={toggle}
           onManualSync={handleForceSync}
+          stateWideView={stateWideView}
+          onToggleStateWideView={
+            hasSiblingHubs && !['super_admin', 'admin', 'accountant', 'auditor'].includes(user.role)
+              ? () => setStateWideView(v => !v)
+              : undefined
+          }
         />
 
         <main

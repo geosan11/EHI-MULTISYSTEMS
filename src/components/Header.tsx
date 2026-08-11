@@ -1,4 +1,4 @@
-import { Wifi, WifiOff, LogOut, Sun, Moon, ChevronDown, RefreshCw } from 'lucide-react';
+import { Wifi, WifiOff, LogOut, Sun, Moon, ChevronDown, RefreshCw, Building2 } from 'lucide-react';
 import { User } from '../lib/types';
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -8,24 +8,32 @@ import { getHubCode } from '../lib/helpers';
 
 import ehiLogo from '../assets/branding/ehi-logo.png';
 
-export const Header = ({ 
-  user, 
-  isOffline, 
-  pendingCount, 
-  onToggleWifi, 
+export const Header = ({
+  user,
+  isOffline,
+  pendingCount,
+  onToggleWifi,
   onLogout,
   theme,
   onToggleTheme,
   onManualSync,
-}: { 
-  user: User; 
-  isOffline: boolean; 
-  pendingCount: number; 
-  onToggleWifi: () => void; 
+  stateWideView,
+  onToggleStateWideView,
+}: {
+  user: User;
+  isOffline: boolean;
+  pendingCount: number;
+  onToggleWifi: () => void;
   onLogout: () => void;
   theme: Theme;
   onToggleTheme: () => void;
   onManualSync?: () => void;
+  // Own-hub vs state-wide (own hub + sibling hubs, e.g. Lagos HQ + Lagos
+  // Cargo) ledger scope. undefined when the user has no sibling hubs or is
+  // an admin role that already sees every hub -- the toggle has nothing to
+  // offer either way, so it's left out of the menu entirely.
+  stateWideView?: boolean;
+  onToggleStateWideView?: () => void;
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -279,6 +287,30 @@ export const Header = ({
                       {getHubCode(user.hub)}
                     </div>
                   </div>
+                  {onToggleStateWideView && (
+                    <button
+                      onClick={() => { onToggleStateWideView(); setShowDropdown(false); }}
+                      className="group hover:bg-[rgba(59,130,246,0.06)] transition-colors"
+                      style={{
+                        width: '100%', padding: '12px 14px',
+                        background: 'transparent', border: 'none',
+                        borderBottom: '1px solid var(--color-border)',
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        cursor: 'pointer', textAlign: 'left',
+                      }}
+                      title={stateWideView ? 'Showing your hub + sibling hubs in your state. Click to scope to your own hub only.' : 'Showing only your own hub. Click to include sibling hubs in your state.'}
+                    >
+                      <Building2 size={18} strokeWidth={1.5} className="text-[var(--color-accent-cobalt)] shrink-0" />
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-foreground)' }}>
+                          {stateWideView ? 'State-wide view' : 'My hub only'}
+                        </div>
+                        <div style={{ fontSize: 10, color: 'var(--color-muted)', marginTop: 1 }}>
+                          {stateWideView ? 'Tap to scope to your own hub' : 'Tap to include sibling hubs'}
+                        </div>
+                      </div>
+                    </button>
+                  )}
                   <button
                     onClick={() => { setShowDropdown(false); onLogout(); }}
                     className="group hover:bg-[rgba(239,68,68,0.05)] transition-colors"
