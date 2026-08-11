@@ -1,3 +1,4 @@
+import { ErrorBoundary } from '../ErrorBoundary';
 import { AccountingConsole } from './AccountingConsole';
 import { Reports } from './Reports';
 import { Settings } from './Settings';
@@ -207,30 +208,61 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
 
     if (activeSub === 'ledger') {
       return { key: 'ledger', element: (
-        <TransactionLedger
-          user={user}
-          transactions={transactions}
-          expenses={expenses}
-          onBack={closeSub}
-          onUpdateTx={onFullUpdateTx || onAddTx}
-          onDeleteTx={onDeleteTx}
-          dateRange={dateRange}
-          onDateRangeChange={onDateRangeChange}
-          activeShift={activeShift}
-          shifts={todayShifts}
-          // Master Ledger no longer shows the Start/End Day button/status bar
-          // -- omitting onStartShift/onEndShift (rather than adding a new
-          // hide-this-bar prop) is enough: TransactionLedger.tsx's shift bar
-          // only renders when onStartShift, onEndShift, or shiftAutoManaged is
-          // truthy, and none of those are passed here. activeShift/shifts stay
-          // wired so the "current shift" date-boundary fallback and inline
-          // SHIFT STARTED/ENDED row markers (both separate features) are
-          // unaffected -- Baggage/Marketing keep their own Start/End Day
-          // exactly as before via EHIApp.tsx's per-department streamLedger
-          // overlay, which isn't touched by this.
-          customerWallets={customerWallets}
-          refetchCustomerWallets={refetchCustomerWallets}
-        />
+        // Scoped separately from the app-wide ErrorBoundary in EHIApp.tsx
+        // (which wraps every tab and, until now, was the only thing
+        // catching a Ledger crash -- its fallback offers nothing but a
+        // full window.location.reload(), which drops the user back to
+        // whatever tab they started on and looks like the whole app broke
+        // over one screen). This one shows the actual error and offers
+        // "Back" (closeSub, same as the ledger's own Back button) or "Try
+        // Again" (remounts just the ledger) instead.
+        <ErrorBoundary fallback={(error, reset) => (
+          <div className="flex flex-col items-center justify-center h-full gap-3 p-8 text-center bg-[var(--color-obsidian)]">
+            <div className="text-[var(--color-error)] font-bold text-[14px]">The ledger hit a snag.</div>
+            <div className="text-[var(--color-muted)] font-mono text-[11px] max-w-md break-words">
+              {error.message || 'An unexpected error occurred.'}
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <button
+                onClick={reset}
+                className="px-4 py-2 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg text-[12px] font-bold cursor-pointer"
+              >
+                Try Again
+              </button>
+              <button
+                onClick={closeSub}
+                className="px-4 py-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-foreground)] rounded-lg text-[12px] font-bold cursor-pointer"
+              >
+                Back
+              </button>
+            </div>
+          </div>
+        )}>
+          <TransactionLedger
+            user={user}
+            transactions={transactions}
+            expenses={expenses}
+            onBack={closeSub}
+            onUpdateTx={onFullUpdateTx || onAddTx}
+            onDeleteTx={onDeleteTx}
+            dateRange={dateRange}
+            onDateRangeChange={onDateRangeChange}
+            activeShift={activeShift}
+            shifts={todayShifts}
+            // Master Ledger no longer shows the Start/End Day button/status bar
+            // -- omitting onStartShift/onEndShift (rather than adding a new
+            // hide-this-bar prop) is enough: TransactionLedger.tsx's shift bar
+            // only renders when onStartShift, onEndShift, or shiftAutoManaged is
+            // truthy, and none of those are passed here. activeShift/shifts stay
+            // wired so the "current shift" date-boundary fallback and inline
+            // SHIFT STARTED/ENDED row markers (both separate features) are
+            // unaffected -- Baggage/Marketing keep their own Start/End Day
+            // exactly as before via EHIApp.tsx's per-department streamLedger
+            // overlay, which isn't touched by this.
+            customerWallets={customerWallets}
+            refetchCustomerWallets={refetchCustomerWallets}
+          />
+        </ErrorBoundary>
       ) };
     }
 

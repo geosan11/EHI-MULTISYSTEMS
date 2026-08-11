@@ -2355,27 +2355,56 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         // frame instead of triggering TransactionLedger's own internal
         // overflow-auto scroll region.
         <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-[var(--color-obsidian)]">
-          <TransactionLedger
-            user={user}
-            transactions={filteredLedgerTransactions}
-            expenses={expenses}
-            onBack={handleCloseLedger}
-            onUpdateTx={handleUpdateTx}
-            onDeleteTx={handleDeleteTx}
-            defaultTypeFilter={streamLedger.streams.length === 1 ? streamLedger.streams[0] : null}
-            defaultTerminalFilter={streamLedger.terminal}
-            viewOnly={user.role !== 'super_admin' && !user.can_edit_ledger}
-            dateRange={globalDateRange}
-            onDateRangeChange={setGlobalDateRange}
-            activeShift={streamLedgerDepartment ? (activeShiftsByDept[streamLedgerDepartment] || null) : null}
-            shifts={streamLedgerShifts}
-            onStartShift={handleStreamLedgerStartShift}
-            onEndShift={handleStreamLedgerEndShift}
-            shiftLabel={streamLedgerDepartment && streamLedgerDepartment !== 'all' ? STREAM_LEDGER_DEPT_LABEL[streamLedgerDepartment] : undefined}
-            shiftAutoManaged={streamLedgerDepartment === 'cargo' || streamLedgerDepartment === 'package'}
-            customerWallets={customerWallets}
-            refetchCustomerWallets={fetchWallets}
-          />
+          {/* This overlay is portaled to document.body as a SIBLING of the
+              <ErrorBoundary> above (in the React tree, not just the DOM) --
+              a crash here would otherwise bypass that boundary entirely and
+              propagate up to App.tsx's outermost one, unmounting the whole
+              app (SideNav/Header included), not just this overlay. Scoped
+              locally so it shows the real error and offers "Back" instead. */}
+          <ErrorBoundary fallback={(error, reset) => (
+            <div className="flex flex-col items-center justify-center h-full gap-3 p-8 text-center bg-[var(--color-obsidian)]">
+              <div className="text-[var(--color-error)] font-bold text-[14px]">The ledger hit a snag.</div>
+              <div className="text-[var(--color-muted)] font-mono text-[11px] max-w-md break-words">
+                {error.message || 'An unexpected error occurred.'}
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <button
+                  onClick={reset}
+                  className="px-4 py-2 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg text-[12px] font-bold cursor-pointer"
+                >
+                  Try Again
+                </button>
+                <button
+                  onClick={handleCloseLedger}
+                  className="px-4 py-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-foreground)] rounded-lg text-[12px] font-bold cursor-pointer"
+                >
+                  Back
+                </button>
+              </div>
+            </div>
+          )}>
+            <TransactionLedger
+              user={user}
+              transactions={filteredLedgerTransactions}
+              expenses={expenses}
+              onBack={handleCloseLedger}
+              onUpdateTx={handleUpdateTx}
+              onDeleteTx={handleDeleteTx}
+              defaultTypeFilter={streamLedger.streams.length === 1 ? streamLedger.streams[0] : null}
+              defaultTerminalFilter={streamLedger.terminal}
+              viewOnly={user.role !== 'super_admin' && !user.can_edit_ledger}
+              dateRange={globalDateRange}
+              onDateRangeChange={setGlobalDateRange}
+              activeShift={streamLedgerDepartment ? (activeShiftsByDept[streamLedgerDepartment] || null) : null}
+              shifts={streamLedgerShifts}
+              onStartShift={handleStreamLedgerStartShift}
+              onEndShift={handleStreamLedgerEndShift}
+              shiftLabel={streamLedgerDepartment && streamLedgerDepartment !== 'all' ? STREAM_LEDGER_DEPT_LABEL[streamLedgerDepartment] : undefined}
+              shiftAutoManaged={streamLedgerDepartment === 'cargo' || streamLedgerDepartment === 'package'}
+              customerWallets={customerWallets}
+              refetchCustomerWallets={fetchWallets}
+            />
+          </ErrorBoundary>
         </div>,
         document.body
       )}

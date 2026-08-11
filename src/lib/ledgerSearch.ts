@@ -80,6 +80,19 @@ export async function fetchProfileLookup(): Promise<Record<string, string>> {
   return lookup;
 }
 
+// Unlike Date.prototype.toString(), the Intl-backed toLocaleTimeString()
+// THROWS a RangeError (not just "Invalid Date" text) when given an invalid
+// date -- a synchronous throw here would happen inside the (awaited, but
+// still synchronous-at-this-point) row-mapping step, so it's worth
+// guarding explicitly rather than trusting every created_at value coming
+// back from the RPC to always parse cleanly.
+function safeTimeString(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' });
+}
+
 // ── Per-type row mappers (raw is the whole-row to_jsonb payload from the
 // RPC -- same column names as a direct table .select('*')) ──────────────
 
@@ -90,7 +103,7 @@ function mapCargoRow(r: any, profileLookup: Record<string, string>): Transaction
     detail: `${r.airline || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}${r.size_inches ? ` · ${r.size_inches}in` : ''}`,
     amount: r.amount || 0,
     mode: r.receipt_mode === 'Debt' && Number(r.amount_paid || 0) >= Number(r.amount || 0) ? 'Debt Paid' : (r.receipt_mode || 'Cash'),
-    time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+    time: safeTimeString(r.created_at),
     type: 'cargo', status: r.status || 'Intake', awb_tag_number: r.awb_tag_number, kg: r.total_kg,
     sizeInches: r.size_inches ?? undefined, pieces: r.total_pcs, pickupPin: r.pickup_pin || undefined,
     created_at: r.created_at, airline: r.airline, commissionRate: r.commission_rate ?? undefined,
@@ -115,7 +128,7 @@ function mapBaggageRow(r: any, profileLookup: Record<string, string>): Transacti
     detail: `${r.flight_no || ''} · ${r.destination || ''} · ${r.total_pcs || 1}pcs · +${r.excess_kg || 0}kg excess`,
     amount: r.amount || 0,
     mode: r.payment_mode === 'Debt' && Number(r.amount_paid || 0) >= Number(r.amount || 0) ? 'Debt Paid' : (r.payment_mode || 'POS'),
-    time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+    time: safeTimeString(r.created_at),
     type: 'baggage', status: 'Delivered', created_at: r.created_at, bank: r.bank, hub_id: r.hub_id, airline: r.airline,
     destination: r.destination, excessKg: r.excess_kg, totalKg: r.total_kg, flight: r.flight_no, pnr: r.pnr || undefined,
     kg: r.excess_kg, pieces: r.total_pcs, enteredByName: enteredByName || undefined, editedBy: r.last_edited_by || undefined,
@@ -137,7 +150,7 @@ function mapMarketingRow(r: any, profileLookup: Record<string, string>): Transac
     detail: `${r.route || ''} · ${r.qty_big_bag || 0}BB ${r.qty_med_bag || 0}MB ${r.qty_small_bag || 0}SB`,
     amount: r.amount_paid || 0,
     mode: r.payment_mode === 'Debt' && Number(r.debt_amount_paid || 0) >= Number(r.amount_paid || 0) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
-    time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+    time: safeTimeString(r.created_at),
     type: 'marketing', status: 'Intake', created_at: r.created_at, bank: r.bank, hub_id: r.hub_id, route: r.route,
     airline: r.airline || undefined, enteredByName: enteredByName || undefined, editedBy: r.last_edited_by || undefined,
     editedAt: r.last_edited_at || undefined, amountPaid: r.debt_amount_paid || 0, paymentHistory: r.payment_history || [],
@@ -159,7 +172,7 @@ function mapPackageRow(r: any, profileLookup: Record<string, string>): Transacti
     detail: `${r.destination || ''} · ${r.content_type || 'Package'} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg${r.contents ? ` · ${r.contents}` : ''}`,
     amount: r.amount || 0,
     mode: r.payment_mode === 'Debt' && (r.debt_paid === true || Number(r.amount_paid || 0) >= Number(r.amount || 0)) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
-    time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+    time: safeTimeString(r.created_at),
     type: 'package', status: r.status || 'Intake', created_at: r.created_at, bank: r.bank, hub_id: r.hub_id, terminal: r.terminal,
     destination: r.destination, contentType: r.content_type, pieces: r.total_pcs || undefined, kg: r.total_kg || undefined,
     contents: r.contents || undefined, paymentNarration: r.payment_narration || undefined, debtPaid: r.debt_paid ?? undefined,

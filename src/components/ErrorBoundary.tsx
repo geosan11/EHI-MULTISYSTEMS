@@ -3,7 +3,14 @@ import * as Sentry from '@sentry/react';
 
 interface Props {
   children?: ReactNode;
-  fallback?: ReactNode;
+  // A render-prop form is supported (error, reset) => ReactNode so a local
+  // boundary (e.g. wrapping just the Ledger) can show what actually broke
+  // and offer its own recovery (like "Back", not a full page reload)
+  // without needing a separate mechanism to clear the caught error --
+  // `reset` clears this boundary's own state so the wrapped tree gets a
+  // fresh mount attempt on the next render, same effect as the static
+  // fallback's window.location.reload() but scoped to just this subtree.
+  fallback?: ReactNode | ((error: Error, reset: () => void) => ReactNode);
 }
 
 interface State {
@@ -31,9 +38,19 @@ export class ErrorBoundary extends React.Component<Props, State> {
     });
   }
 
+  private reset = () => {
+    this.setState({ hasError: false, error: undefined });
+  };
+
   public render() {
     const props = (this as any).props as Props;
     if (this.state.hasError) {
+      if (typeof props.fallback === 'function') {
+        return (props.fallback as (error: Error, reset: () => void) => ReactNode)(
+          this.state.error || new Error('An unexpected error occurred.'),
+          this.reset
+        );
+      }
       if (props.fallback) {
         return props.fallback;
       }
