@@ -202,7 +202,15 @@ AS $$
 
     UNION ALL
 
-    SELECT 'expense', e.id, e.created_at, to_jsonb(e)
+    -- e.id::text, not bare e.id -- every other branch's entry_id
+    -- (entry_ref/transaction_id) is text, and this column position must
+    -- resolve to ONE common type across all 5 UNION ALL branches. uuid
+    -- and text have no implicit cast between them (only assignment,
+    -- which doesn't apply to UNION's own type resolution), so a bare
+    -- e.id here would make the whole `unified` CTE fail to parse, not
+    -- just the ILIKE predicate further down that already needed the
+    -- explicit cast for its own reason.
+    SELECT 'expense', e.id::text, e.created_at, to_jsonb(e)
     FROM public.expenses e
     WHERE p_include_expenses
       AND NOT p_office_work_only  -- expenses have no office-work columns
@@ -217,8 +225,14 @@ AS $$
       AND (p_types IS NULL OR cardinality(p_types) = 0)
       AND p_terminal IS NULL AND p_debt_class IS NULL  -- expenses are never Debt-mode
       AND (p_mode IS NULL OR e.mode = p_mode)
+      -- e.id is uuid, not text (see 20260706_full_schema.sql's expenses
+      -- table) -- ILIKE's ~~* operator has no uuid overload and no
+      -- implicit cast (unlike assignment contexts, e.g. the plain SELECT
+      -- e.id above coercing into this function's `entry_id text` return
+      -- column, which uuid->text DOES support), so this needs an explicit
+      -- cast or CREATE FUNCTION fails to parse.
       AND (p_query IS NULL OR p_query = '' OR (
-            e.id ILIKE '%'||p_query||'%' OR e.category ILIKE '%'||p_query||'%'
+            e.id::text ILIKE '%'||p_query||'%' OR e.category ILIKE '%'||p_query||'%'
             OR e.description ILIKE '%'||p_query||'%' OR e.amount::text ILIKE '%'||p_query||'%'
           ))
   )
@@ -412,8 +426,10 @@ AS $$
       AND (p_types IS NULL OR cardinality(p_types) = 0)  -- see ledger_search_page's matching comment
       AND p_terminal IS NULL AND p_debt_class IS NULL
       AND (p_mode IS NULL OR mode = p_mode)
+      -- id is uuid, not text (see 20260938's matching comment in
+      -- ledger_search_page) -- needs an explicit cast for ILIKE.
       AND (p_query IS NULL OR p_query = '' OR (
-            id ILIKE '%'||p_query||'%' OR category ILIKE '%'||p_query||'%'
+            id::text ILIKE '%'||p_query||'%' OR category ILIKE '%'||p_query||'%'
             OR description ILIKE '%'||p_query||'%' OR amount::text ILIKE '%'||p_query||'%'))
   )
   SELECT

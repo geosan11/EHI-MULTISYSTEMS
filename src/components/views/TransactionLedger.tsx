@@ -2948,36 +2948,33 @@ export const TransactionLedger = ({
                       key={scope}
                       onClick={() => {
                         setShiftFilter(scope);
+                        // First engagement only -- kicks off the paginated
+                        // fetch (see allTimeFilterParams/fetchAllTimeFirstPage
+                        // above). Subsequent search/filter changes while
+                        // already engaged are picked up by their own effect
+                        // instead of here, so switching tabs and back doesn't
+                        // force a wasted refetch.
+                        //
+                        // This used to also call onDateRangeChange to widen
+                        // globalDateRange to 5 years on 'all' (and narrow it
+                        // back to 14 days on 'current') -- a leftover from
+                        // before pagination existed, when that widening was
+                        // what fed the old eager fetch. It's gone: neither
+                        // mode's own data depends on globalDateRange anymore
+                        // (All Time is fully served by the RPC, not
+                        // date-bounded at all; Current Shift already sources
+                        // from the transactions/expenses props via the real
+                        // shift-boundary logic above, independent of
+                        // globalDateRange). Keeping the call was firing
+                        // EHIApp.tsx's fetchInitial (5 queries, up to 5000
+                        // rows each) on every click, at the same instant as
+                        // the new ~500-row RPC page -- the actual cause of
+                        // "All Time feels slow," not the RPC itself. It also
+                        // meant switching tabs afterward showed Tower/
+                        // Analytics a 5-year window as a side effect of a
+                        // Ledger-only toggle, which is gone too now.
                         if (scope === 'all' && !allTimeEngaged) {
-                          // First engagement only -- kicks off the paginated
-                          // fetch (see allTimeFilterParams/fetchAllTimeFirstPage
-                          // above). Subsequent search/filter changes while
-                          // already engaged are picked up by their own effect
-                          // instead of here, so switching tabs and back
-                          // doesn't force a wasted refetch. Widening
-                          // globalDateRange below is kept too: it's still
-                          // what other screens sharing that state (Tower/
-                          // Analytics) see if the user switches tabs.
                           fetchAllTimeFirstPage();
-                        }
-                        if (scope === 'all' && dateRange && onDateRangeChange) {
-                          onDateRangeChange({
-                            start: new Date(Date.now() - 5 * 365 * 86400000).toISOString().split('T')[0],
-                            end: new Date().toISOString().split('T')[0],
-                          });
-                        } else if (scope === 'current' && dateRange && onDateRangeChange) {
-                          // "All Time" widens the shared globalDateRange to 5
-                          // years so there's older data to show -- without
-                          // this branch, switching back to "Current Shift"
-                          // left that 5-year window in place forever (it's
-                          // shared with the Tower/Analytics dashboard too),
-                          // so every later fetch stayed far wider than
-                          // "current shift" implies until someone noticed
-                          // and manually retyped both date inputs.
-                          onDateRangeChange({
-                            start: new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0],
-                            end: new Date().toISOString().split('T')[0],
-                          });
                         }
                       }}
                       className={`h-7 px-3.5 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer flex-1 sm:flex-initial text-center ${
