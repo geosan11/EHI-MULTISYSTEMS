@@ -391,6 +391,18 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
     exit: (dir: 1 | -1) => ({ x: dir === 1 ? '-100%' : '100%' }),
   };
 
+  // The Ledger is the one screen here backed by @tanstack/react-virtual
+  // (thousands of rows, ResizeObserver-based dynamic height measurement
+  // via measureElement). Animating its container's transform over 0.5s
+  // while that measurement is actively settling triggered a runaway
+  // resize -> re-render -> re-measure cycle in production (React error
+  // #185, "Maximum update depth exceeded") -- popLayout's flow change on
+  // enter/exit plus the virtualizer's own remeasurement never converged
+  // in time. Skipping the animation (instant transition) for this one
+  // screen removes the transform-during-measurement window entirely;
+  // every other (non-virtualized) sub-view keeps the normal slide.
+  const isLedgerView = activeView?.key === 'ledger';
+
   return (
     <div style={{ position: 'relative', overflow: 'hidden', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <AnimatePresence initial={false} mode="popLayout" custom={direction}>
@@ -401,7 +413,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
           initial="enter"
           animate="center"
           exit="exit"
-          transition={{ duration: prefersReducedMotion ? 0 : 0.5, ease: [0.4, 0, 0.2, 1] }}
+          transition={{ duration: (prefersReducedMotion || isLedgerView) ? 0 : 0.5, ease: [0.4, 0, 0.2, 1] }}
           style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
         >
           {activeView ? activeView.element : (
