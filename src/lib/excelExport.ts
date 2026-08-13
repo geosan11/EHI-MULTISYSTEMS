@@ -106,7 +106,11 @@ export function downloadDailyExcel(
     return [
       isDC ? 'YES' : 'NO',
       isDC ? (t.related_tx_id || '') : '',
-      t.debtPaidAt ? rowDateTime(t.debtPaidAt) : '',
+      // debtPaidAt is only natively populated by package_entries -- for a
+      // debt-collection row on any other stream, its own created_at IS the
+      // collection timestamp (see 20260941_debt_collection_events.sql),
+      // so fall back to that instead of showing this column blank.
+      isDC ? rowDateTime(t.debtPaidAt || t.created_at) : (t.debtPaidAt ? rowDateTime(t.debtPaidAt) : ''),
       history.length > 0 ? 'YES' : 'NO',
       partialSummary,
       t.wallet_id ? 'YES' : 'NO',

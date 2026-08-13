@@ -933,6 +933,14 @@ export const TransactionLedger = ({
 
   const handleEditClick = (e: Entry, evt: React.MouseEvent) => {
     evt.stopPropagation();
+    // Debt-collection rows (real historical shadow rows, or the synthetic
+    // ones derived live from payment_history -- see
+    // 20260941_debt_collection_events.sql) are a record of a payment
+    // event, not an editable entity -- there's no backing row for a
+    // synthetic id to save changes against, and even a real historical
+    // shadow row was never meant to be edited. Defense-in-depth alongside
+    // the Edit button's own render guard below.
+    if (e.source === "transaction" && (e.raw as any)?.is_debt_clearance) return;
     if (e.source === "transaction") {
       const tx = { ...e.raw } as Transaction;
       refetchCustomerWallets?.();
@@ -2294,13 +2302,19 @@ export const TransactionLedger = ({
       const ded = e.raw?.wallet_deduction_amount || (e.mode === 'Wallet' ? e.amount : 0);
       wallet += ded;
 
-      // 'Debt Paid' entries are excluded from total -- the same double-count
-      // Analytics.tsx's validLiquidTxs comment already documents: once a
-      // debt is cleared, its original entry flips to mode 'Debt Paid'
-      // (still showing its full original amount) AND a separate DC- shadow
-      // entry is created for the actual cash collected. Summing both
-      // counts the same money twice.
-      if (e.mode !== 'Debt Paid') total += sign * e.amount;
+      // Full cash-basis: a Debt-mode sale (open OR fully paid -- 'Debt'
+      // and 'Debt Paid' are both client-derived labels for the same
+      // underlying receipt_mode/payment_mode = 'Debt' row, see
+      // clear_cargo_debt's own comment) contributes NOTHING to Total until
+      // it's actually collected. What replaces it is the debt-collection
+      // row itself (see 20260941_debt_collection_events.sql) -- its own
+      // `mode` is the real payment mode from that specific event, never
+      // 'Debt'/'Debt Paid', so it passes this filter and counts on ITS OWN
+      // date instead. This is also what stops the old double-count this
+      // exclusion was originally built for (summing a 'Debt Paid' row's
+      // full amount AND its shadow row) -- now there's exactly one place
+      // the money is ever counted, on the date it was actually collected.
+      if (e.mode !== 'Debt' && e.mode !== 'Debt Paid') total += sign * e.amount;
       if (e.mode === 'Cash') {
         cash += sign * e.amount;
         if (!e.raw.paymentConfirmed) unverifiedCashArr.push(e);
@@ -3224,9 +3238,9 @@ export const TransactionLedger = ({
                     return (
                       <div key={e.id} data-index={virtualRow.index} ref={cardVirtualizer.measureElement} style={wrapperStyle}>
                       <div
-                        onClick={() => setViewingDetail(e)}
+                        onClick={() => e.raw?.is_debt_clearance ? handleJumpToOriginalDebt(e.raw?.related_tx_id) : setViewingDetail(e)}
                         className={`ehi-card p-3 rounded-xl border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] transition-all cursor-pointer space-y-2 ${
-                          e.raw?.retrieved ? 'opacity-50' : ''
+                          (e.raw?.retrieved || e.raw?.is_debt_clearance) ? 'opacity-50' : ''
                         } ${e.raw?.is_debt_clearance ? 'bg-[rgba(59,130,246,0.05)]' : ''}`}
                       >
                         {/* Top header row */}
@@ -3271,13 +3285,17 @@ export const TransactionLedger = ({
                         {/* Badges */}
                         <div className="flex flex-wrap gap-1">
                           {e.raw?.is_debt_clearance && (
-                            <button
-                              onClick={(evt) => handleJumpToOriginalDebt(e.raw?.related_tx_id, evt)}
-                              title="View the original debt this collection cleared"
-                              className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[rgba(59,130,246,0.3)] hover:bg-[var(--color-accent-cobalt)] hover:text-white transition-colors cursor-pointer"
+                            // Plain label, not a button -- the whole row's
+                            // onClick already jumps to the original debt
+                            // (this row isn't its own editable/viewable
+                            // entity), so a separate nested click target
+                            // here would just be redundant.
+                            <span
+                              title="Tap this row to view the original debt this collection cleared"
+                              className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[rgba(59,130,246,0.3)]"
                             >
                               COLLECTION →
-                            </button>
+                            </span>
                           )}
                           {e.raw?.retrieved && (
                             <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(239,68,68,0.12)] text-[var(--color-error)] border border-[rgba(239,68,68,0.25)] line-through">
@@ -3428,22 +3446,24 @@ export const TransactionLedger = ({
                     key={e.id}
                     ref={rowVirtualizer.measureElement}
                     data-index={virtualRow.index}
-                    onClick={() => setViewingDetail(e)}
+                    onClick={() => e.raw?.is_debt_clearance ? handleJumpToOriginalDebt(e.raw?.related_tx_id) : setViewingDetail(e)}
                     className={`border-b border-[var(--color-border)] hover:bg-[var(--color-border)] transition-colors cursor-pointer group ${
-                      e.raw?.retrieved ? 'opacity-50' : ''
+                      (e.raw?.retrieved || e.raw?.is_debt_clearance) ? 'opacity-50' : ''
                     } ${
-                      // A debt-clearance shadow row is a payment record, not
-                      // a new shipment -- a distinct tint (on top of the
-                      // COLLECTION badge) keeps it from being mistaken for a
-                      // duplicate entry at a glance, which is exactly what
-                      // it looked like sitting next to its now-"Debt Paid"
-                      // original.
+                      // A debt-clearance row is a payment record, not a new
+                      // shipment -- a distinct tint (faded blue, matching
+                      // the opacity fade above) keeps it from being mistaken
+                      // for a duplicate entry at a glance, which is exactly
+                      // what it looked like sitting next to its now-"Debt
+                      // Paid" original. The whole row is a click-through to
+                      // that original (see the onClick above) rather than
+                      // opening its own detail -- it isn't one.
                       e.raw?.is_debt_clearance ? 'bg-[rgba(59,130,246,0.05)]' : ''
                     }`}
                   >
                     {(isAccountantOrAdmin || !viewOnly) && (
                       <td className="py-2.5 px-3">
-                        {(e.mode === 'Cash' || e.mode === 'POS' || e.mode === 'Transfer') && isAccountantOrAdmin && (
+                        {(e.mode === 'Cash' || e.mode === 'POS' || e.mode === 'Transfer') && isAccountantOrAdmin && !e.raw?.is_debt_clearance && (
                           <div onClick={(evt) => evt.stopPropagation()}>
                             {e.mode === 'POS' && !e.posApprovalCode ? (
                               posCodeInput.id === e.id ? (
@@ -3524,13 +3544,14 @@ export const TransactionLedger = ({
                       {/* Row-level badges for special transaction types */}
                       <div className="flex flex-wrap gap-1 mb-0.5">
                         {e.raw?.is_debt_clearance && (
-                          <button
-                            onClick={(evt) => handleJumpToOriginalDebt(e.raw?.related_tx_id, evt)}
-                            title="View the original debt this collection cleared"
-                            className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[rgba(59,130,246,0.3)] hover:bg-[var(--color-accent-cobalt)] hover:text-white transition-colors cursor-pointer"
+                          // Plain label, not a button -- see the mobile
+                          // card's matching comment above.
+                          <span
+                            title="Click this row to view the original debt this collection cleared"
+                            className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[rgba(59,130,246,0.3)]"
                           >
                             COLLECTION →
-                          </button>
+                          </span>
                         )}
                         {e.raw?.retrieved && (
                           <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(239,68,68,0.12)] text-[var(--color-error)] border border-[rgba(239,68,68,0.25)] line-through">
@@ -4043,7 +4064,7 @@ export const TransactionLedger = ({
                         </button>
                       )}
 
-                      {(canEdit || canEditRemarks) && (
+                      {(canEdit || canEditRemarks) && !viewingDetail.raw?.is_debt_clearance && (
                         <button
                           onClick={(evt) => handleEditClick(viewingDetail, evt)}
                           className="py-2.5 px-3 flex items-center justify-center gap-1.5 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] rounded-lg transition-colors border border-[var(--color-border)] text-[11px] font-medium"

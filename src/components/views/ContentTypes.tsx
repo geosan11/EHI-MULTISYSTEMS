@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Tag, Plus, Trash2, Loader, Power, Sparkles, Layers, Ruler } from 'lucide-react';
+import { Tag, Plus, Trash2, Loader, Power, Sparkles, Layers, Ruler, Pencil } from 'lucide-react';
 import { BackButton } from '../BackButton';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../lib/ToastContext';
@@ -19,6 +19,8 @@ export const ContentTypes = ({ onBack, onManageRates }: { onBack: () => void; on
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
 
   const { showToast } = useToast();
   const confirm = useConfirm();
@@ -50,6 +52,25 @@ export const ContentTypes = ({ onBack, onManageRates }: { onBack: () => void; on
     }
     setTypes(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
     setNewName('');
+  };
+
+  // Same optimistic-with-rollback pattern as the toggle handlers below.
+  // content_type on cargo_entries/package_entries is a denormalized text
+  // copy of the name at entry time, not a live FK -- so renaming here only
+  // affects the dropdown staff see for NEW entries going forward; existing
+  // entries keep whatever text they were given at creation, same as
+  // deactivating one already only affects new entries.
+  const handleRename = async (t: ContentType) => {
+    const trimmed = editValue.trim();
+    setEditingId(null);
+    if (!trimmed || trimmed === t.name) return;
+    const prev = types;
+    setTypes(cur => cur.map(x => x.id === t.id ? { ...x, name: trimmed } : x).sort((a, b) => a.name.localeCompare(b.name)));
+    const { error } = await supabase.from('content_types').update({ name: trimmed, updated_at: new Date().toISOString() }).eq('id', t.id);
+    if (error) {
+      setTypes(prev);
+      showToast({ message: `Failed to rename to ${trimmed}: ${error.message}`, type: 'error' });
+    }
   };
 
   // Optimistic update -- rolls back on failure so the screen never shows a
@@ -177,7 +198,29 @@ export const ContentTypes = ({ onBack, onManageRates }: { onBack: () => void; on
                     <div className="w-8 h-8 bg-[var(--color-surface-2)] rounded-lg flex items-center justify-center shrink-0">
                       <Tag size={15} strokeWidth={1.5} className="text-[var(--color-muted)]" />
                     </div>
-                    <span className="flex-1 font-sans font-semibold text-[13px] text-[var(--color-foreground)]">{t.name}</span>
+                    {editingId === t.id ? (
+                      <input
+                        type="text"
+                        autoFocus
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onBlur={() => handleRename(t)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleRename(t);
+                          if (e.key === 'Escape') setEditingId(null);
+                        }}
+                        className="flex-1 ehi-input py-1"
+                      />
+                    ) : (
+                      <button
+                        onClick={() => { setEditingId(t.id); setEditValue(t.name); }}
+                        aria-label={`Rename ${t.name}`}
+                        className="flex-1 flex items-center gap-1.5 group/name text-left"
+                      >
+                        <span className="font-sans font-semibold text-[13px] text-[var(--color-foreground)]">{t.name}</span>
+                        <Pencil size={11} strokeWidth={1.5} className="text-[var(--color-muted)] opacity-0 group-hover/name:opacity-100 transition-opacity shrink-0" />
+                      </button>
+                    )}
                     <button
                       onClick={() => handleToggleActive(t)}
                       aria-label={t.active ? `Deactivate ${t.name}` : `Activate ${t.name}`}

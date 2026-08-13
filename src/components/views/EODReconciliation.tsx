@@ -170,10 +170,11 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
 
   // ── System Totals ──────────────────────────────────────────────────────────
   const expectedTotals = useMemo(() => {
-    // Split debt-clearance shadow entries from real new sales -- still
+    // Split debt-clearance rows (historical shadow rows AND the synthetic
+    // ones now derived live from payment_history, see
+    // 20260941_debt_collection_events.sql) out of real new sales -- still
     // correct forever for historical shadow rows, which keep existing.
     const newSalesTx = todaysTx.filter(t => !t.is_debt_clearance);
-    const debtClearTx = todaysTx.filter(t => t.is_debt_clearance === true);
 
     const cargoTx   = newSalesTx.filter(t => t.type === 'cargo');
     const mktgTx    = newSalesTx.filter(t => t.type === 'marketing');
@@ -186,14 +187,20 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
     const packageTotal = packageTx.reduce((s, t) => s + t.amount, 0);
     const grossNewSalesTotal = cargoTotal + mktgTotal + vjTotal + packageTotal;
 
-    // Collections: prior-debt payments received today -- historical shadow
-    // rows (unconditional, as before) plus new-style payment_history events,
-    // excluding any whose underlying debt was also created this same shift
-    // (see priorDebtCollectionEvents above -- that sale is already counted
-    // once in grossNewSalesTotal, so its same-shift payoff isn't a second,
-    // separate collection).
-    const debtClearedTotal = debtClearTx.reduce((s, t) => s + t.amount, 0)
-      + priorDebtCollectionEvents.reduce((s, e) => s + e.amount, 0);
+    // Collections: prior-debt payments received today. Sourced entirely
+    // from priorDebtCollectionEvents (debt.ts's extractPaymentHistoryEvents
+    // + buildShadowRowExclusionCounts, derived straight from
+    // payment_history) -- it already safely covers BOTH historical shadow
+    // rows (exclusion-counted so a payment isn't double-read once from its
+    // own shadow row and again from payment_history) AND every event the
+    // synthetic debt-collection rows in `todaysTx` are themselves derived
+    // from (20260941_debt_collection_events.sql). Summing todaysTx's own
+    // is_debt_clearance rows here too, on top of this, would double-count
+    // every one of those events -- excluding any whose underlying debt was
+    // also created this same shift (see priorDebtCollectionEvents above --
+    // that sale is already counted once in grossNewSalesTotal, so its
+    // same-shift payoff isn't a second, separate collection).
+    const debtClearedTotal = priorDebtCollectionEvents.reduce((s, e) => s + e.amount, 0);
 
     // Combined gross (for backward compat with existing eod_records fields)
     const grossTotal = grossNewSalesTotal + debtClearedTotal;
