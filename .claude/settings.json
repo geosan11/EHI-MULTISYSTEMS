@@ -109,7 +109,8 @@
       "Bash(git ls-tree *)",
       "Bash(git merge *)",
       "Bash(npm run *)",
-      "Bash(echo \"EXIT=$?\")"
+      "Bash(echo \"EXIT=$?\")",
+      "mcp__computer-use__screenshot"
     ],
     "additionalDirectories": [
       "\\tmp"
