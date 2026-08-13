@@ -67,7 +67,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
 
   useEffect(() => {
     const fetchRoutePricing = async () => {
-      const { data, error } = await supabase.from('marketing_route_rates').select('*').order('route_name');
+      const { data, error } = await supabase.from('marketing_route_rates').select('id,route_name,bb_rate,mb_rate,sb_rate').order('route_name');
       if (data && !error && data.length > 0) {
         const mapped = data.map((r: any) => ({ id: r.id, route: r.route_name, bb: Number(r.bb_rate), mb: Number(r.mb_rate), sb: Number(r.sb_rate) }));
         setPricing(mapped);
@@ -168,7 +168,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
   // Fetch standard rates from Supabase
   useEffect(() => {
     const fetchStandardRates = async () => {
-      const { data, error } = await supabase.from('standard_cargo_rates').select('*');
+      const { data, error } = await supabase.from('standard_cargo_rates').select('route_name,rate_per_kg');
       if (data && !error && data.length > 0) {
         const ratesMap: Record<string, number> = {};
         data.forEach(d => {
@@ -193,8 +193,8 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
   useEffect(() => {
     const fetchCorpData = async () => {
       const [{ data: clients }, { data: rates }] = await Promise.all([
-        supabase.from('corporate_clients').select('*'),
-        supabase.from('corporate_route_rates').select('*')
+        supabase.from('corporate_clients').select('id,company_name,contact_phone,accumulated_monthly_debt,active'),
+        supabase.from('corporate_route_rates').select('id,corporate_client_id,route_name,rate_per_kg,minimum_amount')
       ]);
 
       if (clients) {

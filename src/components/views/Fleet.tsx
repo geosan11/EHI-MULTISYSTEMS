@@ -66,8 +66,8 @@ export const Fleet = ({ onBack, user }: { onBack: () => void; user?: User }) => 
     setLoading(true);
     try {
       const [vRes, fRes] = await Promise.all([
-        supabase.from('fleet_vehicles').select('*').order('created_at', { ascending: false }),
-        supabase.from('fuel_logs').select('*').order('log_date', { ascending: false }).limit(100)
+        supabase.from('fleet_vehicles').select('id,plate,make,model,vehicle_type,driver_name,capacity_kg,status,last_service,next_service').order('created_at', { ascending: false }),
+        supabase.from('fuel_logs').select('id,vehicle_plate,litres,cost_per_litre,total_cost,station,log_date').order('log_date', { ascending: false }).limit(100)
       ]);
 
       if (vRes.data) {

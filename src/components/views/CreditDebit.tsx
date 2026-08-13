@@ -56,10 +56,10 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
         // rows tied on created_at that straddle a page boundary could
         // otherwise duplicate or vanish across fetchAllRows' paged requests.
         const [cargoDebts, vjDebts, mktDebts, pkgDebts] = await Promise.all([
-          fetchAllRows<any>((from, to) => addHubFilter(supabase.from('cargo_entries').select('*').eq('receipt_mode', 'Debt').order('created_at', { ascending: false }).order('id')).range(from, to)),
-          fetchAllRows<any>((from, to) => addHubFilter(supabase.from('manifests').select('*').eq('payment_mode', 'Debt').order('created_at', { ascending: false }).order('id')).range(from, to)),
-          fetchAllRows<any>((from, to) => addHubFilter(supabase.from('marketing_entries').select('*').eq('payment_mode', 'Debt').order('created_at', { ascending: false }).order('id')).range(from, to)),
-          fetchAllRows<any>((from, to) => addHubFilter(supabase.from('package_entries').select('*').eq('payment_mode', 'Debt').order('created_at', { ascending: false }).order('id')).range(from, to)),
+          fetchAllRows<any>((from, to) => addHubFilter(supabase.from('cargo_entries').select('id,entry_ref,consignee_name,airline,amount,amount_paid,receipt_mode,created_at,awb_tag_number,status,retrieved_amount').eq('receipt_mode', 'Debt').order('created_at', { ascending: false }).order('id')).range(from, to)),
+          fetchAllRows<any>((from, to) => addHubFilter(supabase.from('manifests').select('id,transaction_id,passenger_name,flight_no,amount,amount_paid,created_at,retrieved_amount').eq('payment_mode', 'Debt').order('created_at', { ascending: false }).order('id')).range(from, to)),
+          fetchAllRows<any>((from, to) => addHubFilter(supabase.from('marketing_entries').select('id,entry_ref,customer_name,route,amount_paid,debt_amount_paid,created_at,retrieved_amount').eq('payment_mode', 'Debt').order('created_at', { ascending: false }).order('id')).range(from, to)),
+          fetchAllRows<any>((from, to) => addHubFilter(supabase.from('package_entries').select('id,entry_ref,customer_name,destination,amount,amount_paid,created_at,status,retrieved_amount').eq('payment_mode', 'Debt').order('created_at', { ascending: false }).order('id')).range(from, to)),
         ]);
 
         // amountPaid is carried through so downstream balance calcs (below)
@@ -111,7 +111,7 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
         // not just a date filter, to actually show every commission-bearing
         // sale in the window rather than silently the newest ~1000.
         const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
-        const cargoCredits = await fetchAllRows<any>((from, to) => addHubFilter(supabase.from('cargo_entries').select('*').gte('created_at', thirtyDaysAgo).order('created_at', { ascending: false }).order('id')).range(from, to));
+        const cargoCredits = await fetchAllRows<any>((from, to) => addHubFilter(supabase.from('cargo_entries').select('id,entry_ref,consignee_name,route,amount,receipt_mode,created_at,airline,commission_rate,status').gte('created_at', thirtyDaysAgo).order('created_at', { ascending: false }).order('id')).range(from, to));
 
         const mappedCredits: Transaction[] = [];
         if (cargoCredits) {
