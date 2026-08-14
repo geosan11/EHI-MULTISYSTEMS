@@ -453,10 +453,15 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         // Time" data set with no indication anything was cut off, warn once
         // per fetch when any table came back at exactly the cap.
         const cappedTables: string[] = [];
-        if (cargoRows.length >= 5000) cappedTables.push('Cargo');
-        if (baggageRows.length >= 5000) cappedTables.push('Excess Baggage');
-        if (mktRows.length >= 5000) cappedTables.push('Marketing');
-        if (packageRows.length >= 5000) cappedTables.push('Package Desk');
+        // Check the raw query results, not cargoRows/baggageRows/mktRows/
+        // packageRows -- those have debt-collection rows spliced in, which
+        // aren't subject to this same 5000-row .limit() at all, so checking
+        // the merged length could warn "truncated" on a table whose real
+        // select was never actually capped.
+        if ((cargoRes.data?.length || 0) >= 5000) cappedTables.push('Cargo');
+        if ((baggageRes.data?.length || 0) >= 5000) cappedTables.push('Excess Baggage');
+        if ((mktRes.data?.length || 0) >= 5000) cappedTables.push('Marketing');
+        if ((packageRes.data?.length || 0) >= 5000) cappedTables.push('Package Desk');
         if ((expRes.data?.length || 0) >= 5000) cappedTables.push('Expenses');
         if (cappedTables.length > 0) {
           showToast({

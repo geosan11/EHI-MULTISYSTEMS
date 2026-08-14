@@ -32,7 +32,7 @@
 CREATE OR REPLACE FUNCTION public.cargo_debt_collection_rows(
   p_start  timestamptz DEFAULT NULL,
   p_end    timestamptz DEFAULT NULL,
-  p_hub_id text DEFAULT NULL
+  p_hub_id uuid DEFAULT NULL
 )
 RETURNS TABLE(entry_id text, created_at timestamptz, raw jsonb)
 LANGUAGE sql
@@ -42,7 +42,30 @@ AS $$
   SELECT
     'DC-' || c.entry_ref || '-' || ev.ordinality,
     (ev.value->>'at')::timestamptz,
-    to_jsonb(c) || jsonb_build_object(
+    -- Explicit column list, not to_jsonb(c) -- matches fetchInitial's own
+    -- trimmed cargo_entries select() exactly, so a collection row's
+    -- payload is the same size as a real row's, not a full-column dump.
+    jsonb_build_object(
+      'entry_ref', c.entry_ref, 'consignee_name', c.consignee_name, 'airline', c.airline,
+      'awb_tag_number', c.awb_tag_number, 'total_pcs', c.total_pcs, 'total_kg', c.total_kg,
+      'size_inches', c.size_inches, 'route', c.route, 'content_type', c.content_type,
+      'amount', c.amount, 'receipt_mode', c.receipt_mode, 'pickup_pin', c.pickup_pin,
+      'status', c.status, 'created_at', c.created_at, 'commission_rate', c.commission_rate,
+      'bank', c.bank, 'hub_id', c.hub_id, 'terminal', c.terminal, 'remark', c.remark,
+      'amount_paid', c.amount_paid, 'payment_history', c.payment_history,
+      'payment_confirmed', c.payment_confirmed, 'pos_approval_code', c.pos_approval_code,
+      'confirmed_by', c.confirmed_by, 'confirmed_at', c.confirmed_at,
+      'consignee_phone', c.consignee_phone, 'client_type', c.client_type,
+      'corporate_client_id', c.corporate_client_id, 'linked_as_office_work', c.linked_as_office_work,
+      'bank_reference', c.bank_reference, 'bank_sender', c.bank_sender, 'bank_alert_text', c.bank_alert_text,
+      'entered_by', c.entered_by, 'last_edited_by', c.last_edited_by, 'last_edited_at', c.last_edited_at,
+      'wallet_id', c.wallet_id, 'wallet_deduction_amount', c.wallet_deduction_amount,
+      'retrieved', c.retrieved, 'retrieved_amount', c.retrieved_amount, 'retrieved_pieces', c.retrieved_pieces,
+      'retrieved_kg', c.retrieved_kg, 'retrieval_note', c.retrieval_note, 'retrieved_at', c.retrieved_at,
+      'retrieved_by', c.retrieved_by, 'retrieval_approved', c.retrieval_approved,
+      'retrieval_approved_by', c.retrieval_approved_by, 'retrieval_approved_at', c.retrieval_approved_at,
+      'is_debt_clearance', c.is_debt_clearance, 'related_tx_id', c.related_tx_id
+    ) || jsonb_build_object(
       'entry_ref',               'DC-' || c.entry_ref || '-' || ev.ordinality,
       'amount',                  (ev.value->>'amount')::numeric,
       'amount_paid',             (ev.value->>'amount')::numeric,
@@ -67,12 +90,12 @@ AS $$
     AND (p_end   IS NULL OR (ev.value->>'at')::timestamptz <= p_end)
     AND (p_hub_id IS NULL OR c.hub_id = p_hub_id);
 $$;
-GRANT EXECUTE ON FUNCTION public.cargo_debt_collection_rows(timestamptz, timestamptz, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.cargo_debt_collection_rows(timestamptz, timestamptz, uuid) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.baggage_debt_collection_rows(
   p_start  timestamptz DEFAULT NULL,
   p_end    timestamptz DEFAULT NULL,
-  p_hub_id text DEFAULT NULL
+  p_hub_id uuid DEFAULT NULL
 )
 RETURNS TABLE(entry_id text, created_at timestamptz, raw jsonb)
 LANGUAGE sql
@@ -82,7 +105,27 @@ AS $$
   SELECT
     'DC-' || m.transaction_id || '-' || ev.ordinality,
     (ev.value->>'at')::timestamptz,
-    to_jsonb(m) || jsonb_build_object(
+    -- Explicit column list, not to_jsonb(m) -- see cargo's matching
+    -- comment above; same rationale, matches fetchInitial's manifests select().
+    jsonb_build_object(
+      'transaction_id', m.transaction_id, 'passenger_name', m.passenger_name, 'flight_no', m.flight_no,
+      'destination', m.destination, 'excess_kg', m.excess_kg, 'amount', m.amount,
+      'payment_mode', m.payment_mode, 'created_at', m.created_at, 'bank', m.bank,
+      'hub_id', m.hub_id, 'total_kg', m.total_kg, 'pnr', m.pnr, 'passenger_phone', m.passenger_phone,
+      'total_pcs', m.total_pcs, 'amount_paid', m.amount_paid, 'payment_history', m.payment_history,
+      'airline', m.airline, 'payment_confirmed', m.payment_confirmed, 'pos_approval_code', m.pos_approval_code,
+      'confirmed_by', m.confirmed_by, 'confirmed_at', m.confirmed_at, 'bank_reference', m.bank_reference,
+      'bank_sender', m.bank_sender, 'bank_alert_text', m.bank_alert_text, 'entered_by', m.entered_by,
+      'last_edited_by', m.last_edited_by, 'last_edited_at', m.last_edited_at, 'wallet_id', m.wallet_id,
+      'wallet_deduction_amount', m.wallet_deduction_amount, 'retrieved', m.retrieved,
+      'retrieved_amount', m.retrieved_amount, 'retrieved_pieces', m.retrieved_pieces,
+      'retrieved_kg', m.retrieved_kg, 'retrieval_note', m.retrieval_note, 'retrieved_at', m.retrieved_at,
+      'retrieved_by', m.retrieved_by, 'retrieval_approved', m.retrieval_approved,
+      'retrieval_approved_by', m.retrieval_approved_by, 'retrieval_approved_at', m.retrieval_approved_at,
+      'is_debt_clearance', m.is_debt_clearance, 'related_tx_id', m.related_tx_id, 'remark', m.remark,
+      'client_type', m.client_type, 'corporate_client_id', m.corporate_client_id,
+      'linked_as_office_work', m.linked_as_office_work
+    ) || jsonb_build_object(
       'transaction_id',          'DC-' || m.transaction_id || '-' || ev.ordinality,
       'amount',                  (ev.value->>'amount')::numeric,
       'amount_paid',             (ev.value->>'amount')::numeric,
@@ -107,7 +150,7 @@ AS $$
     AND (p_end   IS NULL OR (ev.value->>'at')::timestamptz <= p_end)
     AND (p_hub_id IS NULL OR m.hub_id = p_hub_id);
 $$;
-GRANT EXECUTE ON FUNCTION public.baggage_debt_collection_rows(timestamptz, timestamptz, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.baggage_debt_collection_rows(timestamptz, timestamptz, uuid) TO authenticated;
 
 -- Naming-inversion aware: marketing_entries' sale total lives in
 -- amount_paid, not amount (amount itself is never written by the app --
@@ -116,7 +159,7 @@ GRANT EXECUTE ON FUNCTION public.baggage_debt_collection_rows(timestamptz, times
 CREATE OR REPLACE FUNCTION public.marketing_debt_collection_rows(
   p_start  timestamptz DEFAULT NULL,
   p_end    timestamptz DEFAULT NULL,
-  p_hub_id text DEFAULT NULL
+  p_hub_id uuid DEFAULT NULL
 )
 RETURNS TABLE(entry_id text, created_at timestamptz, raw jsonb)
 LANGUAGE sql
@@ -126,7 +169,27 @@ AS $$
   SELECT
     'DC-' || k.entry_ref || '-' || ev.ordinality,
     (ev.value->>'at')::timestamptz,
-    to_jsonb(k) || jsonb_build_object(
+    -- Explicit column list, not to_jsonb(k) -- see cargo's matching
+    -- comment above; same rationale, matches fetchInitial's marketing_entries select().
+    jsonb_build_object(
+      'entry_ref', k.entry_ref, 'awb_tag_number', k.awb_tag_number, 'customer_name', k.customer_name,
+      'route', k.route, 'airline', k.airline, 'qty_big_bag', k.qty_big_bag, 'qty_med_bag', k.qty_med_bag,
+      'qty_small_bag', k.qty_small_bag, 'bb_kg', k.bb_kg, 'mb_kg', k.mb_kg, 'sb_kg', k.sb_kg,
+      'amount_paid', k.amount_paid, 'payment_mode', k.payment_mode, 'created_at', k.created_at,
+      'hub_id', k.hub_id, 'bank', k.bank, 'entered_by', k.entered_by, 'last_edited_by', k.last_edited_by,
+      'last_edited_at', k.last_edited_at, 'debt_amount_paid', k.debt_amount_paid,
+      'payment_history', k.payment_history, 'payment_confirmed', k.payment_confirmed,
+      'pos_approval_code', k.pos_approval_code, 'confirmed_by', k.confirmed_by, 'confirmed_at', k.confirmed_at,
+      'bank_reference', k.bank_reference, 'bank_sender', k.bank_sender, 'bank_alert_text', k.bank_alert_text,
+      'wallet_id', k.wallet_id, 'wallet_deduction_amount', k.wallet_deduction_amount,
+      'retrieved', k.retrieved, 'retrieved_amount', k.retrieved_amount, 'retrieved_pieces', k.retrieved_pieces,
+      'retrieved_kg', k.retrieved_kg, 'retrieval_note', k.retrieval_note, 'retrieved_at', k.retrieved_at,
+      'retrieved_by', k.retrieved_by, 'retrieval_approved', k.retrieval_approved,
+      'retrieval_approved_by', k.retrieval_approved_by, 'retrieval_approved_at', k.retrieval_approved_at,
+      'is_debt_clearance', k.is_debt_clearance, 'related_tx_id', k.related_tx_id, 'remark', k.remark,
+      'customer_phone', k.customer_phone, 'client_type', k.client_type,
+      'corporate_client_id', k.corporate_client_id, 'linked_as_office_work', k.linked_as_office_work
+    ) || jsonb_build_object(
       'entry_ref',               'DC-' || k.entry_ref || '-' || ev.ordinality,
       'amount_paid',             (ev.value->>'amount')::numeric,
       'debt_amount_paid',        (ev.value->>'amount')::numeric,
@@ -151,7 +214,7 @@ AS $$
     AND (p_end   IS NULL OR (ev.value->>'at')::timestamptz <= p_end)
     AND (p_hub_id IS NULL OR k.hub_id = p_hub_id);
 $$;
-GRANT EXECUTE ON FUNCTION public.marketing_debt_collection_rows(timestamptz, timestamptz, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.marketing_debt_collection_rows(timestamptz, timestamptz, uuid) TO authenticated;
 
 -- package_entries has native debt_paid/debt_paid_at -- override both so
 -- excelExport.ts's existing t.debtPaidAt read populates with no client
@@ -160,7 +223,7 @@ GRANT EXECUTE ON FUNCTION public.marketing_debt_collection_rows(timestamptz, tim
 CREATE OR REPLACE FUNCTION public.package_debt_collection_rows(
   p_start  timestamptz DEFAULT NULL,
   p_end    timestamptz DEFAULT NULL,
-  p_hub_id text DEFAULT NULL
+  p_hub_id uuid DEFAULT NULL
 )
 RETURNS TABLE(entry_id text, created_at timestamptz, raw jsonb)
 LANGUAGE sql
@@ -170,7 +233,27 @@ AS $$
   SELECT
     'DC-' || p.entry_ref || '-' || ev.ordinality,
     (ev.value->>'at')::timestamptz,
-    to_jsonb(p) || jsonb_build_object(
+    -- Explicit column list, not to_jsonb(p) -- see cargo's matching
+    -- comment above; same rationale, matches fetchInitial's package_entries select().
+    jsonb_build_object(
+      'entry_ref', p.entry_ref, 'customer_name', p.customer_name, 'destination', p.destination,
+      'content_type', p.content_type, 'total_pcs', p.total_pcs, 'total_kg', p.total_kg,
+      'contents', p.contents, 'status', p.status, 'amount', p.amount, 'payment_mode', p.payment_mode,
+      'bank', p.bank, 'payment_narration', p.payment_narration, 'debt_paid', p.debt_paid,
+      'debt_paid_at', p.debt_paid_at, 'amount_paid', p.amount_paid, 'payment_history', p.payment_history,
+      'created_at', p.created_at, 'hub_id', p.hub_id, 'terminal', p.terminal,
+      'payment_confirmed', p.payment_confirmed, 'pos_approval_code', p.pos_approval_code,
+      'confirmed_by', p.confirmed_by, 'confirmed_at', p.confirmed_at, 'entered_by', p.entered_by,
+      'last_edited_by', p.last_edited_by, 'last_edited_at', p.last_edited_at, 'wallet_id', p.wallet_id,
+      'wallet_deduction_amount', p.wallet_deduction_amount, 'retrieved', p.retrieved,
+      'retrieved_amount', p.retrieved_amount, 'retrieved_pieces', p.retrieved_pieces,
+      'retrieved_kg', p.retrieved_kg, 'retrieval_note', p.retrieval_note, 'retrieved_at', p.retrieved_at,
+      'retrieved_by', p.retrieved_by, 'retrieval_approved', p.retrieval_approved,
+      'retrieval_approved_by', p.retrieval_approved_by, 'retrieval_approved_at', p.retrieval_approved_at,
+      'is_debt_clearance', p.is_debt_clearance, 'related_tx_id', p.related_tx_id, 'remark', p.remark,
+      'customer_phone', p.customer_phone, 'client_type', p.client_type,
+      'corporate_client_id', p.corporate_client_id, 'linked_as_office_work', p.linked_as_office_work
+    ) || jsonb_build_object(
       'entry_ref',               'DC-' || p.entry_ref || '-' || ev.ordinality,
       'amount',                  (ev.value->>'amount')::numeric,
       'amount_paid',             (ev.value->>'amount')::numeric,
@@ -197,7 +280,7 @@ AS $$
     AND (p_end   IS NULL OR (ev.value->>'at')::timestamptz <= p_end)
     AND (p_hub_id IS NULL OR p.hub_id = p_hub_id);
 $$;
-GRANT EXECUTE ON FUNCTION public.package_debt_collection_rows(timestamptz, timestamptz, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.package_debt_collection_rows(timestamptz, timestamptz, uuid) TO authenticated;
 
 -- ── debt_collection_events ─────────────────────────────────
 -- Combined RPC for the normal (non-All-Time) date-range Ledger fetch
@@ -210,7 +293,7 @@ GRANT EXECUTE ON FUNCTION public.package_debt_collection_rows(timestamptz, times
 CREATE OR REPLACE FUNCTION public.debt_collection_events(
   p_start  timestamptz DEFAULT NULL,
   p_end    timestamptz DEFAULT NULL,
-  p_hub_id text DEFAULT NULL
+  p_hub_id uuid DEFAULT NULL
 )
 RETURNS TABLE(entry_type text, entry_id text, created_at timestamptz, raw jsonb)
 LANGUAGE sql
@@ -225,7 +308,7 @@ AS $$
   UNION ALL
   SELECT 'package'::text,   entry_id, created_at, raw FROM public.package_debt_collection_rows(p_start, p_end, p_hub_id);
 $$;
-GRANT EXECUTE ON FUNCTION public.debt_collection_events(timestamptz, timestamptz, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.debt_collection_events(timestamptz, timestamptz, uuid) TO authenticated;
 
 -- ============================================================
 -- ledger_search_page -- add 4 collection-event UNION legs (All Time)

@@ -204,10 +204,19 @@ export const ContentTypes = ({ onBack, onManageRates }: { onBack: () => void; on
                         autoFocus
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
+                        // onBlur is the single commit path -- an input
+                        // that's still focused when it unmounts (which
+                        // setEditingId(null) causes on the next render)
+                        // fires a real blur event as part of that removal,
+                        // so calling handleRename directly from onKeyDown
+                        // too would double-fire it. Both keys act through
+                        // blur() instead of racing it: Escape resets
+                        // editValue back to t.name first, so the resulting
+                        // handleRename call hits its own no-op guard.
                         onBlur={() => handleRename(t)}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleRename(t);
-                          if (e.key === 'Escape') setEditingId(null);
+                          if (e.key === 'Enter') { e.currentTarget.blur(); }
+                          if (e.key === 'Escape') { setEditValue(t.name); e.currentTarget.blur(); }
                         }}
                         className="flex-1 ehi-input py-1"
                       />
