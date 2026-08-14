@@ -7,6 +7,16 @@
 // import here defeats the whole point, since it pulls xlsx back into
 // whatever chunk the importing file lands in.
 import * as XLSX from 'xlsx';
+// exceljs, not xlsx, for downloadDailyExcel/downloadAirlineManifestExcel
+// below -- xlsx's free/community build (what every other Excel export in
+// this app still uses) cannot write cell styling (font/fill) at all, that's
+// a paid-tier-only feature of that library. exceljs supports it natively,
+// which is the only way to give debt-collection rows real italic+faded
+// formatting in the actual spreadsheet. autoFitWorksheetColumns below stays
+// xlsx-typed and unchanged -- BankReconciliation/ExpensesTab/B2BSalesTab/
+// Analytics/AirlinePerformance/AuditLog/Reports all still dynamically import
+// xlsx directly and call it with their own xlsx worksheets.
+import * as ExcelJS from 'exceljs';
 import { fmt, getHubCode, formatPaymentModeDisplay, normalizeAirlineName, sanitizeSpreadsheetAoA } from './helpers.js';
 
 /** Sets each column's width to fit its widest cell (header included), so
@@ -60,16 +70,66 @@ export function autoFitWorksheetColumns(ws: XLSX.WorkSheet): void {
   ws['!cols'] = cols;
 }
 
+// Same auto-fit heuristic as autoFitWorksheetColumns above, ported for
+// exceljs's Worksheet API -- used only by the two functions below. Not
+// exported: nothing outside this file builds exceljs worksheets.
+function autoFitExcelJsColumns(ws: ExcelJS.Worksheet): void {
+  let totalCols = 0;
+  ws.eachRow(row => { if (row.cellCount > totalCols) totalCols = row.cellCount; });
+  if (totalCols === 0) return;
+
+  // Same "skip title/date/summary rows before measuring" heuristic as
+  // autoFitWorksheetColumns above -- see its comment for why majority-
+  // populated, not exact equality.
+  let startRow = 1;
+  const majorityThreshold = Math.ceil(totalCols / 2);
+  for (let r = 1; r <= ws.rowCount; r++) {
+    const row = ws.getRow(r);
+    let populated = 0;
+    for (let c = 1; c <= totalCols; c++) {
+      const v = row.getCell(c).value;
+      if (v !== null && v !== undefined && v !== '') populated++;
+    }
+    if (populated >= majorityThreshold) { startRow = r; break; }
+  }
+
+  for (let c = 1; c <= totalCols; c++) {
+    let maxLen = 8;
+    for (let r = startRow; r <= ws.rowCount; r++) {
+      const v = ws.getRow(r).getCell(c).value;
+      const text = v == null ? '' : String(v);
+      if (text.length > maxLen) maxLen = text.length;
+    }
+    ws.getColumn(c).width = Math.min(maxLen + 2, 60);
+  }
+}
+
+// exceljs has no writeFile-for-browser convenience (that's an xlsx-specific
+// wrapper over FileSaver) -- building the Blob + temporary <a> ourselves is
+// the standard pattern for triggering a download from a generated buffer.
+async function downloadExcelJsWorkbook(wb: ExcelJS.Workbook, filename: string): Promise<void> {
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // ── DAILY ENTRIES EXCEL DOWNLOAD ───────────────────────────────
 // `transactions` is expected to already be scoped to whatever date range /
 // filters the caller applied (e.g. TransactionLedger's `filteredEntries`) --
 // this function must not re-filter it, or a caller-selected date range would
 // silently get discarded and replaced with "today only".
-export function downloadDailyExcel(
+export async function downloadDailyExcel(
   streamType: 'cargo' | 'baggage' | 'marketing' | 'package' | 'mixed',
   transactions: any[],
   hubName: string
-): void {
+): Promise<void> {
   const today = new Date().toISOString().slice(0, 10);
   const generatedLabel = new Date().toLocaleDateString('en-NG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -97,8 +157,14 @@ export function downloadDailyExcel(
   // Transaction object and is already shown on screen (TransactionLedger's
   // COLLECTION badge, PARTIAL badge, and Wallet badge/amount) -- this CSV
   // just never carried them through.
+  // Shared with the italic/faded row-styling pass further down, after the
+  // sheet is built -- both need the exact same "is this row a debt
+  // collection" test, applied to the same transactions in the same order.
+  const isDebtCollectionRow = (t: any): boolean =>
+    !!t.is_debt_clearance || (typeof t.id === 'string' && t.id.startsWith('DC-'));
+
   const debtAndWalletCols = (t: any): string[] => {
-    const isDC = !!t.is_debt_clearance || (typeof t.id === 'string' && t.id.startsWith('DC-'));
+    const isDC = isDebtCollectionRow(t);
     const history = Array.isArray(t.paymentHistory) ? t.paymentHistory : [];
     const partialSummary = history
       .map((p: any) => `${fmt(p.amount || 0)} ${p.mode || ''} by ${p.by || ''} @ ${rowDateTime(p.at)}`.trim())
@@ -288,11 +354,29 @@ export function downloadDailyExcel(
     ...rows,
   ];
 
-  const ws = XLSX.utils.aoa_to_sheet(sanitizeSpreadsheetAoA(aoa));
-  autoFitWorksheetColumns(ws);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, streamLabel.slice(0, 31));
-  XLSX.writeFile(wb, `EHI_${streamType}_${hubName.replace(/\s+/g,'_')}_${today}.xlsx`);
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet(streamLabel.slice(0, 31));
+  sanitizeSpreadsheetAoA(aoa).forEach(r => ws.addRow(r));
+  autoFitExcelJsColumns(ws);
+
+  // Debt-collection rows read as "money collected", not "new sale" --
+  // italic + a muted grey font is the closest Excel equivalent of the
+  // on-screen Ledger's blue-tinted opacity fade for the same rows
+  // (TransactionLedger.tsx) -- cell text has no real opacity/transparency
+  // to fade with, so grey stands in for it. transactions/rows/isDcFlags
+  // are all built from the same array in the same order, so index i lines
+  // up across all three; +6 for the 4 title/date/summary/blank rows above
+  // headers (rows 1-4), the header row itself (row 5), then exceljs rows
+  // are 1-indexed -- so row 6 is the first data row.
+  const isDcFlags = transactions.map(isDebtCollectionRow);
+  isDcFlags.forEach((isDc, i) => {
+    if (!isDc) return;
+    ws.getRow(6 + i).eachCell({ includeEmpty: true }, cell => {
+      cell.font = { italic: true, color: { argb: 'FF888888' } };
+    });
+  });
+
+  await downloadExcelJsWorkbook(wb, `EHI_${streamType}_${hubName.replace(/\s+/g,'_')}_${today}.xlsx`);
 }
 
 // ── PER-AIRLINE MANIFEST EXCEL DOWNLOAD ───────────────────────
@@ -300,10 +384,10 @@ export function downloadDailyExcel(
 // handed to (or checked against) an airline's own manifest for a
 // route/flight: just tag number, content, kg, route, and amount collected,
 // grouped by airline and listed in chronological order within each group.
-export function downloadAirlineManifestExcel(
+export async function downloadAirlineManifestExcel(
   transactions: any[],
   hubName: string
-): void {
+): Promise<void> {
   const today = new Date().toISOString().slice(0, 10);
   const generatedLabel = new Date().toLocaleDateString('en-NG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -358,9 +442,9 @@ export function downloadAirlineManifestExcel(
 
   aoa.push(['GRAND TOTAL', '', '', grandKg, '', grandAmount, '']);
 
-  const ws = XLSX.utils.aoa_to_sheet(sanitizeSpreadsheetAoA(aoa));
-  autoFitWorksheetColumns(ws);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Manifest');
-  XLSX.writeFile(wb, `EHI_Airline_Manifest_${hubName.replace(/\s+/g,'_')}_${today}.xlsx`);
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Manifest');
+  sanitizeSpreadsheetAoA(aoa).forEach(r => ws.addRow(r));
+  autoFitExcelJsColumns(ws);
+  await downloadExcelJsWorkbook(wb, `EHI_Airline_Manifest_${hubName.replace(/\s+/g,'_')}_${today}.xlsx`);
 }

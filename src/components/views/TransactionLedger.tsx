@@ -2577,11 +2577,11 @@ export const TransactionLedger = ({
                     });
                   });
                 } else {
-                  import('../../lib/excelExport').then(({ downloadDailyExcel }) => {
+                  import('../../lib/excelExport').then(async ({ downloadDailyExcel }) => {
                     const txs = filteredEntries
                       .filter(e => e.source === 'transaction')
                       .map(e => e.raw as Transaction);
-                    downloadDailyExcel(defaultTypeFilter || 'mixed', txs, user.hub || 'EHI Hub');
+                    await downloadDailyExcel(defaultTypeFilter || 'mixed', txs, user.hub || 'EHI Hub');
                   });
                 }
               }}
@@ -2621,11 +2621,11 @@ export const TransactionLedger = ({
               <button
                 title="Download per-airline manifest Excel file (tag number, content, kg, route, amount — grouped and ordered by airline)"
                 onClick={() => {
-                  import('../../lib/excelExport').then(({ downloadAirlineManifestExcel }) => {
+                  import('../../lib/excelExport').then(async ({ downloadAirlineManifestExcel }) => {
                     const txs = filteredEntries
                       .filter(e => e.source === 'transaction')
                       .map(e => e.raw as Transaction);
-                    downloadAirlineManifestExcel(txs, user.hub || 'EHI Hub');
+                    await downloadAirlineManifestExcel(txs, user.hub || 'EHI Hub');
                   });
                 }}
                 className="h-8 px-2 flex items-center gap-1.5 bg-[rgba(59,130,246,0.12)] border border-[rgba(59,130,246,0.3)] rounded-xl text-[var(--color-accent-cobalt)] hover:bg-[var(--color-accent-cobalt)] hover:text-white font-mono text-[10px] font-bold transition-colors cursor-pointer"
