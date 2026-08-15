@@ -197,6 +197,17 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [initError, setInitError] = useState(false);
   const [retryTrigger, setRetryTrigger] = useState(0);
+  // Rate-limits the "Failed to load data" screen's Retry button -- without
+  // this, mashing it during a real outage fires setRetryTrigger repeatedly
+  // with zero cooldown, which is exactly the kind of tight retry loop
+  // React error #185 ("Maximum update depth exceeded") comes from.
+  const [retryOnCooldown, setRetryOnCooldown] = useState(false);
+  const handleRetryClick = () => {
+    if (retryOnCooldown) return;
+    setRetryOnCooldown(true);
+    setRetryTrigger(p => p + 1);
+    window.setTimeout(() => setRetryOnCooldown(false), 5000);
+  };
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   // Drives one nav tab per active row -- fetched once here and passed down
   // to SideNav/BottomNav/More/the tab dispatch below, so every one of them
@@ -363,6 +374,16 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
   // exact same cargo/baggage/marketing/package/expense fetch without
   // duplicating the query logic.
   const fetchEpochRef = useRef(0);
+  // Counts consecutive fetchInitial failures so the silent background
+  // pollers (5-minute self-heal, 60s force-sync) can stop hammering a
+  // genuinely dead network instead of retrying identically forever --
+  // reset to 0 on any successful fetch. Deliberately NOT consulted by the
+  // browser 'online' event listener, the mount-time check, the tab-switch
+  // refetch, or the Retry button's own effect -- those are all real
+  // recovery/user-initiated signals and must never be permanently blocked
+  // by a stale count from before the network actually came back.
+  const consecutiveFetchFailuresRef = useRef(0);
+  const MAX_SILENT_AUTO_RETRY_FAILURES = 3;
   const fetchInitial = useCallback(async () => {
     // globalDateRange changes on every filter click -- without this guard,
     // quickly clicking through Today -> Yesterday -> 7 days can let an
@@ -772,9 +793,11 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           const unique = combined.filter((v, i, a) => a.findIndex(x => x.id === v.id) === i);
           return unique.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
         });
+        consecutiveFetchFailuresRef.current = 0;
       } catch (err) {
         if (fetchEpochRef.current !== myEpoch) return;
         console.error("Failed to fetch initial tx:", err);
+        consecutiveFetchFailuresRef.current++;
         setInitError(true);
       }
   }, [globalDateRange, user.role, user.hub_id, stateWideView]);
@@ -1026,6 +1049,11 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
     if (navigator.onLine) handleOnline();
     const syncInterval = window.setInterval(() => {
+      // Same reasoning as the 5-minute self-heal interval above -- don't
+      // keep silently retrying a network that's proven dead repeatedly.
+      // Only gates this periodic poll, not the mount-time check above or
+      // the real 'online' event listener below.
+      if (consecutiveFetchFailuresRef.current >= MAX_SILENT_AUTO_RETRY_FAILURES) return;
       if (navigator.onLine) handleOnline();
     }, 60000);
 
@@ -1099,6 +1127,14 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
   useEffect(() => {
     if (isOffline) return;
     const refreshInterval = setInterval(() => {
+      // Stop silently retrying once the network has proven itself dead
+      // repeatedly -- navigator.onLine (the isOffline guard above) doesn't
+      // detect a DNS-only outage, so without this a fully unreachable
+      // Supabase host would otherwise get hit again every 5 minutes
+      // forever with no visible change. The Retry button (and a genuine
+      // browser 'online' event, handled elsewhere) are unaffected -- both
+      // are real recovery signals, not blind polling.
+      if (consecutiveFetchFailuresRef.current >= MAX_SILENT_AUTO_RETRY_FAILURES) return;
       const tab = currentTabRef.current;
       const isDataTab =
         tab === 'Cargo' || tab === 'Marketing' || tab === 'Packages' || tab === 'GAT' ||
@@ -1522,7 +1558,18 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         { event: 'UPDATE', schema: 'public', table: 'hub_shifts', filter: `hub_id=eq.${user.hub_id}` },
         payload => {
           const r = payload.new as HubShift;
-          setTodayShifts(prev => prev.map(s => s.id === r.id ? r : s));
+          setTodayShifts(prev => {
+            const existing = prev.find(s => s.id === r.id);
+            // Bail out with the SAME array reference (React then skips the
+            // re-render entirely) when this is a no-op replay of a row
+            // that's already exactly reflected -- a realtime reconnect
+            // replays recent events, and .map() always allocates a new
+            // array even when nothing actually changed, which cascades
+            // into activeShiftsByDept -> autoRollShift's identity ->
+            // its own effect re-firing for no real reason.
+            if (existing && JSON.stringify(existing) === JSON.stringify(r)) return prev;
+            return prev.map(s => s.id === r.id ? r : s);
+          });
         }
       )
       .subscribe() : null;
@@ -2274,10 +2321,11 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                     Failed to load data. Check your internet connection.
                   </div>
                   <button
-                    onClick={() => setRetryTrigger(p => p + 1)}
-                    className="px-6 py-2 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg text-[12px] font-bold"
+                    onClick={handleRetryClick}
+                    disabled={retryOnCooldown}
+                    className="px-6 py-2 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg text-[12px] font-bold disabled:opacity-50"
                   >
-                    Retry
+                    {retryOnCooldown ? 'Retrying...' : 'Retry'}
                   </button>
                 </div>
               )}
@@ -2409,63 +2457,77 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
       {/* Per-stream view-only ledger overlay */}
       {streamLedger && createPortal(
-        // overflow-hidden is required: this fixed/inset-0 box has no ancestor
-        // scroll container to fall back on (unlike the Master Ledger path,
-        // which lives inside <main>'s own overflow-y-auto) -- without it,
-        // content taller than the viewport just gets pushed past the visible
-        // frame instead of triggering TransactionLedger's own internal
-        // overflow-auto scroll region.
-        <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-[var(--color-obsidian)]">
-          {/* This overlay is portaled to document.body as a SIBLING of the
-              <ErrorBoundary> above (in the React tree, not just the DOM) --
-              a crash here would otherwise bypass that boundary entirely and
-              propagate up to App.tsx's outermost one, unmounting the whole
-              app (SideNav/Header included), not just this overlay. Scoped
-              locally so it shows the real error and offers "Back" instead. */}
-          <ErrorBoundary fallback={(error, reset) => (
-            <div className="flex flex-col items-center justify-center h-full gap-3 p-8 text-center bg-[var(--color-obsidian)]">
-              <div className="text-[var(--color-error)] font-bold text-[14px]">The ledger hit a snag.</div>
-              <div className="text-[var(--color-muted)] font-mono text-[11px] max-w-md break-words">
-                {error.message || 'An unexpected error occurred.'}
+        // overflow-y-auto on THIS div (not overflow-hidden) is what makes it
+        // the real scroll container -- fixed/inset-0 gives it a genuine,
+        // definite height, exactly like <main>'s role for the Master Ledger
+        // path (EHIApp.tsx's own `<main className="flex-1 overflow-y-auto
+        // overflow-x-hidden">`). The inner wrapper div just below (flex-1
+        // flex flex-col, no overflow/height of its own) mirrors
+        // .page-transition's role (index.css) -- an "indefinite height"
+        // pass-through that lets TransactionLedger's own `h-full` resolve to
+        // its natural content size instead of a hard-clamped viewport pixel
+        // value, so its internal `overflow-hidden` root never has anything
+        // to clip. Without that pass-through layer, TransactionLedger would
+        // be a DIRECT flex child of this definite-height box, `h-full` would
+        // resolve to a real fixed height, and anything that didn't fit would
+        // be silently clipped with no way to reach it -- which is exactly
+        // the "only partially scrolls" bug this replaces (only
+        // TransactionLedger's own inner row-list region, which has its own
+        // overflow-auto, used to scroll; the header/KPI/filter chrome above
+        // it did not).
+        <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto overflow-x-hidden bg-[var(--color-obsidian)]">
+          <div className="flex-1 flex flex-col">
+            {/* This overlay is portaled to document.body as a SIBLING of the
+                <ErrorBoundary> above (in the React tree, not just the DOM) --
+                a crash here would otherwise bypass that boundary entirely and
+                propagate up to App.tsx's outermost one, unmounting the whole
+                app (SideNav/Header included), not just this overlay. Scoped
+                locally so it shows the real error and offers "Back" instead. */}
+            <ErrorBoundary fallback={(error, reset) => (
+              <div className="flex flex-col items-center justify-center h-full gap-3 p-8 text-center bg-[var(--color-obsidian)]">
+                <div className="text-[var(--color-error)] font-bold text-[14px]">The ledger hit a snag.</div>
+                <div className="text-[var(--color-muted)] font-mono text-[11px] max-w-md break-words">
+                  {error.message || 'An unexpected error occurred.'}
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <button
+                    onClick={reset}
+                    className="px-4 py-2 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg text-[12px] font-bold cursor-pointer"
+                  >
+                    Try Again
+                  </button>
+                  <button
+                    onClick={handleCloseLedger}
+                    className="px-4 py-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-foreground)] rounded-lg text-[12px] font-bold cursor-pointer"
+                  >
+                    Back
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-2 mt-2">
-                <button
-                  onClick={reset}
-                  className="px-4 py-2 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg text-[12px] font-bold cursor-pointer"
-                >
-                  Try Again
-                </button>
-                <button
-                  onClick={handleCloseLedger}
-                  className="px-4 py-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-foreground)] rounded-lg text-[12px] font-bold cursor-pointer"
-                >
-                  Back
-                </button>
-              </div>
-            </div>
-          )}>
-            <TransactionLedger
-              user={user}
-              transactions={filteredLedgerTransactions}
-              expenses={expenses}
-              onBack={handleCloseLedger}
-              onUpdateTx={handleUpdateTx}
-              onDeleteTx={handleDeleteTx}
-              defaultTypeFilter={streamLedger.streams.length === 1 ? streamLedger.streams[0] : null}
-              defaultTerminalFilter={streamLedger.terminal}
-              viewOnly={user.role !== 'super_admin' && !user.can_edit_ledger}
-              dateRange={globalDateRange}
-              onDateRangeChange={setGlobalDateRange}
-              activeShift={streamLedgerDepartment ? (activeShiftsByDept[streamLedgerDepartment] || null) : null}
-              shifts={streamLedgerShifts}
-              onStartShift={handleStreamLedgerStartShift}
-              onEndShift={handleStreamLedgerEndShift}
-              shiftLabel={streamLedgerDepartment && streamLedgerDepartment !== 'all' ? STREAM_LEDGER_DEPT_LABEL[streamLedgerDepartment] : undefined}
-              shiftAutoManaged={streamLedgerDepartment === 'cargo' || streamLedgerDepartment === 'package'}
-              customerWallets={customerWallets}
-              refetchCustomerWallets={fetchWallets}
-            />
-          </ErrorBoundary>
+            )}>
+              <TransactionLedger
+                user={user}
+                transactions={filteredLedgerTransactions}
+                expenses={expenses}
+                onBack={handleCloseLedger}
+                onUpdateTx={handleUpdateTx}
+                onDeleteTx={handleDeleteTx}
+                defaultTypeFilter={streamLedger.streams.length === 1 ? streamLedger.streams[0] : null}
+                defaultTerminalFilter={streamLedger.terminal}
+                viewOnly={user.role !== 'super_admin' && !user.can_edit_ledger}
+                dateRange={globalDateRange}
+                onDateRangeChange={setGlobalDateRange}
+                activeShift={streamLedgerDepartment ? (activeShiftsByDept[streamLedgerDepartment] || null) : null}
+                shifts={streamLedgerShifts}
+                onStartShift={handleStreamLedgerStartShift}
+                onEndShift={handleStreamLedgerEndShift}
+                shiftLabel={streamLedgerDepartment && streamLedgerDepartment !== 'all' ? STREAM_LEDGER_DEPT_LABEL[streamLedgerDepartment] : undefined}
+                shiftAutoManaged={streamLedgerDepartment === 'cargo' || streamLedgerDepartment === 'package'}
+                customerWallets={customerWallets}
+                refetchCustomerWallets={fetchWallets}
+              />
+            </ErrorBoundary>
+          </div>
         </div>,
         document.body
       )}
