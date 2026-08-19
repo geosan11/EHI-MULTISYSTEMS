@@ -133,6 +133,7 @@ export const PackageForm = ({
   // as destination above. isValid now requires actualContents explicitly.
   const [contents, setContents] = useState<string>('');
   const [customContents, setCustomContents] = useState("");
+  const [remark, setRemark] = useState("");
   const [amount, setAmount] = useState("");
   const [mode, setMode] = useState<string>("Cash");
   const banks = useBanks();
@@ -335,6 +336,7 @@ export const PackageForm = ({
       // reprint from the ledger always showed a blank phone.
       consigneePhone: phone.trim() || undefined,
       pickupPin: generatePickupPin(),
+      remarks: remark.trim(),
     } as any;
 
     // Wallet payment — AUTO-SPLIT. Wallet covers what it can; any remainder is
@@ -435,6 +437,7 @@ export const PackageForm = ({
     setAmount("");
     setMode("Cash");
     setNarrationCode("");
+    setRemark("");
     setSuccessTx(null);
     // Wallet override/remainder-payment state otherwise survives into the
     // next customer's sale -- if Wallet mode is used again without
@@ -848,6 +851,8 @@ export const PackageForm = ({
                         contents: successTx.contents,
                         hubName: user?.hub || "EHI Station",
                         date: `${new Date().toLocaleDateString("en-GB")} ${tnow()}`,
+                        agentName: successTx.enteredByName,
+                        phone: successTx.consigneePhone,
                       }, preOpenedWindow);
                     } catch (err) {
                       console.error('Failed to open tag PDF', err);
@@ -1188,6 +1193,18 @@ export const PackageForm = ({
                       ⚠ Minimum amount is ₦{MIN_PACKAGE_AMOUNT.toLocaleString()}
                     </p>
                   )}
+                </div>
+
+                <div>
+                  {renderLabel(MessageSquare, "Remark (Optional)")}
+                  <input
+                    id="pkg-remark"
+                    name="remark"
+                    placeholder="Add notes..."
+                    value={remark}
+                    onChange={upperOnChange(setRemark)}
+                    className={formInputClass}
+                  />
                 </div>
 
                 <button

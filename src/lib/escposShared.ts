@@ -13,6 +13,14 @@ export const TEXT_NORMAL = [0x1D, 0x21, 0x00];
 export const TEXT_DOUBLE_HEIGHT = [0x1D, 0x21, 0x01];
 export const BOLD_ON = [0x1B, 0x45, 0x01];
 export const BOLD_OFF = [0x1B, 0x45, 0x00];
+// ESC M n -- selects the printer's alternate character font. GS ! (TEXT_
+// NORMAL/TEXT_DOUBLE_HEIGHT above) only scales the DEFAULT font up, it
+// can't go smaller than normal; Font B is the standard ESC/POS mechanism
+// for genuinely smaller/condensed text (near-universally supported on
+// thermal printers), used where more can usefully fit on one line than
+// the default font allows.
+export const FONT_B_ON = [0x1B, 0x4D, 0x01];
+export const FONT_A_ON = [0x1B, 0x4D, 0x00];
 export const REVERSE_ON = [0x1D, 0x42, 0x01];
 export const REVERSE_OFF = [0x1D, 0x42, 0x00];
 export const FEED_AND_CUT = [0x1B, 0x64, 0x03, 0x1D, 0x56, 0x41, 0x00];

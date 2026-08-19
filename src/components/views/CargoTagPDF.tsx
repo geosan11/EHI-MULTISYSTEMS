@@ -36,6 +36,8 @@ export interface CargoTagPDFData {
   contentType?: string;
   qrCodeDataUrl?: string;
   airlineLogoUrl?: string | null;
+  agentName?: string;
+  phone?: string;
 }
 
 const styles = StyleSheet.create({
@@ -292,6 +294,20 @@ const CargoTagPage = ({
           <View style={styles.fieldBlock}>
             <Text style={styles.fieldLabel}>Consignee</Text>
             <Text style={styles.nameValue}>{truncateForTag(data.name || "—", 30)}</Text>
+          </View>
+        </View>
+
+        <View style={styles.fieldRow}>
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Agent</Text>
+            <Text style={styles.fieldValue}>{truncateForTag(data.agentName || "—", 18)}</Text>
+          </View>
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Phone</Text>
+            {/* Blank, not a placeholder, when not on file -- see this tag's
+                fieldRow's own comment convention: leave the space empty
+                rather than print something misleading. */}
+            <Text style={styles.fieldValue}>{data.phone || ""}</Text>
           </View>
         </View>
       </View>

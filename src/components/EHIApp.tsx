@@ -1912,6 +1912,12 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       updatePayload.airline = t.airline;
       if ((t as any).pickupPin !== undefined) updatePayload.pickup_pin = (t as any).pickupPin;
       if (t.consigneePhone !== undefined) updatePayload.consignee_phone = t.consigneePhone;
+      // Was missing entirely -- TransactionLedger's edit modal never had a
+      // Screen Size field until now, so this column was never part of an
+      // UPDATE payload; without it, a size-tier item's screen size (and
+      // therefore the context behind its computed amount) silently
+      // reverted to whatever it was at creation on every refetch.
+      if (t.sizeInches !== undefined) updatePayload.size_inches = t.sizeInches ?? null;
     } else if (t.type === 'baggage') {
       updatePayload.passenger_name = t.name;
       updatePayload.flight_no = t.flight;

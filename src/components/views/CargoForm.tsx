@@ -1725,6 +1725,8 @@ export const CargoForm = ({
           hubName: user?.hub || "EHI Cargo Station",
           date: `${new Date().toLocaleDateString("en-GB")} ${tnow()}`,
           contentType: successTx.detail?.split(" · ")[4] || contentType,
+          agentName: successTx.enteredByName,
+          phone: successTx.consigneePhone,
         }, preOpenedWindow);
       } catch (err) {
         console.error('Failed to open tag PDF', err);

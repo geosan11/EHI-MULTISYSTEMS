@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Transaction, User, Expense } from "../../lib/types";
-import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDateTime, normalizeAirlineName, formatPaymentModeDisplay } from "../../lib/helpers";
+import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDateTime, normalizeAirlineName, formatPaymentModeDisplay, roundMoney } from "../../lib/helpers";
 import { applyWalletTransaction, processRetrieval, unretrieveEntry, approveRetrieval, RetrievalEntryType } from "../../lib/wallet";
 import { clearDebt, reopenDebt, DebtEntryType } from "../../lib/debt";
 import { deleteTransaction } from "../../lib/deleteTransaction";
@@ -14,6 +14,10 @@ import { getEquivalentHubIds } from "../../lib/lagosHubSync";
 import { useAirlines } from "../../lib/airlines";
 import { MIN_PACKAGE_AMOUNT } from "../../lib/constants";
 import { useContentTypes } from "../../lib/contentTypes";
+import { useSpecialGoodsRates, resolveSpecialGoodsRate } from "../../lib/specialGoodsRates";
+import { useFlatTierRates, resolveFlatTier } from "../../lib/flatTierRates";
+import { useSizeTierRates, resolveSizeTier, useSizeTierContentTypeNames } from "../../lib/sizeTierRates";
+import { useMinimumCharges, resolveMinimumCharge } from "../../lib/minimumCharges";
 import { isOfficeWorkEntry as isOfficeWorkEntryCore } from "../../lib/officeWork";
 import { useBanks } from "../../lib/banks";
 import { BackButton } from "../BackButton";
@@ -235,6 +239,19 @@ export const TransactionLedger = ({
   const [pieceInput, setPieceInput] = useState('');
   const [kgInput, setKgInput] = useState('');
   const [amountInput, setAmountInput] = useState('');
+  // Free-text fallback when the Content Type/Contents select is set to
+  // "Other" in the edit modal -- separate local state (not bound to
+  // editingTx.contentType/contents directly), so typing into it doesn't
+  // itself change the select's controlled value away from "Other" and
+  // collapse this input on the first keystroke. Always starts blank on
+  // open (handleEditClick), matching CargoForm/PackageForm's own create-
+  // time "Other" input, which never pre-fills either.
+  const [editCustomContentType, setEditCustomContentType] = useState('');
+  const [editCustomContents, setEditCustomContents] = useState('');
+  // Screen size (inches) for editing a size-tier-priced cargo entry (e.g.
+  // Plasma TV) -- mirrors CargoForm.tsx's own sizeInches input/state,
+  // which the edit modal never had at all until now.
+  const [sizeInchesInput, setSizeInchesInput] = useState('');
   const [viewingQrTx, setViewingQrTx] = useState<Entry | null>(null);
   const [viewingDetail, setViewingDetail] = useState<Entry | null>(null);
   // Full activity trail for whichever transaction is currently open in the
@@ -320,11 +337,22 @@ export const TransactionLedger = ({
   const [hubAirlineRates, setHubAirlineRates] = useState<Record<string, number>>({});
   const [hubRouteRates, setHubRouteRates] = useState<Record<string, number>>({});
   const [standardRatesMap, setStandardRatesMap] = useState<Record<string, number>>({});
+  // Same equivalent-hub-id set CargoForm.tsx's own lagosHubIds uses, feeding
+  // resolveSpecialGoodsRate/resolveFlatTier/resolveSizeTier's hub-scoping
+  // below -- reuses the hubIds this effect already computes rather than a
+  // second getEquivalentHubIds() call.
+  const [lagosHubIds, setLagosHubIds] = useState<string[]>([]);
+  const specialGoodsRates = useSpecialGoodsRates();
+  const flatTierRates = useFlatTierRates();
+  const sizeTierRates = useSizeTierRates();
+  const sizeTierContentTypeNames = useSizeTierContentTypeNames();
+  const minimumCharges = useMinimumCharges();
 
   useEffect(() => {
     let active = true;
     const fetchRates = async () => {
       const hubIds = user?.hub_id ? await getEquivalentHubIds(user.hub_id) : [];
+      if (active) setLagosHubIds(hubIds);
       // fetchAllRows paginates past PostgREST's implicit ~1000-row cap --
       // these are small config/lookup tables today, but a plain .select()
       // would silently truncate (and this is used for live pricing, not
@@ -374,18 +402,21 @@ export const TransactionLedger = ({
     return () => { active = false; };
   }, [user?.hub_id]);
 
-  const getRateForCargo = (airlineName?: string, routeName?: string): number => {
-    const a = (airlineName || '').trim();
-    const r = (routeName || '').trim();
-    if (a && r && hubAirlineRates[`${a}|${r}`] != null) {
-      return hubAirlineRates[`${a}|${r}`];
-    }
-    if (r && hubRouteRates[r] != null) {
-      return hubRouteRates[r];
-    }
-    if (r && standardRatesMap[r] != null) {
-      return standardRatesMap[r];
-    }
+  // Plain per-kg rate cascade (special-goods override -> exact
+  // airline+route -> hub-default route -> company-wide route), mirroring
+  // CargoForm.tsx's own local resolveRate exactly -- that function isn't
+  // exported (create-form-local), so this is the same cascade
+  // reimplemented here using the rate-lookup state this file already
+  // fetches for itself above.
+  const resolveRateForCargoEdit = (forAirline: string, forRoute: string, forContentType: string, forKg: number): number | null => {
+    const special = resolveSpecialGoodsRate(specialGoodsRates, forContentType, forAirline, forKg, user.hub_id, forRoute, lagosHubIds);
+    if (special != null) return special;
+    const a = (forAirline || '').trim();
+    const r = (forRoute || '').trim();
+    if (a && r && hubAirlineRates[`${a}|${r}`] != null) return hubAirlineRates[`${a}|${r}`];
+    if (a && r && hubAirlineRates[`${normalizeAirlineName(a)}|${r}`] != null) return hubAirlineRates[`${normalizeAirlineName(a)}|${r}`];
+    if (r && hubRouteRates[r] != null) return hubRouteRates[r];
+    if (r && standardRatesMap[r] != null) return standardRatesMap[r];
     const saved = localStorage.getItem("ehi_standard_cargo_rates");
     if (saved && r) {
       try {
@@ -393,21 +424,55 @@ export const TransactionLedger = ({
         if (parsed[r] != null) return Number(parsed[r]);
       } catch {}
     }
-    return 0;
+    return null;
   };
 
-  // Auto-calculate amount for cargo edits when Airline, Route, or KG changes
+  // Auto-calculate amount for cargo edits when Content Type, Airline,
+  // Route, KG, or Screen Size changes -- full tiered cascade (size-tier ->
+  // flat-tier -> per-kg rate with special-goods override -> minimum
+  // charge floor), mirroring CargoForm.tsx's create-time autoAmount
+  // exactly. The previous version of this effect only ever did a plain
+  // per-kg airline+route lookup with no content-type awareness at all, so
+  // editing weight/pieces on a special-goods (e.g. Perishable), flat-tier,
+  // or size-tier cargo entry silently recalculated using the wrong
+  // generic formula instead of that content type's actual configured
+  // rate.
   useEffect(() => {
-    if (editingTx && editingTx.type === 'cargo') {
-      const kg = parseFloat(kgInput) || 0;
-      if (kg <= 0) return;
-      const rate = getRateForCargo(editingTx.airline, editingTx.route);
-      if (rate > 0) {
-        const computedAmount = rate * kg;
-        setAmountInput(String(computedAmount));
+    if (!editingTx || editingTx.type !== 'cargo') return;
+    const contentType = editingTx.contentType || '';
+    const airline = editingTx.airline || '';
+    const route = editingTx.route || '';
+    const kg = parseFloat(kgInput) || 0;
+
+    if (sizeTierContentTypeNames.has(contentType)) {
+      const inches = Math.round(parseFloat(sizeInchesInput)) || 0;
+      if (inches > 0) {
+        const sized = resolveSizeTier(sizeTierRates, contentType, airline, route, inches, user.hub_id, lagosHubIds);
+        if (sized != null) {
+          setAmountInput(sized.toString());
+          return;
+        }
       }
     }
-  }, [editingTx?.airline, editingTx?.route, kgInput, editingTx?.type, hubAirlineRates, hubRouteRates, standardRatesMap]);
+
+    if (kg <= 0) return;
+    const flat = resolveFlatTier(flatTierRates, contentType, airline, route, kg, user.hub_id, lagosHubIds);
+    if (flat != null) {
+      setAmountInput(flat.toString());
+      return;
+    }
+    const rate = resolveRateForCargoEdit(airline, route, contentType, kg);
+    const minCharge = resolveMinimumCharge(minimumCharges, airline, route, kg);
+    if (rate == null && minCharge == null) return;
+    const computed = rate != null ? roundMoney(kg * rate) : 0;
+    const final = minCharge != null ? Math.max(computed, minCharge) : computed;
+    setAmountInput(final.toString());
+  }, [
+    editingTx?.airline, editingTx?.route, editingTx?.contentType, editingTx?.type,
+    kgInput, sizeInchesInput,
+    hubAirlineRates, hubRouteRates, standardRatesMap,
+    specialGoodsRates, flatTierRates, sizeTierRates, sizeTierContentTypeNames, minimumCharges, lagosHubIds,
+  ]);
 
   const [vjFlightFilter, setVjFlightFilter] = useState("All");
   const [vjDestFilter, setVjDestFilter] = useState("All");
@@ -953,6 +1018,9 @@ export const TransactionLedger = ({
       setPieceInput(String(tx.pieces ?? ''));
       setKgInput(String(tx.kg ?? ''));
       setAmountInput(String(tx.amount ?? ''));
+      setEditCustomContentType('');
+      setEditCustomContents('');
+      setSizeInchesInput(tx.sizeInches != null ? String(tx.sizeInches) : '');
       if (tx.type === 'marketing') {
         const bagsStr = tx.detail?.split(' · ')[1] || '';
         setEditBagCounts({
@@ -1077,6 +1145,24 @@ export const TransactionLedger = ({
       const finalTx: Transaction = { ...editingTx, pieces, kg, amount, mode: finalMode, bank: finalBank, wallet_id: walletId, wallet_deduction_amount: walletDeduction };
       finalTx.editedBy = user.name;
       finalTx.editedAt = new Date().toISOString();
+      if (finalTx.type === 'cargo') {
+        finalTx.sizeInches = sizeTierContentTypeNames.has(finalTx.contentType || '') && sizeInchesInput
+          ? (Math.round(parseFloat(sizeInchesInput)) || undefined)
+          : undefined;
+      }
+      // Resolve the "Other" content-type/contents free-text input (see
+      // editCustomContentType/editCustomContents above) into the actually-
+      // saved value, mirroring CargoForm.tsx/PackageForm.tsx's own
+      // actualContentType/actualContents pattern -- without this, picking
+      // "Other" here would save the literal string "Other" with no way to
+      // tell what it actually was. Left as "Other" if the free-text field
+      // was never filled in, rather than saving a blank content type.
+      if (finalTx.type === 'cargo' && finalTx.contentType === 'Other' && editCustomContentType.trim()) {
+        finalTx.contentType = editCustomContentType.trim();
+      }
+      if (finalTx.type === 'package' && finalTx.contents === 'Other' && editCustomContents.trim()) {
+        finalTx.contents = editCustomContents.trim();
+      }
       if (finalTx.type === 'cargo') {
         finalTx.detail = `${finalTx.airline || ''} · ${pieces}pcs · ${kg}kg · ${finalTx.route || ''} · ${finalTx.contentType || ''}`;
       } else if (finalTx.type === 'baggage') {
@@ -1227,24 +1313,57 @@ export const TransactionLedger = ({
       showToast({ message: 'No ledger entries to print.', type: 'error' });
       return;
     }
+    // A retrieved debt (goods already picked up, whether the balance is
+    // still open or not) shouldn't show up on a printed debt-collection
+    // list -- staff use this printout to chase people down in person, and
+    // there's nothing left to chase once the goods are gone. Only affects
+    // Debt-mode entries; every other print (Cash/Transfer/All/etc.) is
+    // unaffected. Same retrieved_amount check already used by this file's
+    // own "Retrieved" mode-filter branch above.
+    const printEntries = filteredEntries.filter(e =>
+      !(e.mode === 'Debt' && ((e.raw as any)?.raw?.retrieved_amount > 0))
+    );
+    if (printEntries.length === 0) {
+      showToast({ message: 'No ledger entries to print.', type: 'error' });
+      return;
+    }
+    // displayTotals is DELIBERATELY a whole-period aggregate that ignores
+    // modeFilter (see its own comment above) -- correct for the on-screen
+    // KPI tiles, wrong for a printout, where "TOTAL REVENUE" must equal
+    // the sum of the AMOUNT column actually itemized on the same receipt.
+    // Computed fresh from printEntries (not kpis' totalAmount either --
+    // kpis deliberately zeroes out Debt-mode entries from Total for the
+    // on-screen tile's cash-basis accounting, which would print "TOTAL
+    // REVENUE: N0" on a debt list).
+    const printTotals = printEntries.reduce((acc, e) => {
+      const sign = e.source === 'expense' ? -1 : 1;
+      acc.total += sign * e.amount;
+      if (e.mode === 'Cash') acc.cash += sign * e.amount;
+      if (e.mode === 'Transfer') acc.transfer += sign * e.amount;
+      if (e.mode === 'POS') acc.pos += sign * e.amount;
+      if (e.mode === 'Debt') acc.debt += sign * e.amount;
+      const ded = e.raw?.wallet_deduction_amount || (e.mode === 'Wallet' ? e.amount : 0);
+      acc.wallet += ded;
+      return acc;
+    }, { total: 0, cash: 0, transfer: 0, pos: 0, debt: 0, wallet: 0 });
     try {
       const { printViaBluetooth } = await import('../../lib/escpos');
       await printViaBluetooth(async () => {
         const { compileLedger80mmStream } = await import('../../lib/escposLedgerPrinting');
         return await compileLedger80mmStream(
-          filteredEntries as any,
+          printEntries as any,
           {
             hubName: user.hub || 'Station Hub',
             hubCode: userHubCode || 'ORIGIN',
             shiftDate: new Date().toLocaleDateString('en-GB'),
             agentName: user.name || 'Staff',
             printedAt: `${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`,
-            totalAmount: displayTotals.totalAmount,
-            cashAmount: displayTotals.cashAmount,
-            transferAmount: displayTotals.transferAmount,
-            posAmount: displayTotals.posAmount,
-            debtAmount: displayTotals.debtAmount,
-            walletAmount: displayTotals.walletAmount,
+            totalAmount: printTotals.total,
+            cashAmount: printTotals.cash,
+            transferAmount: printTotals.transfer,
+            posAmount: printTotals.pos,
+            debtAmount: printTotals.debt,
+            walletAmount: printTotals.wallet,
           }
         );
       });
@@ -4250,8 +4369,37 @@ export const TransactionLedger = ({
                         )}
                         {contentTypes.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
+                      {editingTx.contentType === 'Other' && (
+                        <input
+                          id="edit-tx-custom-content-type"
+                          name="edit-tx-custom-content-type"
+                          type="text"
+                          disabled={!canEdit}
+                          value={editCustomContentType}
+                          onChange={(e) => setEditCustomContentType(e.target.value.toUpperCase())}
+                          placeholder="Enter content type"
+                          className="w-full h-10 px-3 mt-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
+                        />
+                      )}
                     </div>
                   </div>
+                  {sizeTierContentTypeNames.has(editingTx.contentType || '') && (
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
+                        Screen Size (inches)
+                      </label>
+                      <input
+                        id="edit-tx-size-inches"
+                        name="edit-tx-size-inches"
+                        type="number"
+                        min="1"
+                        disabled={!canEdit}
+                        value={sizeInchesInput}
+                        onChange={(e) => setSizeInchesInput(e.target.value)}
+                        className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-mono text-[16px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
+                      />
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
@@ -4557,6 +4705,33 @@ export const TransactionLedger = ({
                     >
                       {contentTypes.map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
+                    {editingTx.contents === 'Other' && (
+                      <input
+                        id="edit-tx-package-custom-contents"
+                        name="edit-tx-package-custom-contents"
+                        type="text"
+                        disabled={!canEdit}
+                        value={editCustomContents}
+                        onChange={(e) => setEditCustomContents(e.target.value.toUpperCase())}
+                        placeholder="Enter content type"
+                        className="w-full h-10 px-3 mt-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
+                      />
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
+                      Remarks
+                    </label>
+                    <textarea
+                      id="edit-tx-package-remarks"
+                      name="edit-tx-package-remarks"
+                      rows={2}
+                      disabled={!(canEdit || canEditRemarks)}
+                      value={editingTx.remarks || ''}
+                      onChange={(e) => setEditingTx({ ...editingTx, remarks: e.target.value.toUpperCase() })}
+                      className="w-full px-3 py-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)] resize-none disabled:opacity-60"
+                      placeholder="E.G. SENT BY ROAD"
+                    />
                   </div>
                 </>
               )}

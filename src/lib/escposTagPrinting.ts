@@ -148,6 +148,8 @@ interface MarketingTagData {
   airline?: string;
   hubName?: string;
   date?: string;
+  agentName?: string;
+  phone?: string;
 }
 
 async function compileSingleMarketingTag(
@@ -199,6 +201,19 @@ async function compileSingleMarketingTag(
   chunks.push(new Uint8Array(BOLD_ON));
   chunks.push(encoder.encode(`CUSTOMER: ${item.customerName}\n`));
   chunks.push(new Uint8Array(BOLD_OFF));
+  if (item.agentName) {
+    chunks.push(new Uint8Array(BOLD_ON));
+    chunks.push(encoder.encode(`AGENT: ${item.agentName}\n`));
+    chunks.push(new Uint8Array(BOLD_OFF));
+  }
+  // Omitted entirely (not a blank "PHONE:" line) when not on file --
+  // continuous-roll printer with no fixed page height, same idiom as
+  // hubName/date above.
+  if (item.phone) {
+    chunks.push(new Uint8Array(BOLD_ON));
+    chunks.push(encoder.encode(`PHONE: ${item.phone}\n`));
+    chunks.push(new Uint8Array(BOLD_OFF));
+  }
   if (item.hubName) {
     chunks.push(new Uint8Array(BOLD_ON));
     chunks.push(encoder.encode(`HUB: ${getHubCode(item.hubName)}\n`));
@@ -216,7 +231,7 @@ async function compileSingleMarketingTag(
 }
 
 export async function compileMarketingTagStream(
-  tx: { awb_tag_number?: string; id: string; name: string; route?: string; hub?: string; airline?: string },
+  tx: { awb_tag_number?: string; id: string; name: string; route?: string; hub?: string; airline?: string; enteredByName?: string; consigneePhone?: string },
   bbCount: number,
   mbCount: number,
   sbCount: number,
@@ -261,6 +276,8 @@ export async function compileMarketingTagStream(
         airline: tx.airline,
         hubName: tx.hub,
         date,
+        agentName: tx.enteredByName,
+        phone: tx.consigneePhone,
       }, width, precomputed));
     }
   }
@@ -269,7 +286,7 @@ export async function compileMarketingTagStream(
 }
 
 export async function printMarketingTags(
-  tx: { awb_tag_number?: string; id: string; name: string; route?: string; hub?: string; airline?: string },
+  tx: { awb_tag_number?: string; id: string; name: string; route?: string; hub?: string; airline?: string; enteredByName?: string; consigneePhone?: string },
   bbCount: number,
   mbCount: number,
   sbCount: number,

@@ -31,6 +31,8 @@ export interface PackageTagPDFData {
   hubName?: string;
   date?: string;
   qrCodeDataUrl?: string;
+  agentName?: string;
+  phone?: string;
 }
 
 const styles = StyleSheet.create({
@@ -306,6 +308,18 @@ const PackageTagPage = ({
           <View style={styles.fieldBlock}>
             <Text style={styles.fieldLabel}>Consignee</Text>
             <Text style={styles.nameValue}>{truncateForTag(data.name || "—", 30)}</Text>
+          </View>
+        </View>
+
+        <View style={styles.fieldRow}>
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Agent</Text>
+            <Text style={styles.fieldValue}>{truncateForTag(data.agentName || "—", 18)}</Text>
+          </View>
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Phone</Text>
+            {/* Blank, not a placeholder, when not on file. */}
+            <Text style={styles.fieldValue}>{data.phone || ""}</Text>
           </View>
         </View>
       </View>

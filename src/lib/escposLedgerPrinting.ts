@@ -4,6 +4,8 @@ import {
   LEFT,
   BOLD_ON,
   BOLD_OFF,
+  FONT_B_ON,
+  FONT_A_ON,
   FEED_AND_CUT,
   concatChunks,
 } from './escposShared';
@@ -91,7 +93,13 @@ export async function compileLedger80mmStream(
     if (e.type === 'shift-marker') return;
 
     const raw = e.raw || {};
-    const destCode = getHubCode(raw.destination || raw.hub || 'DEST');
+    // Cargo/Marketing entries carry their destination in `route` (e.g.
+    // "LOS/Lagos"), not `destination` -- only Baggage(manifests)/Package
+    // use `destination`. Without checking route too, those two types
+    // always fell through to the literal string 'DEST', which getHubCode's
+    // fallback then truncates to 3 chars -- producing "DES" on the printed
+    // receipt instead of a real destination code.
+    const destCode = getHubCode(raw.destination || raw.route || raw.hub || 'DEST');
     const kgVal = Math.round(parseFloat(raw.totalKg || raw.kg || raw.excessKg || 0) || 0);
     const pcsVal = parseInt(raw.pieces || raw.pcs || 1) || 1;
 
@@ -103,6 +111,16 @@ export async function compileLedger80mmStream(
     chunks.push(new Uint8Array(BOLD_ON));
     chunks.push(encoder.encode(idLine));
     chunks.push(new Uint8Array(BOLD_OFF));
+
+    // Customer/consignee/passenger name, in the printer's condensed Font B
+    // -- deliberately smaller than the ID/spec lines so it doesn't eat
+    // into the limited 80mm width, while still being legible for a quick
+    // "whose shipment is this" glance without opening the app.
+    if (e.name) {
+      chunks.push(new Uint8Array(FONT_B_ON));
+      chunks.push(encoder.encode(`   ${e.name.slice(0, 40)}\n`));
+      chunks.push(new Uint8Array(FONT_A_ON));
+    }
 
     const destPart = `   ${destCode.padEnd(5)}`;
     const kgPart = `${kgVal}KG`.padStart(8);
