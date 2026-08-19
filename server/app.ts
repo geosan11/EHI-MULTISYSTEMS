@@ -7,6 +7,7 @@ import notificationRoutes from './notifications.js';
 import eodRoutes from './eod.js';
 import geminiRoutes from './gemini.js';
 import qzRoutes from './qz.js';
+import flightRadarRoutes from './flightRadar.js';
 import { parseBankAlert } from './emailParser.js';
 
 // Same DSN as the client (VITE_SENTRY_DSN reads fine server-side too --
@@ -198,6 +199,11 @@ export function createApp() {
   app.use('/api/eod', requireAuthenticatedUser, eodRoutes);
   app.use('/api/gemini', notifyLimiter, requireAuthenticatedUser, geminiRoutes);
   app.use('/api/qz', requireAuthenticatedUser, qzRoutes);
+  // No dedicated rate limiter -- getOrRefresh's own CACHE_TTL_MS is what
+  // bounds AeroDataBox usage (at most one live call per flight+date per
+  // window, shared across every viewer via flight_status_cache), same
+  // reasoning flightRadar.ts's own header comment lays out.
+  app.use('/api/flight-radar', requireAuthenticatedUser, flightRadarRoutes);
 
   app.post('/api/admin/create-staff', adminLimiter, async (req, res) => {
     const adminCtx = await requireAdminCaller(req, res);

@@ -61,6 +61,12 @@ export const STATIC_VIEWS: ViewDef[] = [
   // clearing debts from TransactionLedger.tsx/DebtorsTab.tsx, not just
   // accountants reviewing later, so it isn't restricted to Finance roles.
   { id: 'More:DebtCollectionLog', label: 'Debt Collection & Retrieval Log', roles: MORE_TAB_ROLES, category: 'Daily Operations' },
+  // Live flight status (delayed/diverted/cancelled/landed) for any cargo
+  // entry or excess-baggage manifest with a flight number attached --
+  // MORE_TAB_ROLES here is every role including driver, matching "visible
+  // to all roles" rather than being scoped to whichever department
+  // happens to key in the flight number.
+  { id: 'FlightRadar', label: 'Flight Radar', roles: MORE_TAB_ROLES, category: 'Daily Operations' },
   // GAT has no printers -- same role list as the ledger itself (MORE_TAB_ROLES)
   // since any Lagos-hub agent who can see the ledger needs to be able to
   // batch-print for GAT at MMA2.

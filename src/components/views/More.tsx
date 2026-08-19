@@ -70,6 +70,7 @@ import {
   ScalesIcon,
   PrinterIcon,
   HandCoinsIcon,
+  AirTrafficControlIcon,
 } from '@phosphor-icons/react';
 import { ChevronRight } from 'lucide-react';
 
@@ -500,6 +501,14 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
             title="GAT Print Queue"
             subtitle="Batch-print tags & receipts for GAT sales"
             onClick={() => openSub('gatPrintQueue')}
+          />
+        )}
+        {canAccessTab(user, 'FlightRadar', excessBaggageAirlines) && (
+          <MenuItem
+            icon={AirTrafficControlIcon}
+            title="Flight Radar"
+            subtitle="Live status for tracked flights -- delayed, diverted, cancelled, landed"
+            onClick={() => onChangeTab('FlightRadar')}
           />
         )}
         {excessBaggageAirlines.filter(a => canAccessTab(user, `Baggage:${a.name}`, excessBaggageAirlines)).map(a => (

@@ -4331,6 +4331,21 @@ export const TransactionLedger = ({
                       {editAirlines.map(a => <option key={a} value={a}>{a}</option>)}
                     </select>
                   </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
+                      Flight No. (optional -- for Flight Radar)
+                    </label>
+                    <input
+                      id="edit-tx-flight-number"
+                      name="edit-tx-flight-number"
+                      type="text"
+                      disabled={!canEdit}
+                      value={editingTx.flight || ''}
+                      onChange={(e) => setEditingTx({ ...editingTx, flight: e.target.value.toUpperCase() })}
+                      placeholder="e.g. W3 331"
+                      className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
+                    />
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">

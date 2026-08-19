@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { User, Transaction, Expense } from '../../lib/types';
-import { fmt, getShiftBoundary, normalizeAirlineName, sanitizeSpreadsheetRows } from '../../lib/helpers';
+import { fmt, getShiftBoundary, normalizeAirlineName, sanitizeSpreadsheetRows, lagosBusinessDate } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
 import { fetchAllDebtAndRetrievalEntries, buildShadowRowExclusionCounts, extractPaymentHistoryEvents } from '../../lib/debt';
 import { isOfficeWorkEntry } from '../../lib/officeWork';
@@ -27,7 +27,8 @@ import {
   Filter,
   FileSpreadsheet,
   CheckCircle2,
-  HelpCircle
+  HelpCircle,
+  Radar
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -73,6 +74,24 @@ export const Analytics = ({
   useEffect(() => {
     sessionStorage.setItem('ehi_analytics_tab', activeTab);
   }, [activeTab]);
+
+  // Cache-only count of today's tracked flights currently
+  // delayed/diverted/cancelled -- see Dashboard.tsx's matching effect for
+  // why this never triggers a live AeroDataBox call itself.
+  const [flightAttentionCount, setFlightAttentionCount] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.resolve(
+      supabase
+        .from('flight_status_cache')
+        .select('status')
+        .eq('flight_date', lagosBusinessDate())
+        .in('status', ['delayed', 'diverted', 'cancelled'])
+    )
+      .then(({ data }) => { if (!cancelled) setFlightAttentionCount((data || []).length); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const [pastShifts, setPastShifts] = useState<any[]>([]);
   const [loadingShifts, setLoadingShifts] = useState(false);
@@ -786,6 +805,20 @@ export const Analytics = ({
             </select>
             <ChevronDown className="absolute right-2 top-2.5 text-[var(--color-muted)] pointer-events-none" size={12} />
           </div>
+
+          {/* Flight Radar */}
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('ehi-nav', { detail: 'FlightRadar' }))}
+            className="h-8 px-3 border rounded-lg text-[11px] font-mono font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+            style={flightAttentionCount > 0
+              ? { background: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.3)', color: 'var(--color-error)' }
+              : { background: 'var(--color-surface-1)', borderColor: 'var(--color-border)', color: 'var(--color-foreground)' }}
+            title="Flight Radar"
+          >
+            <Radar size={14} />
+            <span className="hidden sm:inline">Flight Radar</span>
+            {flightAttentionCount > 0 && <span>{flightAttentionCount}</span>}
+          </button>
 
           {/* Excel Export */}
           <button

@@ -35,6 +35,7 @@ import { AirlinePerformance } from './views/AirlinePerformance';
 import { DataImport } from './views/DataImport';
 import { AirlineLedger } from './views/AirlineLedger';
 import { WeightManifest } from './views/WeightManifest';
+import { FlightRadar } from './views/FlightRadar';
 
 import { ErrorBoundary } from './ErrorBoundary';
 import { syncLagosRates, getEquivalentHubIds } from '../lib/lagosHubSync';
@@ -87,6 +88,7 @@ const TAB_PATHS: Partial<Record<TabView, string>> = {
   'WeightManifest':     '/weight-manifest',
   'AirlinePerformance': '/airline-performance',
   'GAT':                '/gat',
+  'FlightRadar':        '/flight-radar',
   // Baggage:{name} and More:{name} are handled by prefix -- see tabToPath/pathToTab below.
 };
 
@@ -436,7 +438,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
         const [shifts, cargoRes, baggageRes, mktRes, packageRes, expRes, profilesRes, debtCollectionRes] = await Promise.all([
           fetchShifts(),
-          addHubFilter(supabase.from('cargo_entries').select('entry_ref,consignee_name,airline,awb_tag_number,total_pcs,total_kg,size_inches,route,content_type,amount,receipt_mode,pickup_pin,status,created_at,commission_rate,bank,hub_id,terminal,remark,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,consignee_phone,client_type,corporate_client_id,linked_as_office_work,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
+          addHubFilter(supabase.from('cargo_entries').select('entry_ref,consignee_name,airline,flight_number,awb_tag_number,total_pcs,total_kg,size_inches,route,content_type,amount,receipt_mode,pickup_pin,status,created_at,commission_rate,bank,hub_id,terminal,remark,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,consignee_phone,client_type,corporate_client_id,linked_as_office_work,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
           addHubFilter(supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs,amount_paid,payment_history,airline,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark,client_type,corporate_client_id,linked_as_office_work').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
           addHubFilter(supabase.from('marketing_entries').select('entry_ref,awb_tag_number,customer_name,route,airline,qty_big_bag,qty_med_bag,qty_small_bag,bb_kg,mb_kg,sb_kg,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,last_edited_by,last_edited_at,debt_amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark,customer_phone,client_type,corporate_client_id,linked_as_office_work').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
           addHubFilter(supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,total_pcs,total_kg,contents,status,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,amount_paid,payment_history,created_at,hub_id,terminal,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark,customer_phone,client_type,corporate_client_id,linked_as_office_work').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
@@ -522,6 +524,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               pickupPin: r.pickup_pin || undefined,
               created_at: r.created_at,
               airline: r.airline,
+              flight: r.flight_number || undefined,
               commissionRate: r.commission_rate ?? undefined,
               bank: r.bank,
               route: r.route,
@@ -1237,6 +1240,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             hub_id: r.hub_id,
             route: r.route,
             airline: r.airline,
+            flight: r.flight_number || undefined,
             pickupPin: canSeePin ? (r.pickup_pin || undefined) : undefined,
             consigneePhone: r.consignee_phone || undefined,
             clientType: r.client_type || undefined,
@@ -1288,6 +1292,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               confirmedAt: r.confirmed_at ?? t.confirmedAt,
               editedBy: r.last_edited_by ?? t.editedBy,
               editedAt: r.last_edited_at ?? t.editedAt,
+              flight: r.flight_number ?? t.flight,
               wallet_id: r.wallet_id ?? t.wallet_id,
               wallet_deduction_amount: r.wallet_deduction_amount ?? t.wallet_deduction_amount,
               // Without this, a retrieval processed on another device never
@@ -1728,6 +1733,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         hub_id: hubId,
         terminal: (tx as any).terminal ?? 'MMA2',
         airline: (tx as any).airline || parts[0] || 'Unknown',
+        flight_number: (tx as any).flight || null,
         commission_rate: (tx as any).commissionRate ?? null,
         remark: (tx as any).remarks || null,
         pickup_pin: (tx as any).pickupPin || null,
@@ -1910,6 +1916,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       updatePayload.total_kg = t.kg;
       updatePayload.content_type = t.contentType;
       updatePayload.airline = t.airline;
+      if (t.flight !== undefined) updatePayload.flight_number = t.flight || null;
       if ((t as any).pickupPin !== undefined) updatePayload.pickup_pin = (t as any).pickupPin;
       if (t.consigneePhone !== undefined) updatePayload.consignee_phone = t.consigneePhone;
       // Was missing entirely -- TransactionLedger's edit modal never had a
@@ -2427,6 +2434,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               {currentTab === 'DataImport' && <DataImport user={user} onBack={() => setCurrentTab('More')} />}
               {currentTab === 'AirlineLedger' && <AirlineLedger user={user} onBack={() => setCurrentTab('More')} />}
               {currentTab === 'WeightManifest' && <WeightManifest user={user} onBack={() => setCurrentTab('More')} />}
+              {currentTab === 'FlightRadar' && <FlightRadar user={user} onBack={() => setCurrentTab('More')} />}
               {currentTab === 'AirlinePerformance' && <AirlinePerformance user={user} onBack={() => setCurrentTab('More')} />}
               {currentTab === 'More' && (
                 <More 

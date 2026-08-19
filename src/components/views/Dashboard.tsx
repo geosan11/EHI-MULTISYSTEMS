@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
-import { Package, Plane, TrendingUp, Package2, QrCode, X, Clock } from "lucide-react";
+import { Package, Plane, TrendingUp, Package2, QrCode, X, Clock, Radar } from "lucide-react";
 import { User, Transaction } from "../../lib/types";
-import { fmt } from "../../lib/helpers";
+import { fmt, lagosBusinessDate } from "../../lib/helpers";
+import { supabase } from "../../lib/supabase";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { QRCode } from "../QRCode";
 
@@ -231,6 +232,25 @@ export const Dashboard = ({
 
     const [newestId, setNewestId] = useState<string>("");
     const [viewingQrTx, setViewingQrTx] = useState<Transaction | null>(null);
+    // Read-only count of today's tracked flights currently
+    // delayed/diverted/cancelled -- cache-only (flight_status_cache), never
+    // triggers a live AeroDataBox call itself, so this badge is free no
+    // matter how often Dashboard re-renders. See FlightRadar.tsx for the
+    // view this button opens.
+    const [flightAttentionCount, setFlightAttentionCount] = useState(0);
+    useEffect(() => {
+      let cancelled = false;
+      Promise.resolve(
+        supabase
+          .from('flight_status_cache')
+          .select('status', { count: 'exact', head: false })
+          .eq('flight_date', lagosBusinessDate())
+          .in('status', ['delayed', 'diverted', 'cancelled'])
+      )
+        .then(({ data }) => { if (!cancelled) setFlightAttentionCount((data || []).length); })
+        .catch(() => {});
+      return () => { cancelled = true; };
+    }, []);
     useEffect(() => {
       if (allVisibleTx.length > 0) {
         const topTx = allVisibleTx[0];
@@ -419,9 +439,24 @@ export const Dashboard = ({
               </span>
             )}
           </div>
-          <div className="inline-flex items-center space-x-1.5 bg-[rgba(16,185,129,0.1)] px-2 py-1 rounded border border-[rgba(16,185,129,0.15)]">
-            <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse"></div>
-            <span className="text-[11px] font-sans text-[var(--color-success)] font-medium">Live</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('ehi-nav', { detail: 'FlightRadar' }))}
+              className="inline-flex items-center gap-1.5 px-2 py-1 rounded border text-[11px] font-sans font-medium"
+              style={flightAttentionCount > 0
+                ? { background: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.3)', color: 'var(--color-error)' }
+                : { background: 'var(--color-surface-2)', borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}
+            >
+              <Radar size={12} />
+              Flight Radar
+              {flightAttentionCount > 0 && (
+                <span className="text-[10px] font-mono font-bold">{flightAttentionCount}</span>
+              )}
+            </button>
+            <div className="inline-flex items-center space-x-1.5 bg-[rgba(16,185,129,0.1)] px-2 py-1 rounded border border-[rgba(16,185,129,0.15)]">
+              <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)] animate-pulse"></div>
+              <span className="text-[11px] font-sans text-[var(--color-success)] font-medium">Live</span>
+            </div>
           </div>
         </div>
 

@@ -57,6 +57,7 @@ import {
   Ruler,
   BarChart2,
   X,
+  Radar,
 } from "lucide-react";
 import {
   sendReceiptWhatsApp,
@@ -218,6 +219,10 @@ export const CargoForm = ({
   const [consignee, setConsignee] = useState("");
   const [airline, setAirline] = useState("Arik Air");
   const [customAirline, setCustomAirline] = useState("");
+  // Optional -- Flight Radar (src/components/views/FlightRadar.tsx) reads
+  // this to look up live flight status. Left blank at intake is fine; can
+  // be filled in later from TransactionLedger's edit modal.
+  const [flightNumber, setFlightNumber] = useState("");
   const [customConsignee, setCustomConsignee] = useState("");
 
   // This is now a REAL, already-allocated number, not a non-destructive
@@ -1486,6 +1491,7 @@ export const CargoForm = ({
       status: "Intake",
       awb_tag_number: resolvedAwb,
       airline: actualAirline,
+      flight: flightNumber.trim() || undefined,
       commissionRate,
       pieces: parseInt(pcs) || 1,
       kg: parseFloat(kg) || 0,
@@ -1620,6 +1626,7 @@ export const CargoForm = ({
     setCustomConsignee("");
     setAirline(availableAirlines[0] || "Other");
     setCustomAirline("");
+    setFlightNumber("");
     fetchAwbPreview();
     setPcs("1");
     setKg("");
@@ -2079,6 +2086,12 @@ export const CargoForm = ({
                   <ClipboardList size={14} /> <span>History</span>
                 </button>
               )}
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent('ehi-nav', { detail: 'FlightRadar' }))}
+                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-surface-2)] border border-[var(--color-border-strong)] rounded-lg text-[11px] font-mono font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-surface-3)] hover:border-[var(--color-accent-amber)] hover:text-[var(--color-accent-amber)] transition-colors shadow-[var(--shadow-xs)]"
+              >
+                <Radar size={14} /> <span>Flight Radar</span>
+              </button>
             </div>
 
             <div className="space-y-4">
@@ -2237,6 +2250,19 @@ export const CargoForm = ({
                     className={`${formInputClass} mt-2`}
                   />
                 )}
+              </div>
+
+              <div>
+                {renderLabel(Radar, "Flight No. (optional)")}
+                <input
+                  id="retail-flight-number"
+                  name="flight-number"
+                  type="text"
+                  placeholder="e.g. W3 331"
+                  value={flightNumber}
+                  onChange={upperOnChange(setFlightNumber)}
+                  className={formInputClass}
+                />
               </div>
 
               <div>

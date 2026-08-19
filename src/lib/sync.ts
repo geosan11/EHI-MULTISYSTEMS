@@ -282,6 +282,7 @@ export async function getUnsyncedLocalTransactions(): Promise<{ transactions: an
           pickupPin: r.pickup_pin || undefined,
           created_at: item.created_at || r.created_at,
           airline: r.airline,
+          flight: r.flight_number || undefined,
           bank: r.bank,
           route: r.route,
           hub_id: r.hub_id,
