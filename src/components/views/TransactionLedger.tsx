@@ -2160,6 +2160,24 @@ export const TransactionLedger = ({
       const newRetrievedAmount = priorRetrievedAmount + data.retrievedValue;
       const fullyRetrieved = newRetrievedAmount >= entryAmount;
       const newStatus = fullyRetrieved ? 'Retrieved' : priorRaw.status;
+
+      // Flight Radar integration: a FULL retrieval means this shipment
+      // isn't going out on whatever flight it had attached -- clear the
+      // link so it drops off the board, and record why on the entry
+      // itself. Partial retrievals leave the flight alone (the
+      // un-retrieved remainder is still assumed to be flying). Computed
+      // here (before the optimistic update below) so the local UI and the
+      // follow-up DB write agree on the same table/column/note.
+      const missedFlightNumber = (entry.raw as any)?.flight;
+      const missedFlight = fullyRetrieved && !!missedFlightNumber;
+      const table = RETRIEVAL_TABLE_NAME[entry.type as RetrievalEntryType];
+      const flightCol = table === 'manifests' ? 'flight_no' : 'flight_number';
+      const missedNote = missedFlight
+        ? `Missed flight ${missedFlightNumber}${(entry.raw as any)?.airline ? ` (${(entry.raw as any).airline})` : ''} -- retrieved by ${user.name} at ${new Date().toLocaleString('en-NG')}.`
+        : '';
+      const priorNote = priorRaw.retrieval_note || '';
+      const newNote = missedFlight ? (priorNote ? `${priorNote}\n${missedNote}` : missedNote) : priorNote;
+
       onUpdateTx({
         ...(entry.raw as any),
         raw: {
@@ -2169,12 +2187,32 @@ export const TransactionLedger = ({
           retrieved_kg: (priorRaw.retrieved_kg || 0) + data.retrievedKg,
           retrieved: fullyRetrieved,
           status: newStatus,
+          ...(missedFlight ? { [flightCol]: null, retrieval_note: newNote } : {}),
         },
         retrieved: fullyRetrieved,
         retrievedAt: new Date().toISOString(),
         retrievedBy: user.name,
         status: newStatus,
+        flight: missedFlight ? undefined : (entry.raw as any)?.flight,
       });
+
+      // Deliberately a small, separate follow-up write rather than
+      // touching process_*_retrieval itself -- that RPC is finance-critical
+      // (debt/wallet accounting) and this has nothing to do with money. A
+      // failure here must never undo the retrieval that already succeeded
+      // above, hence its own try/catch with only a soft warning toast.
+      if (missedFlight) {
+        try {
+          const idCol = table === 'manifests' ? 'transaction_id' : 'entry_ref';
+          const { error: missedFlightError } = await supabase
+            .from(table)
+            .update({ [flightCol]: null, retrieval_note: newNote })
+            .eq(idCol, entry.id);
+          if (missedFlightError) throw missedFlightError;
+        } catch (err: any) {
+          showToast({ message: `Retrieval saved, but couldn't clear the flight link: ${err?.message || 'unknown error'}`, type: 'warning' });
+        }
+      }
 
       // Report what the RPC actually did, not the full retrieved value --
       // an unpaid-debt or already-paid-in-full retrieval can send ₦0 (or

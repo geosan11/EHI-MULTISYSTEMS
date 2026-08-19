@@ -1,7 +1,14 @@
 import express from 'express';
 import axios from 'axios';
+import { CARGO_ROUTES } from '../src/lib/constants.js';
 
 const router = express.Router();
+
+// Every airport EHI actually ships to/from, derived from the same route
+// list CargoForm/PackageForm use -- Part C's "Nigeria Today" board is
+// scoped to this known-size list (not literally every Nigerian airport,
+// which would need a paid AeroDataBox plan to cover the call volume).
+const NATIONAL_AIRPORTS = CARGO_ROUTES.filter(r => r !== 'Other').map(r => r.split('/')[0]);
 
 // How long a cached AeroDataBox lookup is considered fresh before a GET
 // /status request triggers a live re-fetch. Deliberately generous -- the
@@ -11,6 +18,22 @@ const router = express.Router();
 // opening a specific flight's detail (GET /status) can, and at most once
 // per TTL window per flight+date, shared across every viewer.
 const CACHE_TTL_MS = 10 * 60 * 1000;
+
+// Departures-board cache TTL for CargoForm's flight-number auto-fill --
+// longer than CACHE_TTL_MS above since a whole-airport board is a much
+// heavier AeroDataBox call than a single flight lookup, and this one gets
+// hit far more often (every cargo intake, not just Flight Radar opens).
+// One fetch per hub per window covers every agent at that hub, regardless
+// of how many different airline/route combinations get typed in that time.
+const DEPARTURES_CACHE_TTL_MS = 20 * 60 * 1000;
+
+// flight_status_cache.raw stores AeroDataBox's full response (kept for
+// future fields without a migration, per that table's own header comment)
+// but nothing in the UI reads it -- every read of this table below selects
+// this explicit column list instead of '*' so a board with many tracked
+// flights isn't shipping a full raw AeroDataBox payload per flight to the
+// browser on every load.
+const FLIGHT_STATUS_CACHE_COLUMNS = 'flight_number,flight_date,airline_name,status,scheduled_departure,actual_departure,scheduled_arrival,actual_arrival,delay_minutes,departure_airport,arrival_airport,diverted_airport,fetched_at';
 
 async function getAdminClient() {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
@@ -45,6 +68,21 @@ async function getCallerProfile(req: any, admin: any): Promise<{ role: string; h
 // deliberately defensive (falls back to 'unknown') so an unrecognized or
 // future status string never crashes the board, it just shows as
 // untracked rather than mis-labeled.
+// Shared by normalizeStatus (single-flight lookup) and
+// normalizeDepartureEntry (airport board) below -- both get a raw AeroDataBox
+// status string and need the same coarse bucketing.
+function mapRawStatusString(rawStatus: string): string {
+  const s = rawStatus.toLowerCase();
+  if (s.includes('cancel')) return 'cancelled';
+  if (s.includes('divert')) return 'diverted';
+  if (s.includes('delay')) return 'delayed';
+  if (s.includes('landed') || s.includes('arrived')) return 'landed';
+  if (s.includes('en-route') || s.includes('enroute') || s.includes('departed')) return 'departed';
+  if (s.includes('board')) return 'boarding';
+  if (s.includes('expect') || s.includes('schedul')) return 'scheduled';
+  return 'unknown';
+}
+
 function normalizeStatus(raw: any): {
   status: string;
   scheduled_departure: string | null;
@@ -59,16 +97,7 @@ function normalizeStatus(raw: any): {
 } {
   const dep = raw?.departure || {};
   const arr = raw?.arrival || {};
-  const rawStatus = String(raw?.status || '').toLowerCase();
-
-  let status = 'unknown';
-  if (rawStatus.includes('cancel')) status = 'cancelled';
-  else if (rawStatus.includes('divert')) status = 'diverted';
-  else if (rawStatus.includes('delay')) status = 'delayed';
-  else if (rawStatus.includes('landed') || rawStatus.includes('arrived')) status = 'landed';
-  else if (rawStatus.includes('en-route') || rawStatus.includes('enroute') || rawStatus.includes('departed')) status = 'departed';
-  else if (rawStatus.includes('board')) status = 'boarding';
-  else if (rawStatus.includes('expect') || rawStatus.includes('schedul')) status = 'scheduled';
+  let status = mapRawStatusString(String(raw?.status || ''));
 
   const scheduledDeparture = dep.scheduledTime?.utc || null;
   const actualDeparture = dep.actualTime?.utc || dep.runwayTime?.utc || null;
@@ -128,7 +157,7 @@ async function getOrRefresh(flightNumber: string, date: string, forceRefresh: bo
   if (!forceRefresh) {
     const { data: cached } = await admin
       .from('flight_status_cache')
-      .select('*')
+      .select(FLIGHT_STATUS_CACHE_COLUMNS)
       .eq('flight_number', flightNumber)
       .eq('flight_date', date)
       .maybeSingle();
@@ -142,7 +171,7 @@ async function getOrRefresh(flightNumber: string, date: string, forceRefresh: bo
     // than a hard error, so the board still shows last-known status.
     const { data: cached } = await admin
       .from('flight_status_cache')
-      .select('*')
+      .select(FLIGHT_STATUS_CACHE_COLUMNS)
       .eq('flight_number', flightNumber)
       .eq('flight_date', date)
       .maybeSingle();
@@ -159,7 +188,7 @@ async function getOrRefresh(flightNumber: string, date: string, forceRefresh: bo
     // status the app already knew a moment ago.
     const { data: cached } = await admin
       .from('flight_status_cache')
-      .select('*')
+      .select(FLIGHT_STATUS_CACHE_COLUMNS)
       .eq('flight_number', flightNumber)
       .eq('flight_date', date)
       .maybeSingle();
@@ -183,12 +212,159 @@ async function getOrRefresh(flightNumber: string, date: string, forceRefresh: bo
   const { data: saved, error: saveError } = await admin
     .from('flight_status_cache')
     .upsert(row, { onConflict: 'flight_number,flight_date' })
-    .select('*')
+    .select(FLIGHT_STATUS_CACHE_COLUMNS)
     .single();
 
+  // Falls back to `row` (which still carries `raw`) only when the upsert's
+  // own SELECT failed -- res.json(result.data) is the only caller, and it's
+  // fine for that one edge case to include the extra field; every normal
+  // response goes through the trimmed `saved` shape above.
   if (saveError) return { data: row };
   return { data: saved };
 }
+
+// Airport departures FIDS response -> the trimmed shape CargoForm needs to
+// find "the next flight to X on airline Y" client-side. Field names
+// confirmed against a live response during implementation (same caveat as
+// normalizeStatus above) -- an airport-board entry's "other end" comes back
+// as `movement.airport` (not a separate departure/arrival pair the way the
+// single-flight endpoint returns), so that's read with a couple of
+// fallbacks in case AeroDataBox varies the shape by airport/carrier.
+function normalizeDepartureEntry(raw: any): { flightNumber: string | null; airline: string | null; destinationIata: string | null; scheduledDeparture: string | null; status: string } {
+  const movement = raw?.movement || raw?.departure || {};
+  return {
+    flightNumber: raw?.number || raw?.callSign || null,
+    airline: raw?.airline?.name || null,
+    destinationIata: movement?.airport?.iata || raw?.arrival?.airport?.iata || null,
+    scheduledDeparture: movement?.scheduledTime?.utc || raw?.departure?.scheduledTime?.utc || null,
+    status: mapRawStatusString(String(raw?.status || '')),
+  };
+}
+
+async function fetchDeparturesFromAeroDataBox(originIata: string, date: string): Promise<any[]> {
+  const apiKey = process.env.AERODATABOX_API_KEY;
+  if (!apiKey) return [];
+  // AeroDataBox's airport FIDS endpoint caps each request window at 12
+  // hours, so the full day is split into two half-day calls and merged.
+  const windows: [string, string][] = [
+    [`${date}T00:00`, `${date}T11:59`],
+    [`${date}T12:00`, `${date}T23:59`],
+  ];
+  const results = await Promise.all(windows.map(async ([from, to]) => {
+    const url = `https://aerodatabox.p.rapidapi.com/flights/airports/iata/${encodeURIComponent(originIata)}/${from}/${to}`;
+    const response = await axios.get(url, {
+      params: { direction: 'Departure', withLeg: false },
+      headers: {
+        'X-RapidAPI-Key': apiKey,
+        'X-RapidAPI-Host': 'aerodatabox.p.rapidapi.com',
+      },
+      timeout: 10_000,
+    });
+    return response.data?.departures || [];
+  }));
+  return results.flat().map(normalizeDepartureEntry).filter(f => f.flightNumber);
+}
+
+// Cache-or-fetch the whole day's departures board for one airport -- shared
+// by GET /departures (single airport, CargoForm's auto-fill) and the
+// national-board routes below (looped across NATIONAL_AIRPORTS). See this
+// file's DEPARTURES_CACHE_TTL_MS comment for why this is a board-per-airport
+// cache rather than a call-per-lookup like getOrRefresh.
+async function getOrFetchDeparturesBoard(admin: any, originIata: string, date: string, forceRefresh: boolean): Promise<any[]> {
+  const { data: cached } = await admin
+    .from('flight_departures_board_cache')
+    .select('*')
+    .eq('origin_iata', originIata)
+    .eq('board_date', date)
+    .maybeSingle();
+  if (!forceRefresh && cached && Date.now() - new Date(cached.fetched_at).getTime() < DEPARTURES_CACHE_TTL_MS) {
+    return cached.flights;
+  }
+
+  if (!process.env.AERODATABOX_API_KEY) {
+    // Not configured -- serve stale cache if any exists, otherwise an
+    // empty board (CargoForm just leaves Flight No. blank, same as today).
+    return cached?.flights || [];
+  }
+
+  let flights: any[];
+  try {
+    flights = await fetchDeparturesFromAeroDataBox(originIata, date);
+  } catch (err: any) {
+    // A failed live call falls back to stale cache rather than breaking
+    // cargo intake or the national board -- same fallback philosophy as
+    // getOrRefresh.
+    return cached?.flights || [];
+  }
+
+  await admin
+    .from('flight_departures_board_cache')
+    .upsert({ origin_iata: originIata, board_date: date, flights, fetched_at: new Date().toISOString() }, { onConflict: 'origin_iata,board_date' });
+
+  return flights;
+}
+
+router.get('/departures', async (req, res) => {
+  const originIata = String(req.query.originIata || '').trim().toUpperCase();
+  const date = String(req.query.date || '').trim();
+  if (!originIata || !date) {
+    res.status(400).json({ error: 'originIata and date are required' });
+    return;
+  }
+  const admin = await getAdminClient();
+  if (!admin) { res.status(503).json({ error: 'Server not configured' }); return; }
+
+  const flights = await getOrFetchDeparturesBoard(admin, originIata, date, false);
+  res.json({ originIata, date, flights });
+});
+
+// "Nigeria Today" board (Part C) -- cache-only read across every airport in
+// NATIONAL_AIRPORTS, never triggers a live AeroDataBox call itself (many
+// will already be warm from /departures' own CargoForm-driven usage at each
+// hub). Returns a flat list, each flight tagged with its origin airport.
+router.get('/national-board', async (req, res) => {
+  const date = String(req.query.date || '').trim();
+  if (!date) { res.status(400).json({ error: 'date is required' }); return; }
+  const admin = await getAdminClient();
+  if (!admin) { res.status(503).json({ error: 'Server not configured' }); return; }
+
+  const { data: cachedRows } = await admin
+    .from('flight_departures_board_cache')
+    .select('origin_iata,flights,fetched_at')
+    .in('origin_iata', NATIONAL_AIRPORTS)
+    .eq('board_date', date);
+
+  const flights = (cachedRows || []).flatMap((row: any) =>
+    (row.flights || []).map((f: any) => ({ ...f, originIata: row.origin_iata }))
+  );
+  const airportsCovered = (cachedRows || []).map((row: any) => row.origin_iata);
+  res.json({
+    date,
+    flights,
+    airportsTotal: NATIONAL_AIRPORTS.length,
+    airportsCached: airportsCovered.length,
+  });
+});
+
+// Force-refreshes every airport in NATIONAL_AIRPORTS regardless of TTL --
+// up to 19 airports x 2 half-day calls = ~38 AeroDataBox calls in one click,
+// so this is deliberately admin/super_admin-only (real cost on a metered
+// plan), unlike every other read in this router.
+router.post('/national-board/refresh', async (req, res) => {
+  const date = String(req.body?.date || '').trim();
+  if (!date) { res.status(400).json({ error: 'date is required' }); return; }
+  const admin = await getAdminClient();
+  if (!admin) { res.status(503).json({ error: 'Server not configured' }); return; }
+
+  const profile = await getCallerProfile(req, admin);
+  if (!profile || !['super_admin', 'admin'].includes(profile.role)) {
+    res.status(403).json({ error: 'Only admins can refresh the national board' });
+    return;
+  }
+
+  await Promise.all(NATIONAL_AIRPORTS.map(iata => getOrFetchDeparturesBoard(admin, iata, date, true)));
+  res.json({ ok: true, airportsRefreshed: NATIONAL_AIRPORTS.length });
+});
 
 router.get('/status', async (req, res) => {
   const flightNumber = String(req.query.flightNumber || '').trim();
@@ -253,7 +429,7 @@ router.get('/board', async (req, res) => {
   const [cargoRes, manifestRes, cacheRes] = await Promise.all([
     cargoQuery,
     manifestQuery,
-    admin.from('flight_status_cache').select('*').eq('flight_date', date),
+    admin.from('flight_status_cache').select(FLIGHT_STATUS_CACHE_COLUMNS).eq('flight_date', date),
   ]);
 
   const cacheByFlight = new Map((cacheRes.data || []).map((c: any) => [c.flight_number, c]));

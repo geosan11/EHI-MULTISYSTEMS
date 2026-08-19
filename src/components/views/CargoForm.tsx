@@ -2,7 +2,7 @@ import { CARGO_ROUTES } from "../../lib/constants";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Transaction, User, Expense, CustomerWallet } from "../../lib/types";
-import { fmt, roundMoney, tnow, generatePickupPin, normalizeAirlineName, getHubCode, upperOnChange, isStandalonePWA, formatPaymentModeDisplay } from "../../lib/helpers";
+import { fmt, roundMoney, tnow, generatePickupPin, normalizeAirlineName, airlineNamesLooselyMatch, getHubCode, upperOnChange, isStandalonePWA, formatPaymentModeDisplay, lagosBusinessDate } from "../../lib/helpers";
 import { chargeWalletForSale } from "../../lib/walletPayment";
 import { matchWallet } from "../../lib/customerIdentity";
 import { WalletRemainderSelector } from "../WalletRemainderSelector";
@@ -221,8 +221,32 @@ export const CargoForm = ({
   const [customAirline, setCustomAirline] = useState("");
   // Optional -- Flight Radar (src/components/views/FlightRadar.tsx) reads
   // this to look up live flight status. Left blank at intake is fine; can
-  // be filled in later from TransactionLedger's edit modal.
+  // be filled in later from TransactionLedger's edit modal. Auto-filled
+  // below once airline+route are picked, from the hub's cached departures
+  // board -- see the matching effect after actualAirline.
   const [flightNumber, setFlightNumber] = useState("");
+  const [flightAutoFilled, setFlightAutoFilled] = useState(false);
+  const [departuresBoard, setDeparturesBoard] = useState<{ flightNumber: string | null; airline: string | null; destinationIata: string | null; scheduledDeparture: string | null; status: string }[]>([]);
+
+  // Fetched once per hub (server-side cached ~20min, see server/
+  // flightRadar.ts's DEPARTURES_CACHE_TTL_MS) -- cheap even if this effect
+  // re-runs, since it's just re-reading the shared cache row most of the
+  // time, not a fresh AeroDataBox call.
+  useEffect(() => {
+    const originIata = getHubCode(user.hub_code || user.hub);
+    if (!originIata || originIata === 'XXX') return;
+    let cancelled = false;
+    supabase.auth.getSession().then(({ data: sess }) => {
+      const token = sess.session?.access_token || '';
+      return fetch(`/api/flight-radar/departures?originIata=${encodeURIComponent(originIata)}&date=${encodeURIComponent(lagosBusinessDate())}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (!cancelled && data) setDeparturesBoard(data.flights || []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user.hub_code, user.hub]);
   const [customConsignee, setCustomConsignee] = useState("");
 
   // This is now a REAL, already-allocated number, not a non-destructive
@@ -427,6 +451,31 @@ export const CargoForm = ({
   // used to live) so both the render-time price preview and the submit
   // handler agree on the same airline name used for the rate lookup.
   const actualAirline = airline === "Other" && customAirline.trim() ? customAirline.trim() : airline;
+
+  // Auto-fill Flight No. once airline+route are both known, from the
+  // departures board fetched above -- never overwrites a value staff
+  // already typed or edited (the `flightNumber.trim()` guard), and always
+  // picks the SOONEST upcoming match rather than enforcing any cutoff, per
+  // the agreed design (staff may log cargo well ahead of its flight).
+  useEffect(() => {
+    if (flightNumber.trim() || !route || departuresBoard.length === 0) return;
+    const destIata = route.split('/')[0];
+    const now = Date.now();
+    // airlineNamesLooselyMatch (not normalizeAirlineName) -- AeroDataBox's
+    // raw carrier-name string is outside this app's control, so an exact
+    // post-normalization match would silently never fire for any airline
+    // not already in normalizeAirlineName's small hardcoded list, which
+    // includes every brand-new airline added via CargoForm's "Other" or
+    // the admin Add Airline screen. See helpers.ts's own comment.
+    const next = departuresBoard
+      .filter(f => f.flightNumber && f.destinationIata === destIata && airlineNamesLooselyMatch(actualAirline, f.airline) && f.scheduledDeparture && new Date(f.scheduledDeparture).getTime() >= now)
+      .sort((a, b) => new Date(a.scheduledDeparture!).getTime() - new Date(b.scheduledDeparture!).getTime())[0];
+    if (next?.flightNumber) {
+      setFlightNumber(next.flightNumber);
+      setFlightAutoFilled(true);
+    }
+  }, [route, actualAirline, departuresBoard]);
+
   // Same reasoning as actualAirline above -- hoisted so the preview and
   // submit paths (and the special-goods/minimum-charge lookups both use)
   // agree on one value instead of each re-deriving it.
@@ -1627,6 +1676,7 @@ export const CargoForm = ({
     setAirline(availableAirlines[0] || "Other");
     setCustomAirline("");
     setFlightNumber("");
+    setFlightAutoFilled(false);
     fetchAwbPreview();
     setPcs("1");
     setKg("");
@@ -2253,14 +2303,14 @@ export const CargoForm = ({
               </div>
 
               <div>
-                {renderLabel(Radar, "Flight No. (optional)")}
+                {renderLabel(Radar, flightAutoFilled ? "Flight No. (auto-filled)" : "Flight No. (optional)")}
                 <input
                   id="retail-flight-number"
                   name="flight-number"
                   type="text"
                   placeholder="e.g. W3 331"
                   value={flightNumber}
-                  onChange={upperOnChange(setFlightNumber)}
+                  onChange={(e) => { setFlightNumber(e.target.value.toUpperCase()); setFlightAutoFilled(false); }}
                   className={formInputClass}
                 />
               </div>

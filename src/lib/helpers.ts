@@ -244,6 +244,36 @@ export function normalizeAirlineName(raw: string | null | undefined): string {
   return AIRLINE_NAME_MAP[key] || raw.trim();
 }
 
+// Deliberately separate from normalizeAirlineName above -- that function is
+// load-bearing for commission/rate-override lookups (CargoForm.tsx,
+// Analytics.tsx, CreditDebit.tsx, AirlinePerformance.tsx, Reports.tsx,
+// excelExport.ts all key off it), so loosening its matching there risks two
+// genuinely different airlines' pricing configs colliding. This one exists
+// only for Flight Radar's CargoForm.tsx auto-fill, comparing whatever staff
+// typed/picked against AeroDataBox's raw airline.name string -- which,
+// unlike internal cargo entries, this app has zero control over and no
+// hardcoded map can realistically keep up with for every airline that
+// might ever be added. Strips common legal/trade suffixes and punctuation,
+// then matches on equality or either name containing the other -- the same
+// substring-fallback style scanLogic.ts's validateScan already uses for
+// fuzzy hub-name matching.
+const AIRLINE_SUFFIX_WORDS = /\b(airways?|airlines?|air|plc|ltd|limited|nigeria|co|company|inc|corp|corporation)\b/g;
+function looseAirlineKey(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[.,'-]/g, ' ')
+    .replace(AIRLINE_SUFFIX_WORDS, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+export function airlineNamesLooselyMatch(a: string | null | undefined, b: string | null | undefined): boolean {
+  if (!a || !b) return false;
+  const ka = looseAirlineKey(a);
+  const kb = looseAirlineKey(b);
+  if (!ka || !kb) return false;
+  return ka === kb || ka.includes(kb) || kb.includes(ka);
+}
+
 export function cleanRoute(route: string | null | undefined): string {
   if (!route) return '—';
   return route.replace(/\s*(Air\s+)?Cargo\s+Station/gi, '').trim().toUpperCase();
