@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS public.flight_status_cache (
 
 ALTER TABLE public.flight_status_cache ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS flight_status_cache_select ON public.flight_status_cache;
 CREATE POLICY flight_status_cache_select ON public.flight_status_cache
   FOR SELECT TO authenticated
   USING (true);

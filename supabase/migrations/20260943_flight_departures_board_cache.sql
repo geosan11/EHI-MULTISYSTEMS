@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS public.flight_departures_board_cache (
 
 ALTER TABLE public.flight_departures_board_cache ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS flight_departures_board_cache_select ON public.flight_departures_board_cache;
 CREATE POLICY flight_departures_board_cache_select ON public.flight_departures_board_cache
   FOR SELECT TO authenticated
   USING (true);
