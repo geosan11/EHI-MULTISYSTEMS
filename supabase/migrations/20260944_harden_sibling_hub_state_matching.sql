@@ -27,10 +27,21 @@
 --      cargo_entries/manifests/marketing_entries/package_entries/
 --      expenses/corporate_clients, ledger search).
 --   2. A BEFORE INSERT OR UPDATE trigger on hubs force-normalizes state to
---      'Lagos' for any row matching the same heuristic already
---      battle-tested in src/lib/lagosHubSync.ts and reused by
---      20260930_normalize_lagos_hub_state.sql -- so this pairing can't
---      drift again no matter how the row gets written.
+--      'Lagos' for any row matching the SAME heuristic src/lib/
+--      lagosHubSync.ts actually uses today -- name contains "lagos" OR
+--      code = 'los' as the primary gate. NOT the broader OR-of-everything
+--      version 20260930_normalize_lagos_hub_state.sql used (name contains
+--      "head office"/"cargo station" OR code IN ('los','hq') as
+--      independent alternatives) -- lagosHubSync.ts's own comment explains
+--      why that was already recognized as wrong: a future hub like "EHI
+--      Head Office Abuja" would match "head office" with no "lagos"
+--      anywhere in it and get misclassified. That was a one-time-migration
+--      risk before; baking the SAME broad heuristic into a permanent
+--      trigger would make it a standing landmine for the next new hub, so
+--      this uses lagosHubSync.ts's already-corrected, narrower gate
+--      instead. Both real Lagos hubs ("EHI Head Office Lagos", "Lagos Air
+--      Cargo Station") already contain "lagos" in their name, so this is
+--      no less permissive for them.
 --   3. Re-runs that same one-time UPDATE (idempotent, safe to repeat) so
 --      current data is corrected immediately on deploy, without depending
 --      on 20260930 having been applied correctly before.
@@ -59,9 +70,7 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
   IF lower(NEW.name) LIKE '%lagos%'
-     OR lower(NEW.code) IN ('los', 'hq')
-     OR lower(NEW.name) LIKE '%head office%'
-     OR lower(NEW.name) LIKE '%cargo station%'
+     OR lower(NEW.code) = 'los'
   THEN
     NEW.state := 'Lagos';
   END IF;
@@ -76,12 +85,12 @@ CREATE TRIGGER normalize_lagos_hub_state_trigger
   EXECUTE FUNCTION public.normalize_lagos_hub_state();
 
 -- ── 3. Fix any current drift immediately ───────────────────────────────
+-- Same narrowed heuristic as the trigger above (name contains "lagos" OR
+-- code = 'los') -- not 20260930's broader version, for the same reason.
 UPDATE public.hubs
 SET state = 'Lagos'
 WHERE state IS DISTINCT FROM 'Lagos'
   AND (
     lower(name) LIKE '%lagos%'
-    OR lower(code) IN ('los', 'hq')
-    OR lower(name) LIKE '%head office%'
-    OR lower(name) LIKE '%cargo station%'
+    OR lower(code) = 'los'
   );
