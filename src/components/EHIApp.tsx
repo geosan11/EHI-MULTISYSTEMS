@@ -15,27 +15,38 @@ import { SideNav as SideNavRaw } from './SideNav';
 import { useToast } from '../lib/ToastContext';
 import { supabase, writeAuditLog, fetchRowsCapped } from '../lib/supabase';
 import { Loader2 } from 'lucide-react';
-import { Dashboard as DashboardRaw } from './views/Dashboard';
-import { CargoForm as CargoFormRaw } from './views/CargoForm';
-import { ExcessBaggageForm as ExcessBaggageFormRaw } from './views/ExcessBaggageForm';
-import { Analytics as AnalyticsRaw } from './views/Analytics';
-import { More as MoreRaw } from './views/More';
-import { TransactionLedger as TransactionLedgerRaw } from './views/TransactionLedger';
-import { MarketingWorkspace as MarketingWorkspaceRaw } from './views/MarketingWorkspace';
-import { PackageForm as PackageFormRaw } from './views/PackageForm';
-import { GatWorkspace as GatWorkspaceRaw } from './views/GatWorkspace';
-import { Scanner as ScannerRaw } from './views/Scanner';
-import { IncomingToHub as IncomingToHubRaw } from './views/IncomingToHub';
-import { OutboundArrivals as OutboundArrivalsRaw } from './views/OutboundArrivals';
-import { MyTrips as MyTripsRaw } from './views/MyTrips';
-import { ITDashboard as ITDashboardRaw } from './views/ITDashboard';
-import { CreditDebit as CreditDebitRaw } from './views/CreditDebit';
-import { AirlineLogoManager } from './views/AirlineLogoManager';
-import { AirlinePerformance } from './views/AirlinePerformance';
-import { DataImport } from './views/DataImport';
-import { AirlineLedger } from './views/AirlineLedger';
-import { WeightManifest } from './views/WeightManifest';
-import { FlightRadar } from './views/FlightRadar';
+// Every view below is lazy-loaded: EHIApp used to import all ~20 of these
+// (plus the ~30 More.tsx pulls in and the ~5 AccountingConsole.tsx pulls in
+// on top of that) eagerly, so the entire view tree -- including heavy
+// libraries only a few of these actually need (recharts via Analytics,
+// html5-qrcode via Scanner) -- loaded and executed on every login
+// regardless of which tab a user ever opened. Each one here renders behind
+// exactly one `currentTab === '...'` check (or, for TransactionLedger, the
+// separate streamLedger portal below) at any given time, so a single
+// <Suspense> boundary per render site is enough -- no other restructuring
+// needed. `.then(m => ({ default: m.X }))` because every one of these is a
+// named export, not a default export.
+const DashboardRaw = lazy(() => import('./views/Dashboard').then(m => ({ default: m.Dashboard })));
+const CargoFormRaw = lazy(() => import('./views/CargoForm').then(m => ({ default: m.CargoForm })));
+const ExcessBaggageFormRaw = lazy(() => import('./views/ExcessBaggageForm').then(m => ({ default: m.ExcessBaggageForm })));
+const AnalyticsRaw = lazy(() => import('./views/Analytics').then(m => ({ default: m.Analytics })));
+const MoreRaw = lazy(() => import('./views/More').then(m => ({ default: m.More })));
+const TransactionLedgerRaw = lazy(() => import('./views/TransactionLedger').then(m => ({ default: m.TransactionLedger })));
+const MarketingWorkspaceRaw = lazy(() => import('./views/MarketingWorkspace').then(m => ({ default: m.MarketingWorkspace })));
+const PackageFormRaw = lazy(() => import('./views/PackageForm').then(m => ({ default: m.PackageForm })));
+const GatWorkspaceRaw = lazy(() => import('./views/GatWorkspace').then(m => ({ default: m.GatWorkspace })));
+const ScannerRaw = lazy(() => import('./views/Scanner').then(m => ({ default: m.Scanner })));
+const IncomingToHubRaw = lazy(() => import('./views/IncomingToHub').then(m => ({ default: m.IncomingToHub })));
+const OutboundArrivalsRaw = lazy(() => import('./views/OutboundArrivals').then(m => ({ default: m.OutboundArrivals })));
+const MyTripsRaw = lazy(() => import('./views/MyTrips').then(m => ({ default: m.MyTrips })));
+const ITDashboardRaw = lazy(() => import('./views/ITDashboard').then(m => ({ default: m.ITDashboard })));
+const CreditDebitRaw = lazy(() => import('./views/CreditDebit').then(m => ({ default: m.CreditDebit })));
+const AirlineLogoManager = lazy(() => import('./views/AirlineLogoManager').then(m => ({ default: m.AirlineLogoManager })));
+const AirlinePerformance = lazy(() => import('./views/AirlinePerformance').then(m => ({ default: m.AirlinePerformance })));
+const DataImport = lazy(() => import('./views/DataImport').then(m => ({ default: m.DataImport })));
+const AirlineLedger = lazy(() => import('./views/AirlineLedger').then(m => ({ default: m.AirlineLedger })));
+const WeightManifest = lazy(() => import('./views/WeightManifest').then(m => ({ default: m.WeightManifest })));
+const FlightRadar = lazy(() => import('./views/FlightRadar').then(m => ({ default: m.FlightRadar })));
 
 import { ErrorBoundary } from './ErrorBoundary';
 import { syncLagosRates, getEquivalentHubIds } from '../lib/lagosHubSync';
@@ -58,6 +69,16 @@ const OutboundArrivals = memo(OutboundArrivalsRaw);
 const MyTrips = memo(MyTripsRaw);
 const ITDashboard = memo(ITDashboardRaw);
 const CreditDebit = memo(CreditDebitRaw);
+
+// Shared fallback for every lazy-loaded view's <Suspense> boundary below --
+// same spinner already used for the Baggage: airline-not-found case a few
+// hundred lines down, kept visually consistent rather than introducing a
+// second loading affordance.
+const TabLoadingFallback = () => (
+  <div className="flex items-center justify-center h-full py-20">
+    <Loader2 className="animate-spin text-[var(--color-muted)]" size={24} />
+  </div>
+);
 
 // Keyed per user (not a flat key) so switching users on a shared device
 // never restores one person's last tab into another person's session --
@@ -180,6 +201,28 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     start: new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0]
   });
+  // Grows via the Ledger's "Load More" button (below) when fetchInitial's
+  // per-table LEDGER_ROW_CAP_STEP cap truncates a result -- an explicit,
+  // user-driven escalation rather than silently capping with no way past
+  // it. Reset to the base step whenever the date range itself changes
+  // (handleGlobalDateRangeChange below) so a bumped cap doesn't quietly
+  // keep inflating every future fetch after the user has moved on.
+  const LEDGER_ROW_CAP_STEP = 2000;
+  const [ledgerRowCap, setLedgerRowCap] = useState(LEDGER_ROW_CAP_STEP);
+  // Whether the most recent fetchInitial actually hit ledgerRowCap on any
+  // table -- drives whether the Ledger shows its "Load More" button at all.
+  // Recomputed every fetchInitial run (see cappedTables below), so it
+  // correctly flips back to false once a bumped cap stops truncating.
+  const [ledgerRowsTruncated, setLedgerRowsTruncated] = useState(false);
+  const [ledgerRowsLoadingMore, setLedgerRowsLoadingMore] = useState(false);
+  const handleGlobalDateRangeChange = useCallback((range: { start: string; end: string }) => {
+    setGlobalDateRange(range);
+    setLedgerRowCap(LEDGER_ROW_CAP_STEP);
+  }, [LEDGER_ROW_CAP_STEP]);
+  const handleLoadMoreLedgerRows = useCallback(() => {
+    setLedgerRowsLoadingMore(true);
+    setLedgerRowCap(prev => prev + LEDGER_ROW_CAP_STEP);
+  }, [LEDGER_ROW_CAP_STEP]);
   // Off by default -- non-admin staff are scoped to their own hub's ledger.
   // Turning this on opts into the state-wide view (own hub + sibling hubs,
   // e.g. Lagos HQ + Lagos Cargo) added in commit 1a81dac, which otherwise
@@ -386,6 +429,21 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
   // by a stale count from before the network actually came back.
   const consecutiveFetchFailuresRef = useRef(0);
   const MAX_SILENT_AUTO_RETRY_FAILURES = 3;
+  // Per-table cap for the Ledger's default (non-"All Time") eager fetch below.
+  // Previously a fixed 5000 -- fine for one hub's normal date-range window,
+  // but nothing bounded how wide a *custom* date range a state-wide/admin
+  // user (who bypasses hub scoping entirely, see addHubFilter below) could
+  // pick in the Ledger's own date pickers, so 5 tables x 5000 = 25,000 rows
+  // into memory was a real worst case, not just a theoretical one. Now
+  // sourced from the `ledgerRowCap` state declared above (base
+  // LEDGER_ROW_CAP_STEP, grown via the Ledger's "Load More" button when a
+  // fetch actually gets truncated) instead of a fixed value -- bounds the
+  // common-case worst case while still letting a user explicitly ask for
+  // more without switching to "All Time" (server-paginated via
+  // ledger_search_page/ledger_search_totals), which remains the right path
+  // for a genuinely wide lookback -- see the matching max-span guard on
+  // TransactionLedger.tsx's date-range picker.
+  const LEDGER_ROW_CAP = ledgerRowCap;
   const fetchInitial = useCallback(async () => {
     // globalDateRange changes on every filter click -- without this guard,
     // quickly clicking through Today -> Yesterday -> 7 days can let an
@@ -438,11 +496,11 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
         const [shifts, cargoRes, baggageRes, mktRes, packageRes, expRes, profilesRes, debtCollectionRes] = await Promise.all([
           fetchShifts(),
-          addHubFilter(supabase.from('cargo_entries').select('entry_ref,consignee_name,airline,flight_number,awb_tag_number,total_pcs,total_kg,size_inches,route,content_type,amount,receipt_mode,pickup_pin,status,created_at,commission_rate,bank,hub_id,terminal,remark,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,consignee_phone,client_type,corporate_client_id,linked_as_office_work,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
-          addHubFilter(supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs,amount_paid,payment_history,airline,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark,client_type,corporate_client_id,linked_as_office_work').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
-          addHubFilter(supabase.from('marketing_entries').select('entry_ref,awb_tag_number,customer_name,route,airline,qty_big_bag,qty_med_bag,qty_small_bag,bb_kg,mb_kg,sb_kg,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,last_edited_by,last_edited_at,debt_amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark,customer_phone,client_type,corporate_client_id,linked_as_office_work').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
-          addHubFilter(supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,total_pcs,total_kg,contents,status,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,amount_paid,payment_history,created_at,hub_id,terminal,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark,customer_phone,client_type,corporate_client_id,linked_as_office_work').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
-          addHubFilter(supabase.from('expenses').select('id,category,amount,description,created_at,hub_id,status,mode,bank,logged_by,approved_by,approved_at,rejected_by,rejected_at').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(5000)),
+          addHubFilter(supabase.from('cargo_entries').select('entry_ref,consignee_name,airline,flight_number,awb_tag_number,total_pcs,total_kg,size_inches,route,content_type,amount,receipt_mode,pickup_pin,status,created_at,commission_rate,bank,hub_id,terminal,remark,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,consignee_phone,client_type,corporate_client_id,linked_as_office_work,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(LEDGER_ROW_CAP)),
+          addHubFilter(supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs,amount_paid,payment_history,airline,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark,client_type,corporate_client_id,linked_as_office_work').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(LEDGER_ROW_CAP)),
+          addHubFilter(supabase.from('marketing_entries').select('entry_ref,awb_tag_number,customer_name,route,airline,qty_big_bag,qty_med_bag,qty_small_bag,bb_kg,mb_kg,sb_kg,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,last_edited_by,last_edited_at,debt_amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark,customer_phone,client_type,corporate_client_id,linked_as_office_work').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(LEDGER_ROW_CAP)),
+          addHubFilter(supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,total_pcs,total_kg,contents,status,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,amount_paid,payment_history,created_at,hub_id,terminal,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark,customer_phone,client_type,corporate_client_id,linked_as_office_work').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(LEDGER_ROW_CAP)),
+          addHubFilter(supabase.from('expenses').select('id,category,amount,description,created_at,hub_id,status,mode,bank,logged_by,approved_by,approved_at,rejected_by,rejected_at').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(LEDGER_ROW_CAP)),
           supabase.from('user_profiles').select('id,name'),
           // Debt-collection events -- synthetic rows derived server-side
           // from payment_history, dated to when each payment actually
@@ -469,26 +527,33 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         const mktRows = [...(mktRes.data || []), ...dcByType.marketing];
         const packageRows = [...(packageRes.data || []), ...dcByType.package];
 
-        // Each department query above caps at 5000 rows -- fine for the
-        // default 7-day window, but "All Time" (a 5-year window) can
-        // legitimately exceed that in any one table. Rather than silently
-        // showing (and letting someone export/print) an incomplete "All
-        // Time" data set with no indication anything was cut off, warn once
-        // per fetch when any table came back at exactly the cap.
+        // Each department query above caps at LEDGER_ROW_CAP rows -- fine
+        // for the default 14-day single-hub window (globalDateRange,
+        // EHIApp.tsx's own useState above), but a state-wide/admin user
+        // widening the Ledger's own custom date-range picker can still
+        // legitimately exceed that in any one table (that picker's max-span
+        // guard, TransactionLedger.tsx, keeps this rare rather than
+        // impossible). "All Time" is server-paginated separately and never
+        // goes through this path at all. Rather than silently showing (and
+        // letting someone export/print) an incomplete data set with no
+        // indication anything was cut off, warn once per fetch when any
+        // table came back at exactly the cap.
         const cappedTables: string[] = [];
         // Check the raw query results, not cargoRows/baggageRows/mktRows/
         // packageRows -- those have debt-collection rows spliced in, which
-        // aren't subject to this same 5000-row .limit() at all, so checking
-        // the merged length could warn "truncated" on a table whose real
-        // select was never actually capped.
-        if ((cargoRes.data?.length || 0) >= 5000) cappedTables.push('Cargo');
-        if ((baggageRes.data?.length || 0) >= 5000) cappedTables.push('Excess Baggage');
-        if ((mktRes.data?.length || 0) >= 5000) cappedTables.push('Marketing');
-        if ((packageRes.data?.length || 0) >= 5000) cappedTables.push('Package Desk');
-        if ((expRes.data?.length || 0) >= 5000) cappedTables.push('Expenses');
+        // aren't subject to this same LEDGER_ROW_CAP .limit() at all, so
+        // checking the merged length could warn "truncated" on a table
+        // whose real select was never actually capped.
+        if ((cargoRes.data?.length || 0) >= LEDGER_ROW_CAP) cappedTables.push('Cargo');
+        if ((baggageRes.data?.length || 0) >= LEDGER_ROW_CAP) cappedTables.push('Excess Baggage');
+        if ((mktRes.data?.length || 0) >= LEDGER_ROW_CAP) cappedTables.push('Marketing');
+        if ((packageRes.data?.length || 0) >= LEDGER_ROW_CAP) cappedTables.push('Package Desk');
+        if ((expRes.data?.length || 0) >= LEDGER_ROW_CAP) cappedTables.push('Expenses');
+        setLedgerRowsTruncated(cappedTables.length > 0);
+        setLedgerRowsLoadingMore(false);
         if (cappedTables.length > 0) {
           showToast({
-            message: `Showing only the most recent 5,000 records for: ${cappedTables.join(', ')}. Narrow your date range to see everything in this window.`,
+            message: `Showing only the most recent ${LEDGER_ROW_CAP.toLocaleString()} records for: ${cappedTables.join(', ')}. Use "Load More" at the end of the table for more, or narrow your date range.`,
             type: 'warning',
           });
         }
@@ -812,8 +877,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         console.error("Failed to fetch initial tx:", err);
         consecutiveFetchFailuresRef.current++;
         setInitError(true);
+        setLedgerRowsLoadingMore(false);
       }
-  }, [globalDateRange, user.role, user.hub_id, stateWideView]);
+  }, [globalDateRange, user.role, user.hub_id, stateWideView, ledgerRowCap]);
 
   // Maps a shift department to the Transaction.type(s) its sales_summary
   // should be computed from at End Day. 'all' (the Master Ledger's
@@ -2360,9 +2426,10 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                   </button>
                 </div>
               )}
+              <Suspense fallback={<TabLoadingFallback />}>
               {currentTab === 'Tower' && (
                 (user.role === 'super_admin' || user.role === 'admin' || user.role === 'accountant') ? (
-                  <Analytics user={user} transactions={transactions} expenses={expenses} dateRange={globalDateRange} setDateRange={setGlobalDateRange} />
+                  <Analytics user={user} transactions={transactions} expenses={expenses} dateRange={globalDateRange} setDateRange={handleGlobalDateRangeChange} />
                 ) : (
                   <Dashboard
                     user={user}
@@ -2467,7 +2534,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                    onAddExpense={handleAddExpense}
                    onUpdateExpense={handleUpdateExpense}
                    dateRange={globalDateRange}
-                   onDateRangeChange={setGlobalDateRange}
+                   onDateRangeChange={handleGlobalDateRangeChange}
                    onEOD={handleEOD}
                    excessBaggageAirlines={excessBaggageAirlines}
                    activeShift={activeShiftsByDept['all'] || null}
@@ -2476,8 +2543,12 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                    onEndShift={handleEndShiftAll}
                    customerWallets={customerWallets}
                    refetchCustomerWallets={fetchWallets}
+                   ledgerRowsTruncated={ledgerRowsTruncated}
+                   onLoadMoreLedgerRows={handleLoadMoreLedgerRows}
+                   ledgerRowsLoadingMore={ledgerRowsLoadingMore}
                 />
               )}
+              </Suspense>
             </ErrorBoundary>
           </div>
         </main>
@@ -2537,6 +2608,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                 </div>
               </div>
             )}>
+              <Suspense fallback={<TabLoadingFallback />}>
               <TransactionLedger
                 user={user}
                 transactions={filteredLedgerTransactions}
@@ -2548,7 +2620,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                 defaultTerminalFilter={streamLedger.terminal}
                 viewOnly={user.role !== 'super_admin' && !user.can_edit_ledger}
                 dateRange={globalDateRange}
-                onDateRangeChange={setGlobalDateRange}
+                onDateRangeChange={handleGlobalDateRangeChange}
                 activeShift={streamLedgerDepartment ? (activeShiftsByDept[streamLedgerDepartment] || null) : null}
                 shifts={streamLedgerShifts}
                 onStartShift={handleStreamLedgerStartShift}
@@ -2557,7 +2629,11 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                 shiftAutoManaged={streamLedgerDepartment === 'cargo' || streamLedgerDepartment === 'package'}
                 customerWallets={customerWallets}
                 refetchCustomerWallets={fetchWallets}
+                ledgerRowsTruncated={ledgerRowsTruncated}
+                onLoadMoreLedgerRows={handleLoadMoreLedgerRows}
+                ledgerRowsLoadingMore={ledgerRowsLoadingMore}
               />
+              </Suspense>
             </ErrorBoundary>
           </div>
         </div>,

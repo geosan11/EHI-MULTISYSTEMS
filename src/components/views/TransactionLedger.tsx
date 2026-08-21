@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Transaction, User, Expense } from "../../lib/types";
-import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDateTime, normalizeAirlineName, formatPaymentModeDisplay, roundMoney } from "../../lib/helpers";
+import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDateTime, normalizeAirlineName, formatPaymentModeDisplay, roundMoney, parseLocalDateBoundary } from "../../lib/helpers";
 import { applyWalletTransaction, processRetrieval, unretrieveEntry, approveRetrieval, RetrievalEntryType } from "../../lib/wallet";
 import { clearDebt, reopenDebt, DebtEntryType } from "../../lib/debt";
 import { deleteTransaction } from "../../lib/deleteTransaction";
@@ -108,6 +108,26 @@ const ACTION_LABELS: Record<string, string> = {
   DEBT_REOPENED: 'Debt Reopened',
 };
 
+// Widest span the Current Shift date-range picker below will accept in one
+// go. EHIApp.tsx's fetchInitial (which this range feeds) is an eager,
+// date-bounded fetch capped per table at ledgerRowCap -- unlike this same
+// picker's effect on Tower/Analytics, which just narrows an aggregate
+// query, a state-wide/admin user here could otherwise trivially request a
+// window wide enough to approach that cap on every load. "All Time" is the
+// right tool for anything genuinely wider: it's server-paginated
+// (ledger_search_page/ledger_search_totals) and never goes through this
+// fetch at all. Picking the field the user just touched as authoritative
+// and clamping the OTHER field inward (see the two onChange handlers
+// below) keeps this from ever silently overriding what someone just typed.
+const LEDGER_DATE_RANGE_MAX_DAYS = 60;
+
+const dateInputValue = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 export const TransactionLedger = ({
   user,
   transactions,
@@ -128,6 +148,9 @@ export const TransactionLedger = ({
   shiftAutoManaged = false,
   customerWallets = [],
   refetchCustomerWallets,
+  ledgerRowsTruncated = false,
+  onLoadMoreLedgerRows,
+  ledgerRowsLoadingMore = false,
 }: {
   user: User;
   transactions: Transaction[];
@@ -167,6 +190,15 @@ export const TransactionLedger = ({
   // text still shows but the Start Day/End Day buttons never render,
   // regardless of activeShift.
   shiftAutoManaged?: boolean;
+  // True when EHIApp.tsx's fetchInitial (the shared, date-range-bounded
+  // fetch behind Current Shift -- NOT All Time, which is separately
+  // server-paginated and never truncates this way) hit its per-table row
+  // cap on the most recent load. Drives the "Load More" button at the end
+  // of the row list below; both onLoadMoreLedgerRows/ledgerRowsLoadingMore
+  // are only meaningful together with this.
+  ledgerRowsTruncated?: boolean;
+  onLoadMoreLedgerRows?: () => void;
+  ledgerRowsLoadingMore?: boolean;
 }) => {
   const navigate = useNavigate();
   const contentTypes = useContentTypes();
@@ -487,7 +519,12 @@ export const TransactionLedger = ({
     let active = true;
     const fetchWallets = async () => {
       try {
-        const { data } = await supabase.from('customer_wallets').select('*').order('updated_at', { ascending: false });
+        // Narrow select: LiveCreditFeed (the only consumer of this Ledger-local
+        // `wallets` state) reads only id/customer_name/customer_phone/balance
+        // (plus updated_at driving this ORDER BY) -- CustomerWallets.tsx's own
+        // full wallet-management screen fetches every column separately and is
+        // untouched by this.
+        const { data } = await supabase.from('customer_wallets').select('id,customer_name,customer_phone,balance,updated_at').order('updated_at', { ascending: false });
         if (active && data) setWallets(data as CustomerWallet[]);
       } catch {}
     };
@@ -521,7 +558,7 @@ export const TransactionLedger = ({
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_transactions' }, payload => {
         const walletId = (payload.new as any)?.wallet_id || (payload.old as any)?.wallet_id;
         if (!walletId) { fetchWallets(); return; }
-        supabase.from('customer_wallets').select('*').eq('id', walletId).single()
+        supabase.from('customer_wallets').select('id,customer_name,customer_phone,balance,updated_at').eq('id', walletId).single()
           .then(({ data }) => {
             if (data) setWallets(prev => prev.map(w => w.id === walletId ? { ...w, ...data } : w));
           });
@@ -3191,14 +3228,29 @@ export const TransactionLedger = ({
               <div className="flex items-center gap-2 flex-wrap">
                 {/* Date range */}
                 {dateRange && onDateRangeChange && (
-                  <div className="flex items-center gap-2 h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-xl font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
+                  <div
+                    className="flex items-center gap-2 h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-xl font-mono text-[10px] text-[var(--color-foreground)] transition-colors group"
+                    title={`This picker loads up to ${LEDGER_DATE_RANGE_MAX_DAYS} days at a time -- switch to "All Time" for a longer lookback.`}
+                  >
                     <Calendar size={11} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
                     <input
                       id="ledger-date-start"
                       name="date-start"
                       type="date"
                       value={dateRange.start}
-                      onChange={(e) => onDateRangeChange({ ...dateRange, start: e.target.value })}
+                      max={dateRange.end || undefined}
+                      onChange={(e) => {
+                        const newStart = e.target.value;
+                        if (!newStart || !dateRange.end) { onDateRangeChange({ ...dateRange, start: newStart }); return; }
+                        const spanDays = Math.round((parseLocalDateBoundary(dateRange.end).getTime() - parseLocalDateBoundary(newStart).getTime()) / 86400000);
+                        if (spanDays > LEDGER_DATE_RANGE_MAX_DAYS) {
+                          const clampedEnd = parseLocalDateBoundary(newStart);
+                          clampedEnd.setDate(clampedEnd.getDate() + LEDGER_DATE_RANGE_MAX_DAYS);
+                          onDateRangeChange({ start: newStart, end: dateInputValue(clampedEnd) });
+                        } else {
+                          onDateRangeChange({ ...dateRange, start: newStart });
+                        }
+                      }}
                       className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none h-full w-[100px] font-bold cursor-pointer"
                     />
                     <span className="text-[var(--color-muted)] font-sans">→</span>
@@ -3207,7 +3259,19 @@ export const TransactionLedger = ({
                       name="date-end"
                       type="date"
                       value={dateRange.end}
-                      onChange={(e) => onDateRangeChange({ ...dateRange, end: e.target.value })}
+                      min={dateRange.start || undefined}
+                      onChange={(e) => {
+                        const newEnd = e.target.value;
+                        if (!newEnd || !dateRange.start) { onDateRangeChange({ ...dateRange, end: newEnd }); return; }
+                        const spanDays = Math.round((parseLocalDateBoundary(newEnd).getTime() - parseLocalDateBoundary(dateRange.start).getTime()) / 86400000);
+                        if (spanDays > LEDGER_DATE_RANGE_MAX_DAYS) {
+                          const clampedStart = parseLocalDateBoundary(newEnd);
+                          clampedStart.setDate(clampedStart.getDate() - LEDGER_DATE_RANGE_MAX_DAYS);
+                          onDateRangeChange({ start: dateInputValue(clampedStart), end: newEnd });
+                        } else {
+                          onDateRangeChange({ ...dateRange, end: newEnd });
+                        }
+                      }}
                       className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none h-full w-[100px] font-bold cursor-pointer"
                     />
                   </div>
@@ -3876,6 +3940,33 @@ export const TransactionLedger = ({
               </div>
             ) : !allTimeHasMore && (allTimeTxRows.length + allTimeExpenseRows.length) > 0 ? (
               <div className="text-[10px] font-mono text-[var(--color-muted)]">— End of results —</div>
+            ) : null}
+          </div>
+        )}
+
+        {/* Current Shift / date-range footer -- appears only when
+            EHIApp.tsx's fetchInitial actually hit its per-table row cap
+            for the currently loaded window (ledgerRowsTruncated). This is
+            a separate mechanism from the All Time footer above: it re-runs
+            the same date-range-bounded fetch with a higher cap rather than
+            paging through the ledger_search_page RPC, so it's hidden while
+            shiftFilter === 'all' (All Time already has its own loading
+            state/pagination and never sets ledgerRowsTruncated). */}
+        {shiftFilter !== 'all' && ledgerRowsTruncated && (
+          <div className="py-4 text-center">
+            {ledgerRowsLoadingMore ? (
+              <div className="flex items-center justify-center gap-1.5 text-[10px] font-mono text-[var(--color-muted)]">
+                <Loader2 size={12} className="animate-spin" />
+                <span>Loading more…</span>
+              </div>
+            ) : onLoadMoreLedgerRows ? (
+              <button
+                onClick={onLoadMoreLedgerRows}
+                className="px-4 py-2 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-xl text-[11px] font-mono font-bold text-[var(--color-foreground)] transition-colors cursor-pointer"
+                title="More entries exist in this date range than are currently loaded"
+              >
+                Load More
+              </button>
             ) : null}
           </div>
         )}

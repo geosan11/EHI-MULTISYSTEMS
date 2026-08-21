@@ -1,15 +1,15 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { User, Transaction, Expense } from '../../lib/types';
 import { fmt, parseLocalDateBoundary } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
-import { Box, Plane, TrendingUp, Package, Lock, Unlock, AlertCircle, FileDown } from 'lucide-react';
+import { Box, Plane, TrendingUp, Package, Lock, Unlock, AlertCircle, FileDown, Loader2 } from 'lucide-react';
 import { BackButton } from '../BackButton';
-import { DebtorsTab } from './DebtorsTab';
-import { ExpensesTab } from './ExpensesTab';
-import { BankReconciliation } from './BankReconciliation';
-import { PaymentValidation } from './PaymentValidation';
+const DebtorsTab = lazy(() => import('./DebtorsTab').then(m => ({ default: m.DebtorsTab })));
+const ExpensesTab = lazy(() => import('./ExpensesTab').then(m => ({ default: m.ExpensesTab })));
+const BankReconciliation = lazy(() => import('./BankReconciliation').then(m => ({ default: m.BankReconciliation })));
+const PaymentValidation = lazy(() => import('./PaymentValidation').then(m => ({ default: m.PaymentValidation })));
 import { useToast } from '../../lib/ToastContext';
-import { B2BSalesTab } from './B2BSalesTab';
+const B2BSalesTab = lazy(() => import('./B2BSalesTab').then(m => ({ default: m.B2BSalesTab })));
 import { fetchAllDebtAndRetrievalEntries, buildShadowRowExclusionCounts, extractPaymentHistoryEvents, sumPaymentHistoryByMode } from '../../lib/debt';
 
 export interface AccountingConsoleProps {
@@ -730,6 +730,11 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
         </div>
       )}
 
+      <Suspense fallback={(
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="animate-spin text-[var(--color-muted)]" size={24} />
+        </div>
+      )}>
       {activeTab === 'Credit Sales' && (
         <DebtorsTab
           transactions={transactions}
@@ -749,6 +754,7 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
       )}
       {activeTab === 'Expenses' && <ExpensesTab expenses={expenses} user={user} onAddExpense={onAddExpense} onUpdateExpense={onUpdateExpense} />}
       {activeTab === 'Payment Validation' && <PaymentValidation transactions={transactions} onUpdateTx={onFullUpdateTx!} user={user} />}
+      </Suspense>
       {activeTab === 'Remittances' && (
         <div className="flex flex-col items-center justify-center p-8 py-16 text-center bg-[var(--color-surface-card)] rounded-xl border border-dashed border-[var(--color-surface-2)] mt-4">
            <Unlock size={36} className="text-[var(--color-muted)] mb-3" />

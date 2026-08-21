@@ -1,37 +1,45 @@
 import { ErrorBoundary } from '../ErrorBoundary';
-import { AccountingConsole } from './AccountingConsole';
-import { Reports } from './Reports';
-import { Settings } from './Settings';
-import { BankReconciliation } from './BankReconciliation';
-import { Fleet } from './Fleet';
-import { Forecasting } from './Forecasting';
-import { FraudAlerts } from './FraudAlerts';
-import { AuditLog } from './AuditLog';
-import { TransactionLedger } from './TransactionLedger';
-import { PODLog } from './PODLog';
-import { Dispatch } from './Dispatch';
-import { EODReconciliation } from './EODReconciliation';
-import { SupportTickets } from './SupportTickets';
+import React, { useState, useMemo, useCallback, lazy, Suspense } from 'react';
 
-import { PricingConfiguration } from './PricingConfiguration';
-import { HubCargoRates } from './HubCargoRates';
-import { AirlineCommissions } from './AirlineCommissions';
-import { ExcessBaggageAirlines } from './ExcessBaggageAirlines';
-import { CorporateBilling } from './CorporateBilling';
-import { OfficeWorkReconciliation } from './OfficeWorkReconciliation';
-import { ContentTypes } from './ContentTypes';
-import { ExpenseCategories } from './ExpenseCategories';
-import { Banks } from './Banks';
-import { SpecialGoodsRates } from './SpecialGoodsRates';
-import { MinimumCharges } from './MinimumCharges';
-import { FlatTierRates } from './FlatTierRates';
-import { SizeTierRates } from './SizeTierRates';
-import { RatesList } from './RatesList';
-import { CustomerWallets } from './CustomerWallets';
-import { GatPrintQueue } from './GatPrintQueue';
-import { DebtCollectionRetrievalLog } from './DebtCollectionRetrievalLog';
+// Lazy-loaded: this file alone used to eagerly pull in ~29 sub-view modules
+// (AccountingConsole's own further eager sub-imports on top of that) the
+// moment More.tsx loaded -- which, since More.tsx itself is one of
+// EHIApp.tsx's eager top-level imports, meant all of it loaded on every
+// login regardless of whether a user ever opened "More". getActiveSubView()
+// below always renders exactly one of these at a time, so a single
+// <Suspense> around its returned element (not around the AnimatePresence
+// that hosts it) is enough.
+const AccountingConsole = lazy(() => import('./AccountingConsole').then(m => ({ default: m.AccountingConsole })));
+const Reports = lazy(() => import('./Reports').then(m => ({ default: m.Reports })));
+const Settings = lazy(() => import('./Settings').then(m => ({ default: m.Settings })));
+const BankReconciliation = lazy(() => import('./BankReconciliation').then(m => ({ default: m.BankReconciliation })));
+const Fleet = lazy(() => import('./Fleet').then(m => ({ default: m.Fleet })));
+const Forecasting = lazy(() => import('./Forecasting').then(m => ({ default: m.Forecasting })));
+const FraudAlerts = lazy(() => import('./FraudAlerts').then(m => ({ default: m.FraudAlerts })));
+const AuditLog = lazy(() => import('./AuditLog').then(m => ({ default: m.AuditLog })));
+const TransactionLedger = lazy(() => import('./TransactionLedger').then(m => ({ default: m.TransactionLedger })));
+const PODLog = lazy(() => import('./PODLog').then(m => ({ default: m.PODLog })));
+const Dispatch = lazy(() => import('./Dispatch').then(m => ({ default: m.Dispatch })));
+const EODReconciliation = lazy(() => import('./EODReconciliation').then(m => ({ default: m.EODReconciliation })));
+const SupportTickets = lazy(() => import('./SupportTickets').then(m => ({ default: m.SupportTickets })));
 
-import React, { useState, useMemo, useCallback } from 'react';
+const PricingConfiguration = lazy(() => import('./PricingConfiguration').then(m => ({ default: m.PricingConfiguration })));
+const HubCargoRates = lazy(() => import('./HubCargoRates').then(m => ({ default: m.HubCargoRates })));
+const AirlineCommissions = lazy(() => import('./AirlineCommissions').then(m => ({ default: m.AirlineCommissions })));
+const ExcessBaggageAirlines = lazy(() => import('./ExcessBaggageAirlines').then(m => ({ default: m.ExcessBaggageAirlines })));
+const CorporateBilling = lazy(() => import('./CorporateBilling').then(m => ({ default: m.CorporateBilling })));
+const OfficeWorkReconciliation = lazy(() => import('./OfficeWorkReconciliation').then(m => ({ default: m.OfficeWorkReconciliation })));
+const ContentTypes = lazy(() => import('./ContentTypes').then(m => ({ default: m.ContentTypes })));
+const ExpenseCategories = lazy(() => import('./ExpenseCategories').then(m => ({ default: m.ExpenseCategories })));
+const Banks = lazy(() => import('./Banks').then(m => ({ default: m.Banks })));
+const SpecialGoodsRates = lazy(() => import('./SpecialGoodsRates').then(m => ({ default: m.SpecialGoodsRates })));
+const MinimumCharges = lazy(() => import('./MinimumCharges').then(m => ({ default: m.MinimumCharges })));
+const FlatTierRates = lazy(() => import('./FlatTierRates').then(m => ({ default: m.FlatTierRates })));
+const SizeTierRates = lazy(() => import('./SizeTierRates').then(m => ({ default: m.SizeTierRates })));
+const RatesList = lazy(() => import('./RatesList').then(m => ({ default: m.RatesList })));
+const CustomerWallets = lazy(() => import('./CustomerWallets').then(m => ({ default: m.CustomerWallets })));
+const GatPrintQueue = lazy(() => import('./GatPrintQueue').then(m => ({ default: m.GatPrintQueue })));
+const DebtCollectionRetrievalLog = lazy(() => import('./DebtCollectionRetrievalLog').then(m => ({ default: m.DebtCollectionRetrievalLog })));
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { User, TabView, Transaction, Expense, ExcessBaggageAirline, HubShift, CustomerWallet } from '../../lib/types';
@@ -72,9 +80,9 @@ import {
   HandCoinsIcon,
   AirTrafficControlIcon,
 } from '@phosphor-icons/react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Loader2 } from 'lucide-react';
 
-import { StaffManagement } from './StaffManagement';
+const StaffManagement = lazy(() => import('./StaffManagement').then(m => ({ default: m.StaffManagement })));
 
 // Every sub-view inside More is a URL slug under /more/ -- refresh, browser
 // back/forward, and deep-links all work through this instead of 29 separate
@@ -115,7 +123,7 @@ const MORE_SUB_ROUTES = {
 } as const;
 type MoreSubKey = keyof typeof MORE_SUB_ROUTES;
 
-export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, onFullUpdateTx, onDeleteTx, onAddExpense, onUpdateExpense, onChangeTab, dateRange, onDateRangeChange, excessBaggageAirlines, activeShift, todayShifts, onStartShift, onEndShift, customerWallets, refetchCustomerWallets }: { user: User; transactions: Transaction[]; expenses: Expense[]; onLogout: () => void; onEOD?: (summary: any) => void; onAddTx: (tx: Transaction) => void; onFullUpdateTx?: (tx: Transaction) => void; onDeleteTx: (type: string, id: string) => void; onAddExpense: (e: Expense) => void; onUpdateExpense?: (expenseId: string, decision: 'approved' | 'rejected') => void; onChangeTab: (t: TabView) => void; dateRange?: { start: string; end: string }; onDateRangeChange?: (range: { start: string; end: string }) => void; excessBaggageAirlines: ExcessBaggageAirline[]; activeShift?: HubShift | null; todayShifts?: HubShift[]; onStartShift?: () => void; onEndShift?: () => void; customerWallets?: CustomerWallet[]; refetchCustomerWallets?: () => void; }) => {
+export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, onFullUpdateTx, onDeleteTx, onAddExpense, onUpdateExpense, onChangeTab, dateRange, onDateRangeChange, excessBaggageAirlines, activeShift, todayShifts, onStartShift, onEndShift, customerWallets, refetchCustomerWallets, ledgerRowsTruncated, onLoadMoreLedgerRows, ledgerRowsLoadingMore }: { user: User; transactions: Transaction[]; expenses: Expense[]; onLogout: () => void; onEOD?: (summary: any) => void; onAddTx: (tx: Transaction) => void; onFullUpdateTx?: (tx: Transaction) => void; onDeleteTx: (type: string, id: string) => void; onAddExpense: (e: Expense) => void; onUpdateExpense?: (expenseId: string, decision: 'approved' | 'rejected') => void; onChangeTab: (t: TabView) => void; dateRange?: { start: string; end: string }; onDateRangeChange?: (range: { start: string; end: string }) => void; excessBaggageAirlines: ExcessBaggageAirline[]; activeShift?: HubShift | null; todayShifts?: HubShift[]; onStartShift?: () => void; onEndShift?: () => void; customerWallets?: CustomerWallet[]; refetchCustomerWallets?: () => void; ledgerRowsTruncated?: boolean; onLoadMoreLedgerRows?: () => void; ledgerRowsLoadingMore?: boolean; }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const prefersReducedMotion = useReducedMotion();
@@ -262,6 +270,9 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
             // overlay, which isn't touched by this.
             customerWallets={customerWallets}
             refetchCustomerWallets={refetchCustomerWallets}
+            ledgerRowsTruncated={ledgerRowsTruncated}
+            onLoadMoreLedgerRows={onLoadMoreLedgerRows}
+            ledgerRowsLoadingMore={ledgerRowsLoadingMore}
           />
         </ErrorBoundary>
       ) };
@@ -449,7 +460,15 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
           transition={{ duration: (prefersReducedMotion || isLedgerView) ? 0 : 0.5, ease: [0.4, 0, 0.2, 1] }}
           style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
         >
-          {activeView ? activeView.element : (
+          {activeView ? (
+            <Suspense fallback={(
+              <div className="flex items-center justify-center h-full py-20">
+                <Loader2 className="animate-spin text-[var(--color-muted)]" size={24} />
+              </div>
+            )}>
+              {activeView.element}
+            </Suspense>
+          ) : (
             <div className="p-4 pb-8 select-none">
 
       {/* Daily Operations */}
