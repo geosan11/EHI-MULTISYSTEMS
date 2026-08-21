@@ -242,9 +242,17 @@ export const CargoForm = ({
         headers: { Authorization: `Bearer ${token}` },
       });
     })
-      .then(r => r.ok ? r.json() : null)
+      .then(r => {
+        if (r.ok) return r.json();
+        // Not a toast (fires on every hub load; a transient/quota failure
+        // shouldn't nag staff mid-intake) -- but no longer a silent no-op
+        // either, so a real misconfiguration is at least visible in the
+        // browser console instead of just leaving Flight No. unexplainably blank.
+        console.error(`[FlightRadar] departures fetch failed: ${r.status}`);
+        return null;
+      })
       .then(data => { if (!cancelled && data) setDeparturesBoard(data.flights || []); })
-      .catch(() => {});
+      .catch(err => console.error('[FlightRadar] departures fetch error:', err));
     return () => { cancelled = true; };
   }, [user.hub_code, user.hub]);
   const [customConsignee, setCustomConsignee] = useState("");

@@ -57,7 +57,8 @@ async function getCallerProfile(req: any, admin: any): Promise<{ role: string; h
   if (!token) return null;
   const { data: { user }, error } = await admin.auth.getUser(token);
   if (error || !user) return null;
-  const { data: profile } = await admin.from('user_profiles').select('role,hub_id').eq('id', user.id).single();
+  const { data: profile, error: profileError } = await admin.from('user_profiles').select('role,hub_id').eq('id', user.id).single();
+  if (profileError) console.error('[flightRadar] getCallerProfile: user_profiles query failed:', profileError.message);
   return profile || null;
 }
 
@@ -155,12 +156,13 @@ async function getOrRefresh(flightNumber: string, date: string, forceRefresh: bo
   if (!admin) return { error: 'Server not configured', code: 503 };
 
   if (!forceRefresh) {
-    const { data: cached } = await admin
+    const { data: cached, error: cacheError } = await admin
       .from('flight_status_cache')
       .select(FLIGHT_STATUS_CACHE_COLUMNS)
       .eq('flight_number', flightNumber)
       .eq('flight_date', date)
       .maybeSingle();
+    if (cacheError) console.error('[flightRadar] getOrRefresh: cache read failed:', cacheError.message);
     if (cached && Date.now() - new Date(cached.fetched_at).getTime() < CACHE_TTL_MS) {
       return { data: cached };
     }
@@ -169,12 +171,13 @@ async function getOrRefresh(flightNumber: string, date: string, forceRefresh: bo
   if (!process.env.AERODATABOX_API_KEY) {
     // Not configured -- serve whatever's cached (even if stale) rather
     // than a hard error, so the board still shows last-known status.
-    const { data: cached } = await admin
+    const { data: cached, error: cacheError } = await admin
       .from('flight_status_cache')
       .select(FLIGHT_STATUS_CACHE_COLUMNS)
       .eq('flight_number', flightNumber)
       .eq('flight_date', date)
       .maybeSingle();
+    if (cacheError) console.error('[flightRadar] getOrRefresh: cache read failed:', cacheError.message);
     return cached ? { data: cached } : { error: 'Flight tracking not configured', code: 503 };
   }
 
@@ -186,12 +189,14 @@ async function getOrRefresh(flightNumber: string, date: string, forceRefresh: bo
     // surfacing an error to every viewer -- AeroDataBox's free/low tier is
     // easy to exhaust, and a quota-exceeded response shouldn't blank out a
     // status the app already knew a moment ago.
-    const { data: cached } = await admin
+    console.error('[flightRadar] getOrRefresh: AeroDataBox call failed:', err?.response?.data || err.message);
+    const { data: cached, error: cacheError } = await admin
       .from('flight_status_cache')
       .select(FLIGHT_STATUS_CACHE_COLUMNS)
       .eq('flight_number', flightNumber)
       .eq('flight_date', date)
       .maybeSingle();
+    if (cacheError) console.error('[flightRadar] getOrRefresh: cache read failed:', cacheError.message);
     if (cached) return { data: cached };
     return { error: err?.response?.data?.message || err.message || 'Flight lookup failed', code: 502 };
   }
@@ -219,24 +224,37 @@ async function getOrRefresh(flightNumber: string, date: string, forceRefresh: bo
   // own SELECT failed -- res.json(result.data) is the only caller, and it's
   // fine for that one edge case to include the extra field; every normal
   // response goes through the trimmed `saved` shape above.
-  if (saveError) return { data: row };
+  if (saveError) {
+    console.error('[flightRadar] getOrRefresh: cache upsert failed:', saveError.message);
+    return { data: row };
+  }
   return { data: saved };
 }
 
 // Airport departures FIDS response -> the trimmed shape CargoForm needs to
-// find "the next flight to X on airline Y" client-side. Field names
-// confirmed against a live response during implementation (same caveat as
-// normalizeStatus above) -- an airport-board entry's "other end" comes back
-// as `movement.airport` (not a separate departure/arrival pair the way the
-// single-flight endpoint returns), so that's read with a couple of
-// fallbacks in case AeroDataBox varies the shape by airport/carrier.
+// find "the next flight to X on airline Y" client-side.
+//
+// PREVIOUSLY WRONG: this read `movement?.airport?.iata` (falling back to
+// `raw.departure` when `raw.movement` was absent) as the destination. For a
+// Departure-direction FIDS query, `raw.departure` describes the airport you
+// QUERIED (the origin), not where the flight is going -- AeroDataBox's own
+// docs note the older `movement` property was replaced by separate
+// `departure`/`arrival` properties, matching the shape normalizeStatus
+// above already uses correctly. That bug meant every entry's destination
+// silently resolved to the origin's own code (e.g. every LOS departure
+// reported destinationIata: "LOS"), so CargoForm's auto-fill match against
+// the real picked route could never succeed -- explains a permanently
+// empty "My Shipments" board even with AERODATABOX_API_KEY correctly
+// configured. Fixed by reading `raw.arrival.airport.iata` first (always
+// correct, regardless of whether `movement` exists), with `movement` only
+// as a last-resort legacy fallback.
 function normalizeDepartureEntry(raw: any): { flightNumber: string | null; airline: string | null; destinationIata: string | null; scheduledDeparture: string | null; status: string } {
   const movement = raw?.movement || raw?.departure || {};
   return {
     flightNumber: raw?.number || raw?.callSign || null,
     airline: raw?.airline?.name || null,
-    destinationIata: movement?.airport?.iata || raw?.arrival?.airport?.iata || null,
-    scheduledDeparture: movement?.scheduledTime?.utc || raw?.departure?.scheduledTime?.utc || null,
+    destinationIata: raw?.arrival?.airport?.iata || movement?.airport?.iata || null,
+    scheduledDeparture: raw?.departure?.scheduledTime?.utc || movement?.scheduledTime?.utc || null,
     status: mapRawStatusString(String(raw?.status || '')),
   };
 }
@@ -262,7 +280,14 @@ async function fetchDeparturesFromAeroDataBox(originIata: string, date: string):
     });
     return response.data?.departures || [];
   }));
-  return results.flat().map(normalizeDepartureEntry).filter(f => f.flightNumber);
+  const merged = results.flat();
+  // Server-only diagnostic (Vercel function logs, never sent to the
+  // client) -- the field-mapping bug fixed just above was guessed from
+  // documentation fragments, never an actual live response, so this stays
+  // until someone's confirmed a real payload matches normalizeDepartureEntry's
+  // assumptions. Safe to remove once that's verified.
+  if (merged[0]) console.log('[flightRadar] sample raw departure entry:', JSON.stringify(merged[0]));
+  return merged.map(normalizeDepartureEntry).filter(f => f.flightNumber);
 }
 
 // Cache-or-fetch the whole day's departures board for one airport -- shared
@@ -271,12 +296,13 @@ async function fetchDeparturesFromAeroDataBox(originIata: string, date: string):
 // file's DEPARTURES_CACHE_TTL_MS comment for why this is a board-per-airport
 // cache rather than a call-per-lookup like getOrRefresh.
 async function getOrFetchDeparturesBoard(admin: any, originIata: string, date: string, forceRefresh: boolean): Promise<any[]> {
-  const { data: cached } = await admin
+  const { data: cached, error: cacheError } = await admin
     .from('flight_departures_board_cache')
     .select('*')
     .eq('origin_iata', originIata)
     .eq('board_date', date)
     .maybeSingle();
+  if (cacheError) console.error(`[flightRadar] getOrFetchDeparturesBoard(${originIata}): cache read failed:`, cacheError.message);
   if (!forceRefresh && cached && Date.now() - new Date(cached.fetched_at).getTime() < DEPARTURES_CACHE_TTL_MS) {
     return cached.flights;
   }
@@ -291,15 +317,17 @@ async function getOrFetchDeparturesBoard(admin: any, originIata: string, date: s
   try {
     flights = await fetchDeparturesFromAeroDataBox(originIata, date);
   } catch (err: any) {
+    console.error(`[flightRadar] getOrFetchDeparturesBoard(${originIata}): AeroDataBox call failed:`, err?.response?.data || err.message);
     // A failed live call falls back to stale cache rather than breaking
     // cargo intake or the national board -- same fallback philosophy as
     // getOrRefresh.
     return cached?.flights || [];
   }
 
-  await admin
+  const { error: upsertError } = await admin
     .from('flight_departures_board_cache')
     .upsert({ origin_iata: originIata, board_date: date, flights, fetched_at: new Date().toISOString() }, { onConflict: 'origin_iata,board_date' });
+  if (upsertError) console.error(`[flightRadar] getOrFetchDeparturesBoard(${originIata}): cache upsert failed:`, upsertError.message);
 
   return flights;
 }
@@ -328,11 +356,16 @@ router.get('/national-board', async (req, res) => {
   const admin = await getAdminClient();
   if (!admin) { res.status(503).json({ error: 'Server not configured' }); return; }
 
-  const { data: cachedRows } = await admin
+  const { data: cachedRows, error: cachedRowsError } = await admin
     .from('flight_departures_board_cache')
     .select('origin_iata,flights,fetched_at')
     .in('origin_iata', NATIONAL_AIRPORTS)
     .eq('board_date', date);
+  if (cachedRowsError) {
+    console.error('[flightRadar] /national-board: query failed:', cachedRowsError.message);
+    res.status(500).json({ error: cachedRowsError.message });
+    return;
+  }
 
   const flights = (cachedRows || []).flatMap((row: any) =>
     (row.flights || []).map((f: any) => ({ ...f, originIata: row.origin_iata }))
@@ -406,8 +439,15 @@ router.get('/board', async (req, res) => {
   if (!profile) { res.status(401).json({ error: 'Invalid session' }); return; }
   const isUnrestricted = UNRESTRICTED_ROLES.includes(profile.role);
 
-  const dayStart = `${date}T00:00:00.000Z`;
-  const dayEnd = `${date}T23:59:59.999Z`;
+  // `date` is a Lagos-local calendar date (lagosBusinessDate() on the
+  // client) -- Africa/Lagos is a fixed UTC+1 offset year-round (no DST), so
+  // appending a literal +01:00 offset (not Z) converts Lagos midnight/
+  // end-of-day correctly to UTC instants. Appending Z directly here used to
+  // treat the date string as if it were already UTC, shifting the whole
+  // window an hour late and silently excluding entries created 00:00-00:59
+  // Lagos time from "today"'s board.
+  const dayStart = new Date(`${date}T00:00:00.000+01:00`).toISOString();
+  const dayEnd = new Date(`${date}T23:59:59.999+01:00`).toISOString();
 
   let cargoQuery = admin.from('cargo_entries')
     .select('entry_ref,awb_tag_number,flight_number,airline,route,consignee_name,created_at,hub_id')
@@ -431,6 +471,17 @@ router.get('/board', async (req, res) => {
     manifestQuery,
     admin.from('flight_status_cache').select(FLIGHT_STATUS_CACHE_COLUMNS).eq('flight_date', date),
   ]);
+
+  // A query failure here (e.g. a migration not fully applied, RLS denial)
+  // used to fall straight through to `.data || []` and look identical to
+  // "genuinely no flights today" -- surface it instead so it's actually
+  // diagnosable from the client/Vercel logs rather than a silent blank board.
+  const queryError = cargoRes.error || manifestRes.error || cacheRes.error;
+  if (queryError) {
+    console.error('[flightRadar] /board: query failed:', queryError.message);
+    res.status(500).json({ error: queryError.message });
+    return;
+  }
 
   const cacheByFlight = new Map((cacheRes.data || []).map((c: any) => [c.flight_number, c]));
 
