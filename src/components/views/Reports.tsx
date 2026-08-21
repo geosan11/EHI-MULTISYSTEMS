@@ -109,7 +109,12 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
               // receipt_mode itself never changes off 'Debt' when a debt is
               // cleared (only amount_paid moves), so without this every
               // cleared cargo debt still showed as outstanding here forever.
-              mode: r.receipt_mode === 'Debt' && (r.amount_paid || 0) >= (r.amount || 0) ? 'Debt Paid' : (r.receipt_mode || 'Cash'),
+              // + retrieved_amount: a debt can be fully settled by a MIX of
+              // an explicit payment and a partial retrieval (see
+              // clear_cargo_debt's own balance formula) -- without it, a
+              // debt genuinely fully paid via that mix showed as still
+              // "Debt" forever here too.
+              mode: r.receipt_mode === 'Debt' && (r.amount_paid || 0) + (r.retrieved_amount || 0) >= (r.amount || 0) ? 'Debt Paid' : (r.receipt_mode || 'Cash'),
               time: new Date(r.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
               type: 'cargo',
               status: r.status,
@@ -139,7 +144,7 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
               detail: `${r.flight_no || ''} · ${r.destination || ''} · ${r.total_pcs || 1}pcs · +${r.excess_kg || 0}kg excess`,
               amount: r.amount || 0,
               // Same 'Debt Paid' derivation as cargo above.
-              mode: r.payment_mode === 'Debt' && (r.amount_paid || 0) >= (r.amount || 0) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
+              mode: r.payment_mode === 'Debt' && (r.amount_paid || 0) + (r.retrieved_amount || 0) >= (r.amount || 0) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
               time: new Date(r.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
               type: 'baggage',
               status: r.status || 'Received',
@@ -173,7 +178,8 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
               // much of a debt sale has been paid off -- that's
               // debt_amount_paid (matches EHIApp.tsx's fetchInitial, which
               // uses the same two columns the same way).
-              mode: r.payment_mode === 'Debt' && (r.debt_amount_paid || 0) >= (r.amount_paid || 0) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
+              // + retrieved_amount, see the cargo branch's comment above.
+              mode: r.payment_mode === 'Debt' && (r.debt_amount_paid || 0) + (r.retrieved_amount || 0) >= (r.amount_paid || 0) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
               time: new Date(r.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
               type: 'marketing',
               status: r.status || 'Received',
@@ -197,8 +203,9 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
               detail: `${r.destination || 'Destination'} · ${r.content_type || 'Package'} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg`,
               amount: r.amount || 0,
               // Same 'Debt Paid' derivation EHIApp.tsx's fetchInitial uses
-              // for package_entries (debt_paid flag OR amount_paid caught up).
-              mode: r.payment_mode === 'Debt' && (r.debt_paid === true || (r.amount_paid || 0) >= (r.amount || 0)) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
+              // for package_entries (debt_paid flag OR amount_paid caught
+              // up). + retrieved_amount, see the cargo branch's comment above.
+              mode: r.payment_mode === 'Debt' && (r.debt_paid === true || (r.amount_paid || 0) + (r.retrieved_amount || 0) >= (r.amount || 0)) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
               time: new Date(r.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
               type: 'package',
               status: r.status || 'Received',

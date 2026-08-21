@@ -112,13 +112,23 @@ export async function compileLedger80mmStream(
     chunks.push(encoder.encode(idLine));
     chunks.push(new Uint8Array(BOLD_OFF));
 
-    // Customer/consignee/passenger name, in the printer's condensed Font B
-    // -- deliberately smaller than the ID/spec lines so it doesn't eat
-    // into the limited 80mm width, while still being legible for a quick
-    // "whose shipment is this" glance without opening the app.
+    // Customer/consignee/passenger name (+ this entry's own date, since a
+    // debt printed today can easily be from weeks ago), in the printer's
+    // condensed Font B -- deliberately smaller than the ID/spec lines so
+    // it doesn't eat into the limited 80mm width, while still being
+    // legible for a quick "whose shipment, and from when" glance without
+    // opening the app.
     if (e.name) {
+      // Intl-backed toLocaleDateString() THROWS a RangeError (not just
+      // "Invalid Date" text) on a malformed created_at -- same reasoning
+      // as ledgerSearch.ts's safeTimeString -- which would otherwise crash
+      // this whole print for every entry over one bad row's date.
+      const parsedDate = raw.created_at ? new Date(raw.created_at) : null;
+      const dateStr = parsedDate && !isNaN(parsedDate.getTime())
+        ? parsedDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' })
+        : '';
       chunks.push(new Uint8Array(FONT_B_ON));
-      chunks.push(encoder.encode(`   ${e.name.slice(0, 40)}\n`));
+      chunks.push(encoder.encode(`   ${e.name.slice(0, 30)}${dateStr ? ` · ${dateStr}` : ''}\n`));
       chunks.push(new Uint8Array(FONT_A_ON));
     }
 

@@ -102,7 +102,13 @@ function mapCargoRow(r: any, profileLookup: Record<string, string>): Transaction
     id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo',
     detail: `${r.airline || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}${r.size_inches ? ` · ${r.size_inches}in` : ''}`,
     amount: r.amount || 0,
-    mode: r.receipt_mode === 'Debt' && Number(r.amount_paid || 0) >= Number(r.amount || 0) ? 'Debt Paid' : (r.receipt_mode || 'Cash'),
+    // + retrieved_amount: a debt can be fully settled by a MIX of an
+    // explicit payment and a partial retrieval (see clear_cargo_debt's own
+    // balance formula, which subtracts retrieved_amount) -- without it
+    // here, a debt genuinely fully paid via that mix would show as still
+    // "Debt" forever, never flipping to "Debt Paid", even though
+    // payment_confirmed is correctly true server-side.
+    mode: r.receipt_mode === 'Debt' && Number(r.amount_paid || 0) + Number(r.retrieved_amount || 0) >= Number(r.amount || 0) ? 'Debt Paid' : (r.receipt_mode || 'Cash'),
     time: safeTimeString(r.created_at),
     type: 'cargo', status: r.status || 'Intake', awb_tag_number: r.awb_tag_number, kg: r.total_kg,
     sizeInches: r.size_inches ?? undefined, pieces: r.total_pcs, pickupPin: r.pickup_pin || undefined,
@@ -127,7 +133,8 @@ function mapBaggageRow(r: any, profileLookup: Record<string, string>): Transacti
     id: r.transaction_id || r.id, name: r.passenger_name || 'Baggage Passenger',
     detail: `${r.flight_no || ''} · ${r.destination || ''} · ${r.total_pcs || 1}pcs · +${r.excess_kg || 0}kg excess`,
     amount: r.amount || 0,
-    mode: r.payment_mode === 'Debt' && Number(r.amount_paid || 0) >= Number(r.amount || 0) ? 'Debt Paid' : (r.payment_mode || 'POS'),
+    // See mapCargoRow's comment on the + retrieved_amount term.
+    mode: r.payment_mode === 'Debt' && Number(r.amount_paid || 0) + Number(r.retrieved_amount || 0) >= Number(r.amount || 0) ? 'Debt Paid' : (r.payment_mode || 'POS'),
     time: safeTimeString(r.created_at),
     type: 'baggage', status: 'Delivered', created_at: r.created_at, bank: r.bank, hub_id: r.hub_id, airline: r.airline,
     destination: r.destination, excessKg: r.excess_kg, totalKg: r.total_kg, flight: r.flight_no, pnr: r.pnr || undefined,
@@ -149,7 +156,8 @@ function mapMarketingRow(r: any, profileLookup: Record<string, string>): Transac
     id: r.entry_ref || r.id, awb_tag_number: r.awb_tag_number || undefined, name: r.customer_name || 'Customer',
     detail: `${r.route || ''} · ${r.qty_big_bag || 0}BB ${r.qty_med_bag || 0}MB ${r.qty_small_bag || 0}SB`,
     amount: r.amount_paid || 0,
-    mode: r.payment_mode === 'Debt' && Number(r.debt_amount_paid || 0) >= Number(r.amount_paid || 0) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
+    // See mapCargoRow's comment on the + retrieved_amount term.
+    mode: r.payment_mode === 'Debt' && Number(r.debt_amount_paid || 0) + Number(r.retrieved_amount || 0) >= Number(r.amount_paid || 0) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
     time: safeTimeString(r.created_at),
     type: 'marketing', status: 'Intake', created_at: r.created_at, bank: r.bank, hub_id: r.hub_id, route: r.route,
     airline: r.airline || undefined, enteredByName: enteredByName || undefined, editedBy: r.last_edited_by || undefined,
@@ -171,7 +179,8 @@ function mapPackageRow(r: any, profileLookup: Record<string, string>): Transacti
     id: r.entry_ref || r.id, name: r.customer_name || 'Customer',
     detail: `${r.destination || ''} · ${r.content_type || 'Package'} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg${r.contents ? ` · ${r.contents}` : ''}`,
     amount: r.amount || 0,
-    mode: r.payment_mode === 'Debt' && (r.debt_paid === true || Number(r.amount_paid || 0) >= Number(r.amount || 0)) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
+    // See mapCargoRow's comment on the + retrieved_amount term.
+    mode: r.payment_mode === 'Debt' && (r.debt_paid === true || Number(r.amount_paid || 0) + Number(r.retrieved_amount || 0) >= Number(r.amount || 0)) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
     time: safeTimeString(r.created_at),
     type: 'package', status: r.status || 'Intake', created_at: r.created_at, bank: r.bank, hub_id: r.hub_id, terminal: r.terminal,
     destination: r.destination, contentType: r.content_type, pieces: r.total_pcs || undefined, kg: r.total_kg || undefined,
