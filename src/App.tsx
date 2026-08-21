@@ -440,7 +440,17 @@ const AuthenticatedApp = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    getSession().then((profile) => {
+    getSession((lateProfile) => {
+      // The 3.5s race inside getSession() already gave up and showed the
+      // login screen by the time this fires -- but the lookup succeeded
+      // after all (just a slow connection, not an actual sign-out), so log
+      // the user straight in instead of leaving them stuck re-entering
+      // credentials for a session that was valid the whole time.
+      if (lateProfile) {
+        setUser(lateProfile);
+        setLoginNotice(null);
+      }
+    }).then((profile) => {
       if (profile) {
         setUser(profile);
       } else if (!navigator.onLine) {

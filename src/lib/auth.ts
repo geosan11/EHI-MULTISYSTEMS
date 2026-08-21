@@ -378,20 +378,43 @@ async function getSessionInner(): Promise<UserProfile | null> {
   return result;
 }
 
-export async function getSession(): Promise<UserProfile | null> {
+// `onLateResult` fires only when the 3.5s timeout below wins the race but
+// the real lookup then goes on to succeed anyway a moment later -- without
+// it, that result was silently discarded (Promise.race never cancels the
+// loser, it just stops anyone from being told about it), which meant any
+// staffer on a slow hub WiFi/mobile connection got dumped on the login
+// screen and had to re-enter credentials even though their session was
+// perfectly valid the whole time. This was the actual cause of reports of
+// "getting logged out unexpectedly" -- not a real sign-out, just a slow
+// answer whose result nobody was listening for anymore. App.tsx uses this
+// to log the user straight in the moment the slow answer does arrive,
+// instead of leaving them stuck on a login form for no real reason.
+export async function getSession(onLateResult?: (profile: UserProfile | null) => void): Promise<UserProfile | null> {
+  let timedOut = false;
+  const inner = getSessionInner().catch((err) => {
+    console.error('getSessionInner failed:', err);
+    return null;
+  });
+
+  inner.then((profile) => {
+    if (timedOut && onLateResult) onLateResult(profile);
+  });
+
   try {
-    // Neither Supabase call below carries a client-side timeout, so a
-    // stalled mobile connection could leave AuthenticatedApp's loading
-    // spinner (App.tsx) spinning forever with no fallback. Race against a
-    // timeout the same way fetchAndApplyServerConfig already does for
-    // /api/config, so a bad connection degrades to the login screen
-    // instead of an infinite spinner.
+    // Neither Supabase call inside getSessionInner carries a client-side
+    // timeout, so a stalled mobile connection could leave AuthenticatedApp's
+    // loading spinner (App.tsx) spinning forever with no fallback. Race
+    // against a timeout the same way fetchAndApplyServerConfig already does
+    // for /api/config, so a bad connection degrades to the login screen
+    // instead of an infinite spinner -- but the real lookup above keeps
+    // running regardless of which side of the race resolves first.
     return await Promise.race([
-      getSessionInner(),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 3500)),
+      inner,
+      new Promise<null>((resolve) => setTimeout(() => { timedOut = true; resolve(null); }, 3500)),
     ]);
   } catch (err) {
     console.error('Failed to get session:', err);
+    timedOut = true;
     return null;
   }
 }
