@@ -7,7 +7,7 @@ import { BackButton } from '../BackButton';
 import { EmptyState } from './EmptyState';
 import { Modal } from '../Modal';
 import { StatusBadge, flightStatusMeta, FlightStatus } from '../ui/StatusBadge';
-import { Radar, RefreshCw, Plane, Package2, Loader2 } from 'lucide-react';
+import { Radar, RefreshCw, Plane, Package2, Loader2, Search, X } from 'lucide-react';
 
 interface BoardEntry { type: string; id: string; awb?: string; name?: string }
 interface CachedStatus {
@@ -60,6 +60,25 @@ function fmtTime(iso: string | null): string {
   try {
     return new Date(iso).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Lagos' });
   } catch { return '—'; }
+}
+
+function fmtDateTime(iso: string | null): string {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso);
+    const date = d.toLocaleDateString('en-NG', { day: '2-digit', month: 'short', timeZone: 'Africa/Lagos' });
+    const time = d.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Lagos' });
+    return `${date}, ${time}`;
+  } catch { return '—'; }
+}
+
+// Search matches either the flight number or the airline name, case- and
+// whitespace-insensitive -- "united nigeria" should find "UN 123 · United
+// Nigeria Airlines" whether staff type the airline or the flight code.
+function matchesFlightSearch(query: string, flightNumber: string | null, airline: string | null): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return (flightNumber || '').toLowerCase().includes(q) || (airline || '').toLowerCase().includes(q);
 }
 
 async function authedFetch(path: string, init?: RequestInit) {
@@ -159,7 +178,7 @@ function FlightCard({ flight, onOpen }: { flight: BoardFlight; onOpen: () => voi
       className="w-full text-left"
       style={{
         background: 'var(--color-surface-card)', border: '1px solid var(--color-border)',
-        borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12,
+        borderRadius: 'var(--radius-lg)', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12,
       }}
     >
       <div style={{
@@ -177,9 +196,10 @@ function FlightCard({ flight, onOpen }: { flight: BoardFlight; onOpen: () => voi
             <span style={{ fontSize: 11, color: 'var(--color-muted)' }}>{flight.airline}</span>
           )}
         </div>
-        <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 2, display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 2, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           {flight.route && <span>{flight.route}</span>}
           <span>· {flight.entries.length} shipment{flight.entries.length === 1 ? '' : 's'}</span>
+          {flight.status?.scheduled_departure && <span>· {fmtDateTime(flight.status.scheduled_departure)}</span>}
           {flight.status?.delay_minutes ? <span style={{ color: 'var(--color-accent-amber)' }}>· +{flight.status.delay_minutes}m</span> : null}
         </div>
       </div>
@@ -202,7 +222,7 @@ function NationalFlightCard({ flight, onOpen }: { flight: NationalFlight; onOpen
       className="w-full text-left"
       style={{
         background: 'var(--color-surface-card)', border: '1px solid var(--color-border)',
-        borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12,
+        borderRadius: 'var(--radius-lg)', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12,
       }}
     >
       <div style={{
@@ -220,9 +240,9 @@ function NationalFlightCard({ flight, onOpen }: { flight: NationalFlight; onOpen
             <span style={{ fontSize: 11, color: 'var(--color-muted)' }}>{flight.airline}</span>
           )}
         </div>
-        <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 2, display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 2, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontFamily: 'monospace' }}>{flight.originIata} → {flight.destinationIata || '?'}</span>
-          {flight.scheduledDeparture && <span>· {fmtTime(flight.scheduledDeparture)}</span>}
+          {flight.scheduledDeparture && <span>· {fmtDateTime(flight.scheduledDeparture)}</span>}
         </div>
       </div>
       <StatusBadge status={flight.status} size="sm" />
@@ -240,6 +260,10 @@ export const FlightRadar = ({ user, onBack }: { user: User; onBack: () => void }
   const [refreshing, setRefreshing] = useState(false);
   const { showToast } = useToast();
   const canRefreshNational = user.role === 'super_admin' || user.role === 'admin';
+  // Searches whichever tab is active, by flight number or airline name --
+  // shared across both tabs rather than two separate fields, since staff
+  // switching tabs almost always want the same query to carry over.
+  const [search, setSearch] = useState('');
 
   // "Nigeria Today" (Part C) -- every EHI-route airport's departures board,
   // cache-only by default (see server/flightRadar.ts's GET /national-board:
@@ -332,10 +356,11 @@ export const FlightRadar = ({ user, onBack }: { user: User; onBack: () => void }
     setRefreshing(false);
   };
 
-  const attention = flights.filter(f => ATTENTION.includes(effectiveStatus(f.status)));
-  const enroute = flights.filter(f => ENROUTE.includes(effectiveStatus(f.status)));
-  const scheduled = flights.filter(f => effectiveStatus(f.status) === 'scheduled' || effectiveStatus(f.status) === 'unknown');
-  const landed = flights.filter(f => effectiveStatus(f.status) === 'landed');
+  const searchedFlights = flights.filter(f => matchesFlightSearch(search, f.flightNumber, f.airline));
+  const attention = searchedFlights.filter(f => ATTENTION.includes(effectiveStatus(f.status)));
+  const enroute = searchedFlights.filter(f => ENROUTE.includes(effectiveStatus(f.status)));
+  const scheduled = searchedFlights.filter(f => effectiveStatus(f.status) === 'scheduled' || effectiveStatus(f.status) === 'unknown');
+  const landed = searchedFlights.filter(f => effectiveStatus(f.status) === 'landed');
 
   const groups: { title: string; items: BoardFlight[] }[] = [
     { title: 'Needs Attention', items: attention },
@@ -347,10 +372,11 @@ export const FlightRadar = ({ user, onBack }: { user: User; onBack: () => void }
   const selectedStatus = effectiveStatus(selected?.status);
   const selectedMeta = flightStatusMeta(selectedStatus);
 
-  const nationalAttention = nationalFlights.filter(f => ATTENTION.includes(f.status as FlightStatus));
-  const nationalEnroute = nationalFlights.filter(f => ENROUTE.includes(f.status as FlightStatus));
-  const nationalScheduled = nationalFlights.filter(f => f.status === 'scheduled' || f.status === 'unknown');
-  const nationalLanded = nationalFlights.filter(f => f.status === 'landed');
+  const searchedNationalFlights = nationalFlights.filter(f => matchesFlightSearch(search, f.flightNumber, f.airline));
+  const nationalAttention = searchedNationalFlights.filter(f => ATTENTION.includes(f.status as FlightStatus));
+  const nationalEnroute = searchedNationalFlights.filter(f => ENROUTE.includes(f.status as FlightStatus));
+  const nationalScheduled = searchedNationalFlights.filter(f => f.status === 'scheduled' || f.status === 'unknown');
+  const nationalLanded = searchedNationalFlights.filter(f => f.status === 'landed');
   const nationalGroups: { title: string; items: NationalFlight[] }[] = [
     { title: 'Needs Attention', items: nationalAttention },
     { title: 'En Route', items: nationalEnroute },
@@ -362,7 +388,10 @@ export const FlightRadar = ({ user, onBack }: { user: User; onBack: () => void }
     <div className="flex flex-col h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] overflow-hidden">
       <div className="ehi-view-header">
         <BackButton onClick={onBack} label="Back" />
-        <span className="text-[10px] font-mono text-[var(--color-accent-amber)] tracking-widest font-bold">● FLIGHT RADAR</span>
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-mono text-[var(--color-accent-amber)] tracking-widest font-bold">
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-success)', animation: 'livePulse 1.6s ease-in-out infinite', flexShrink: 0 }} />
+          FLIGHT RADAR
+        </span>
         <div className="flex items-center gap-2">
           <input
             type="date"
@@ -415,6 +444,28 @@ export const FlightRadar = ({ user, onBack }: { user: User; onBack: () => void }
         )}
       </div>
 
+      <div className="px-4 pt-3 shrink-0">
+        <div className="relative">
+          <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-muted)' }} />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search by airline or flight no. -- e.g. United Nigeria, Green Africa, ValueJet, W3 331"
+            className="w-full h-9 pl-8 pr-8 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[12px] font-sans text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)' }}
+              className="text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+      </div>
+
       {tab === 'mine' ? (
         <div className="flex-1 overflow-y-auto p-4 space-y-5">
           {loading ? (
@@ -427,6 +478,13 @@ export const FlightRadar = ({ user, onBack }: { user: User; onBack: () => void }
               title="No flights tracked for this date"
               subtext="Add a flight number to a Cargo Entry to start tracking it here."
               actions={[{ label: '+ Cargo Entry', onClick: () => window.dispatchEvent(new CustomEvent('ehi-nav', { detail: 'Cargo' })) }]}
+            />
+          ) : searchedFlights.length === 0 ? (
+            <EmptyState
+              icon={<Search size={36} strokeWidth={1.5} />}
+              title="No matching flights"
+              subtext={`Nothing matches "${search}" for this date.`}
+              actions={[{ label: 'Clear search', onClick: () => setSearch('') }]}
             />
           ) : (
             groups.filter(g => g.items.length > 0).map(g => (
@@ -456,6 +514,13 @@ export const FlightRadar = ({ user, onBack }: { user: User; onBack: () => void }
               subtext={canRefreshNational
                 ? "Nothing's been fetched for these airports today -- try Refresh All Airports."
                 : "Nothing's been fetched for these airports yet today -- check back after cargo staff at other hubs have logged some entries, or ask an admin to refresh."}
+            />
+          ) : searchedNationalFlights.length === 0 ? (
+            <EmptyState
+              icon={<Search size={36} strokeWidth={1.5} />}
+              title="No matching flights"
+              subtext={`Nothing matches "${search}" for this date.`}
+              actions={[{ label: 'Clear search', onClick: () => setSearch('') }]}
             />
           ) : (
             nationalGroups.filter(g => g.items.length > 0).map(g => (
@@ -496,23 +561,38 @@ export const FlightRadar = ({ user, onBack }: { user: User; onBack: () => void }
                 <>
                   <FlightTimeline status={selectedStatus} />
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <div style={{ fontSize: 9, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Departure</div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-foreground)', fontFamily: 'monospace' }}>
-                        {selected.status?.departure_airport || '—'}
+                  {/* Route line echoes the departure/arrival pair as a single
+                      visual line instead of two disconnected columns -- the
+                      plane glyph and line color both track the flight's
+                      current status color (selectedMeta), same mapping
+                      StatusBadge/FlightTimeline already use. */}
+                  <div style={{
+                    background: 'var(--color-surface-2)', border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-lg)', padding: '14px 16px',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 9, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Departure</div>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--color-foreground)', fontFamily: 'monospace', marginTop: 2 }}>
+                          {selected.status?.departure_airport || '—'}
+                        </div>
                       </div>
+                      <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, var(--color-border-strong), ${selectedMeta.color}, var(--color-border-strong))`, position: 'relative' }}>
+                        <Plane size={14} style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%) rotate(90deg)', color: selectedMeta.color, background: 'var(--color-surface-2)' }} />
+                      </div>
+                      <div style={{ minWidth: 0, textAlign: 'right' }}>
+                        <div style={{ fontSize: 9, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Arrival</div>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--color-foreground)', fontFamily: 'monospace', marginTop: 2 }}>
+                          {selected.status?.arrival_airport || '—'}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
                       <div style={{ fontSize: 11, color: 'var(--color-muted)' }}>
                         Sched {fmtTime(selected.status?.scheduled_departure ?? null)}
                         {selected.status?.actual_departure ? ` · Actual ${fmtTime(selected.status.actual_departure)}` : ''}
                       </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 9, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Arrival</div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-foreground)', fontFamily: 'monospace' }}>
-                        {selected.status?.arrival_airport || '—'}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--color-muted)' }}>
+                      <div style={{ fontSize: 11, color: 'var(--color-muted)', textAlign: 'right' }}>
                         Sched {fmtTime(selected.status?.scheduled_arrival ?? null)}
                         {selected.status?.actual_arrival ? ` · Actual ${fmtTime(selected.status.actual_arrival)}` : ''}
                       </div>
