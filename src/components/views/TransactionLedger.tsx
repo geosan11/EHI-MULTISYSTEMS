@@ -752,15 +752,31 @@ export const TransactionLedger = ({
   }, [transactions, expenses]);
 
   // shiftFilter === 'all' (All Time engaged) sources from the paginated
-  // fetch above, merged with the live `transactions`/`expenses` props (prop
-  // wins on id collision, so a same-session create/edit shows immediately
-  // without waiting for a refetch) -- otherwise unchanged, sourcing from
-  // `transactions`/`expenses` alone exactly as before this fix.
+  // fetch above, refreshed against the live `transactions`/`expenses` props
+  // (prop wins on id collision, so a same-session edit made from within the
+  // Ledger -- Edit Transaction, Clear Debt, Confirm Payment, Retrieval --
+  // shows immediately without waiting for a refetch) -- otherwise
+  // unchanged, sourcing from `transactions`/`expenses` alone exactly as
+  // before this fix.
+  //
+  // Only REFRESHES ids already present in allTimeTxRows/allTimeExpenseRows
+  // -- does not append the rest of the prop array. transactions/expenses
+  // are EHIApp.tsx's own separate, date-range-bounded fetch (up to several
+  // thousand rows, independently growable via the Ledger's own "Load More"
+  // button) and were previously unioned in WHOLESALE the instant All Time
+  // engaged, on top of the paginated rows -- ballooning the merged list to
+  // tens of thousands of rows in one render and blowing well past what the
+  // row/card virtualizers below were sized for, which is what actually hit
+  // the ErrorBoundary ("the ledger hit a snag") the moment All Time was
+  // clicked. A brand-new entry (created from Cargo/Marketing/Package/GAT --
+  // never the Ledger itself) simply appears on the next natural All Time
+  // refetch instead of instantly; every edit path that matters here always
+  // targets an already-loaded (and therefore already-keyed) row.
   const mergedTransactions = useMemo(() => {
     if (shiftFilter !== 'all' || !allTimeEngaged) return transactions;
     const byId = new Map<string, Transaction>();
     allTimeTxRows.forEach(t => byId.set(t.id, t));
-    transactions.forEach(t => byId.set(t.id, t));
+    transactions.forEach(t => { if (byId.has(t.id)) byId.set(t.id, t); });
     return Array.from(byId.values());
   }, [transactions, allTimeTxRows, allTimeEngaged, shiftFilter]);
 
@@ -768,7 +784,7 @@ export const TransactionLedger = ({
     if (shiftFilter !== 'all' || !allTimeEngaged) return expenses;
     const byId = new Map<string, Expense>();
     allTimeExpenseRows.forEach(e => byId.set(e.id, e));
-    expenses.forEach(e => byId.set(e.id, e));
+    expenses.forEach(e => { if (byId.has(e.id)) byId.set(e.id, e); });
     return Array.from(byId.values());
   }, [expenses, allTimeExpenseRows, allTimeEngaged, shiftFilter]);
 
