@@ -341,7 +341,15 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         20000,
       );
       if (walletsFetchEpochRef.current !== myEpoch) return;
-      setCustomerWallets(rows);
+      // Same rowsEqualById bail-out as fetchInitial's setTransactions/
+      // setExpenses/setTodayShifts below -- this fires on the same 5-minute
+      // self-heal cadence (see this effect's own interval further down) and
+      // was unconditionally replacing up to 20,000 wallets with a fresh
+      // array every tick even when nothing changed, forcing every open
+      // Cargo/Package/Marketing/Excess-Baggage form's activeWallet useMemo
+      // (each does its own linear customer-match scan over this array) to
+      // recompute for no reason.
+      setCustomerWallets(prev => rowsEqualById(prev, rows) ? prev : rows);
       // Same "don't silently show an incomplete list" convention
       // fetchInitial already uses below for cargo/baggage/marketing/package.
       if (capped) {

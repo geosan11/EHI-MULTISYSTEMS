@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import compression from 'compression';
 import crypto from 'crypto';
 import * as Sentry from '@sentry/node';
 import paystackRoutes from './paystack.js';
@@ -170,6 +171,13 @@ function requireWebhookSecret(req: any, res: any): boolean {
 export function createApp() {
   const app = express();
   app.set('trust proxy', 1);
+
+  // Vercel's edge already gzips/brotlis responses on the deployed path, so
+  // this is a safety net rather than the primary compression layer -- but
+  // server.ts's non-Vercel static-serving/dev-server path (self-hosted
+  // branches, if this app is ever run that way) had no compression at all
+  // without it, uncompressed for every JS/CSS asset and API JSON response.
+  app.use(compression());
 
   app.use(express.json({ limit: '2mb' }));
 

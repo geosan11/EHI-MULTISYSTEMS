@@ -60,7 +60,12 @@ function supabaseRowToPod(row: Record<string, any>): ProofOfDelivery {
     receivedByPhone: row.received_by_phone ?? undefined,
     receivedByIdType: row.received_by_id_type ?? undefined,
     receivedByIdNumber: row.received_by_id_number ?? undefined,
-    signatureData: row.signature_data,
+    // '' default -- fetchProofOfDeliveryRecords' list query below
+    // deliberately omits this column (see its own comment), so `row`
+    // won't have it at all there; every OTHER caller of this mapper
+    // (fetchProofOfDeliveryMedia, syncProofOfDelivery's own round-trip)
+    // selects the real column and always gets a real value.
+    signatureData: row.signature_data ?? '',
     photoData: row.photo_data ?? undefined,
     deliveredAt: row.delivered_at,
     hubName: row.hub_name,
@@ -90,8 +95,16 @@ export async function fetchProofOfDeliveryRecords(
 ): Promise<{ records: ProofOfDelivery[]; capped: boolean }> {
   const [localData, { rows: supaRows, capped }] = await Promise.all([
     db.proof_of_delivery.orderBy('deliveredAt').reverse().toArray(),
+    // Deliberately omits signature_data/photo_data -- PODLog.tsx's list rows
+    // never render either (only the single opened record's detail modal
+    // does, via fetchProofOfDeliveryMedia below), so this was paying to
+    // download up to 5000 rows of base64 signature/photo blobs on every
+    // load for data that never left the network response. supabaseRowToPod
+    // defaults the now-absent signature_data to '' for these rows.
     fetchRowsCapped<any>((from, to) => {
-      let q = supabase.from('proof_of_delivery').select('*').order('delivered_at', { ascending: false }).range(from, to);
+      let q = supabase.from('proof_of_delivery')
+        .select('id,awb_number,consignee_name,delivered_by,received_by_name,received_by_phone,received_by_id_type,received_by_id_number,delivered_at,hub_name,notes,gps_latitude,gps_longitude')
+        .order('delivered_at', { ascending: false }).range(from, to);
       if (!isAdmin) q = q.eq('hub_name', hubName) as any;
       return q;
     }, 5000),
@@ -106,6 +119,24 @@ export async function fetchProofOfDeliveryRecords(
   const records = Array.from(merged.values())
     .sort((a, b) => new Date(b.deliveredAt).getTime() - new Date(a.deliveredAt).getTime());
   return { records, capped };
+}
+
+// Fetches just the signature/photo blobs for one record, on demand -- pairs
+// with fetchProofOfDeliveryRecords' list query above, which deliberately
+// omits them. Checks the local Dexie table first (a record captured on
+// this device already has its own real signatureData/photoData from the
+// list merge above, no need to round-trip to Supabase for it) before
+// falling back to a single-row Supabase fetch.
+export async function fetchProofOfDeliveryMedia(id: string): Promise<{ signatureData: string; photoData?: string } | null> {
+  const local = await db.proof_of_delivery.get(id);
+  if (local) return { signatureData: local.signatureData, photoData: local.photoData };
+  const { data, error } = await supabase
+    .from('proof_of_delivery')
+    .select('signature_data,photo_data')
+    .eq('id', id)
+    .maybeSingle();
+  if (error || !data) return null;
+  return { signatureData: data.signature_data ?? '', photoData: data.photo_data ?? undefined };
 }
 
 // Proof of Delivery records are saved to the local Dexie table first (so

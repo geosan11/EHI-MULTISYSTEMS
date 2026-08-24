@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { fetchProofOfDeliveryRecords } from '../../lib/sync';
+import { fetchProofOfDeliveryRecords, fetchProofOfDeliveryMedia } from '../../lib/sync';
 import { ProofOfDelivery, User } from '../../lib/types';
-import { ShieldCheck, MapPin, Search, Calendar, ChevronRight, RefreshCw, X } from 'lucide-react';
+import { ShieldCheck, MapPin, Search, Calendar, ChevronRight, RefreshCw, X, Loader2 } from 'lucide-react';
 import { BackButton } from '../BackButton';
 import { EmptyState } from './EmptyState';
 
@@ -11,8 +11,30 @@ export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => 
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
   const [selectedPod, setSelectedPod] = useState<ProofOfDelivery | null>(null);
+  // True while fetchProofOfDeliveryMedia (below) is filling in the
+  // signature/photo blobs the list fetch deliberately omits -- see
+  // handleSelectPod and src/lib/sync.ts's own comment on why.
+  const [loadingMedia, setLoadingMedia] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [capped, setCapped] = useState(false);
+
+  // Opens the modal immediately with whatever the list row already has
+  // (every field except signatureData/photoData, which fetchProofOfDelivery
+  // Records' query omits for payload-size reasons), then fetches just those
+  // two on demand and patches them in once they arrive.
+  const handleSelectPod = async (pod: ProofOfDelivery) => {
+    setSelectedPod(pod);
+    if (pod.signatureData) return; // already has it (e.g. captured on this device)
+    setLoadingMedia(true);
+    try {
+      const media = await fetchProofOfDeliveryMedia(pod.id);
+      if (media) {
+        setSelectedPod(prev => (prev && prev.id === pod.id) ? { ...prev, ...media } : prev);
+      }
+    } finally {
+      setLoadingMedia(false);
+    }
+  };
 
   // Matches the RLS is_hub_unrestricted() role set (super_admin/admin/
   // accountant/auditor), consistent with the other arrivals-adjacent views.
@@ -102,7 +124,7 @@ export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => 
           filteredPods.map(pod => (
             <div 
               key={pod.id}
-              onClick={() => setSelectedPod(pod)}
+              onClick={() => handleSelectPod(pod)}
               className="ehi-card p-3 flex items-center justify-between cursor-pointer hover:border-[var(--color-muted)] transition-colors group"
             >
               <div className="flex items-start gap-3 min-w-0">
@@ -225,7 +247,11 @@ export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => 
                 <div>
                   <h4 className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-widest mb-2">Recipient Signature</h4>
                   <div className="bg-white rounded-lg p-2 border border-[var(--color-border)] overflow-hidden flex justify-center items-center h-[120px]">
-                    <img src={selectedPod.signatureData} alt="Signature" className="max-h-full object-contain" />
+                    {selectedPod.signatureData ? (
+                      <img src={selectedPod.signatureData} alt="Signature" className="max-h-full object-contain" />
+                    ) : (
+                      <Loader2 size={20} className="animate-spin text-[var(--color-muted)]" />
+                    )}
                   </div>
                 </div>
 
