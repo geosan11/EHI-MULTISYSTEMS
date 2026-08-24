@@ -9,6 +9,7 @@ const router = express.Router();
 // scoped to this known-size list (not literally every Nigerian airport,
 // which would need a paid AeroDataBox plan to cover the call volume).
 const NATIONAL_AIRPORTS = CARGO_ROUTES.filter(r => r !== 'Other').map(r => r.split('/')[0]);
+const NATIONAL_AIRPORTS_SET = new Set(NATIONAL_AIRPORTS);
 
 // How long a cached AeroDataBox lookup is considered fresh before a GET
 // /status request triggers a live re-fetch. Deliberately generous -- the
@@ -248,14 +249,26 @@ async function getOrRefresh(flightNumber: string, date: string, forceRefresh: bo
 // configured. Fixed by reading `raw.arrival.airport.iata` first (always
 // correct, regardless of whether `movement` exists), with `movement` only
 // as a last-resort legacy fallback.
-function normalizeDepartureEntry(raw: any): { flightNumber: string | null; airline: string | null; destinationIata: string | null; scheduledDeparture: string | null; status: string } {
+function normalizeDepartureEntry(raw: any): { flightNumber: string | null; airline: string | null; destinationIata: string | null; scheduledDeparture: string | null; status: string; isDomestic: boolean } {
   const movement = raw?.movement || raw?.departure || {};
+  const arrivalAirport = raw?.arrival?.airport || movement?.airport || {};
+  const destinationIata = arrivalAirport?.iata || null;
+  // Primary signal is the airport's own country code (standard field on
+  // AeroDataBox's airport object, same shape as iata/icao/name) -- falls
+  // back to "is this one of our own known Nigerian route airports" only
+  // when countryCode is missing, so a gap in that one field never
+  // silently hides a real domestic flight to a city outside CARGO_ROUTES
+  // (Sokoto, Jos, Katsina, etc. are domestic but aren't EHI route cities).
+  const isDomestic = arrivalAirport?.countryCode
+    ? arrivalAirport.countryCode === 'NG'
+    : NATIONAL_AIRPORTS_SET.has(destinationIata || '');
   return {
     flightNumber: raw?.number || raw?.callSign || null,
     airline: raw?.airline?.name || null,
-    destinationIata: raw?.arrival?.airport?.iata || movement?.airport?.iata || null,
+    destinationIata,
     scheduledDeparture: raw?.departure?.scheduledTime?.utc || movement?.scheduledTime?.utc || null,
     status: mapRawStatusString(String(raw?.status || '')),
+    isDomestic,
   };
 }
 
@@ -287,7 +300,17 @@ async function fetchDeparturesFromAeroDataBox(originIata: string, date: string):
   // until someone's confirmed a real payload matches normalizeDepartureEntry's
   // assumptions. Safe to remove once that's verified.
   if (merged[0]) console.log('[flightRadar] sample raw departure entry:', JSON.stringify(merged[0]));
-  return merged.map(normalizeDepartureEntry).filter(f => f.flightNumber);
+  // Domestic-only -- EHI never ships internationally (every CARGO_ROUTES
+  // destination is a Nigerian city), so an international departure from a
+  // shared hub airport like Lagos is never relevant to Cargo Entry's
+  // auto-fill (this function's other caller) and just clutters "Nigeria
+  // Today" with routes no shipment will ever be on. isDomestic itself is
+  // dropped afterward -- it's always true past this filter, so keeping it
+  // in the cached/shipped payload would just be dead weight.
+  return merged
+    .map(normalizeDepartureEntry)
+    .filter(f => f.flightNumber && f.isDomestic)
+    .map(({ isDomestic, ...f }) => f);
 }
 
 // Cache-or-fetch the whole day's departures board for one airport -- shared
