@@ -2423,7 +2423,27 @@ export const TransactionLedger = ({
   // back to null the moment a shift ends, which would erase the marker);
   // falls back to just the single open shift if a caller doesn't pass the
   // fuller list.
-  const shiftsToMark = shifts && shifts.length > 0 ? shifts : (activeShift ? [activeShift] : []);
+  //
+  // Memoized -- as a plain `const`, the `[activeShift]`/`[]` branches built
+  // a BRAND NEW array literal on every single render whenever `shifts` was
+  // empty/falsy (the normal case for the EHIApp "History" portal and the
+  // More.tsx Master Ledger, both of which pass activeShift without always
+  // passing a matching shifts array). That fed straight into displayEntries'
+  // own dependency array below, so displayEntries recomputed -- and
+  // returned a new array reference -- on every render regardless of whether
+  // filteredEntries had actually changed, defeating its memoization
+  // entirely. At Current Shift's small row counts this churn was cheap
+  // enough to go unnoticed; once All Time engaged with a few hundred rows,
+  // every one of those wasted recomputes fed the row/card virtualizers a
+  // "new" items array, triggering another measure/resize pass, which
+  // triggered another render, which built yet another new shiftsToMark
+  // array -- a self-sustaining loop that is exactly what threw React's
+  // "Maximum update depth exceeded" (error #185) the moment a large All
+  // Time page landed, not merely a case of "too many rows to measure once."
+  const shiftsToMark = useMemo(
+    () => (shifts && shifts.length > 0 ? shifts : (activeShift ? [activeShift] : [])),
+    [shifts, activeShift]
+  );
   const displayEntries = useMemo(() => {
     let result = [...filteredEntries];
     shiftsToMark.forEach((s: any) => {
