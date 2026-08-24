@@ -6,7 +6,7 @@ import { processSyncQueue, writeWithOfflineSupport, cleanupOldQueue, getUnsynced
 import { db } from '../lib/db';
 import Dexie from 'dexie';
 import { refillPoolIfLow } from '../lib/tagPool';
-import { getHubCode, getShiftBoundary } from '../lib/helpers';
+import { getHubCode, getShiftBoundary, rowsEqualById } from '../lib/helpers';
 import { useTheme } from '../lib/useTheme';
 import { getAllowedTabs } from '../lib/permissions';
 import { Header as HeaderRaw } from './Header';
@@ -518,7 +518,19 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         ]);
 
         if (fetchEpochRef.current !== myEpoch) return;
-        setTodayShifts(shifts);
+        // Bail out to the SAME `prev` reference when the freshly-fetched
+        // shifts are content-identical -- this fetch fires on every tab
+        // switch to a data tab plus every 5 minutes (see the effects below),
+        // and a fresh-but-identical array here was cascading into
+        // activeShiftsByDept/allDeptShifts (both useMemo'd off todayShifts)
+        // and from there into TransactionLedger.tsx's shiftBoundary/
+        // shiftsToMark, eventually feeding the Ledger's row/card virtualizers
+        // a "new" items array on every poll -- the actual root cause behind
+        // a "Maximum update depth exceeded" crash that kept recurring even
+        // after shiftsToMark itself was memoized (commit 9f5d16f fixed that
+        // memo's own computation, not the fact its inputs were fresh every
+        // time). Same idiom as the hub_shifts realtime UPDATE handler below.
+        setTodayShifts(prev => rowsEqualById(prev, shifts) ? prev : shifts);
 
         const dcByType: Record<string, any[]> = { cargo: [], baggage: [], marketing: [], package: [] };
         (debtCollectionRes.data || []).forEach((row: any) => { dcByType[row.entry_type]?.push(row.raw); });
@@ -859,17 +871,29 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             pendingExpenseRef.current = stillPending;
             const combined = [...stillPending, ...fetchedExpenses];
             const unique = combined.filter((v, i, a) => a.findIndex(x => x.id === v.id) === i);
-            return unique.sort((a, b) => new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime());
+            const sorted = unique.sort((a, b) => new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime());
+            // Same bail-out as setTodayShifts above -- this fetch reruns on
+            // every tab switch and 5-minute poll; without this, a poll that
+            // came back with byte-identical expenses still handed every
+            // consumer a brand-new array, cascading the same way into the
+            // Ledger's virtualizers.
+            return rowsEqualById(prev, sorted) ? prev : sorted;
           });
         }
 
         allTx.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-        
+
         setTransactions(prev => {
           const localOnly = pendingTxRef.current.filter(p => !allTx.some(t => t.id === p.id));
           const combined = [...localOnly, ...allTx];
           const unique = combined.filter((v, i, a) => a.findIndex(x => x.id === v.id) === i);
-          return unique.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+          const sorted = unique.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+          // Same bail-out as setTodayShifts/setExpenses above -- see their
+          // comments. This is the highest-volume of the three (up to
+          // ledgerRowCap x 4 tables), and the one most directly feeding the
+          // Ledger's mergedTransactions/entries/filteredEntries/
+          // displayEntries chain into the virtualizers.
+          return rowsEqualById(prev, sorted) ? prev : sorted;
         });
         consecutiveFetchFailuresRef.current = 0;
       } catch (err) {
@@ -992,14 +1016,31 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
   // load and periodically (see the interval below) -- unattended, so
   // errors here are swallowed rather than toasted; a human never asked for
   // this to happen and shouldn't be interrupted if it silently no-ops.
+  // Guards against concurrent overlapping invocations for the same
+  // department -- the triggering effect below deliberately re-checks on
+  // every activeShiftsByDept reference change (see its own comment), which
+  // is normally a cheap no-op via the "already current" check below, but a
+  // race between two overlapping calls (e.g. two tabs, or a re-check firing
+  // before a prior call's insert + setTodayShifts had resolved) could both
+  // reach the insert and collide on hub_shifts' partial unique index,
+  // surfacing as a 409 Conflict -- observed clustered in production logs
+  // right alongside the render-storm this same investigation traced to
+  // fetchInitial (see rowsEqualById above). Not itself the crash (the catch
+  // below never calls setState in a loop), just extra network/render noise
+  // worth closing while touching this code. `finally` releases the flag on
+  // every exit path, including the "already current" fast-path return, so
+  // nothing can get permanently stuck.
+  const autoRollInFlightRef = useRef<Set<'cargo' | 'package'>>(new Set());
   const autoRollShift = useCallback(async (department: 'cargo' | 'package') => {
     if (!user.hub_id) return;
-    const { start } = getShiftBoundary(18);
-    const shift = activeShiftsByDept[department];
-
-    if (shift && new Date(shift.started_at) >= start) return; // already current
-
+    if (autoRollInFlightRef.current.has(department)) return;
+    autoRollInFlightRef.current.add(department);
     try {
+      const { start } = getShiftBoundary(18);
+      const shift = activeShiftsByDept[department];
+
+      if (shift && new Date(shift.started_at) >= start) return; // already current
+
       if (shift) {
         // Belt-and-suspenders .eq('status','open') -- unlike handleEndShift
         // (a human clicks this once), this can race another tab/device's
@@ -1058,6 +1099,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       // Unattended background action -- silently retried on the next
       // periodic check rather than surfaced to whichever staff member
       // happens to have the app open.
+    } finally {
+      autoRollInFlightRef.current.delete(department);
     }
   }, [activeShiftsByDept, user.hub_id, shiftDeptMatchesTx]);
 

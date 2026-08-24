@@ -357,6 +357,34 @@ export function parseLocalDateBoundary(dateStr: string, endOfDay = false): Date 
   return new Date(dateStr + (endOfDay ? 'T23:59:59.999' : 'T00:00:00'));
 }
 
+/**
+ * Order-independent, content-based equality for two arrays of the same
+ * row shape keyed by `id`. Meant for `setState(prev => rowsEqualById(prev,
+ * next) ? prev : next)` bail-outs on a periodic/polling refetch, so React's
+ * own same-reference check skips the re-render (and every useMemo
+ * downstream of it) entirely when the fetch came back with logically
+ * identical data -- see EHIApp.tsx's fetchInitial, which was handing
+ * transactions/expenses/todayShifts brand-new array/object references to
+ * every consumer on every 5-minute poll and tab switch even when nothing
+ * had actually changed, defeating memoization all the way down to the
+ * Ledger's row/card virtualizers and eventually triggering a "Maximum
+ * update depth exceeded" render loop. Full JSON.stringify per row rather
+ * than a curated field fingerprint -- a hand-picked field list can silently
+ * miss a real change; a full-content comparison can only produce an
+ * unnecessary (harmless) re-render, never a missed update. Generalizes the
+ * same JSON.stringify(existing) === JSON.stringify(r) idiom already used
+ * on the hub_shifts realtime UPDATE handler in EHIApp.tsx.
+ */
+export function rowsEqualById<T extends { id: string }>(a: T[], b: T[]): boolean {
+  if (a.length !== b.length) return false;
+  const byId = new Map(a.map(r => [r.id, r]));
+  for (const row of b) {
+    const prevRow = byId.get(row.id);
+    if (!prevRow || JSON.stringify(prevRow) !== JSON.stringify(row)) return false;
+  }
+  return true;
+}
+
 // ── SPREADSHEET FORMULA-INJECTION SANITIZATION ────────────────
 /**
  * Neutralizes spreadsheet formula injection. Excel (and most spreadsheet

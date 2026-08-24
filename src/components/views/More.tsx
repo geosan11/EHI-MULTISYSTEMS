@@ -1,5 +1,5 @@
 import { ErrorBoundary } from '../ErrorBoundary';
-import React, { useState, useMemo, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useMemo, useCallback, lazy, Suspense, memo } from 'react';
 
 // Lazy-loaded: this file alone used to eagerly pull in ~29 sub-view modules
 // (AccountingConsole's own further eager sub-imports on top of that) the
@@ -17,7 +17,18 @@ const Fleet = lazy(() => import('./Fleet').then(m => ({ default: m.Fleet })));
 const Forecasting = lazy(() => import('./Forecasting').then(m => ({ default: m.Forecasting })));
 const FraudAlerts = lazy(() => import('./FraudAlerts').then(m => ({ default: m.FraudAlerts })));
 const AuditLog = lazy(() => import('./AuditLog').then(m => ({ default: m.AuditLog })));
-const TransactionLedger = lazy(() => import('./TransactionLedger').then(m => ({ default: m.TransactionLedger })));
+// Wrapped in memo() -- unlike every other lazy-loaded sub-view here, this
+// one fronts the row/card virtualizers (@tanstack/react-virtual) that were
+// the site of a "Maximum update depth exceeded" crash. Without memo, ANY
+// EHIApp.tsx re-render for ANY reason (a toast, an unrelated realtime
+// event, a wallet refresh) forces this entire subtree to re-execute while
+// a user is sitting on the Master Ledger, amplifying whatever reference
+// churn its transactions/expenses/activeShift/shifts props are carrying.
+// EHIApp.tsx's own "History" overlay instance of TransactionLedger
+// (EHIApp.tsx's own memo(TransactionLedgerRaw)) already does this; this
+// mirrors that for the Master Ledger, which never had it.
+const TransactionLedgerRaw = lazy(() => import('./TransactionLedger').then(m => ({ default: m.TransactionLedger })));
+const TransactionLedger = memo(TransactionLedgerRaw);
 const PODLog = lazy(() => import('./PODLog').then(m => ({ default: m.PODLog })));
 const Dispatch = lazy(() => import('./Dispatch').then(m => ({ default: m.Dispatch })));
 const EODReconciliation = lazy(() => import('./EODReconciliation').then(m => ({ default: m.EODReconciliation })));

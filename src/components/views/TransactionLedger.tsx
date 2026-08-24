@@ -581,6 +581,22 @@ export const TransactionLedger = ({
   // explicit-shift system in this pass, so the two definitions intentionally
   // still coexist outside this one screen.
   const shiftHour: number = (user as any).shift_start_hour ?? 18;
+  // Stable primitive keys instead of the raw activeShift/shifts references
+  // below -- the caller (EHIApp.tsx's fetchInitial, feeding this both
+  // directly and via More.tsx's Master Ledger) can hand down a
+  // fresh-but-logically-identical activeShift/shifts on every poll/tab
+  // switch; keying shiftBoundary's memo off id+timestamps instead means it
+  // only recomputes when the shift DATA actually changes, not when its
+  // wrapper object/array reference does. id/started_at/ended_at are the
+  // only HubShift fields the memo body below reads. Same "stabilize the
+  // consumer's own memo keys" fix as shiftsToMark got (see its comment
+  // further down) -- this is the one other place in this file with the
+  // identical shape of bug.
+  const activeShiftKey = activeShift ? `${activeShift.id}:${activeShift.started_at}:${activeShift.ended_at ?? ''}` : '';
+  const shiftsKey = useMemo(
+    () => (shifts ?? []).map((s: any) => `${s.id}:${s.started_at}:${s.ended_at ?? ''}`).sort().join('|'),
+    [shifts]
+  );
   const shiftBoundary = useMemo((): { start: Date; end: Date | null } => {
     if (activeShift?.started_at) {
       // end: null while the shift is still open -- `end: new Date()` here
@@ -603,7 +619,10 @@ export const TransactionLedger = ({
       }
     }
     return getShiftBoundary(shiftHour);
-  }, [shiftHour, activeShift, shifts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately
+    // keyed on the derived primitive keys above, not activeShift/shifts
+    // themselves (still read via closure); see comment above.
+  }, [shiftHour, activeShiftKey, shiftsKey]);
 
   // "All Time" previously eagerly fetched up to 20,000 rows PER TABLE (up
   // to 80,000 total) into memory the instant it was clicked, then filtered
