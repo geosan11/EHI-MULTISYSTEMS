@@ -7,7 +7,22 @@ import { BackButton } from '../BackButton';
 import { EmptyState } from './EmptyState';
 import { Modal } from '../Modal';
 import { StatusBadge, flightStatusMeta, FlightStatus } from '../ui/StatusBadge';
+import { getAirportCoordinate } from '../../lib/airportCoordinates';
 import { Radar, RefreshCw, Plane, Package2, Loader2, Search, X } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Polyline, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Same fix Dispatch.tsx already applies -- react-leaflet's default marker
+// icon paths break under Vite's bundling, so this points them at a CDN
+// instead. Harmless to repeat if both modules happen to load (idempotent,
+// just resets the same static config).
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 interface BoardEntry { type: string; id: string; awb?: string; name?: string }
 interface CachedStatus {
@@ -72,13 +87,23 @@ function fmtDateTime(iso: string | null): string {
   } catch { return '—'; }
 }
 
-// Search matches either the flight number or the airline name, case- and
-// whitespace-insensitive -- "united nigeria" should find "UN 123 · United
-// Nigeria Airlines" whether staff type the airline or the flight code.
+// Strips everything but letters/digits before comparing -- a plain
+// lowercase substring match failed real searches like "ibomair" (no space)
+// against the stored airline name "Ibom Air" (with one), or "valuejet"
+// against "Value Jet"/"ValueJet Airlines". Punctuation/spacing in either
+// the typed query or AeroDataBox's own airline-name string is exactly the
+// kind of variation staff shouldn't have to type around.
+function normalizeSearchToken(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+// Search matches either the flight number or the airline name -- "united
+// nigeria" should find "UN 123 · United Nigeria Airlines" whether staff
+// type the airline or the flight code.
 function matchesFlightSearch(query: string, flightNumber: string | null, airline: string | null): boolean {
-  const q = query.trim().toLowerCase();
+  const q = normalizeSearchToken(query);
   if (!q) return true;
-  return (flightNumber || '').toLowerCase().includes(q) || (airline || '').toLowerCase().includes(q);
+  return normalizeSearchToken(flightNumber || '').includes(q) || normalizeSearchToken(airline || '').includes(q);
 }
 
 async function authedFetch(path: string, init?: RequestInit) {
@@ -165,6 +190,53 @@ function FlightTimeline({ status }: { status: FlightStatus }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// Real geographic map complementing the abstract route-line card below it
+// -- origin/destination markers plus a straight line between them, colored
+// to match the flight's current status. AeroDataBox gives back IATA codes,
+// not coordinates, so this leans on the static AIRPORT_COORDINATES table
+// (src/lib/airportCoordinates.ts); an airport missing from that table (an
+// international destination this app doesn't yet know about) just skips
+// the map entirely rather than erroring -- the text departure/arrival
+// card right below it still has the airport codes either way.
+function FlightRouteMap({ departureIata, arrivalIata, color }: { departureIata: string | null; arrivalIata: string | null; color: string }) {
+  const origin = getAirportCoordinate(departureIata);
+  const dest = getAirportCoordinate(arrivalIata);
+  if (!origin || !dest) return null;
+
+  const bounds: [number, number][] = [[origin.lat, origin.lng], [dest.lat, dest.lng]];
+  return (
+    <div style={{
+      height: 180, borderRadius: 'var(--radius-lg)', overflow: 'hidden',
+      border: '1px solid var(--color-border)',
+    }}>
+      <MapContainer
+        bounds={bounds}
+        boundsOptions={{ padding: [32, 32] }}
+        style={{ height: '100%', width: '100%' }}
+        scrollWheelZoom={false}
+      >
+        <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        />
+        <Polyline positions={bounds} color={color} weight={3} opacity={0.85} dashArray="6 6" />
+        <Marker position={[origin.lat, origin.lng]}>
+          <Popup>
+            <div className="text-[12px] font-bold">{departureIata}</div>
+            <div className="text-[10px] text-gray-500">{origin.name}</div>
+          </Popup>
+        </Marker>
+        <Marker position={[dest.lat, dest.lng]}>
+          <Popup>
+            <div className="text-[12px] font-bold">{arrivalIata}</div>
+            <div className="text-[10px] text-gray-500">{dest.name}</div>
+          </Popup>
+        </Marker>
+      </MapContainer>
     </div>
   );
 }
@@ -598,6 +670,12 @@ export const FlightRadar = ({ user, onBack }: { user: User; onBack: () => void }
                       </div>
                     </div>
                   </div>
+
+                  <FlightRouteMap
+                    departureIata={selected.status?.departure_airport ?? null}
+                    arrivalIata={selected.status?.arrival_airport ?? null}
+                    color={selectedMeta.color}
+                  />
 
                   {selectedStatus === 'unknown' && (
                     <div style={{ fontSize: 11, color: 'var(--color-muted)', fontStyle: 'italic' }}>
