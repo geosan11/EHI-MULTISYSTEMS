@@ -323,17 +323,36 @@ export const TransactionLedger = ({
   // succeed, double-crediting the wallet or double-clearing debt. Mirrors
   // clearingDebt's same guard on the debt-clearance confirm flow below.
   const [processingRetrieval, setProcessingRetrieval] = useState(false);
-  // Raw input value (updates on every keystroke for controlled input)
+  // Raw input value (updates on every keystroke for controlled input) --
+  // does NOT feed filteredEntries/the All Time RPC on its own; only
+  // commitSearch below does.
   const [searchInput, setSearchInput] = useState("");
-  // Debounced value fed into the filteredEntries useMemo — avoids running
-  // a full 5000-row scan on every character typed.
+  // Committed value fed into filteredEntries (Current Shift) and
+  // allTimeFilterParams (All Time, triggers a server refetch). Previously
+  // auto-committed 200ms after the last keystroke -- changed to require an
+  // explicit Enter/search-icon click (or the clear button, for cancelling)
+  // so All Time's search-triggered refetch never fires mid-typing. That
+  // debounce still let a fast typist queue up several overlapping RPC
+  // calls (one per pause &gt;200ms), each racing the others -- see
+  // allTimeFetchEpochRef above for how a stale one landing after a newer
+  // one is now discarded regardless, but not auto-firing in the first
+  // place is the more direct fix.
   const [searchQuery, setSearchQuery] = useState("");
-  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handleSearchChange = useCallback((val: string) => {
+  const handleSearchInputChange = useCallback((val: string) => {
     setSearchInput(val);
-    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    searchDebounceRef.current = setTimeout(() => setSearchQuery(val), 200);
   }, []);
+  // Runs the search -- Enter key, the search icon, or a one-shot
+  // programmatic trigger (LiveCreditFeed's "filter ledger by this
+  // customer" click) all funnel through here and commit immediately,
+  // unlike free-text typing above.
+  const commitSearch = useCallback((val: string) => {
+    setSearchInput(val);
+    setSearchQuery(val);
+  }, []);
+  // Cancels a search immediately (no Enter needed) -- clearing is treated
+  // as a discrete "stop searching" action, not something that should sit
+  // half-typed waiting for a commit.
+  const clearSearch = useCallback(() => commitSearch(""), [commitSearch]);
   const [typeFilter, setTypeFilter] = useState(defaultTypeFilter || "All");
   const [modeFilter, setModeFilter] = useState("All");
   // Office (B2B/corporate) vs Individual split for Debt entries specifically
@@ -652,6 +671,16 @@ export const TransactionLedger = ({
   const [allTimeEngaged, setAllTimeEngaged] = useState(false);
   const [allTimeTotals, setAllTimeTotals] = useState<LedgerTotals | null>(null);
   const allTimeProfileLookupRef = useRef<Record<string, string>>({});
+  // Guards fetchAllTimeFirstPage/fetchAllTimeNextPage against an
+  // out-of-order response -- e.g. a user searches "abc", then clears the
+  // search before that request resolves; without this, the stale "abc"
+  // response could land AFTER the correct (empty-search) one and overwrite
+  // it with wrong results, or a stale in-flight "load more" tied to the OLD
+  // search could get appended onto the NEW search's freshly-reset rows.
+  // fetchAllTimeFirstPage increments this (a genuinely new search/filter
+  // view); fetchAllTimeNextPage only reads it (continuing the SAME search's
+  // pagination). Same pattern as EHIApp.tsx's fetchEpochRef.
+  const allTimeFetchEpochRef = useRef(0);
 
   // p_mode on the RPC only accepts the 5 raw DB values -- the modeFilter
   // dropdown also has pseudo-values with no direct column equivalent
@@ -683,7 +712,14 @@ export const TransactionLedger = ({
 
   const fetchAllTimeFirstPage = useCallback(async (paramsOverride?: LedgerSearchParams) => {
     const activeParams = paramsOverride || allTimeFilterParams;
+    const myEpoch = ++allTimeFetchEpochRef.current;
     setLoadingAllTimeFirst(true);
+    // A stale in-flight "load more" belonging to whatever search was active
+    // before this one must not be allowed to append onto the rows this call
+    // is about to set -- its own epoch check below will make it a no-op
+    // when it resolves, but reset the loading flag now rather than leaving
+    // it stuck true with nothing left to clear it.
+    setLoadingAllTimeMore(false);
     try {
       if (Object.keys(allTimeProfileLookupRef.current).length === 0) {
         allTimeProfileLookupRef.current = await fetchProfileLookup();
@@ -692,6 +728,7 @@ export const TransactionLedger = ({
         fetchLedgerPage(activeParams, null, allTimeProfileLookupRef.current),
         fetchLedgerTotals(activeParams),
       ]);
+      if (allTimeFetchEpochRef.current !== myEpoch) return; // superseded by a newer search while this was in flight
       const { tx, exp } = splitPageRows(page.rows);
       setAllTimeTxRows(tx);
       setAllTimeExpenseRows(exp);
@@ -700,43 +737,37 @@ export const TransactionLedger = ({
       setAllTimeTotals(totals);
       setAllTimeEngaged(true);
     } catch (err: any) {
-      showToast({ message: `Failed to load ledger history: ${err.message || err}`, type: 'error' });
+      if (allTimeFetchEpochRef.current === myEpoch) {
+        showToast({ message: `Failed to load ledger history: ${err.message || err}`, type: 'error' });
+      }
     } finally {
-      setLoadingAllTimeFirst(false);
+      if (allTimeFetchEpochRef.current === myEpoch) setLoadingAllTimeFirst(false);
     }
   }, [allTimeFilterParams, showToast]);
 
   const fetchAllTimeNextPage = useCallback(async () => {
     if (!allTimeHasMore || loadingAllTimeMore || loadingAllTimeFirst || !allTimeCursor) return;
+    // Captured, not incremented -- this continues the CURRENT search's
+    // pagination, not a new one, so it should be invalidated by (not itself
+    // invalidate) a genuinely new search started via fetchAllTimeFirstPage.
+    const myEpoch = allTimeFetchEpochRef.current;
     setLoadingAllTimeMore(true);
     try {
       const page = await fetchLedgerPage(allTimeFilterParams, allTimeCursor, allTimeProfileLookupRef.current);
+      if (allTimeFetchEpochRef.current !== myEpoch) return; // the search changed while this page was in flight
       const { tx, exp } = splitPageRows(page.rows);
       setAllTimeTxRows(prev => [...prev, ...tx]);
       setAllTimeExpenseRows(prev => [...prev, ...exp]);
       setAllTimeCursor(page.nextCursor);
       setAllTimeHasMore(page.hasMore);
     } catch (err: any) {
-      showToast({ message: `Failed to load more history: ${err.message || err}`, type: 'error' });
+      if (allTimeFetchEpochRef.current === myEpoch) {
+        showToast({ message: `Failed to load more history: ${err.message || err}`, type: 'error' });
+      }
     } finally {
-      setLoadingAllTimeMore(false);
+      if (allTimeFetchEpochRef.current === myEpoch) setLoadingAllTimeMore(false);
     }
   }, [allTimeFilterParams, allTimeCursor, allTimeHasMore, loadingAllTimeMore, loadingAllTimeFirst, showToast]);
-
-  // Infinite scroll for All Time -- reuses the same scroll container the
-  // row/card virtualizers already watch (tableRef, declared below) rather
-  // than adding a second scroll-tracking mechanism; a plain scroll-position
-  // check is simpler and just as reliable as correlating virtual item
-  // indices against displayEntries (which also holds non-data shift-marker
-  // rows), for the same "fetch when near the bottom" outcome.
-  const handleLedgerScroll = useCallback(() => {
-    if (shiftFilter !== 'all' || !allTimeHasMore || loadingAllTimeMore || loadingAllTimeFirst) return;
-    const el = tableRef.current;
-    if (!el) return;
-    if (el.scrollHeight - el.scrollTop - el.clientHeight < 600) {
-      fetchAllTimeNextPage();
-    }
-  }, [shiftFilter, allTimeHasMore, loadingAllTimeMore, loadingAllTimeFirst, fetchAllTimeNextPage]);
 
   // Search/type/terminal/mode/debt-class change while All Time is already
   // engaged -> reset to page 1 under the new params. The scope button's
@@ -2648,7 +2679,6 @@ export const TransactionLedger = ({
     setTimeEnd("");
     setSearchInput("");
     setSearchQuery("");
-    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     setVjFlightFilter("All");
     setVjDestFilter("All");
     setDebtClassFilter("All");
@@ -3193,16 +3223,36 @@ export const TransactionLedger = ({
               {/* Row 1: Search + Shift Scope */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
                 <div className="w-full sm:flex-1 relative group">
-                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)] transition-colors group-focus-within:text-[var(--color-accent-amber)]" />
+                  <button
+                    type="button"
+                    onClick={() => commitSearch(searchInput)}
+                    aria-label="Search"
+                    title="Search"
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 p-0.5 bg-transparent border-none cursor-pointer text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] transition-colors group-focus-within:text-[var(--color-accent-amber)]"
+                  >
+                    <Search size={13} />
+                  </button>
                   <input
                     id="ledger-search"
                     name="search"
                     type="text"
-                    placeholder="Search name, amount, reference..."
+                    placeholder="Search name, amount, reference... (press Enter)"
                     value={searchInput}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    className="w-full h-9 pl-9 pr-3 bg-[var(--color-surface-1)] border border-[var(--color-border)] focus:border-[var(--color-accent-amber)] rounded-xl text-[11px] font-sans text-[var(--color-foreground)] focus:outline-none focus:shadow-[0_0_12px_rgba(240,178,48,0.15)] transition-all placeholder-[var(--color-muted)] font-medium"
+                    onChange={(e) => handleSearchInputChange(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') commitSearch(searchInput); }}
+                    className="w-full h-9 pl-9 pr-8 bg-[var(--color-surface-1)] border border-[var(--color-border)] focus:border-[var(--color-accent-amber)] rounded-xl text-[11px] font-sans text-[var(--color-foreground)] focus:outline-none focus:shadow-[0_0_12px_rgba(240,178,48,0.15)] transition-all placeholder-[var(--color-muted)] font-medium"
                   />
+                  {searchInput && (
+                    <button
+                      type="button"
+                      onClick={clearSearch}
+                      aria-label="Clear search"
+                      title="Clear search"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 bg-transparent border-none cursor-pointer text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
                 </div>
                 {/* Shift scope pills */}
                 <div className="flex items-center gap-1 p-0.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl shrink-0 w-full sm:w-auto">
@@ -3467,7 +3517,7 @@ export const TransactionLedger = ({
             )}
 
             {/* Table / Mobile Cards Container */}
-            <div ref={tableRef} onScroll={handleLedgerScroll} className="flex-1 overflow-auto p-3 sm:p-4 pb-4 relative">
+            <div ref={tableRef} className="flex-1 overflow-auto p-3 sm:p-4 pb-4 relative">
               {/* Mobile Card List View (Visible on < 640px) -- virtualized via
                   cardVirtualizer (see its declaration above): only the
                   cards actually in/near the viewport are ever mounted,
@@ -3985,7 +4035,13 @@ export const TransactionLedger = ({
 
         {/* All Time pagination footer -- sits after both the mobile card
             list and desktop table above (both always mounted, one hidden
-            via CSS per breakpoint) so it shows regardless of viewport. */}
+            via CSS per breakpoint) so it shows regardless of viewport.
+            Explicit "Load More" button rather than scroll-proximity
+            auto-fetch -- the button appears at the bottom the moment the
+            first page renders (allTimeHasMore is already known from that
+            page's own response), giving an obvious, always-reachable way
+            to pull in more history on demand instead of an automatic
+            fetch a user can't easily control or predict. */}
         {shiftFilter === 'all' && allTimeEngaged && (
           <div className="py-4 text-center">
             {loadingAllTimeMore ? (
@@ -3993,7 +4049,14 @@ export const TransactionLedger = ({
                 <Loader2 size={12} className="animate-spin" />
                 <span>Loading more…</span>
               </div>
-            ) : !allTimeHasMore && (allTimeTxRows.length + allTimeExpenseRows.length) > 0 ? (
+            ) : allTimeHasMore ? (
+              <button
+                onClick={fetchAllTimeNextPage}
+                className="px-4 py-2 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-xl text-[11px] font-mono font-bold text-[var(--color-foreground)] transition-colors cursor-pointer"
+              >
+                Load More
+              </button>
+            ) : (allTimeTxRows.length + allTimeExpenseRows.length) > 0 ? (
               <div className="text-[10px] font-mono text-[var(--color-muted)]">— End of results —</div>
             ) : null}
           </div>
@@ -5192,7 +5255,7 @@ export const TransactionLedger = ({
         wallets={wallets}
         transactions={transactions}
         searchQuery={searchQuery}
-        onFilterByCustomer={(name) => handleSearchChange(name)}
+        onFilterByCustomer={(name) => commitSearch(name)}
       />
     </div>
   );
