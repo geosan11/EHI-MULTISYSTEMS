@@ -169,6 +169,11 @@ export async function downloadDailyExcel(
     const partialSummary = history
       .map((p: any) => `${fmt(p.amount || 0)} ${p.mode || ''} by ${p.by || ''} @ ${rowDateTime(p.at)}`.trim())
       .join(' | ');
+    // retrieved_amount lives one level deeper than every other field this
+    // row reads (t.raw.retrieved_amount, not t.retrieved_amount -- see
+    // TransactionLedger.tsx's own repeated comment on this) since `t` here
+    // is the same Transaction shape passed to every consumer of this file.
+    const retrievedAmount = t.raw?.retrieved_amount || 0;
     return [
       isDC ? 'YES' : 'NO',
       isDC ? (t.related_tx_id || '') : '',
@@ -183,6 +188,12 @@ export async function downloadDailyExcel(
       t.wallet_deduction_amount ? String(t.wallet_deduction_amount) : '',
       t.retrievedAt ? rowDateTime(t.retrievedAt) : '',
       t.retrievedBy || '',
+      // Blank (not "0") when nothing's ever been retrieved, so a normal
+      // fully-collected row doesn't read as if it were partially retrieved
+      // for NGN 0 -- matches every other optional column's blank-vs-zero
+      // convention in this same row.
+      retrievedAmount ? String(retrievedAmount) : '',
+      retrievedAmount ? String((t.amount || 0) - retrievedAmount) : '',
     ];
   };
   const debtAndWalletHeaders = [
@@ -190,6 +201,7 @@ export async function downloadDailyExcel(
     'Partial Payment?', 'Partial Payment History',
     'Wallet Used?', 'Wallet Deduction Amount',
     'Retrieved At', 'Retrieved By',
+    'Retrieved Amount', 'Balance After Retrieval',
   ];
 
   if (streamType === 'cargo') {

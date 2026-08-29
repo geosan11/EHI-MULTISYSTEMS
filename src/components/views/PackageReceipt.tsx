@@ -28,6 +28,10 @@ export interface PackageReceiptData {
   paymentNarration?: string;
   bankName?: string;
   qrCodeDataUrl?: string;
+  // Cumulative value already picked up across every retrieval this entry
+  // has had (tx.raw.retrieved_amount) -- see CargoReceiptData's identical
+  // field for why this is only ever passed on a reprint.
+  retrievedAmount?: number;
 }
 
 function formatNaira(n: number | string): string {
@@ -174,6 +178,7 @@ const PackageReceiptPDF = ({ data }: { data: PackageReceiptData }) => {
   if (data.pieces) h += 14;
   if (data.kg) h += 14;
   if (data.contents) h += 14;
+  if (data.retrievedAmount) h += 28;
 
   for (const field of [data.customerName, data.destination, data.contents, data.agentName, data.paymentNarration, data.bankName]) {
     if (!field) continue;
@@ -272,6 +277,16 @@ const PackageReceiptPDF = ({ data }: { data: PackageReceiptData }) => {
             <Text style={[styles.amountBoxSub, { marginTop: 2 }]}>
               Narration: {data.paymentNarration}
             </Text>
+          ) : null}
+          {data.retrievedAmount ? (
+            <>
+              <Text style={[styles.amountBoxSub, { marginTop: 4 }]}>
+                Retrieved: {formatNaira(data.retrievedAmount)}
+              </Text>
+              <Text style={styles.amountBoxSub}>
+                Balance: {formatNaira(data.amount - data.retrievedAmount)}
+              </Text>
+            </>
           ) : null}
         </View>
 

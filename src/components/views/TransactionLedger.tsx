@@ -1322,6 +1322,7 @@ export const TransactionLedger = ({
             bankName: tx.bank,
             pickupPin: tx.pickupPin,
             trackingUrl: `https://app.ehimultisystems.com/track/${tx.id}`,
+            retrievedAmount: (tx as any).raw?.retrieved_amount || 0,
           }, width);
         } else if (tx.type === 'baggage') {
           const { compileBaggageReceiptStream } = await import('../../lib/escposBaggagePrinting');
@@ -1342,6 +1343,7 @@ export const TransactionLedger = ({
             amount: tx.amount,
             paymentMode: formatPaymentModeDisplay(tx.mode, tx.wallet_deduction_amount, tx.amount),
             trackingUrl: `https://app.ehimultisystems.com/track/${tx.id}`,
+            retrievedAmount: (tx as any).raw?.retrieved_amount || 0,
           }, width);
         } else if (tx.type === 'package') {
           const { compilePackageReceiptStream } = await import('../../lib/escposPackagePrinting');
@@ -1361,6 +1363,7 @@ export const TransactionLedger = ({
             paymentNarration: tx.paymentNarration,
             bankName: tx.bank,
             trackingUrl: `https://app.ehimultisystems.com/track/${tx.id}`,
+            retrievedAmount: (tx as any).raw?.retrieved_amount || 0,
           }, width);
         } else {
           // tx.type === 'marketing' -- guaranteed by the early return above
@@ -1402,6 +1405,7 @@ export const TransactionLedger = ({
             paymentNarration: tx.paymentNarration,
             bankName: tx.bank,
             trackingUrl: `https://app.ehimultisystems.com/track/${tx.id}`,
+            retrievedAmount: (tx as any).raw?.retrieved_amount || 0,
           }, width);
         }
       });
@@ -1507,6 +1511,7 @@ export const TransactionLedger = ({
           paymentNarration: tx.paymentNarration,
           remark: tx.remarks,
           pickupPin: tx.pickupPin,
+          retrievedAmount: (tx as any).raw?.retrieved_amount || 0,
         });
       } else if (tx.type === 'package') {
         const { downloadPackageReceipt } = await import('./PackageReceipt');
@@ -1525,6 +1530,7 @@ export const TransactionLedger = ({
           paymentMode: formatPaymentModeDisplay(tx.mode, tx.wallet_deduction_amount, tx.amount),
           paymentNarration: tx.paymentNarration,
           bankName: tx.bank,
+          retrievedAmount: (tx as any).raw?.retrieved_amount || 0,
         });
       } else {
         const { printBaggageReceipt } = await import('./ExcessBaggageReceipt');
@@ -1546,6 +1552,7 @@ export const TransactionLedger = ({
           paymentMode: formatPaymentModeDisplay(tx.mode, tx.wallet_deduction_amount, tx.amount),
           paymentNarration: tx.paymentNarration,
           bankName: tx.bank,
+          retrievedAmount: (tx as any).raw?.retrieved_amount || 0,
         });
       }
     } catch (error: any) {
@@ -4265,6 +4272,7 @@ export const TransactionLedger = ({
                     {((viewingDetail.raw as any)?.raw?.retrieved_amount || 0) > 0 && (
                       <div className="text-[11px] font-mono text-[var(--color-accent-cobalt)] mt-1">
                         Retrieved: {(viewingDetail.raw as any).raw.retrieved_kg || 0} KG · {(viewingDetail.raw as any).raw.retrieved_pieces || 0} PCS · ₦{fmt((viewingDetail.raw as any).raw.retrieved_amount || 0)}
+                        {' · '}Balance: ₦{fmt((viewingDetail.raw.amount || 0) - ((viewingDetail.raw as any).raw.retrieved_amount || 0))}
                       </div>
                     )}
                     {((viewingDetail.raw as any)?.raw?.retrieved_amount || 0) > 0 && (

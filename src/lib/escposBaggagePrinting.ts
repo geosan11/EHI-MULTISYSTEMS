@@ -24,6 +24,10 @@ export interface BaggageReceiptPrintData {
   trackingUrl: string;
   paymentNarration?: string;
   bankName?: string;
+  // Cumulative value already picked up across every retrieval this entry
+  // has had (tx.raw.retrieved_amount) -- see CargoReceiptData's identical
+  // field in CargoReceipt.tsx for why this is only ever passed on a reprint.
+  retrievedAmount?: number;
 }
 
 export async function compileBaggageReceiptStream(data: BaggageReceiptPrintData, width: '58mm' | '80mm'): Promise<Uint8Array> {
@@ -112,6 +116,13 @@ export async function compileBaggageReceiptStream(data: BaggageReceiptPrintData,
     }
     if (data.bankName) {
       chunks.push(encoder.encode(fieldRow('BANK:', data.bankName, maxChars)));
+    }
+    if (data.retrievedAmount) {
+      chunks.push(encoder.encode(divider(maxChars)));
+      chunks.push(encoder.encode(fieldRow('RETRIEVED:', `NGN ${data.retrievedAmount.toLocaleString('en-NG')}`, maxChars)));
+      chunks.push(new Uint8Array(BOLD_ON));
+      chunks.push(encoder.encode(fieldRow('BALANCE:', `NGN ${(data.amount - data.retrievedAmount).toLocaleString('en-NG')}`, maxChars)));
+      chunks.push(new Uint8Array(BOLD_OFF));
     }
 
     chunks.push(new Uint8Array(CENTER));

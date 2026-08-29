@@ -36,6 +36,11 @@ export interface CargoReceiptData {
   qrCodeDataUrl?: string;
   airlineLogoUrl?: string | null;
   pickupPin?: string;
+  // Cumulative value already picked up across every retrieval this entry
+  // has had (tx.raw.retrieved_amount), passed only on a reprint of an
+  // entry that's been partially retrieved -- undefined/0 on a fresh
+  // intake receipt, where nothing has been retrieved yet.
+  retrievedAmount?: number;
 }
 
 function formatNaira(n: number | string): string {
@@ -205,6 +210,7 @@ const CargoReceiptOnlyPDF = ({ data }: { data: CargoReceiptData }) => {
   if (data.bankName) h += 20;
   if (data.paymentMode.startsWith("Transfer") && data.paymentNarration) h += 25;
   if (data.remark) h += 35;
+  if (data.retrievedAmount) h += 28;
 
   // Consignee/route/content/airline are free text (or a long single-hub
   // route name) with no length cap in the cargo form -- a fixed estimate
@@ -322,6 +328,16 @@ const CargoReceiptOnlyPDF = ({ data }: { data: CargoReceiptData }) => {
           <Text style={[styles.amountBoxSub, { marginTop: 2 }]}>
             Narration: {data.paymentNarration}
           </Text>
+        ) : null}
+        {data.retrievedAmount ? (
+          <>
+            <Text style={[styles.amountBoxSub, { marginTop: 4 }]}>
+              Retrieved: {formatNaira(data.retrievedAmount)}
+            </Text>
+            <Text style={styles.amountBoxSub}>
+              Balance: {formatNaira(data.amount - data.retrievedAmount)}
+            </Text>
+          </>
         ) : null}
       </View>
 

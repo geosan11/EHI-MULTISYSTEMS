@@ -35,6 +35,10 @@ export interface BaggageReceiptData {
   bankName?: string;
   qrCodeDataUrl?: string;
   airlineLogoUrl?: string | null;
+  // Cumulative value already picked up across every retrieval this entry
+  // has had (tx.raw.retrieved_amount) -- see CargoReceiptData's identical
+  // field for why this is only ever passed on a reprint.
+  retrievedAmount?: number;
 }
 
 function formatNaira(n: number | string): string {
@@ -158,6 +162,7 @@ const BaggageReceiptPDF = ({ data }: { data: BaggageReceiptData }) => {
   if (data.qrCodeDataUrl) h += 60;
   if (data.bankName) h += 20;
   if (data.paymentMode.startsWith("Transfer") && data.paymentNarration) h += 25;
+  if (data.retrievedAmount) h += 28;
 
   // Passenger name/destination are free text (or a long single-hub route
   // name) with no length cap in the ticketing form -- a fixed estimate
@@ -271,6 +276,18 @@ const BaggageReceiptPDF = ({ data }: { data: BaggageReceiptData }) => {
             <Text style={styles.label}>Narration:</Text>
             <Text style={styles.value}>{data.paymentNarration}</Text>
           </View>
+        ) : null}
+        {data.retrievedAmount ? (
+          <>
+            <View style={styles.row}>
+              <Text style={styles.label}>Retrieved:</Text>
+              <Text style={styles.value}>{formatNaira(data.retrievedAmount)}</Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.label}>Balance:</Text>
+              <Text style={styles.value}>{formatNaira(data.amount - data.retrievedAmount)}</Text>
+            </View>
+          </>
         ) : null}
       </View>
 
