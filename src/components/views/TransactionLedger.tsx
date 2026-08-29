@@ -3703,8 +3703,19 @@ export const TransactionLedger = ({
                                 <QrCode size={10} />
                               </button>
                             )}
-                            <div className={`font-mono font-bold text-[13px] ${e.source === "expense" ? "text-[var(--color-error)]" : "text-[var(--color-success)]"}`}>
-                              {e.source === "expense" ? "-" : ""}₦{fmt(e.amount)}
+                            <div className="text-right">
+                              <div className={`font-mono font-bold text-[13px] ${e.source === "expense" ? "text-[var(--color-error)]" : "text-[var(--color-success)]"}`}>
+                                {e.source === "expense" ? "-" : ""}₦{fmt(e.source === "expense" ? e.amount : Math.max(0, e.amount - ((e.raw as any)?.raw?.retrieved_amount || 0)))}
+                              </div>
+                              {/* Struck-through original once anything's been retrieved -- the
+                                  bold figure above is what's still un-retrieved (see the PARTIAL
+                                  badge above for how much was already taken), matching this row's
+                                  own retrieved_amount reads elsewhere in this file. */}
+                              {((e.raw as any)?.raw?.retrieved_amount || 0) > 0 && (
+                                <div className="text-[9px] font-mono text-[var(--color-muted)] line-through">
+                                  ₦{fmt(e.amount)}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -3971,7 +3982,15 @@ export const TransactionLedger = ({
                     </td>
                     {/* Amount */}
                     <td className={`py-2.5 px-2 text-right font-mono text-[11px] whitespace-nowrap ${e.source === "expense" ? "text-[var(--color-error)] font-bold" : "text-[var(--color-success)] font-bold"}`}>
-                      <div>{e.source === "expense" ? "-" : ""}₦{fmt(e.amount)}</div>
+                      <div>{e.source === "expense" ? "-" : ""}₦{fmt(e.source === "expense" ? e.amount : Math.max(0, e.amount - ((e.raw as any)?.raw?.retrieved_amount || 0)))}</div>
+                      {/* Struck-through original once anything's been retrieved -- the
+                          bold figure above is what's still un-retrieved, matching the
+                          mobile card's identical treatment above. */}
+                      {((e.raw as any)?.raw?.retrieved_amount || 0) > 0 && (
+                        <div className="text-[9px] font-mono text-[var(--color-muted)] line-through">
+                          ₦{fmt(e.amount)}
+                        </div>
+                      )}
                       {e.raw?.wallet_deduction_amount > 0 && e.mode !== 'Wallet' && (
                         <div className="text-[9px] text-[var(--color-accent-amber)] font-normal">
                           ₦{fmt(Math.max(0, e.amount - e.raw.wallet_deduction_amount))} {e.mode} · ₦{fmt(e.raw.wallet_deduction_amount)} Wallet
