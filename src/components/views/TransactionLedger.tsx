@@ -3638,25 +3638,48 @@ export const TransactionLedger = ({
 
             {/* Table / Mobile Cards Container */}
             <div ref={tableRef} className="flex-1 overflow-auto p-3 sm:p-4 pb-4 relative">
+              {/* Loading overlay for All Time's first fetch -- sits on top
+                  of whatever's already rendered underneath (stale Current
+                  Shift rows, or a briefly-unscoped intermediate state)
+                  rather than replacing/unmounting the actual row list, so
+                  rowVirtualizer/cardVirtualizer never experience an abrupt
+                  0-to-many remount. See this file's own history (the
+                  shiftsToMark comment above) for why an abrupt large batch
+                  of first-time measurements is exactly the shape of thing
+                  that's crashed this component before. */}
+              {allTimeFirstLoadInFlight && (
+                <div
+                  className="absolute inset-0 flex flex-col items-center justify-center gap-2 z-20"
+                  style={{ background: 'var(--color-overlay, rgba(0,0,0,0.55))', backdropFilter: 'blur(2px)' }}
+                >
+                  <Loader2 size={22} className="animate-spin" style={{ color: 'var(--color-accent-amber)' }} />
+                  <span className="text-[12px] font-mono text-[var(--color-foreground)]">Loading full history…</span>
+                </div>
+              )}
               {/* Mobile Card List View (Visible on < 640px) -- virtualized via
                   cardVirtualizer (see its declaration above): only the
                   cards actually in/near the viewport are ever mounted,
                   positioned with translateY against the sizer div's total
                   height instead of relying on document flow. */}
               <div className="block sm:hidden">
-                {allTimeFirstLoadInFlight ? (
-                  // Replaces what used to be either a stale/empty flash or
-                  // the old disconnected "Loading history…" line above the
-                  // filter strip -- mergedTransactions/filteredEntries are
-                  // briefly unscoped (shiftFilter already 'all', allTimeEngaged
-                  // still false) during exactly this window, so masking the
-                  // table entirely here avoids ever rendering that transient,
-                  // neither-Current-Shift-nor-All-Time state.
-                  <div className="py-12 flex flex-col items-center justify-center gap-2 text-[var(--color-muted)] text-[12px] font-mono">
-                    <Loader2 size={20} className="animate-spin" style={{ color: 'var(--color-accent-amber)' }} />
-                    <span>Loading full history…</span>
-                  </div>
-                ) : displayEntries.length === 0 ? (
+                {/* Deliberately NOT gated on allTimeFirstLoadInFlight -- an
+                    earlier version of this branch swapped the entire
+                    virtualized card list out for a single unrelated <div>
+                    while loading, then swapped hundreds of brand-new
+                    cardVirtualizer.measureElement refs back in the instant
+                    the fetch completed. That abrupt unmount/remount of the
+                    virtualized subtree landed on a component with a
+                    documented history of virtualizer/render-loop fragility
+                    under "a large All Time page lands at once" (see
+                    shiftsToMark's comment above) and is the most likely
+                    cause of a real "Maximum update depth exceeded" (React
+                    error #185) crash on a broad search against a large
+                    dataset. The overlay below (over the whole table
+                    container) covers the loading UX need instead, without
+                    ever unmounting these rows -- the virtualizer keeps
+                    incrementally tracking a continuously-existing set of
+                    DOM nodes exactly like it does the rest of the time. */}
+                {displayEntries.length === 0 ? (
                   <div className="py-8 text-center text-[var(--color-muted)] text-[12px] font-mono">
                     No entries found matching filters.
                   </div>
@@ -3871,22 +3894,9 @@ export const TransactionLedger = ({
               </tr>
             </thead>
             <tbody>
-              {allTimeFirstLoadInFlight ? (
-                // See the mobile card list's matching branch above for why
-                // this masks the table entirely rather than showing
-                // anything from displayEntries during this window.
-                <tr>
-                  <td
-                    colSpan={(isAccountantOrAdmin || !viewOnly) ? (canSeePin ? 9 : 8) : (canSeePin ? 8 : 7)}
-                    className="py-12 text-center text-[var(--color-muted)]"
-                  >
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <Loader2 size={20} className="animate-spin" style={{ color: 'var(--color-accent-amber)' }} />
-                      <span className="text-[12px] font-mono">Loading full history…</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : displayEntries.length === 0 ? (
+              {/* See the mobile card list's matching comment above -- not
+                  gated on allTimeFirstLoadInFlight, for the same reason. */}
+              {displayEntries.length === 0 ? (
                 <tr>
                   <td
                     colSpan={(isAccountantOrAdmin || !viewOnly) ? (canSeePin ? 9 : 8) : (canSeePin ? 8 : 7)}
