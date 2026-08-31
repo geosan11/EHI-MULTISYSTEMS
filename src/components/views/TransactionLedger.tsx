@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Transaction, User, Expense } from "../../lib/types";
-import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDateTime, normalizeAirlineName, formatPaymentModeDisplay, roundMoney, parseLocalDateBoundary } from "../../lib/helpers";
+import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDateTime, normalizeAirlineName, formatPaymentModeDisplay, roundMoney, parseLocalDateBoundary, cleanRoute } from "../../lib/helpers";
 import { applyWalletTransaction, processRetrieval, unretrieveEntry, approveRetrieval, RetrievalEntryType } from "../../lib/wallet";
 import { clearDebt, reopenDebt, DebtEntryType } from "../../lib/debt";
 import { deleteTransaction } from "../../lib/deleteTransaction";
@@ -345,10 +345,29 @@ export const TransactionLedger = ({
   // programmatic trigger (LiveCreditFeed's "filter ledger by this
   // customer" click) all funnel through here and commit immediately,
   // unlike free-text typing above.
+  //
+  // A 1-2 character query is refused outright (below the "type at least 3
+  // characters" hint) rather than committed: this is the direct fix for
+  // the ledger "hitting a snag" on inputs like "ab" -- ledger_search_page/
+  // ledger_search_totals's ILIKE '%query%' matching is backed by pg_trgm
+  // GIN indexes, which Postgres can only use for patterns of 3+ characters
+  // (a trigram is 3 consecutive characters; nothing shorter produces a
+  // usable one). A shorter query silently falls back to a full sequential
+  // scan across every department table -- ledger_search_totals in
+  // particular has no LIMIT at all and, for hub-unrestricted roles
+  // (admin/super_admin/accountant/auditor), scans the entire company's
+  // history. Blocking it here is a client-side guard, not a query
+  // rewrite -- it doesn't touch the RPCs themselves, just stops the one
+  // input shape known to make them fall over.
   const commitSearch = useCallback((val: string) => {
+    const trimmed = val.trim();
+    if (trimmed.length > 0 && trimmed.length < 3) {
+      showToast({ message: 'Type at least 3 characters to search.', type: 'warning' });
+      return;
+    }
     setSearchInput(val);
     setSearchQuery(val);
-  }, []);
+  }, [showToast]);
   // Cancels a search immediately (no Enter needed) -- clearing is treated
   // as a discrete "stop searching" action, not something that should sit
   // half-typed waiting for a commit.
@@ -527,6 +546,14 @@ export const TransactionLedger = ({
 
   const [vjFlightFilter, setVjFlightFilter] = useState("All");
   const [vjDestFilter, setVjDestFilter] = useState("All");
+  // General destination filter, replacing route/destination as a free-text
+  // search field (see filteredEntries' search-text comment) -- unlike
+  // vjDestFilter above (baggage-only, options scraped from whatever rows
+  // happen to be loaded), this applies to every entry type and sources its
+  // options from useHubRoutes() (`routes`, already fetched for the Edit
+  // Transaction modal's own route selects), so a destination shows up here
+  // even before any entry going there has loaded this session.
+  const [destFilter, setDestFilter] = useState("All");
   // 'current' = only entries within the current operational shift (7PM–7PM).
   // 'all' = unfiltered by shift (shows all loaded transactions as before).
   const [shiftFilter, setShiftFilter] = useState<'current' | 'all'>('current');
@@ -942,6 +969,19 @@ export const TransactionLedger = ({
       if (vjDestFilter !== "All" && tx.destination !== vjDestFilter) return false;
     }
 
+    // General destination filter -- applies across every entry type
+    // (cargo/marketing carry it as `route`, baggage/package as
+    // `destination`), unlike vjDestFilter above which is baggage-only.
+    // cleanRoute() on both sides absorbs the casing/"Air Cargo Station"
+    // suffix drift it already exists to paper over elsewhere (rate-table
+    // matching, tag printing) -- a raw string-equality check would miss
+    // entries whose stored value differs only in that noise.
+    if (destFilter !== "All" && e.source === 'transaction') {
+      const raw = e.raw as any;
+      const entryDest = (e.type === 'cargo' || e.type === 'marketing') ? raw.route : raw.destination;
+      if (cleanRoute(entryDest) !== cleanRoute(destFilter)) return false;
+    }
+
     if (terminalFilter !== 'All') {
       const t = (e.raw as any)?.terminal || 'MMA2';
       if (t !== terminalFilter) return false;
@@ -1060,13 +1100,19 @@ export const TransactionLedger = ({
       // matched nothing. Includes both the raw number (typed as "15000")
       // and fmt()'s comma-grouped form (typed as "15,000"), same as the
       // amount is actually displayed on the row.
+      //
+      // route/destination deliberately excluded -- that's now the dedicated
+      // destFilter dropdown below, not a free-text field (e.detail's summary
+      // string can still incidentally contain the route for cargo/marketing,
+      // e.g. "Arik Air · 3pcs · 12KG · ABV/Abuja · Electronics" -- left as-is,
+      // that's a display string quirk, not the deliberate search surface).
       const text =
-        `${e.id} ${e.time} ${e.type} ${e.name} ${e.detail} ${e.mode} ${e.amount} ${fmt(e.amount)} ${raw.awb_tag_number || ''} ${raw.route || ''} ${raw.remarks || ''} ${raw.related_tx_id || ''} ${raw.phone || ''} ${raw.consignee_phone || ''} ${raw.consigneePhone || ''} ${raw.customer_phone || ''} ${raw.pickupPin || ''}`.toLowerCase();
+        `${e.id} ${e.time} ${e.type} ${e.name} ${e.detail} ${e.mode} ${e.amount} ${fmt(e.amount)} ${raw.awb_tag_number || ''} ${raw.remarks || ''} ${raw.related_tx_id || ''} ${raw.phone || ''} ${raw.consignee_phone || ''} ${raw.consigneePhone || ''} ${raw.customer_phone || ''} ${raw.pickupPin || ''}`.toLowerCase();
       if (!text.includes(q)) return false;
     }
 
     return true;
-  }), [entries, typeFilter, modeFilter, terminalFilter, timeFilter, timeStart, timeEnd, searchQuery, shiftFilter, shiftBoundary, vjFlightFilter, vjDestFilter, debtClassFilter]);
+  }), [entries, typeFilter, modeFilter, terminalFilter, timeFilter, timeStart, timeEnd, searchQuery, shiftFilter, shiftBoundary, vjFlightFilter, vjDestFilter, destFilter, debtClassFilter]);
 
   // Per-airline weight/pieces/revenue roll-up for whatever's currently in
   // filteredEntries -- recomputes with every filter change so it always
@@ -2644,14 +2690,14 @@ export const TransactionLedger = ({
   }, [shiftFilter, allTimeEngaged, allTimeTotals, totalAmount, cashAmount, transferAmount, posAmount, debtAmount, walletAmount, unpaidDebtCount, officeDebtAmount, individualDebtAmount]);
 
   // Server totals above only account for search/type/terminal/office-work/
-  // debt-class -- timeFilter/vjFlightFilter/vjDestFilter and modeFilter's
-  // pseudo-values have no server equivalent (see allTimeFilterParams'
-  // comment) and only narrow the on-screen ROWS, not displayTotals. True
-  // whenever one of those is active so the tiles can flag the mismatch
-  // instead of silently looking wrong.
+  // debt-class -- timeFilter/vjFlightFilter/vjDestFilter/destFilter and
+  // modeFilter's pseudo-values have no server equivalent (see
+  // allTimeFilterParams' comment) and only narrow the on-screen ROWS, not
+  // displayTotals. True whenever one of those is active so the tiles can
+  // flag the mismatch instead of silently looking wrong.
   const allTimeTotalsExcludeSomeActiveFilters =
     shiftFilter === 'all' && allTimeEngaged && (
-      timeFilter !== 'All' || vjFlightFilter !== 'All' || vjDestFilter !== 'All' ||
+      timeFilter !== 'All' || vjFlightFilter !== 'All' || vjDestFilter !== 'All' || destFilter !== 'All' ||
       (modeFilter !== 'All' && !RAW_MODE_VALUES.includes(modeFilter))
     );
 
@@ -2664,6 +2710,7 @@ export const TransactionLedger = ({
       searchQuery.trim() !== "" ||
       vjFlightFilter !== "All" ||
       vjDestFilter !== "All" ||
+      destFilter !== "All" ||
       debtClassFilter !== "All";
     const count =
       (typeFilter !== (defaultTypeFilter || "All") ? 1 : 0) +
@@ -2673,9 +2720,10 @@ export const TransactionLedger = ({
       (searchQuery.trim() !== "" ? 1 : 0) +
       (vjFlightFilter !== "All" ? 1 : 0) +
       (vjDestFilter !== "All" ? 1 : 0) +
+      (destFilter !== "All" ? 1 : 0) +
       (debtClassFilter !== "All" ? 1 : 0);
     return { hasNonDefaultFilters: hasNDF, activeFilterCount: count };
-  }, [typeFilter, defaultTypeFilter, modeFilter, terminalFilter, defaultTerminalFilter, timeFilter, searchQuery, vjFlightFilter, vjDestFilter, debtClassFilter]);
+  }, [typeFilter, defaultTypeFilter, modeFilter, terminalFilter, defaultTerminalFilter, timeFilter, searchQuery, vjFlightFilter, vjDestFilter, destFilter, debtClassFilter]);
 
   const resetAllFilters = () => {
     setTypeFilter(defaultTypeFilter || "All");
@@ -2688,6 +2736,7 @@ export const TransactionLedger = ({
     setSearchQuery("");
     setVjFlightFilter("All");
     setVjDestFilter("All");
+    setDestFilter("All");
     setDebtClassFilter("All");
   };
 
@@ -2712,6 +2761,30 @@ export const TransactionLedger = ({
     });
     return Array.from(set).sort();
   }, [entries, defaultTypeFilter]);
+
+  // Destination filter's own option list -- seeded with routes (from
+  // useHubRoutes(), always current/canonical) so a destination is
+  // selectable even before any entry going there has loaded this session,
+  // then union'd with whatever's actually stored on loaded entries (keyed
+  // by cleanRoute() to dedupe against a canonical route already listed).
+  // CargoForm's intake route picker has a free-text "Other" escape hatch
+  // this Ledger's own edit modal doesn't offer, so a stored route/
+  // destination isn't guaranteed to be a member of `routes` -- without
+  // this union, an entry carrying one of those outlier values would have
+  // no way to be isolated by this filter at all.
+  const allDests = useMemo(() => {
+    const seen = new Set(routes.map(r => cleanRoute(r)));
+    const extra: string[] = [];
+    entries.forEach(e => {
+      if (e.source !== 'transaction') return;
+      const raw = e.raw as any;
+      const val = (e.type === 'cargo' || e.type === 'marketing') ? raw.route : raw.destination;
+      if (!val || seen.has(cleanRoute(val))) return;
+      seen.add(cleanRoute(val));
+      extra.push(val);
+    });
+    return [...routes, ...extra.sort()];
+  }, [routes, entries]);
 
   // Type Quick-Filter Chips' per-chip counts -- previously ran a fresh
   // entries.filter(...).length scan inline inside that bar's render .map(),
@@ -2841,6 +2914,19 @@ export const TransactionLedger = ({
                 </select>
               </>
             )}
+
+            {/* General Destination filter -- every entry type, unlike the
+                baggage-only vjDestFilter above. Replaces route/destination
+                as a free-text search field (see filteredEntries). */}
+            <select
+              value={destFilter}
+              onChange={e => setDestFilter(e.target.value)}
+              title="Filter by destination"
+              className="h-8 px-2 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg text-[10px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
+            >
+              <option value="All">All Destinations</option>
+              {allDests.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
 
             {/* Download */}
             <button
