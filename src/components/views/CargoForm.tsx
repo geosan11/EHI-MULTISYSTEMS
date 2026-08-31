@@ -1422,7 +1422,7 @@ export const CargoForm = ({
   const piecesNum = parseInt(pcs);
   const isRetailFormValid = useMemo(
     () =>
-      actualConsignee.trim().length > 0 &&
+      actualConsignee.trim().length >= 3 &&
       route.trim().length > 0 &&
       actualContentType.trim().length > 0 &&
       // Size-tier content (e.g. Plasma TV) is priced by screen size, not
@@ -2179,6 +2179,11 @@ export const CargoForm = ({
                       onChange={upperOnChange(setCustomConsignee)}
                       className={formInputClass}
                     />
+                  )}
+                  {actualConsignee.trim().length > 0 && actualConsignee.trim().length < 3 && (
+                    <p className="text-[10px] font-mono text-[var(--color-accent-amber)]">
+                      Consignee name must be at least 3 characters.
+                    </p>
                   )}
                   <input
                     id="retail-sender-phone"

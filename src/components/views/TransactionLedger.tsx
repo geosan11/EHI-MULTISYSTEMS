@@ -358,26 +358,29 @@ export const TransactionLedger = ({
   // customer" click) all funnel through here and commit immediately,
   // unlike free-text typing above.
   //
-  // A 1-2 character query is refused outright (below the "type at least 3
-  // characters" hint) rather than committed: this is the direct fix for
-  // the ledger "hitting a snag" on inputs like "ab" -- ledger_search_page/
+  // A single-character query is refused outright (below the "type at
+  // least 2 characters" hint) rather than committed -- ledger_search_page/
   // ledger_search_totals's ILIKE '%query%' matching is backed by pg_trgm
   // GIN indexes, which Postgres can only use for patterns of 3+ characters
   // (a trigram is 3 consecutive characters; nothing shorter produces a
-  // usable one). A shorter query silently falls back to a full sequential
-  // scan across every department table -- ledger_search_totals in
-  // particular has no LIMIT at all and, for hub-unrestricted roles
+  // usable one), so even a 2-character query still forces a full
+  // sequential scan across every department table -- ledger_search_totals
+  // in particular has no LIMIT at all and, for hub-unrestricted roles
   // (admin/super_admin/accountant/auditor), scans the entire company's
-  // history. Blocking it here is a client-side guard, not a query
-  // rewrite -- it doesn't touch the RPCs themselves, just stops the one
-  // input shape known to make them fall over. showToast is declared near
-  // the top of this component (not further down where it used to live)
-  // specifically so this dependency array is safe to read at render time --
-  // see that declaration's own comment for the incident this caused.
+  // history. This floor was originally 3 (fully avoiding that scan), but
+  // dropped to 2 deliberately: some existing consignee names are only 2
+  // characters long (predating CargoForm's own 3-character minimum), and
+  // staff need to be able to find them. A 1-character query gets no
+  // benefit from that trade-off (matches almost everything, still slow)
+  // and stays blocked. Blocking here is a client-side guard, not a query
+  // rewrite -- it doesn't touch the RPCs themselves. showToast is declared
+  // near the top of this component (not further down where it used to
+  // live) specifically so this dependency array is safe to read at render
+  // time -- see that declaration's own comment for the incident this caused.
   const commitSearch = useCallback((val: string) => {
     const trimmed = val.trim();
-    if (trimmed.length > 0 && trimmed.length < 3) {
-      showToast({ message: 'Type at least 3 characters to search.', type: 'warning' });
+    if (trimmed.length === 1) {
+      showToast({ message: 'Type at least 2 characters to search.', type: 'warning' });
       return;
     }
     setSearchInput(val);
@@ -2682,6 +2685,17 @@ export const TransactionLedger = ({
     totalAmount, cashAmount, unverifiedCash, unconfirmedTransfer, unconfirmedPOS,
   } = kpis;
 
+  // True only for the FIRST All Time fetch (allTimeEngaged still false) --
+  // switching back to All Time after it's already been engaged once reuses
+  // the cached allTimeTotals/allTimeTxRows with no new fetch, so there's
+  // nothing to show a loading state for the second time. Drives the KPI
+  // tiles' and the table's own loading branches below, replacing the old
+  // behavior of silently showing stale Current-Shift figures / a flash of
+  // unscoped rows for the whole duration of that first fetch (the actual
+  // "All Time click feels like it hangs" complaint -- the click itself was
+  // never slow, nothing was telling the user their click had registered).
+  const allTimeFirstLoadInFlight = shiftFilter === 'all' && loadingAllTimeFirst;
+
   // While All Time is engaged, the KPI tiles show the server-computed
   // aggregate (allTimeTotals, reflecting every matching row across the
   // whole table, not just loaded pages) instead of the client-computed
@@ -3089,7 +3103,7 @@ export const TransactionLedger = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-[9px] font-mono text-[var(--color-accent-amber)] uppercase tracking-wider truncate">Total</div>
-                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-foreground)] leading-tight truncate">₦{fmt(displayTotals.totalAmount)}</div>
+                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-foreground)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.totalAmount)}`}</div>
                   </div>
                 </div>
 
@@ -3112,7 +3126,7 @@ export const TransactionLedger = ({
                         <span className="text-[8px] font-mono font-bold bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unverifiedCash.length}</span>
                       )}
                     </div>
-                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-success)] leading-tight truncate">₦{fmt(displayTotals.cashAmount)}</div>
+                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-success)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.cashAmount)}`}</div>
                   </div>
                 </button>
 
@@ -3135,7 +3149,7 @@ export const TransactionLedger = ({
                         <span className="text-[8px] font-mono font-bold bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unconfirmedTransfer.length}</span>
                       )}
                     </div>
-                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-accent-cobalt)] leading-tight truncate">₦{fmt(displayTotals.transferAmount)}</div>
+                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-accent-cobalt)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.transferAmount)}`}</div>
                   </div>
                 </button>
 
@@ -3158,7 +3172,7 @@ export const TransactionLedger = ({
                         <span className="text-[8px] font-mono font-bold bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unconfirmedPOS.length}</span>
                       )}
                     </div>
-                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-accent-amber)] leading-tight truncate">₦{fmt(displayTotals.posAmount)}</div>
+                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-accent-amber)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.posAmount)}`}</div>
                   </div>
                 </button>
 
@@ -3181,7 +3195,7 @@ export const TransactionLedger = ({
                         <span className="text-[8px] font-mono font-bold bg-[rgba(239,68,68,0.2)] text-[var(--color-error)] px-1 py-0.5 rounded shrink-0">{displayTotals.unpaidDebtCount}</span>
                       )}
                     </div>
-                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">₦{fmt(displayTotals.debtAmount)}</div>
+                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.debtAmount)}`}</div>
                   </div>
                 </button>
 
@@ -3199,7 +3213,7 @@ export const TransactionLedger = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-[9px] font-mono text-purple-400 uppercase tracking-wider truncate">Wallet</div>
-                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-purple-400 leading-tight truncate">₦{fmt(displayTotals.walletAmount)}</div>
+                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-purple-400 leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.walletAmount)}`}</div>
                   </div>
                 </button>
               </div>
@@ -3233,7 +3247,7 @@ export const TransactionLedger = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-[9px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Office Debt (B2B)</div>
-                    <div className="text-[12px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">₦{fmt(displayTotals.officeDebtAmount)}</div>
+                    <div className="text-[12px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={11} className="animate-spin" /> : `₦${fmt(displayTotals.officeDebtAmount)}`}</div>
                   </div>
                 </button>
                 <button
@@ -3253,7 +3267,7 @@ export const TransactionLedger = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-[9px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Individual Debt</div>
-                    <div className="text-[12px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">₦{fmt(displayTotals.individualDebtAmount)}</div>
+                    <div className="text-[12px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={11} className="animate-spin" /> : `₦${fmt(displayTotals.individualDebtAmount)}`}</div>
                   </div>
                 </button>
               </div>
@@ -3397,12 +3411,17 @@ export const TransactionLedger = ({
                           fetchAllTimeFirstPage();
                         }
                       }}
-                      className={`h-7 px-3.5 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer flex-1 sm:flex-initial text-center ${
+                      className={`h-7 px-3.5 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer flex-1 sm:flex-initial text-center inline-flex items-center justify-center gap-1.5 ${
                         shiftFilter === scope
                           ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] shadow-md'
                           : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[rgba(255,255,255,0.03)]'
                       }`}
                     >
+                      {/* Confirms the click registered immediately -- the
+                          click itself was never slow (setShiftFilter is
+                          synchronous), but nothing here used to show that
+                          before allTimeTotals/allTimeTxRows actually arrived. */}
+                      {scope === 'all' && allTimeFirstLoadInFlight && <Loader2 size={10} className="animate-spin" />}
                       {scope === 'current' ? 'Current Shift' : 'All Time'}
                     </button>
                   ))}
@@ -3422,12 +3441,6 @@ export const TransactionLedger = ({
                 </div>
               )}
 
-              {shiftFilter === 'all' && loadingAllTimeFirst && (
-                <div className="text-[9.5px] font-mono text-[var(--color-accent-amber)] flex items-center gap-1">
-                  <Loader2 size={10} className="animate-spin" />
-                  <span>Loading history…</span>
-                </div>
-              )}
 
               {allTimeTotalsExcludeSomeActiveFilters && (
                 <div className="text-[9.5px] font-mono text-[var(--color-muted)] flex items-center gap-1">
@@ -3631,7 +3644,19 @@ export const TransactionLedger = ({
                   positioned with translateY against the sizer div's total
                   height instead of relying on document flow. */}
               <div className="block sm:hidden">
-                {displayEntries.length === 0 ? (
+                {allTimeFirstLoadInFlight ? (
+                  // Replaces what used to be either a stale/empty flash or
+                  // the old disconnected "Loading history…" line above the
+                  // filter strip -- mergedTransactions/filteredEntries are
+                  // briefly unscoped (shiftFilter already 'all', allTimeEngaged
+                  // still false) during exactly this window, so masking the
+                  // table entirely here avoids ever rendering that transient,
+                  // neither-Current-Shift-nor-All-Time state.
+                  <div className="py-12 flex flex-col items-center justify-center gap-2 text-[var(--color-muted)] text-[12px] font-mono">
+                    <Loader2 size={20} className="animate-spin" style={{ color: 'var(--color-accent-amber)' }} />
+                    <span>Loading full history…</span>
+                  </div>
+                ) : displayEntries.length === 0 ? (
                   <div className="py-8 text-center text-[var(--color-muted)] text-[12px] font-mono">
                     No entries found matching filters.
                   </div>
@@ -3846,7 +3871,22 @@ export const TransactionLedger = ({
               </tr>
             </thead>
             <tbody>
-              {displayEntries.length === 0 ? (
+              {allTimeFirstLoadInFlight ? (
+                // See the mobile card list's matching branch above for why
+                // this masks the table entirely rather than showing
+                // anything from displayEntries during this window.
+                <tr>
+                  <td
+                    colSpan={(isAccountantOrAdmin || !viewOnly) ? (canSeePin ? 9 : 8) : (canSeePin ? 8 : 7)}
+                    className="py-12 text-center text-[var(--color-muted)]"
+                  >
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Loader2 size={20} className="animate-spin" style={{ color: 'var(--color-accent-amber)' }} />
+                      <span className="text-[12px] font-mono">Loading full history…</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : displayEntries.length === 0 ? (
                 <tr>
                   <td
                     colSpan={(isAccountantOrAdmin || !viewOnly) ? (canSeePin ? 9 : 8) : (canSeePin ? 8 : 7)}
