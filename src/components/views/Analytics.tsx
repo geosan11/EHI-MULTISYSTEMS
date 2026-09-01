@@ -275,11 +275,31 @@ export const Analytics = ({
   // is_debt_clearance shadow-row scan for collections made after this
   // view's data no longer includes new shadow rows.
   const [debtBearingEntries, setDebtBearingEntries] = useState<Transaction[]>([]);
+  // A failed fetch here used to leave debtBearingEntries permanently at its
+  // initial `[]` for the rest of the session -- silently, since the catch
+  // did nothing -- which drops every debt-collection event out of
+  // periodCollectionPseudoTxs below and understates metrics.totalRevenue/
+  // collectionEfficiency (the two headline KPI tiles) with no indication
+  // anything is wrong. debtFetchError + the retry key make that visible
+  // (banner + toast below) and retryable, deliberately NOT auto-retried --
+  // a persistent RLS/permissions issue should stay visibly flagged, not
+  // get silently retried forever.
+  const [debtFetchError, setDebtFetchError] = useState<string | null>(null);
+  const [debtFetchRetryKey, setDebtFetchRetryKey] = useState(0);
   useEffect(() => {
     let active = true;
-    fetchAllDebtAndRetrievalEntries().then(entries => { if (active) setDebtBearingEntries(entries); }).catch(() => {});
+    setDebtFetchError(null);
+    fetchAllDebtAndRetrievalEntries()
+      .then(entries => { if (active) setDebtBearingEntries(entries); })
+      .catch((err: any) => {
+        if (!active) return;
+        const message = err?.message || 'unknown error';
+        console.error('Failed to load debt-collection history:', err);
+        setDebtFetchError(message);
+        showToast({ message: `Failed to load debt-collection history -- Total Revenue and Collection Efficiency below may be understated: ${message}`, type: 'error' });
+      });
     return () => { active = false; };
-  }, []);
+  }, [debtFetchRetryKey, showToast]);
 
   // Debt-collection events (payment_history-derived) that fall inside the
   // current period + hub selection, packaged as pseudo-transactions so
@@ -982,6 +1002,32 @@ export const Analytics = ({
           </div>
         </div>
       </div>
+
+      {/* Debt-collection history failed to load -- persistent banner, not
+          just the toast fired when this happened, since a toast can be
+          missed/dismissed and this affects the two headline KPI tiles
+          above. Deliberately placed ahead of the leakage-anomaly banner
+          below: an incomplete revenue figure is a data-integrity problem,
+          not a business-insight flag. */}
+      {debtFetchError && (
+        <div className="bg-[rgba(239,68,68,0.08)] border border-[rgba(239,68,68,0.3)] rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle size={18} className="text-[var(--color-error)] shrink-0 mt-0.5" />
+          <div className="flex-1 text-[12px]">
+            <div className="font-bold text-[var(--color-error)] font-mono uppercase tracking-wider mb-0.5">
+              Debt-Collection History Failed to Load
+            </div>
+            <div className="text-[var(--color-foreground)]">
+              Total Handling Revenue and Collection Efficiency above may be understated until this succeeds -- debt-collection events aren't included right now. ({debtFetchError})
+            </div>
+          </div>
+          <button
+            onClick={() => setDebtFetchRetryKey(k => k + 1)}
+            className="shrink-0 h-8 px-3 bg-[var(--color-error)] text-white rounded-lg text-[11px] font-mono font-bold hover:opacity-90 transition-opacity"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* ── Zone 4: Revenue Leakage Anomaly Warning Banner (if triggered) ─ */}
       {leakageWarningSignal && (

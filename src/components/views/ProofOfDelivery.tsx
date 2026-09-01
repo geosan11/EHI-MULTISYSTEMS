@@ -101,7 +101,28 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
 
       // Local save first so signature capture always succeeds instantly and
       // works offline; PODLog reads this table directly on this device.
-      await db.proof_of_delivery.add(pod);
+      //
+      // None of this function's three call sites (below) await or catch its
+      // returned promise -- without a try/catch here, a thrown IndexedDB
+      // write (storage quota, private-browsing restrictions on some mobile
+      // browsers, a Dexie error) was an unhandled rejection: onComplete
+      // never fired, submitting never reset, and "Confirm Delivery" stayed
+      // stuck on "Saving..." forever with no error shown -- the only way
+      // out was Cancel, which discards the already-captured signature and
+      // photo entirely, after the physical handover has usually already
+      // happened. Catching it here keeps the form mounted with everything
+      // still captured, so a retry just re-attempts the same save.
+      try {
+        await db.proof_of_delivery.add(pod);
+      } catch (err: any) {
+        console.error('Failed to save proof of delivery locally:', err);
+        showToast({
+          message: `Couldn't save this delivery record: ${err?.message || 'unknown error'}. Your signature and photo are still here -- try Confirm Delivery again.`,
+          type: 'error',
+        });
+        setSubmitting(false);
+        return;
+      }
       onComplete(pod);
 
       // Fire the Supabase sync in the background (not awaited) — the staff
