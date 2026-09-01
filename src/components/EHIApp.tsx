@@ -215,6 +215,13 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
   // correctly flips back to false once a bumped cap stops truncating.
   const [ledgerRowsTruncated, setLedgerRowsTruncated] = useState(false);
   const [ledgerRowsLoadingMore, setLedgerRowsLoadingMore] = useState(false);
+  // True while a fetchInitial run for the CURRENT epoch is in flight --
+  // covers a period-switch refetch same as a tab switch or the 5-min poll.
+  // fetchInitial previously had no loading signal at all, so e.g. Analytics'
+  // period buttons swapped globalDateRange and the KPI tiles/charts just sat
+  // on the stale period's numbers with nothing on screen saying a refetch
+  // was even happening until it silently finished.
+  const [isFetchingData, setIsFetchingData] = useState(false);
   const handleGlobalDateRangeChange = useCallback((range: { start: string; end: string }) => {
     setGlobalDateRange(range);
     setLedgerRowCap(LEDGER_ROW_CAP_STEP);
@@ -461,6 +468,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     // so the same guard works when this is called from multiple effects.
     const myEpoch = ++fetchEpochRef.current;
     setInitError(false);
+    setIsFetchingData(true);
     try {
         const isAdmin = ['super_admin','admin','accountant','auditor'].includes(user.role);
         // Deliberately narrower than isAdmin -- pickup PIN visibility is
@@ -910,6 +918,13 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         consecutiveFetchFailuresRef.current++;
         setInitError(true);
         setLedgerRowsLoadingMore(false);
+      } finally {
+        // Guarded by epoch, same as the two early-return checks above: if a
+        // newer fetchInitial call has already started by the time this one
+        // finishes (stale or not), that newer run owns isFetchingData --
+        // this one flipping it to false would falsely announce "done"
+        // while the actual latest fetch is still in flight.
+        if (fetchEpochRef.current === myEpoch) setIsFetchingData(false);
       }
   }, [globalDateRange, user.role, user.hub_id, stateWideView, ledgerRowCap]);
 
@@ -2480,7 +2495,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               <Suspense fallback={<TabLoadingFallback />}>
               {currentTab === 'Tower' && (
                 (user.role === 'super_admin' || user.role === 'admin' || user.role === 'accountant') ? (
-                  <Analytics user={user} transactions={transactions} expenses={expenses} dateRange={globalDateRange} setDateRange={handleGlobalDateRangeChange} />
+                  <Analytics user={user} transactions={transactions} expenses={expenses} dateRange={globalDateRange} setDateRange={handleGlobalDateRangeChange} dataLoading={isFetchingData} />
                 ) : (
                   <Dashboard
                     user={user}

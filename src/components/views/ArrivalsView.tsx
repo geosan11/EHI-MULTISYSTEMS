@@ -215,38 +215,44 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
     if (!selectedCargo) return;
 
     setReleasing(true);
-    const storedPin = selectedCargo.pickup_pin;
+    try {
+      const storedPin = selectedCargo.pickup_pin;
 
-    if (!storedPin) {
-      setPinError('No PIN assigned to this cargo entry. Contact the originating hub.');
-      setReleasing(false);
-      return;
-    }
-
-    if (storedPin === entered) {
-      const ref = selectedCargo.entry_ref || selectedCargo.id;
-
-      // Guard against a duplicate DELIVER log — e.g. two staff opening the
-      // PIN modal for the same cargo, or a retried submit after a slow
-      // network response, would otherwise both pass validation above and
-      // each write their own DELIVER row.
-      if (await isTagAlreadyDelivered(ref)) {
-        setPinError('This cargo was already marked as delivered.');
-        setReleasing(false);
+      if (!storedPin) {
+        setPinError('No PIN assigned to this cargo entry. Contact the originating hub.');
         return;
       }
 
-      // PIN confirmed — hand off to signature capture. Delivery isn't
-      // finalized (status/tracking event) until that completes, so a
-      // signature is always on file, ID or no ID.
-      setPinModalOpen(false);
-      setActivePodCapture({ ref, cargo: selectedCargo });
-    } else {
-      setPinError('Incorrect PIN — consignee must present the correct 5-digit PIN sent to their phone.');
-      setPinValue(['', '', '', '', '']);
-      setTimeout(() => firstPinRef.current?.focus(), 50);
+      if (storedPin === entered) {
+        const ref = selectedCargo.entry_ref || selectedCargo.id;
+
+        // Guard against a duplicate DELIVER log — e.g. two staff opening the
+        // PIN modal for the same cargo, or a retried submit after a slow
+        // network response, would otherwise both pass validation above and
+        // each write their own DELIVER row. This await was unguarded, so a
+        // network error here left `releasing` stuck true forever with no
+        // error shown -- the "Confirm PIN" button just sat on "Releasing…".
+        if (await isTagAlreadyDelivered(ref)) {
+          setPinError('This cargo was already marked as delivered.');
+          return;
+        }
+
+        // PIN confirmed — hand off to signature capture. Delivery isn't
+        // finalized (status/tracking event) until that completes, so a
+        // signature is always on file, ID or no ID.
+        setPinModalOpen(false);
+        setActivePodCapture({ ref, cargo: selectedCargo });
+      } else {
+        setPinError('Incorrect PIN — consignee must present the correct 5-digit PIN sent to their phone.');
+        setPinValue(['', '', '', '', '']);
+        setTimeout(() => firstPinRef.current?.focus(), 50);
+      }
+    } catch (err) {
+      console.error('Confirm PIN error:', err);
+      setPinError("Couldn't verify delivery status -- check your connection and try again.");
+    } finally {
+      setReleasing(false);
     }
-    setReleasing(false);
   };
 
   const handlePodComplete = async () => {

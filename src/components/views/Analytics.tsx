@@ -52,18 +52,26 @@ interface GeminiInsight {
   priority: 'high' | 'medium' | 'low';
 }
 
-export const Analytics = ({ 
-  user, 
+export const Analytics = ({
+  user,
   transactions,
   expenses = [],
   dateRange,
-  setDateRange
-}: { 
-  user: User; 
+  setDateRange,
+  dataLoading = false
+}: {
+  user: User;
   transactions: Transaction[];
   expenses?: Expense[];
   dateRange: { start: string; end: string };
   setDateRange: (range: { start: string; end: string }) => void;
+  // True while EHIApp's fetchInitial is re-pulling transactions/expenses for
+  // a new dateRange -- e.g. a period button here just called setDateRange.
+  // Without this, switching periods swapped dateRange instantly but the KPI
+  // tiles/charts kept showing the PREVIOUS period's numbers, computed from
+  // the still-stale transactions/expenses props, with nothing on screen
+  // saying a refetch was even in flight until it silently landed.
+  dataLoading?: boolean;
 }) => {
   const [period, setPeriod] = useState<'shift' | 'today' | '7days' | 'month' | 'custom'>('shift');
   const [selectedHub, setSelectedHub] = useState<string>('all');
@@ -896,6 +904,12 @@ export const Analytics = ({
           >
             Custom Range
           </button>
+          {dataLoading && (
+            <span className="flex items-center gap-1 pl-2 text-[10px] font-mono text-[var(--color-muted)]">
+              <Loader2 size={11} className="animate-spin" />
+              Refreshing…
+            </span>
+          )}
         </div>
 
         {/* Custom Range Inputs if Active */}
@@ -940,7 +954,22 @@ export const Analytics = ({
       </div>
 
       {/* ── Zone 3: Executive Yield & Handling KPI Cards ─────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="relative grid grid-cols-2 lg:grid-cols-5 gap-3">
+        {/* Non-destructive overlay, not a swap-out for the tiles below --
+            the previous period's figures stay visible (dimmed) underneath
+            rather than being replaced by a blank/spinner state, matching
+            the Ledger's "All Time" loading pattern elsewhere in the app. */}
+        {dataLoading && (
+          <div
+            className="absolute inset-0 z-10 flex items-center justify-center rounded-xl backdrop-blur-[1px]"
+            style={{ background: 'var(--color-overlay, rgba(0,0,0,0.35))' }}
+          >
+            <span className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--color-surface-card)] border border-[var(--color-border)] text-[11px] font-mono text-[var(--color-foreground)]">
+              <Loader2 size={13} className="animate-spin text-[var(--color-accent-amber)]" />
+              Loading {period === 'custom' ? 'range' : period}…
+            </span>
+          </div>
+        )}
         {/* KPI 1: Handling Revenue */}
         <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-3.5 relative overflow-hidden flex flex-col justify-between">
           <div className="absolute top-0 left-0 right-0 h-1 bg-[var(--color-accent-amber)]" />

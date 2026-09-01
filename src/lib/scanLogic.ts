@@ -488,7 +488,7 @@ export async function resolveWrongDestinationAlert(
   alertId: string,
   resolvedByName: string
 ): Promise<void> {
-  await supabase
+  const { error } = await supabase
     .from('tracking_events')
     .update({
       resolved: true,
@@ -496,6 +496,10 @@ export async function resolveWrongDestinationAlert(
       resolved_at: new Date().toISOString(),
     })
     .eq('id', alertId);
+  // This used to be fire-and-forget: a failed update (RLS, network) was
+  // indistinguishable from success to the caller, which showed "Alert
+  // marked resolved" and dropped the alert from its list either way.
+  if (error) throw error;
 }
 
 // Has this AWB/tag ref already completed a full DEPART -> ARRIVE -> DELIVER

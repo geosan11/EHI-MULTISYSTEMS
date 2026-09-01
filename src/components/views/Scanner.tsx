@@ -341,9 +341,18 @@ export const Scanner = ({
   }, [showWrongDestView, wrongDestTab, loadWrongDestAlerts]);
 
   const handleResolveAlert = async (alertId: string) => {
-    await resolveWrongDestinationAlert(alertId, user.name);
-    setWrongDestAlerts(prev => prev.filter(a => a.id !== alertId));
-    if (showToast) showToast({ message: 'Alert marked resolved.', type: 'success' });
+    try {
+      await resolveWrongDestinationAlert(alertId, user.name);
+      setWrongDestAlerts(prev => prev.filter(a => a.id !== alertId));
+      if (showToast) showToast({ message: 'Alert marked resolved.', type: 'success' });
+    } catch (err) {
+      // Previously this update's error was never checked, so a failed
+      // resolve still showed "Alert marked resolved" and removed it from
+      // the list -- the alert stayed unresolved in the DB but vanished
+      // from view with no way to tell it hadn't actually gone through.
+      console.error('Resolve alert error:', err);
+      if (showToast) showToast({ message: "Couldn't resolve this alert -- check your connection and try again.", type: 'error' });
+    }
   };
 
   const handleTrackLookup = async (ref?: string) => {
@@ -1490,9 +1499,14 @@ export const Scanner = ({
         <button
           onClick={handleManualLookup}
           disabled={!manualRef.trim() || processing}
-          className="h-11 px-4 bg-[var(--color-surface-2)] text-[var(--color-foreground)] text-[11px] font-mono rounded disabled:opacity-50 border border-[var(--color-border)] cursor-pointer hover:bg-[var(--color-surface-3)] transition-colors shrink-0"
+          className="h-11 px-4 bg-[var(--color-surface-2)] text-[var(--color-foreground)] text-[11px] font-mono rounded disabled:opacity-50 border border-[var(--color-border)] cursor-pointer hover:bg-[var(--color-surface-3)] transition-colors shrink-0 flex items-center gap-1.5"
         >
-          LOOKUP
+          {/* Manual lookup with the camera closed had no in-flight feedback
+              at all -- the overlay spinner above only exists inside the
+              isScanning branch, so this was the one path where tapping
+              LOOKUP gave zero visual sign the tap registered. */}
+          {processing && <RefreshCw size={12} style={{ animation: 'spin 1s linear infinite' }} />}
+          {processing ? 'LOOKING UP…' : 'LOOKUP'}
         </button>
         <button
           onClick={() => {

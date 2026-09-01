@@ -1134,6 +1134,31 @@ export const CargoForm = ({
     localStorage.setItem("ehi_pending_intakes_v2", JSON.stringify(updated));
   };
 
+  // pendingIntakes lives only in localStorage (there is no server refetch
+  // that would restore an entry) -- the two delete buttons below used to
+  // remove the row from local state immediately and fire-and-forget the
+  // server delete with only a console.error on failure. A failed delete
+  // (RLS, network) left the row permanently orphaned in
+  // pending_corporate_intakes with nothing on screen ever pointing back
+  // at it again. Now the local removal only happens after the server
+  // confirms the delete succeeded.
+  const handleDeletePendingIntake = async (pi: PendingWeighingIntake) => {
+    if (!window.confirm("Delete this pending intake?")) return;
+    try {
+      const { error } = await supabase.from('pending_corporate_intakes').delete().eq('id', pi.id);
+      if (error) throw error;
+      updateLocalPendingIntakes(pendingIntakes.filter(x => x.id !== pi.id));
+      if (selectedIntake?.id === pi.id) {
+        setSelectedIntake(null);
+        setGateWeight("");
+        setCustomRateOverwrite("");
+      }
+    } catch (err) {
+      console.error('Delete pending intake error:', err);
+      showToast({ message: "Couldn't delete this intake -- check your connection and try again.", type: 'error' });
+    }
+  };
+
   // --- ACTION: LOG FIELD INTAKE (Phase 1) ---
   const handleLogFieldIntake = async () => {
     if (!intakeAwb.trim()) {
@@ -3034,16 +3059,7 @@ export const CargoForm = ({
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (window.confirm("Delete this pending intake?")) {
-                                  const updated = pendingIntakes.filter(x => x.id !== pi.id);
-                                  updateLocalPendingIntakes(updated);
-                                  Promise.resolve(supabase.from('pending_corporate_intakes').delete().eq('id', pi.id)).catch(console.error);
-                                  if (selectedIntake?.id === pi.id) {
-                                    setSelectedIntake(null);
-                                    setGateWeight("");
-                                    setCustomRateOverwrite("");
-                                  }
-                                }
+                                handleDeletePendingIntake(pi);
                               }}
                               className="text-red-500/60 hover:text-red-500 transition-colors p-1"
                               title="Delete pending intake"
@@ -3191,16 +3207,7 @@ export const CargoForm = ({
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  if (window.confirm("Delete this pending intake?")) {
-                                    const updated = pendingIntakes.filter(x => x.id !== pi.id);
-                                    updateLocalPendingIntakes(updated);
-                                    Promise.resolve(supabase.from('pending_corporate_intakes').delete().eq('id', pi.id)).catch(console.error);
-                                    if (selectedIntake?.id === pi.id) {
-                                      setSelectedIntake(null);
-                                      setGateWeight("");
-                                      setCustomRateOverwrite("");
-                                    }
-                                  }
+                                  handleDeletePendingIntake(pi);
                                 }}
                                 className="text-red-500/60 hover:text-red-500 transition-colors p-1"
                                 title="Delete pending intake"

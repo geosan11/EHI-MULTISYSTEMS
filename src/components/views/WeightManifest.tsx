@@ -56,6 +56,10 @@ export const WeightManifest = ({ user, onBack }: { user: User; onBack: () => voi
   const [entries, setEntries] = useState<WeightManifestEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  // Tracks which row's verify/delete request is in flight, so the two
+  // buttons for that entry can disable themselves and show a spinner
+  // instead of looking dead until the request resolves.
+  const [actioningId, setActioningId] = useState<string | null>(null);
   const [showMobileForm, setShowMobileForm] = useState(false);
   const { showToast } = useToast();
   const confirm = useConfirm();
@@ -143,6 +147,7 @@ export const WeightManifest = ({ user, onBack }: { user: User; onBack: () => voi
   };
 
   const handleVerify = async (entry: WeightManifestEntry) => {
+    setActioningId(entry.id);
     try {
       const { error } = await supabase.from('cargo_weight_manifests').update({
         verified: true,
@@ -154,6 +159,8 @@ export const WeightManifest = ({ user, onBack }: { user: User; onBack: () => voi
       await fetchEntries();
     } catch (e: any) {
       showToast({ message: 'Error: ' + e.message, type: 'error' });
+    } finally {
+      setActioningId(null);
     }
   };
 
@@ -165,6 +172,7 @@ export const WeightManifest = ({ user, onBack }: { user: User; onBack: () => voi
       tone: 'danger',
     });
     if (!ok) return;
+    setActioningId(entry.id);
     try {
       const { error } = await supabase.from('cargo_weight_manifests').delete().eq('id', entry.id);
       if (error) throw error;
@@ -172,6 +180,8 @@ export const WeightManifest = ({ user, onBack }: { user: User; onBack: () => voi
       await fetchEntries();
     } catch (e: any) {
       showToast({ message: 'Error: ' + e.message, type: 'error' });
+    } finally {
+      setActioningId(null);
     }
   };
 
@@ -406,10 +416,15 @@ export const WeightManifest = ({ user, onBack }: { user: User; onBack: () => voi
                         ) : (
                           <button
                             onClick={() => handleVerify(entry)}
-                            className="flex items-center gap-1 px-2 py-1 rounded border border-[var(--color-border)] hover:border-[var(--color-success)] hover:text-[var(--color-success)] text-[var(--color-muted)] transition-colors bg-transparent cursor-pointer"
+                            disabled={actioningId === entry.id}
+                            className="flex items-center gap-1 px-2 py-1 rounded border border-[var(--color-border)] hover:border-[var(--color-success)] hover:text-[var(--color-success)] text-[var(--color-muted)] transition-colors bg-transparent cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            <Circle size={11} />
-                            <span className="text-[10px] font-mono">Mark Verified</span>
+                            {actioningId === entry.id ? (
+                              <RefreshCw size={11} className="animate-spin" />
+                            ) : (
+                              <Circle size={11} />
+                            )}
+                            <span className="text-[10px] font-mono">{actioningId === entry.id ? 'Verifying…' : 'Mark Verified'}</span>
                           </button>
                         )}
                       </td>
@@ -417,10 +432,11 @@ export const WeightManifest = ({ user, onBack }: { user: User; onBack: () => voi
                         {isAdmin && (
                           <button
                             onClick={() => handleDelete(entry)}
+                            disabled={actioningId === entry.id}
                             aria-label={`Delete ${entry.airline} ${entry.flight_number}`}
-                            className="p-1 rounded hover:bg-[rgba(239,68,68,0.1)] text-[var(--color-muted)] hover:text-[var(--color-error)] transition-colors border-none bg-transparent cursor-pointer"
+                            className="p-1 rounded hover:bg-[rgba(239,68,68,0.1)] text-[var(--color-muted)] hover:text-[var(--color-error)] transition-colors border-none bg-transparent cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            <Trash2 size={13} />
+                            {actioningId === entry.id ? <RefreshCw size={13} className="animate-spin" /> : <Trash2 size={13} />}
                           </button>
                         )}
                       </td>
