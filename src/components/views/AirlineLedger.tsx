@@ -663,7 +663,7 @@ function EntryForm({
       <button
         onClick={onSubmit}
         disabled={!canSubmit}
-        className="h-10 w-full rounded-lg bg-[var(--color-success)] text-[var(--color-obsidian)] font-bold text-[12px] font-sans flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+        className="h-10 w-full rounded-lg bg-[var(--color-success)] text-[var(--color-on-accent)] font-bold text-[12px] font-sans flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <Plus size={14} />
         {submitting ? 'Recording…' : 'Record Entry'}

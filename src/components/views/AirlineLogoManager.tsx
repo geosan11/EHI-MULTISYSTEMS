@@ -107,7 +107,7 @@ export const AirlineLogoManager = ({ user, onBack }: { user: User; onBack: () =>
             <button
               onClick={handleUpload}
               disabled={!newAirlineName.trim() || !selectedFile || uploading}
-              className="w-full h-10 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg text-[12px] font-bold disabled:opacity-40 flex items-center justify-center gap-2"
+              className="w-full h-10 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg text-[12px] font-bold disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
               {uploading ? 'Uploading...' : 'Upload Logo'}

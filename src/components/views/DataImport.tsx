@@ -273,7 +273,7 @@ export const DataImport = ({ user, onBack }: { user: User; onBack: () => void })
                 onClick={() => { setImportType('cargo'); resetWorkflow(); }}
                 className={`flex-1 py-2.5 rounded-lg text-[13px] font-sans font-semibold transition-colors ${
                   importType === 'cargo'
-                    ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)]'
+                    ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]'
                     : 'border border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
                 }`}
               >
@@ -283,7 +283,7 @@ export const DataImport = ({ user, onBack }: { user: User; onBack: () => void })
                 onClick={() => { setImportType('marketing'); resetWorkflow(); }}
                 className={`flex-1 py-2.5 rounded-lg text-[13px] font-sans font-semibold transition-colors ${
                   importType === 'marketing'
-                    ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)]'
+                    ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]'
                     : 'border border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
                 }`}
               >

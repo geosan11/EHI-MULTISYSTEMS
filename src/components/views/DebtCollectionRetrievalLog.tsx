@@ -156,7 +156,7 @@ export const DebtCollectionRetrievalLog = ({ transactions, onBack }: { transacti
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-4 py-1.5 rounded-full text-[12px] font-sans font-semibold transition-colors ${tab === t ? 'bg-[var(--color-accent-amber)] text-[#030712]' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)] hover:text-[var(--color-foreground)] border border-[var(--color-border)]'}`}
+              className={`px-4 py-1.5 rounded-full text-[12px] font-sans font-semibold transition-colors ${tab === t ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)] hover:text-[var(--color-foreground)] border border-[var(--color-border)]'}`}
             >
               {t}
             </button>

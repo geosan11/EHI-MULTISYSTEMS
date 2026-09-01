@@ -13,6 +13,7 @@ import { BackButton } from '../BackButton';
 import { reinitSupabase, getConnectionMode, testSupabaseConnection, supabase, writeAuditLog } from '../../lib/supabase';
 import { getConfiguredPrinter, setConfiguredPrinter, listPrinters } from '../../lib/qzPrint';
 import { useToast } from '../../lib/ToastContext';
+import { useConfirm } from '../../lib/ConfirmContext';
 import { useAirlines } from '../../lib/airlines';
 import { GlassToggle } from '../ui/GlassToggle';
 
@@ -27,6 +28,7 @@ export const Settings = ({
   onOpenAirlineCommissions?: () => void;
 }) => {
   const { showToast } = useToast();
+  const confirm = useConfirm();
 
   // Connection & API panel state
   const [configTab, setConfigTab] = useState<
@@ -238,7 +240,13 @@ export const Settings = ({
       return;
     }
 
-    if (!window.confirm(`WARNING: This will assign ALL historical transactions with NO hub to "${lagosHub.name}". Are you sure?`)) return;
+    const ok = await confirm({
+      title: 'Migrate orphan records',
+      message: `This will assign ALL historical transactions with NO hub to "${lagosHub.name}". Are you sure?`,
+      confirmLabel: 'Migrate',
+      tone: 'danger',
+    });
+    if (!ok) return;
     setMigrating(true);
 
     // Real table names -- package_desk/marketing_shipments/excess_baggage
@@ -475,7 +483,7 @@ export const Settings = ({
                 <button
                   onClick={handleSaveConnection}
                   disabled={testingConn || !supabaseUrl.trim()}
-                  className="w-full py-2.5 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[11px] font-bold font-mono rounded disabled:opacity-50 cursor-pointer"
+                  className="w-full py-2.5 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[11px] font-bold font-mono rounded disabled:opacity-50 cursor-pointer"
                 >
                   {testingConn ? 'TESTING CONNECTION...' : 'SAVE & RECONNECT'}
                 </button>
@@ -513,7 +521,7 @@ export const Settings = ({
                 </div>
                 <button
                   onClick={handleSavePayments}
-                  className="w-full py-2.5 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[11px] font-bold font-mono rounded cursor-pointer"
+                  className="w-full py-2.5 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[11px] font-bold font-mono rounded cursor-pointer"
                 >
                   SAVE
                 </button>
@@ -561,7 +569,7 @@ export const Settings = ({
                 </p>
                 <button
                   onClick={handleSaveNotifications}
-                  className="w-full py-2.5 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[11px] font-bold font-mono rounded cursor-pointer"
+                  className="w-full py-2.5 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[11px] font-bold font-mono rounded cursor-pointer"
                 >
                   SAVE
                 </button>
@@ -633,7 +641,7 @@ export const Settings = ({
                 <button
                   onClick={handleSaveCompany}
                   disabled={savingCompany}
-                  className="w-full py-2.5 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[11px] font-bold font-mono rounded cursor-pointer disabled:opacity-50"
+                  className="w-full py-2.5 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[11px] font-bold font-mono rounded cursor-pointer disabled:opacity-50"
                 >
                   {savingCompany ? 'SAVING…' : 'SAVE COMPANY SETTINGS'}
                 </button>
@@ -854,7 +862,7 @@ export const Settings = ({
             <button
               onClick={handleAddHub}
               disabled={addingHub || !newHubName.trim() || !newHubCode.trim()}
-              className="w-full py-2 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[11px] font-bold font-mono rounded disabled:opacity-50 cursor-pointer"
+              className="w-full py-2 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[11px] font-bold font-mono rounded disabled:opacity-50 cursor-pointer"
             >
               {addingHub ? 'ADDING…' : 'ADD HUB'}
             </button>

@@ -142,7 +142,7 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
             <h2 className="text-[16px] font-bold font-sans text-[var(--color-foreground)]">Complain Box</h2>
             <button 
               onClick={() => setIsCreating(true)}
-              className="px-3 py-1.5 bg-[var(--color-accent-amber)] hover:bg-amber-500 text-[var(--color-obsidian)] text-[11px] font-bold rounded-lg transition-colors flex items-center gap-1.5"
+              className="px-3 py-1.5 bg-[var(--color-accent-amber)] hover:bg-amber-500 text-[var(--color-on-accent)] text-[11px] font-bold rounded-lg transition-colors flex items-center gap-1.5"
             >
               <MessageSquarePlus size={14} />
               <span>Report Issue</span>
@@ -230,7 +230,7 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
             </div>
             <div className="flex gap-3">
               <button onClick={() => { setIsCreating(false); setSubject(''); setDescription(''); setPriority('normal'); }} className="flex-1 h-11 border border-[var(--color-border)] rounded-lg text-[12px] font-bold text-[var(--color-muted)]">Cancel</button>
-              <button onClick={handleCreate} disabled={!subject.trim() || !description.trim()} className="flex-1 h-11 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg text-[12px] font-bold disabled:opacity-50">Submit Ticket</button>
+              <button onClick={handleCreate} disabled={!subject.trim() || !description.trim()} className="flex-1 h-11 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg text-[12px] font-bold disabled:opacity-50">Submit Ticket</button>
             </div>
           </div>
         </div>

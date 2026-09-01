@@ -258,7 +258,7 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
                   <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={handleCapture} className="flex-1 h-11 bg-[var(--color-success)] text-black font-bold uppercase text-[12px] flex items-center justify-center gap-2 cursor-pointer rounded border-none">
+                  <button onClick={handleCapture} className="flex-1 h-11 bg-[var(--color-success)] text-[var(--color-on-accent)] font-bold uppercase text-[12px] flex items-center justify-center gap-2 cursor-pointer rounded border-none">
                     <Camera size={14} /> Snap
                   </button>
                   <button onClick={() => setIsPhotoActive(false)} className="ehi-btn-secondary ehi-btn">
@@ -305,7 +305,7 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
             onClick={handleConfirm}
             disabled={!isFormValid || submitting}
             className={`flex-[2] h-12 font-bold uppercase tracking-widest rounded border-none transition-colors flex items-center justify-center gap-2 ${
-              isFormValid && !submitting ? 'bg-[var(--color-success)] text-black cursor-pointer hover:bg-emerald-500' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)] cursor-not-allowed opacity-50'
+              isFormValid && !submitting ? 'bg-[var(--color-success)] text-[var(--color-on-accent)] cursor-pointer hover:bg-emerald-500' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)] cursor-not-allowed opacity-50'
             }`}
           >
             {submitting ? 'Saving...' : 'Confirm Delivery'}

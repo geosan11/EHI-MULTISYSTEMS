@@ -288,7 +288,7 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
         </button>
         {isAdmin && (
           <button onClick={() => { setShowCreate(true); setForm(f => ({ ...f, hub_id: user.hub_id || '' })); }}
-            className="flex items-center gap-1.5 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[11px] font-bold px-3 py-2 rounded-lg">
+            className="flex items-center gap-1.5 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[11px] font-bold px-3 py-2 rounded-lg">
             <Plus size={13} /> Add Staff
           </button>
         )}
@@ -480,7 +480,7 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
 
               <div className="flex gap-3 pt-1">
                 <button onClick={() => { setShowCreate(false); setError(''); }} className="flex-1 h-11 border border-[var(--color-border)] rounded-lg text-[12px] font-bold text-[var(--color-muted)]">Cancel</button>
-                <button onClick={handleCreate} disabled={saving} className="flex-1 h-11 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg text-[12px] font-bold disabled:opacity-60">
+                <button onClick={handleCreate} disabled={saving} className="flex-1 h-11 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg text-[12px] font-bold disabled:opacity-60">
                   {saving ? 'Creating...' : 'Create Account'}
                 </button>
               </div>
@@ -831,7 +831,7 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
             <p className="text-[11px] text-[var(--color-muted)] mb-4">Copy and share these with the new staff member. This dialog will not appear again.</p>
             <button
               onClick={() => setCredModal(null)}
-              className="w-full py-2 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg text-[12px] font-bold cursor-pointer"
+              className="w-full py-2 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg text-[12px] font-bold cursor-pointer"
             >
               Done — I've shared the credentials
             </button>

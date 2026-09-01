@@ -170,7 +170,7 @@ export const Forecasting = ({
         <button 
           onClick={handleGenerateForecast}
           disabled={loading}
-          className="bg-[var(--color-accent-amber)] hover:bg-amber-600 disabled:opacity-50 text-[var(--color-obsidian)] font-mono text-[10.5px] uppercase font-black px-4 py-2 rounded-lg flex items-center space-x-1.5 cursor-pointer shadow-lg shadow-amber-500/10"
+          className="bg-[var(--color-accent-amber)] hover:bg-amber-600 disabled:opacity-50 text-[var(--color-on-accent)] font-mono text-[10.5px] uppercase font-black px-4 py-2 rounded-lg flex items-center space-x-1.5 cursor-pointer shadow-lg shadow-amber-500/10"
         >
           {loading ? (
             <>
@@ -201,18 +201,18 @@ export const Forecasting = ({
             <div className="h-[220px] w-full text-xs font-mono">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={historicalData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="day" stroke="#64748B" strokeWidth={1} tickLine={false} />
-                  <YAxis stroke="#64748B" strokeWidth={0} tickLine={false} tickFormatter={(v) => `₦${v/1000}k`} />
-                  <Tooltip contentStyle={{ backgroundColor: 'var(--color-surface-2)', borderColor: 'var(--color-surface-2)', borderRadius: '8px' }} />
+                  <XAxis dataKey="day" stroke="var(--chart-axis)" strokeWidth={1} tickLine={false} />
+                  <YAxis stroke="var(--chart-axis)" strokeWidth={0} tickLine={false} tickFormatter={(v) => `₦${v/1000}k`} />
+                  <Tooltip contentStyle={{ backgroundColor: 'var(--chart-tooltip-bg)', borderColor: 'var(--chart-tooltip-border)', borderRadius: '8px' }} />
                   <defs>
                     <linearGradient id="cargoGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.2}/>
-                      <stop offset="95%" stopColor="#F59E0B" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.2}/>
+                      <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <Area type="monotone" dataKey="Cargo" stroke="#F59E0B" fillOpacity={1} fill="url(#cargoGrad)" strokeWidth={2} />
-                  <Area type="monotone" dataKey="Marketing" stroke="#10B981" fillOpacity={0} strokeWidth={1.5} />
-                  <Area type="monotone" dataKey="ExcessBaggage" stroke="#3B82F6" fillOpacity={0} strokeWidth={1.5} />
+                  <Area type="monotone" dataKey="Cargo" stroke="var(--chart-1)" fillOpacity={1} fill="url(#cargoGrad)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="Marketing" stroke="var(--chart-3)" fillOpacity={0} strokeWidth={1.5} />
+                  <Area type="monotone" dataKey="ExcessBaggage" stroke="var(--chart-2)" fillOpacity={0} strokeWidth={1.5} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -231,13 +231,13 @@ export const Forecasting = ({
             <div className="h-[220px] w-full text-xs font-mono">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={forecastData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="day" stroke="#64748B" strokeWidth={1} tickLine={false} />
-                  <YAxis stroke="#64748B" strokeWidth={0} tickLine={false} tickFormatter={(v) => `₦${v/1000}k`} />
-                  <Tooltip contentStyle={{ backgroundColor: 'var(--color-surface-2)', borderColor: 'var(--color-surface-2)' }} />
+                  <XAxis dataKey="day" stroke="var(--chart-axis)" strokeWidth={1} tickLine={false} />
+                  <YAxis stroke="var(--chart-axis)" strokeWidth={0} tickLine={false} tickFormatter={(v) => `₦${v/1000}k`} />
+                  <Tooltip contentStyle={{ backgroundColor: 'var(--chart-tooltip-bg)', borderColor: 'var(--chart-tooltip-border)' }} />
                   <Legend iconSize={8} />
-                  <Bar dataKey="predictedCargo" name="Cargo (₦)" fill="#F59E0B" stackId="stack" />
-                  <Bar dataKey="predictedMarketing" name="Mktg (₦)" fill="#10B981" stackId="stack" />
-                  <Bar dataKey="predictedBaggage" name="Excess Baggage (₦)" fill="#3B82F6" stackId="stack" />
+                  <Bar dataKey="predictedCargo" name="Cargo (₦)" fill="var(--chart-1)" stackId="stack" />
+                  <Bar dataKey="predictedMarketing" name="Mktg (₦)" fill="var(--chart-3)" stackId="stack" />
+                  <Bar dataKey="predictedBaggage" name="Excess Baggage (₦)" fill="var(--chart-2)" stackId="stack" />
                 </BarChart>
               </ResponsiveContainer>
             </div>

@@ -23,8 +23,9 @@ export default defineConfig(() => {
           // set to whatever the majority of first launches will actually see
           // (src/lib/useTheme.ts defaults to 'dark'), avoiding a light/dark
           // flash on the OS-level PWA splash for the common case.
-          background_color: '#0d1117',
-          theme_color: '#0d1117',
+          // Value == --color-canvas (dark) in src/index.css / #splash in index.html.
+          background_color: '#0f1117',
+          theme_color: '#0f1117',
           icons: [
             { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
             { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },

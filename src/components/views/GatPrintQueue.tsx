@@ -295,7 +295,7 @@ export const GatPrintQueue = ({ user, onBack }: { user: User; onBack: () => void
           {/* Stream */}
           <div className="flex items-center gap-1 h-9 px-1 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg">
             {([{ v: 'all', l: 'All' }, { v: 'cargo', l: 'Cargo' }, { v: 'package', l: 'Package' }] as const).map(({ v, l }) => (
-              <button key={v} onClick={() => setStream(v)} className={`h-7 px-3 rounded text-[11px] font-bold font-mono transition-all ${stream === v ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)]' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}>{l}</button>
+              <button key={v} onClick={() => setStream(v)} className={`h-7 px-3 rounded text-[11px] font-bold font-mono transition-all ${stream === v ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}>{l}</button>
             ))}
           </div>
 

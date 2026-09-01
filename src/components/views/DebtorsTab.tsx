@@ -499,7 +499,7 @@ export const DebtorsTab = ({
              { label: 'Critical', days: '61-90', bucket: 'critical', data: buckets.critical },
              { label: 'Write-off Risk', days: '90+', bucket: 'writeoff-risk', data: buckets.writeoff }
            ] as const).map(b => (
-             <div key={b.label} className={`border rounded-xl p-3 bg-opacity-10 border-opacity-30 ${getBucketColor(b.bucket)}`}>
+             <div key={b.label} className={`border rounded-xl p-3 ${getBucketColor(b.bucket)}`}>
                <div className="text-[11px] font-sans font-semibold uppercase tracking-wider mb-1 opacity-80">{b.label} <span className="opacity-60 lowercase font-normal ml-1">{b.days} days</span></div>
                <div className="text-[15px] font-mono font-bold">{fmt(b.data.reduce((sum,d)=>sum+d.balance,0))}</div>
                <div className="text-[11px] font-sans mt-0.5 opacity-70">{b.data.length} accounts</div>
@@ -522,7 +522,7 @@ export const DebtorsTab = ({
              <button
                key={f}
                onClick={() => setFilter(f as any)}
-               className={`px-4 py-1.5 rounded-full text-[12px] font-sans font-semibold transition-colors ${filter === f ? 'bg-[var(--color-accent-amber)] text-[#030712]' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)] hover:text-[var(--color-foreground)] border border-[var(--color-border)]'}`}
+               className={`px-4 py-1.5 rounded-full text-[12px] font-sans font-semibold transition-colors ${filter === f ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)] hover:text-[var(--color-foreground)] border border-[var(--color-border)]'}`}
              >
                {f === 'Corporate' ? 'Office Work (B2B)' : f}
              </button>
@@ -581,7 +581,7 @@ export const DebtorsTab = ({
               <button
                 onClick={handleBulkClear}
                 disabled={bulkClearing || (bulkMode === 'Transfer' && !bulkBank.trim())}
-                className="bg-[var(--color-success)] text-[#0B0F19] px-4 py-1.5 rounded-lg text-[12px] font-sans font-bold hover:bg-opacity-90 transition-opacity focus:outline-none disabled:opacity-50 ml-auto"
+                className="bg-[var(--color-success)] text-[var(--color-on-accent)] px-4 py-1.5 rounded-lg text-[12px] font-sans font-bold hover:opacity-90 transition-opacity focus:outline-none disabled:opacity-50 ml-auto"
               >
                 {bulkClearing ? 'Clearing...' : `Clear ${selectedIds.size} Debt${selectedIds.size === 1 ? '' : 's'}`}
               </button>
@@ -659,7 +659,7 @@ export const DebtorsTab = ({
                            setExpandedId(d.id);
                            setShowPaymentForm(d.id);
                          }}
-                         className="p-2 rounded-full bg-[rgba(16,185,129,0.1)] text-[var(--color-success)] hover:bg-[var(--color-success)] hover:text-[#030712] transition-colors focus:outline-none"
+                         className="p-2 rounded-full bg-[rgba(16,185,129,0.1)] text-[var(--color-success)] hover:bg-[var(--color-success)] hover:text-[var(--color-on-accent)] transition-colors focus:outline-none"
                        >
                          <HandCoins size={18} />
                        </button>
@@ -778,7 +778,7 @@ export const DebtorsTab = ({
                                      <button
                                        disabled={submittingPaymentId === d.id || (paymentMode === 'Transfer' && !paymentBank.trim())}
                                        onClick={() => handleRecordPayment(d.id)}
-                                       className="bg-[var(--color-success)] text-[#0B0F19] px-6 py-2 rounded-lg text-[13px] font-sans font-bold hover:bg-opacity-90 transition-opacity focus:outline-none disabled:opacity-50"
+                                       className="bg-[var(--color-success)] text-[var(--color-on-accent)] px-6 py-2 rounded-lg text-[13px] font-sans font-bold hover:opacity-90 transition-opacity focus:outline-none disabled:opacity-50"
                                      >
                                        {submittingPaymentId === d.id ? 'Saving...' : 'Confirm'}
                                      </button>

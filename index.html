@@ -19,9 +19,9 @@
     <!-- Prevent phone number detection formatting -->
     <meta name="format-detection" content="telephone=no">
 
-    <!-- Theme color for Safari toolbar -->
-    <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
-    <meta name="theme-color" content="#e7ebf1" media="(prefers-color-scheme: light)">
+    <!-- Theme color for Safari toolbar — must match --color-canvas in src/index.css -->
+    <meta name="theme-color" content="#0f1117" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#eef1f5" media="(prefers-color-scheme: light)">
 
     <title>EHI Multisystems</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -49,13 +49,14 @@
            via html.dark/html.light (set synchronously by the inline script
            above, before this paints) instead of a hardcoded color, so it
            never flashes the wrong theme against whatever LoginScreen/the
-           app renders next -- default is light (this app's default theme),
-           dark only when html.dark is present. -->
+           app renders next. This app's default theme is DARK (see the inline
+           script and src/lib/useTheme.ts); the light rule below is the
+           fallback for html.light. Backgrounds match --color-canvas. -->
       <style>
         #splash {
           min-height: 100dvh;
           width: 100%;
-          background: #e7ebf1;
+          background: #eef1f5;
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -64,7 +65,7 @@
           box-sizing: border-box;
           padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
         }
-        html.dark #splash { background: #0d1117; }
+        html.dark #splash { background: #0f1117; }
         #splash .ehi-splash-mark-bg { fill: rgba(201,142,40,0.14); }
         #splash .ehi-splash-mark-text { fill: #C98E28; }
         html.dark #splash .ehi-splash-mark-bg { fill: rgba(240,178,48,0.12); }

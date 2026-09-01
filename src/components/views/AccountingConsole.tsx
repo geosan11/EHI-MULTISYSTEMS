@@ -410,7 +410,7 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
           >
             {t}
             {t === 'Payment Validation' && unconfirmedCount > 0 && (
-              <span className="ml-2 bg-[var(--color-accent-amber)] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+              <span className="ml-2 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[10px] px-1.5 py-0.5 rounded-full font-bold">
                 {unconfirmedCount}
               </span>
             )}
@@ -624,7 +624,7 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
                />
                <button 
                  onClick={handleSetOpening}
-                 className="w-full h-12 bg-[var(--color-accent-cobalt)] hover:bg-opacity-90 text-white text-[14px] font-sans font-bold rounded-xl transition-all"
+                 className="w-full h-12 bg-[var(--color-accent-cobalt)] hover:opacity-90 text-white text-[14px] font-sans font-bold rounded-xl transition-all"
                >
                  Confirm Opening Balance
                </button>
@@ -716,7 +716,7 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
                        <button 
                          onClick={handleLockRegister}
                          disabled={!physicalInput}
-                         className="w-full h-12 bg-[var(--color-accent-cobalt)] hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-sans font-bold rounded-xl transition-all flex items-center justify-center space-x-2"
+                         className="w-full h-12 bg-[var(--color-accent-cobalt)] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-sans font-bold rounded-xl transition-all flex items-center justify-center space-x-2"
                        >
                          <Lock size={16} />
                          <span>Lock Day</span>

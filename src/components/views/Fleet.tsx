@@ -168,7 +168,7 @@ export const Fleet = ({ onBack, user }: { onBack: () => void; user?: User }) => 
         <h2 className="text-[14px] font-bold">Fleet Management</h2>
         {canEdit && (
           <button onClick={() => activeTab === 'vehicles' ? setShowAddVehicle(true) : setShowAddFuel(true)}
-            className="flex items-center gap-1.5 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[11px] font-bold px-3 py-1.5 rounded">
+            className="flex items-center gap-1.5 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[11px] font-bold px-3 py-1.5 rounded">
             <Plus size={12} /> {activeTab === 'vehicles' ? 'Add Vehicle' : 'Log Fuel'}
           </button>
         )}
@@ -296,7 +296,7 @@ export const Fleet = ({ onBack, user }: { onBack: () => void; user?: User }) => 
                 <input id="fleet-vehicle-driver" type="text" value={driver} onChange={e => setDriver(e.target.value)} placeholder="Driver Tunde" className="w-full ehi-input text-[12px]" />
               </div>
               <div className="flex gap-2 pt-1">
-                <button type="submit" disabled={submitting} className="flex-1 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] font-bold text-[11px] py-2.5 rounded disabled:opacity-50">{submitting ? 'Adding…' : 'Add Vehicle'}</button>
+                <button type="submit" disabled={submitting} className="flex-1 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] font-bold text-[11px] py-2.5 rounded disabled:opacity-50">{submitting ? 'Adding…' : 'Add Vehicle'}</button>
                 <button type="button" onClick={() => setShowAddVehicle(false)} disabled={submitting} className="px-4 bg-[var(--color-surface-2)] text-[var(--color-muted)] text-[11px] rounded disabled:opacity-50">Cancel</button>
               </div>
             </form>
@@ -338,7 +338,7 @@ export const Fleet = ({ onBack, user }: { onBack: () => void; user?: User }) => 
                 <input id="fleet-fuel-station" type="text" value={station} onChange={e => setStation(e.target.value)} placeholder="e.g. BOVAS Ikeja" className="w-full ehi-input text-[12px]" />
               </div>
               <div className="flex gap-2 pt-1">
-                <button type="submit" disabled={submitting} className="flex-1 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] font-bold text-[11px] py-2.5 rounded disabled:opacity-50">{submitting ? 'Saving…' : 'Save Log'}</button>
+                <button type="submit" disabled={submitting} className="flex-1 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] font-bold text-[11px] py-2.5 rounded disabled:opacity-50">{submitting ? 'Saving…' : 'Save Log'}</button>
                 <button type="button" onClick={() => setShowAddFuel(false)} disabled={submitting} className="px-4 bg-[var(--color-surface-2)] text-[var(--color-muted)] text-[11px] rounded disabled:opacity-50">Cancel</button>
               </div>
             </form>

@@ -553,7 +553,7 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
                 <button
                   key={st}
                   onClick={() => setBugFilter(st as any)}
-                  className={`px-2.5 py-1 rounded text-[10px] font-mono ${bugFilter === st ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] font-bold' : 'bg-[var(--color-surface-2)] text-[var(--color-light-muted)] hover:text-[var(--color-foreground)]'}`}
+                  className={`px-2.5 py-1 rounded text-[10px] font-mono ${bugFilter === st ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] font-bold' : 'bg-[var(--color-surface-2)] text-[var(--color-light-muted)] hover:text-[var(--color-foreground)]'}`}
                 >
                   {st.toUpperCase()}
                 </button>
@@ -564,7 +564,7 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
                 <button
                   key={sev}
                   onClick={() => setBugSeverity(sev as any)}
-                  className={`px-2.5 py-1 rounded text-[10px] font-mono ${bugSeverity === sev ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] font-bold' : 'bg-[var(--color-surface-2)] text-[var(--color-light-muted)] hover:text-[var(--color-foreground)]'}`}
+                  className={`px-2.5 py-1 rounded text-[10px] font-mono ${bugSeverity === sev ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] font-bold' : 'bg-[var(--color-surface-2)] text-[var(--color-light-muted)] hover:text-[var(--color-foreground)]'}`}
                 >
                   {sev.toUpperCase()}
                 </button>
@@ -710,7 +710,7 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
 
                 <button 
                   type="submit"
-                  className="w-full bg-[var(--color-accent-amber)] hover:bg-amber-500 transition-colors text-[var(--color-obsidian)] font-bold py-2 rounded text-xs font-mono uppercase"
+                  className="w-full bg-[var(--color-accent-amber)] hover:bg-amber-500 transition-colors text-[var(--color-on-accent)] font-bold py-2 rounded text-xs font-mono uppercase"
                 >
                   SAVE BUG DETAILS TO INDEXED CONFIG
                 </button>
@@ -881,7 +881,7 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
             <button
               onClick={runSelfDiagnostics}
               disabled={diagRunning}
-              className="bg-[var(--color-accent-amber)] hover:bg-amber-500 disabled:opacity-60 transition-colors text-[var(--color-obsidian)] font-bold px-4 py-2 text-xs font-mono uppercase rounded cursor-pointer flex items-center space-x-1.5 self-start"
+              className="bg-[var(--color-accent-amber)] hover:bg-amber-500 disabled:opacity-60 transition-colors text-[var(--color-on-accent)] font-bold px-4 py-2 text-xs font-mono uppercase rounded cursor-pointer flex items-center space-x-1.5 self-start"
             >
               <RefreshCw size={14} className={diagRunning ? 'animate-spin' : ''} />
               <span>{diagRunning ? 'TESTING PROTOCOLS...' : 'RUN SELF-DIAGNOSTICS'}</span>
@@ -1120,7 +1120,7 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
 
                 <button 
                   type="submit"
-                  className="w-full bg-[var(--color-accent-amber)] hover:bg-amber-500 transition-colors text-[var(--color-obsidian)] font-bold py-2 rounded text-xs font-mono uppercase"
+                  className="w-full bg-[var(--color-accent-amber)] hover:bg-amber-500 transition-colors text-[var(--color-on-accent)] font-bold py-2 rounded text-xs font-mono uppercase"
                 >
                   SAVE & VOTE ON IMPROVEMENT ROADMAP
                 </button>

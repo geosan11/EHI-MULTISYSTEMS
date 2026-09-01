@@ -50,7 +50,7 @@ export const GatWorkspace = (props: GatWorkspaceProps) => {
           onClick={() => setStream('cargo')}
           className={`flex-1 flex items-center justify-center gap-2 py-3 text-[14px] font-sans font-bold rounded-md transition-all cursor-pointer ${
             stream === 'cargo'
-              ? 'bg-[var(--color-accent-amber)] text-[#030712] shadow-md'
+              ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-md'
               : 'text-[var(--color-light-muted)] hover:text-[var(--color-foreground)]'
           }`}
         >
@@ -60,7 +60,7 @@ export const GatWorkspace = (props: GatWorkspaceProps) => {
           onClick={() => setStream('parcel')}
           className={`flex-1 flex items-center justify-center gap-2 py-3 text-[14px] font-sans font-bold rounded-md transition-all cursor-pointer ${
             stream === 'parcel'
-              ? 'bg-[var(--color-accent-amber)] text-[#030712] shadow-md'
+              ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-md'
               : 'text-[var(--color-light-muted)] hover:text-[var(--color-foreground)]'
           }`}
         >

@@ -44,7 +44,7 @@ export const CustomerWalletPicker: React.FC<CustomerWalletPickerProps> = ({
       {selectedWallet ? (
         <div className="p-3 bg-[rgba(245,158,11,0.08)] border border-[var(--color-accent-amber)] rounded-xl flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] flex items-center justify-center font-bold shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] flex items-center justify-center font-bold shrink-0">
               <Wallet size={16} />
             </div>
             <div className="min-w-0">
@@ -100,7 +100,7 @@ export const CustomerWalletPicker: React.FC<CustomerWalletPickerProps> = ({
             <button
               type="button"
               onClick={() => onOpenCreateModal(currentCustomerName)}
-              className="p-2.5 bg-[rgba(245,158,11,0.1)] hover:bg-[var(--color-accent-amber)] text-[var(--color-accent-amber)] hover:text-[var(--color-obsidian)] border border-[rgba(245,158,11,0.25)] rounded-xl transition-all cursor-pointer shrink-0"
+              className="p-2.5 bg-[rgba(245,158,11,0.1)] hover:bg-[var(--color-accent-amber)] text-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] border border-[rgba(245,158,11,0.25)] rounded-xl transition-all cursor-pointer shrink-0"
               title="Create New Credit Wallet"
             >
               <Plus size={16} />
@@ -216,7 +216,7 @@ export const CustomerWalletPicker: React.FC<CustomerWalletPickerProps> = ({
                         setIsOpen(false);
                         onOpenCreateModal(searchTerm);
                       }}
-                      className="px-4 py-2 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[12px] font-mono font-bold rounded-xl shadow-md cursor-pointer hover:opacity-90 inline-flex items-center gap-1.5"
+                      className="px-4 py-2 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[12px] font-mono font-bold rounded-xl shadow-md cursor-pointer hover:opacity-90 inline-flex items-center gap-1.5"
                     >
                       <Plus size={14} /> Create Wallet for "{searchTerm || 'Customer'}"
                     </button>

@@ -216,7 +216,7 @@ export const BulkStaffImport = ({ hubCodes, onClose, onImported }: Props) => {
                 <button
                   onClick={runImport}
                   disabled={validRows.length === 0}
-                  className="flex-1 py-2.5 rounded-lg bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[13px] font-sans font-bold disabled:opacity-40"
+                  className="flex-1 py-2.5 rounded-lg bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[13px] font-sans font-bold disabled:opacity-40"
                 >
                   Import {validRows.length} staff account{validRows.length === 1 ? '' : 's'}
                 </button>
@@ -287,7 +287,7 @@ export const BulkStaffImport = ({ hubCodes, onClose, onImported }: Props) => {
 
               <button
                 onClick={onClose}
-                className="w-full py-2.5 rounded-lg bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[13px] font-sans font-bold"
+                className="w-full py-2.5 rounded-lg bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[13px] font-sans font-bold"
               >
                 Done
               </button>

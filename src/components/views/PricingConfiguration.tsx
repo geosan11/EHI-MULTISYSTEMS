@@ -484,7 +484,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
             <button
               onClick={handleAddRoutePricing}
               disabled={!newRoutePairName || newRouteOrigin === newRouteDest || addingRoute}
-              className="w-full h-9 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded text-[11px] font-bold font-mono disabled:opacity-50 cursor-pointer"
+              className="w-full h-9 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded text-[11px] font-bold font-mono disabled:opacity-50 cursor-pointer"
             >
               {addingRoute ? 'SAVING…' : 'SAVE ROUTE PRICING'}
             </button>
@@ -534,7 +534,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
             <button 
               onClick={handleCreateCorpClient}
               disabled={!newClientName.trim()}
-              className="bg-[var(--color-accent-amber)] hover:bg-amber-600 disabled:opacity-50 text-black px-4 py-2 rounded text-[12px] font-bold font-sans flex items-center space-x-1 transition-colors"
+              className="bg-[var(--color-accent-amber)] hover:bg-amber-600 disabled:opacity-50 text-[var(--color-on-accent)] px-4 py-2 rounded text-[12px] font-bold font-sans flex items-center space-x-1 transition-colors"
             >
               <Plus size={14} />
               <span>Add</span>
@@ -574,7 +574,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                     <div className="text-[14px] font-bold text-[var(--color-accent-amber)]">{selectedRateClient.company_name}</div>
                     <button
                       onClick={() => handleToggleClientActive(selectedRateClient)}
-                      className={`text-[10px] font-mono px-2 py-0.5 rounded transition-colors ${selectedRateClient.active === false ? 'bg-[rgba(16,185,129,0.15)] text-[var(--color-success)] hover:bg-[var(--color-success)] hover:text-[#030712]' : 'bg-[rgba(239,68,68,0.15)] text-[var(--color-error)] hover:bg-[var(--color-error)] hover:text-white'}`}
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded transition-colors ${selectedRateClient.active === false ? 'bg-[rgba(16,185,129,0.15)] text-[var(--color-success)] hover:bg-[var(--color-success)] hover:text-[var(--color-on-accent)]' : 'bg-[rgba(239,68,68,0.15)] text-[var(--color-error)] hover:bg-[var(--color-error)] hover:text-white'}`}
                     >
                       {selectedRateClient.active === false ? 'Reactivate' : 'Deactivate'}
                     </button>
@@ -661,7 +661,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                       <button
                         onClick={handleSetCorpRate}
                         disabled={!ratePrice || isNaN(parseFloat(ratePrice)) || parseFloat(ratePrice) <= 0 || (rateDept === 'marketing' && (!rateRoutePairName || rateRouteOrigin === rateRouteDest))}
-                        className="w-full bg-[var(--color-accent-amber)] hover:bg-amber-600 text-black py-2 rounded-md text-[12px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-1"
+                        className="w-full bg-[var(--color-accent-amber)] hover:bg-amber-600 text-[var(--color-on-accent)] py-2 rounded-md text-[12px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-1"
                       >
                         Set Rate
                       </button>

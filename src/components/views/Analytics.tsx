@@ -876,31 +876,31 @@ export const Analytics = ({
         <div className="flex items-center gap-1 bg-[var(--color-surface-1)] p-1 rounded-lg border border-[var(--color-border)] flex-wrap">
           <button
             onClick={() => handlePeriodChange('shift')}
-            className={`px-3 py-1 text-[10px] font-mono font-bold uppercase rounded-md transition-all cursor-pointer ${period === 'shift' ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] shadow-sm' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
+            className={`px-3 py-1 text-[10px] font-mono font-bold uppercase rounded-md transition-all cursor-pointer ${period === 'shift' ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-sm' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
           >
             Current Shift
           </button>
           <button
             onClick={() => handlePeriodChange('today')}
-            className={`px-3 py-1 text-[10px] font-mono font-bold uppercase rounded-md transition-all cursor-pointer ${period === 'today' ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] shadow-sm' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
+            className={`px-3 py-1 text-[10px] font-mono font-bold uppercase rounded-md transition-all cursor-pointer ${period === 'today' ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-sm' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
           >
             Today
           </button>
           <button
             onClick={() => handlePeriodChange('7days')}
-            className={`px-3 py-1 text-[10px] font-mono font-bold uppercase rounded-md transition-all cursor-pointer ${period === '7days' ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] shadow-sm' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
+            className={`px-3 py-1 text-[10px] font-mono font-bold uppercase rounded-md transition-all cursor-pointer ${period === '7days' ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-sm' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
           >
             7 Days
           </button>
           <button
             onClick={() => handlePeriodChange('month')}
-            className={`px-3 py-1 text-[10px] font-mono font-bold uppercase rounded-md transition-all cursor-pointer ${period === 'month' ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] shadow-sm' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
+            className={`px-3 py-1 text-[10px] font-mono font-bold uppercase rounded-md transition-all cursor-pointer ${period === 'month' ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-sm' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
           >
             This Month
           </button>
           <button
             onClick={() => handlePeriodChange('custom')}
-            className={`px-3 py-1 text-[10px] font-mono font-bold uppercase rounded-md transition-all cursor-pointer ${period === 'custom' ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] shadow-sm' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
+            className={`px-3 py-1 text-[10px] font-mono font-bold uppercase rounded-md transition-all cursor-pointer ${period === 'custom' ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-sm' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
           >
             Custom Range
           </button>
@@ -1152,7 +1152,7 @@ export const Analytics = ({
                   <YAxis yAxisId="left" stroke="var(--color-accent-amber)" strokeWidth={0.5} tickLine={false} tickFormatter={(val) => `₦${val/1000}k`} />
                   <YAxis yAxisId="right" orientation="right" stroke="var(--color-accent-cobalt)" strokeWidth={0.5} tickLine={false} tickFormatter={(val) => `${val}kg`} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: 'var(--color-surface-card)', borderColor: 'var(--color-surface-2)', color: 'var(--color-foreground)', fontSize: '11px', borderRadius: '8px' }}
+                    contentStyle={{ backgroundColor: 'var(--chart-tooltip-bg)', borderColor: 'var(--chart-tooltip-border)', color: 'var(--color-foreground)', fontSize: '11px', borderRadius: '8px' }}
                     formatter={(val: any, name: any) => [
                       name === 'revenue' ? `₦${Number(val).toLocaleString()}` : `${Number(val).toLocaleString()} KG`,
                       name === 'revenue' ? 'Revenue' : 'Handling Weight'
@@ -1268,7 +1268,7 @@ export const Analytics = ({
                     <tr key={i} className={`hover:bg-[rgba(255,255,255,0.02)] ${c.isTop20 ? 'bg-[rgba(245,158,11,0.03)]' : ''}`}>
                       <td className="py-2.5 px-3 font-sans font-medium text-[var(--color-foreground)]">
                         <div className="flex items-center gap-2">
-                          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono font-bold ${i < 3 ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)]' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)]'}`}>
+                          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono font-bold ${i < 3 ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)]'}`}>
                             {i + 1}
                           </span>
                           <span className="truncate max-w-[180px]">{c.clientName}</span>
@@ -1348,10 +1348,13 @@ export const Analytics = ({
                       nameKey="category"
                     >
                       {cargoCategoryData.map((_, idx) => (
-                        <Cell key={idx} fill={['#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ef4444', '#14b8a6'][idx % 6]} />
+                        <Cell key={idx} fill={[`var(--chart-1)`, `var(--chart-2)`, `var(--chart-3)`, `var(--chart-4)`, `var(--chart-5)`, `var(--chart-6)`][idx % 6]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(val: any) => [`₦${fmt(Number(val))}`, 'Revenue']} />
+                    <Tooltip
+                      formatter={(val: any) => [`₦${fmt(Number(val))}`, 'Revenue']}
+                      contentStyle={{ backgroundColor: 'var(--chart-tooltip-bg)', borderColor: 'var(--chart-tooltip-border)', color: 'var(--color-foreground)', fontSize: '11px', borderRadius: '8px' }}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               </div>

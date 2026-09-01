@@ -732,7 +732,7 @@ export const PackageForm = ({
               {/* Primary Reset CTA Button */}
               <button
                 onClick={handleReset}
-                className="w-full py-3 bg-[var(--color-accent-amber)] text-[#0f172a] font-bold text-[13px] font-mono rounded-xl cursor-pointer flex justify-center items-center gap-2 hover:bg-opacity-95 shadow-md transition-all"
+                className="w-full py-3 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] font-bold text-[13px] font-mono rounded-xl cursor-pointer flex justify-center items-center gap-2 hover:opacity-90 shadow-md transition-all"
               >
                 <Plus size={16} /> LOG ANOTHER PACKAGE ENTRY
               </button>
@@ -768,7 +768,7 @@ export const PackageForm = ({
                       showToast({ message: err?.message || 'Bluetooth print failed. Ensure the printer is paired and powered on.', type: 'error' });
                     });
                   }}
-                  className="py-2.5 bg-[var(--color-accent-cobalt)] text-white text-[11px] font-bold font-mono rounded-xl cursor-pointer flex items-center justify-center gap-1.5 hover:bg-opacity-95 border-none shadow-sm"
+                  className="py-2.5 bg-[var(--color-accent-cobalt)] text-white text-[11px] font-bold font-mono rounded-xl cursor-pointer flex items-center justify-center gap-1.5 hover:opacity-90 border-none shadow-sm"
                 >
                   <Bluetooth size={14} />
                   <span>POS (80mm)</span>
@@ -944,7 +944,7 @@ export const PackageForm = ({
                               }
                             }
                           }}
-                          className="px-3 py-1 rounded bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[10px] font-bold font-mono"
+                          className="px-3 py-1 rounded bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[10px] font-bold font-mono"
                         >
                           Yes, Link as Office Work
                         </button>
@@ -1213,7 +1213,7 @@ export const PackageForm = ({
                   className={`w-full py-4 rounded-[var(--radius-sm)] font-bold font-mono text-[16px] flex items-center justify-center gap-2 transition-all focus:outline-none ${
                     submitting ? "opacity-80 cursor-wait bg-[var(--color-accent-cobalt)] text-white"
                     : !isValid ? "bg-[var(--color-surface-2)] text-[var(--color-muted)] cursor-not-allowed"
-                    : "bg-[var(--color-accent-cobalt)] text-white cursor-pointer hover:bg-opacity-90"
+                    : "bg-[var(--color-accent-cobalt)] text-white cursor-pointer hover:opacity-90"
                   }`}
                 >
                   {submitting && <Loader2 size={16} className="animate-spin" />}

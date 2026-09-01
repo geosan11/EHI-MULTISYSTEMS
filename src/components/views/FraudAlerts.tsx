@@ -556,7 +556,7 @@ export const FraudAlerts = ({
               {!alert.reviewed && alert.type === 'corporate_overcharge' && (
                 <button 
                   onClick={(e) => handleResolveOvercharge(alert, e)}
-                  className="bg-[var(--color-accent-amber)] hover:opacity-90 text-[var(--color-obsidian)] font-mono text-[9px] uppercase font-bold px-3 py-2 rounded flex items-center space-x-1 cursor-pointer self-start sm:self-center"
+                  className="bg-[var(--color-accent-amber)] hover:opacity-90 text-[var(--color-on-accent)] font-mono text-[9px] uppercase font-bold px-3 py-2 rounded flex items-center space-x-1 cursor-pointer self-start sm:self-center"
                 >
                   <span>Refund to Wallet</span>
                 </button>
@@ -564,7 +564,7 @@ export const FraudAlerts = ({
               {!alert.reviewed && alert.type === 'underpriced_leakage' && (
                 <button 
                   onClick={(e) => handleResolveUnderprice(alert, e)}
-                  className="bg-[var(--color-error)] hover:opacity-90 text-[var(--color-obsidian)] font-mono text-[9px] uppercase font-bold px-3 py-2 rounded flex items-center space-x-1 cursor-pointer self-start sm:self-center"
+                  className="bg-[var(--color-error)] hover:opacity-90 text-[var(--color-on-accent)] font-mono text-[9px] uppercase font-bold px-3 py-2 rounded flex items-center space-x-1 cursor-pointer self-start sm:self-center"
                 >
                   <span>Enforce Floor Price</span>
                 </button>

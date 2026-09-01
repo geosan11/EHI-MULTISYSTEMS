@@ -262,7 +262,7 @@ export const WeightManifest = ({ user, onBack }: { user: User; onBack: () => voi
       <button
         onClick={handleSubmit}
         disabled={submitting}
-        className="w-full h-9 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg text-[11px] font-bold uppercase tracking-wider disabled:opacity-40 flex items-center justify-center gap-1.5 transition-opacity"
+        className="w-full h-9 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg text-[11px] font-bold uppercase tracking-wider disabled:opacity-40 flex items-center justify-center gap-1.5 transition-opacity"
       >
         {submitting ? <RefreshCw size={12} className="animate-spin" /> : <Plus size={12} />}
         {submitting ? 'Saving…' : 'Add to Manifest'}
@@ -552,7 +552,7 @@ export const WeightManifest = ({ user, onBack }: { user: User; onBack: () => voi
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="w-full h-10 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg text-[12px] font-bold uppercase tracking-wider disabled:opacity-40 flex items-center justify-center gap-2 transition-opacity"
+              className="w-full h-10 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg text-[12px] font-bold uppercase tracking-wider disabled:opacity-40 flex items-center justify-center gap-2 transition-opacity"
             >
               {submitting ? <RefreshCw size={13} className="animate-spin" /> : <Plus size={13} />}
               {submitting ? 'Saving…' : 'Add to Manifest'}

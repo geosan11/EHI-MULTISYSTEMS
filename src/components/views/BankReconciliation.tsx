@@ -325,7 +325,7 @@ export const BankReconciliation = ({
            <button onClick={downloadReport} className="flex items-center space-x-2 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] font-sans text-[13px] font-medium px-5 py-2.5 rounded-lg transition-colors">
              <Download size={16} /> <span>Download Report</span>
            </button>
-           <button onClick={onBack} className="flex items-center space-x-2 bg-[var(--color-accent-cobalt)] hover:bg-opacity-90 text-white font-sans text-[13px] font-bold px-5 py-2.5 rounded-lg transition-colors">
+           <button onClick={onBack} className="flex items-center space-x-2 bg-[var(--color-accent-cobalt)] hover:opacity-90 text-white font-sans text-[13px] font-bold px-5 py-2.5 rounded-lg transition-colors">
              <span>Return</span>
            </button>
          </div>
@@ -564,7 +564,7 @@ export const BankReconciliation = ({
               <button 
                 onClick={confirmRecon}
                 disabled={matchedBtxCount === 0}
-                className="bg-[var(--color-success)] hover:bg-emerald-600 disabled:opacity-50 text-[#0B0F19] font-sans text-[14px] font-bold px-6 py-3 rounded-xl transition-colors cursor-pointer flex items-center space-x-2"
+                className="bg-[var(--color-success)] hover:bg-emerald-600 disabled:opacity-50 text-[var(--color-on-accent)] font-sans text-[14px] font-bold px-6 py-3 rounded-xl transition-colors cursor-pointer flex items-center space-x-2"
               >
                 <CheckCircle2 size={18} />
                 <span>Confirm & Lock Selected</span>

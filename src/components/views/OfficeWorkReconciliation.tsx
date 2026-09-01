@@ -249,8 +249,8 @@ export const OfficeWorkReconciliation = ({ user, onBack }: { user: User; onBack:
 
       <div className="p-4 space-y-4">
         <div className="flex items-center gap-2">
-          <button onClick={() => setDebtOnly(true)} className={`px-3 h-9 rounded-lg text-[11px] font-bold font-mono ${debtOnly ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)]' : 'bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-muted)]'}`}>Debt only</button>
-          <button onClick={() => setDebtOnly(false)} className={`px-3 h-9 rounded-lg text-[11px] font-bold font-mono ${!debtOnly ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)]' : 'bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-muted)]'}`}>All modes</button>
+          <button onClick={() => setDebtOnly(true)} className={`px-3 h-9 rounded-lg text-[11px] font-bold font-mono ${debtOnly ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]' : 'bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-muted)]'}`}>Debt only</button>
+          <button onClick={() => setDebtOnly(false)} className={`px-3 h-9 rounded-lg text-[11px] font-bold font-mono ${!debtOnly ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]' : 'bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-muted)]'}`}>All modes</button>
         </div>
 
         {loading ? (
@@ -312,7 +312,7 @@ export const OfficeWorkReconciliation = ({ user, onBack }: { user: User; onBack:
             <button
               onClick={applySelected}
               disabled={applying || selected.size === 0}
-              className="w-full h-11 rounded-lg bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[12px] font-bold font-mono disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full h-11 rounded-lg bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[12px] font-bold font-mono disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {applying ? <><Loader size={14} className="animate-spin" /> Reconciling…</> : `Reconcile ${selected.size} selected`}
             </button>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, HelpCircle } from 'lucide-react';
 
@@ -36,9 +36,25 @@ export const ConfirmDialog = ({
     }, 200);
   };
 
+  // Scroll-lock + Escape-to-close, matching Modal.tsx. (Most of the ~35
+  // hand-rolled dialogs in this app have neither.)
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleAction(onCancel);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', onKey);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return createPortal(
     <div
-      className={`fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-4 ${
+      className={`fixed inset-0 z-[9999] ehi-scrim flex items-center justify-center p-4 ${
         isClosing ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'
       }`}
       role="alertdialog"

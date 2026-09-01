@@ -8,7 +8,6 @@ function applyTheme(theme: Theme) {
   const root = document.documentElement;
 
   const updateDOM = () => {
-    root.classList.add('theme-transition');
     if (theme === 'light') {
       root.classList.add('light');
       root.classList.remove('dark');
@@ -16,9 +15,6 @@ function applyTheme(theme: Theme) {
       root.classList.remove('light');
       root.classList.add('dark');
     }
-    setTimeout(() => {
-      root.classList.remove('theme-transition');
-    }, 450);
   };
 
   if (typeof document !== 'undefined' && 'startViewTransition' in document && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -30,7 +26,8 @@ function applyTheme(theme: Theme) {
 
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(() => {
-    // Read saved preference, default to light
+    // Read saved preference; this app's default theme is dark (matches the
+    // pre-paint boot script in index.html).
     const saved = localStorage.getItem(STORAGE_KEY) as Theme | null;
     return saved ?? 'dark';
   });

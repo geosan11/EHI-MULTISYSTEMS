@@ -3011,7 +3011,7 @@ export const TransactionLedger = ({
             <button
               title="Print Compact 80mm Ledger Summary"
               onClick={handlePrint80mmLedger}
-              className="h-8 px-2 flex items-center gap-1.5 bg-[rgba(245,158,11,0.12)] border border-[rgba(245,158,11,0.3)] rounded-xl text-[var(--color-accent-amber)] hover:bg-[var(--color-accent-amber)] hover:text-black font-mono text-[10px] font-bold transition-colors cursor-pointer"
+              className="h-8 px-2 flex items-center gap-1.5 bg-[rgba(245,158,11,0.12)] border border-[rgba(245,158,11,0.3)] rounded-xl text-[var(--color-accent-amber)] hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] font-mono text-[10px] font-bold transition-colors cursor-pointer"
             >
               <Printer size={13} />
               <span>80mm</span>
@@ -3041,7 +3041,7 @@ export const TransactionLedger = ({
                 onClick={() => setShowPrintHistory(!showPrintHistory)}
                 className={`h-8 w-8 flex items-center justify-center border rounded-xl transition-colors ${
                   showPrintHistory
-                    ? 'bg-[var(--color-accent-amber)] border-[var(--color-accent-amber)] text-black'
+                    ? 'bg-[var(--color-accent-amber)] border-[var(--color-accent-amber)] text-[var(--color-on-accent)]'
                     : 'bg-[var(--color-surface-1)] border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)]'
                 }`}
               >
@@ -3413,7 +3413,7 @@ export const TransactionLedger = ({
                       }}
                       className={`h-7 px-3.5 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer flex-1 sm:flex-initial text-center inline-flex items-center justify-center gap-1.5 ${
                         shiftFilter === scope
-                          ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] shadow-md'
+                          ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-md'
                           : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[rgba(255,255,255,0.03)]'
                       }`}
                     >
@@ -3553,7 +3553,7 @@ export const TransactionLedger = ({
                         onClick={() => setTerminalFilter(t)}
                         className={`h-6 px-3 rounded-md text-[10px] font-mono font-bold transition-all cursor-pointer ${
                           terminalFilter === t
-                            ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] shadow-sm'
+                            ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-sm'
                             : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[rgba(255,255,255,0.03)]'
                         }`}
                       >
@@ -3629,7 +3629,7 @@ export const TransactionLedger = ({
                 <button
                   onClick={selectAllCash}
                   disabled={bulkConfirming}
-                  className="bg-[var(--color-success)] text-[var(--color-obsidian)] px-3 py-1 rounded-lg text-[10px] font-mono font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                  className="bg-[var(--color-success)] text-[var(--color-on-accent)] px-3 py-1 rounded-lg text-[10px] font-mono font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50"
                 >
                   {bulkConfirming ? 'Confirming...' : 'Confirm All'}
                 </button>
@@ -4175,7 +4175,7 @@ export const TransactionLedger = ({
                                 evt.stopPropagation();
                                 openClearDebt(e, evt);
                               }}
-                              className="p-1 rounded bg-[rgba(16,185,129,0.15)] text-[var(--color-success)] hover:bg-[var(--color-success)] hover:text-[#030712] transition-colors focus:outline-none flex items-center gap-0.5"
+                              className="p-1 rounded bg-[rgba(16,185,129,0.15)] text-[var(--color-success)] hover:bg-[var(--color-success)] hover:text-[var(--color-on-accent)] transition-colors focus:outline-none flex items-center gap-0.5"
                               title="Clear Outstanding Debt"
                             >
                               <HandCoins size={13} />
@@ -4580,7 +4580,7 @@ export const TransactionLedger = ({
                       {(['cargo', 'baggage', 'marketing', 'package'] as const).includes(viewingDetail.type as RetrievalEntryType) && !viewingDetail.raw?.retrieved && (
                         <button
                           onClick={() => handleMarkRetrievedAndDeposit(viewingDetail)}
-                          className="py-2.5 px-3 flex items-center justify-center gap-1 bg-[rgba(245,158,11,0.12)] hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-obsidian)] text-[var(--color-accent-amber)] rounded-lg transition-colors border border-[rgba(245,158,11,0.3)] text-[10px] font-mono font-bold"
+                          className="py-2.5 px-3 flex items-center justify-center gap-1 bg-[rgba(245,158,11,0.12)] hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] text-[var(--color-accent-amber)] rounded-lg transition-colors border border-[rgba(245,158,11,0.3)] text-[10px] font-mono font-bold"
                           title="Deposit retrieved refund directly into customer credit wallet"
                         >
                           <HandCoins size={13} /> 💰 Refund to Wallet
@@ -4639,13 +4639,13 @@ export const TransactionLedger = ({
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <button
                           onClick={() => handleReprintReceipt('80mm')}
-                          className="py-2 px-2 flex items-center justify-center gap-1.5 bg-[var(--color-accent-amber)] hover:bg-amber-400 text-[#0D1117] rounded-lg transition-colors border-none text-[11px] font-bold shadow-[var(--shadow-button)]"
+                          className="py-2 px-2 flex items-center justify-center gap-1.5 bg-[var(--color-accent-amber)] hover:bg-amber-400 text-[var(--color-on-accent)] rounded-lg transition-colors border-none text-[11px] font-bold shadow-[var(--shadow-button)]"
                         >
                           <Printer size={13} /> Receipt (80)
                         </button>
                         <button
                           onClick={() => handleReprintReceipt('58mm')}
-                          className="py-2 px-2 flex items-center justify-center gap-1.5 bg-[var(--color-accent-amber)] hover:bg-amber-400 text-[#0D1117] rounded-lg transition-colors border-none text-[11px] font-bold shadow-[var(--shadow-button)]"
+                          className="py-2 px-2 flex items-center justify-center gap-1.5 bg-[var(--color-accent-amber)] hover:bg-amber-400 text-[var(--color-on-accent)] rounded-lg transition-colors border-none text-[11px] font-bold shadow-[var(--shadow-button)]"
                         >
                           <Printer size={13} /> Receipt (58)
                         </button>
@@ -4654,7 +4654,7 @@ export const TransactionLedger = ({
                           <>
                             <button
                               onClick={() => handleReprintTag('80mm')}
-                              className="py-2 px-2 flex items-center justify-center gap-1.5 bg-[var(--color-accent-amber)] hover:bg-amber-400 text-[#0D1117] rounded-lg transition-colors border-none text-[11px] font-bold shadow-[var(--shadow-button)]"
+                              className="py-2 px-2 flex items-center justify-center gap-1.5 bg-[var(--color-accent-amber)] hover:bg-amber-400 text-[var(--color-on-accent)] rounded-lg transition-colors border-none text-[11px] font-bold shadow-[var(--shadow-button)]"
                             >
                               <Printer size={13} /> Print Tag
                             </button>
@@ -5384,7 +5384,7 @@ export const TransactionLedger = ({
                 <button
                   onClick={confirmClearDebt}
                   disabled={clearingDebt || (clearDebtMode === 'Transfer' && !clearDebtBank)}
-                  className="flex-1 h-10 flex items-center justify-center gap-2 rounded-lg bg-[var(--color-success)] text-[#030712] text-[13px] font-bold disabled:opacity-50"
+                  className="flex-1 h-10 flex items-center justify-center gap-2 rounded-lg bg-[var(--color-success)] text-[var(--color-on-accent)] text-[13px] font-bold disabled:opacity-50"
                 >
                   {clearingDebt ? <Loader2 size={14} className="animate-spin" /> : <CheckSquare size={14} />}
                   Clear Debt

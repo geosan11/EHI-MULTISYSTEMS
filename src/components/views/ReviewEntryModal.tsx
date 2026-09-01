@@ -108,7 +108,7 @@ export const ReviewEntryModal: React.FC<ReviewEntryModalProps> = ({
           <button
             onClick={handleConfirmClick}
             disabled={isSubmitting}
-            className="flex-1 h-10 flex items-center justify-center gap-2 rounded-lg text-[13px] font-bold transition-colors bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] hover:bg-[var(--color-accent-amber)]/90 cursor-pointer"
+            className="flex-1 h-10 flex items-center justify-center gap-2 rounded-lg text-[13px] font-bold transition-colors bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-amber)]/90 cursor-pointer"
           >
             {isSubmitting ? (
               <span className="w-5 h-5 border-2 border-[var(--color-obsidian)] border-t-transparent rounded-full animate-spin" />

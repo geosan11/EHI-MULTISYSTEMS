@@ -41,7 +41,7 @@ function DateChips({ value, onChange }: { value: DateFilter; onChange: (f: DateF
           onClick={() => onChange(o.key)}
           className={`px-3 py-1 rounded-full text-[10px] font-mono font-bold transition-colors border cursor-pointer ${
             value === o.key
-              ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] border-[var(--color-accent-amber)]'
+              ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] border-[var(--color-accent-amber)]'
               : 'bg-transparent text-[var(--color-muted)] border-[var(--color-border)] hover:border-[var(--color-accent-amber)]'
           }`}
         >
@@ -459,7 +459,7 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
                     setPinError('');
                     setPinValue(['', '', '', '', '']);
                   }}
-                  className="shrink-0 px-5 py-2.5 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] font-bold text-[12px] rounded-lg hover:opacity-90 transition-opacity cursor-pointer border-none"
+                  className="shrink-0 px-5 py-2.5 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] font-bold text-[12px] rounded-lg hover:opacity-90 transition-opacity cursor-pointer border-none"
                 >
                   RELEASE CARGO
                 </button>
@@ -520,7 +520,7 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
                 <button
                   onClick={handleConfirmPin}
                   disabled={releasing || pinValue.join('').length !== 5}
-                  className="flex-1 h-11 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[12px] font-bold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer border-none"
+                  className="flex-1 h-11 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[12px] font-bold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer border-none"
                 >
                   {releasing ? 'Releasing…' : 'Confirm PIN'}
                 </button>

@@ -320,7 +320,7 @@ export const B2BSalesTab = ({ transactions, user }: B2BSalesTabProps) => {
 
         <button
           onClick={handleExportExcel}
-          className="bg-[var(--color-accent-amber)] hover:bg-amber-600 text-black px-4 py-2 rounded-lg text-[12px] font-bold font-sans flex items-center justify-center space-x-1.5 transition-colors shrink-0"
+          className="bg-[var(--color-accent-amber)] hover:bg-amber-600 text-[var(--color-on-accent)] px-4 py-2 rounded-lg text-[12px] font-bold font-sans flex items-center justify-center space-x-1.5 transition-colors shrink-0"
         >
           <FileDown size={14} />
           <span>Export Ledger</span>

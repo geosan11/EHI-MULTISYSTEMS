@@ -238,7 +238,7 @@ export const AirlineCommissions = ({ onBack }: { onBack: () => void }) => {
                   onClick={handleAddAirline}
                   disabled={!newAirline.trim()}
                   aria-label="Add airline"
-                  className="px-3 h-10 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg font-bold disabled:opacity-40 hover:opacity-90 transition-opacity"
+                  className="px-3 h-10 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg font-bold disabled:opacity-40 hover:opacity-90 transition-opacity"
                 >
                   <Plus size={15} />
                 </button>
@@ -277,7 +277,7 @@ export const AirlineCommissions = ({ onBack }: { onBack: () => void }) => {
             <button
               onClick={handleSave}
               disabled={saved || saving}
-              className="w-full h-12 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] font-bold text-[13px] rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-60"
+              className="w-full h-12 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] font-bold text-[13px] rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-60"
             >
               {saved ? <><Check size={16} /> Saved to all devices</> : saving ? 'Saving...' : <><Save size={16} /> Save Commission Rates</>}
             </button>

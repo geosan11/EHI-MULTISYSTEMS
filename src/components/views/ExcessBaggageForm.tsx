@@ -494,7 +494,7 @@ export const ExcessBaggageForm = ({
         {/* Primary Reset CTA Button */}
         <button
           onClick={handleReset}
-          className="w-full py-3 bg-[var(--color-accent-amber)] text-[#0f172a] font-bold text-[13px] font-mono rounded-xl cursor-pointer flex justify-center items-center gap-2 hover:bg-opacity-95 shadow-md transition-all"
+          className="w-full py-3 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] font-bold text-[13px] font-mono rounded-xl cursor-pointer flex justify-center items-center gap-2 hover:opacity-90 shadow-md transition-all"
         >
           <Plus size={16} /> LOG NEXT PASSENGER BAGGAGE
         </button>
@@ -532,7 +532,7 @@ export const ExcessBaggageForm = ({
                   showToast({ message: err?.message || 'Bluetooth print failed. Ensure the printer is paired and powered on.', type: 'error' });
                 });
               }}
-              className="py-2.5 bg-[var(--color-accent-cobalt)] text-white text-[11px] font-bold font-mono rounded cursor-pointer flex flex-col justify-center items-center leading-none hover:bg-opacity-95 border-none"
+              className="py-2.5 bg-[var(--color-accent-cobalt)] text-white text-[11px] font-bold font-mono rounded cursor-pointer flex flex-col justify-center items-center leading-none hover:opacity-90 border-none"
             >
               <Bluetooth size={14} className="mb-0.5" />
               <span>PRINT POS (80mm)</span>
@@ -569,7 +569,7 @@ export const ExcessBaggageForm = ({
                   showToast({ message: err?.message || 'Bluetooth print failed. Ensure the printer is paired and powered on.', type: 'error' });
                 });
               }}
-              className="py-2.5 bg-[var(--color-accent-cobalt)] bg-opacity-80 text-white text-[11px] font-bold font-mono rounded cursor-pointer flex flex-col justify-center items-center leading-none hover:bg-opacity-95 border-none"
+              className="py-2.5 bg-[var(--color-accent-cobalt)] opacity-80 text-white text-[11px] font-bold font-mono rounded cursor-pointer flex flex-col justify-center items-center leading-none hover:opacity-90 border-none"
             >
               <Bluetooth size={14} className="mb-0.5" />
               <span>PRINT POS (58mm)</span>
@@ -699,7 +699,7 @@ export const ExcessBaggageForm = ({
                         setAmountOverride(String(computed));
                       }
                     }}
-                    className="px-3 py-1 rounded bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[10px] font-bold font-mono"
+                    className="px-3 py-1 rounded bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[10px] font-bold font-mono"
                   >
                     Yes, Link as Office Work
                   </button>
@@ -949,7 +949,7 @@ export const ExcessBaggageForm = ({
               className={`w-full py-4 rounded-[var(--radius-sm)] font-sans font-bold text-[16px] flex items-center justify-center gap-2 transition-all focus:outline-none ${
                 submitting ? 'opacity-80 cursor-wait bg-[var(--color-accent-cobalt)] text-white' :
                 !isValid ? 'bg-[var(--color-surface-3)] text-[var(--color-muted)] cursor-not-allowed border border-[var(--color-border)]' :
-                'bg-[var(--color-accent-cobalt)] text-white cursor-pointer hover:bg-opacity-95'
+                'bg-[var(--color-accent-cobalt)] text-white cursor-pointer hover:opacity-90'
               }`}
             >
               {submitting && <Loader2 size={18} className="animate-spin" />}

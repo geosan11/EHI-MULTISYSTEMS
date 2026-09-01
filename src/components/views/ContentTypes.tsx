@@ -177,7 +177,7 @@ export const ContentTypes = ({ onBack, onManageRates }: { onBack: () => void; on
                   onClick={handleAdd}
                   disabled={!newName.trim() || adding}
                   aria-label="Add content type"
-                  className="px-3 h-10 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg font-bold disabled:opacity-40 hover:opacity-90 transition-opacity"
+                  className="px-3 h-10 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg font-bold disabled:opacity-40 hover:opacity-90 transition-opacity"
                 >
                   <Plus size={15} />
                 </button>

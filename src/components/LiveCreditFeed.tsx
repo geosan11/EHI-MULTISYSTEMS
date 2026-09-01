@@ -110,7 +110,7 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
             <button
               type="button"
               onClick={() => onOpenTopUp()}
-              className="p-1.5 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg font-bold hover:opacity-90 cursor-pointer"
+              className="p-1.5 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg font-bold hover:opacity-90 cursor-pointer"
               title="Top-Up Customer Credit"
             >
               <Plus size={14} />
@@ -193,7 +193,7 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onOpenTopUp(w.customer_name); }}
-                      className="flex-1 py-1 bg-[rgba(245,158,11,0.12)] hover:bg-[var(--color-accent-amber)] text-[var(--color-accent-amber)] hover:text-[var(--color-obsidian)] rounded-lg font-bold text-center transition-colors cursor-pointer flex items-center justify-center gap-1"
+                      className="flex-1 py-1 bg-[rgba(245,158,11,0.12)] hover:bg-[var(--color-accent-amber)] text-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] rounded-lg font-bold text-center transition-colors cursor-pointer flex items-center justify-center gap-1"
                     >
                       <Plus size={11} /> Top Up
                     </button>
@@ -219,7 +219,7 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
                 <button
                   type="button"
                   onClick={() => onOpenTopUp()}
-                  className="px-3 py-1.5 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] font-bold rounded-lg text-[11px] cursor-pointer"
+                  className="px-3 py-1.5 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] font-bold rounded-lg text-[11px] cursor-pointer"
                 >
                   Create First Wallet
                 </button>
@@ -373,7 +373,7 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
                   onOpenTopUp(drawerWallet.customer_name);
                   setDrawerWallet(null);
                 }}
-                className="w-full h-8 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg text-[10px] font-mono font-bold hover:opacity-90 transition-opacity cursor-pointer flex items-center justify-center gap-1.5"
+                className="w-full h-8 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg text-[10px] font-mono font-bold hover:opacity-90 transition-opacity cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <Plus size={11} /> Top-Up Wallet
               </button>

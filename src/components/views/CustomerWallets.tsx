@@ -727,7 +727,7 @@ export const CustomerWallets = ({
         {canTopUp && (
           <button
             onClick={() => setShowTopUpModal(true)}
-            className="px-3 py-1.5 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[11px] font-mono font-bold rounded-lg flex items-center gap-1.5 hover:opacity-90 transition-opacity cursor-pointer shadow-sm"
+            className="px-3 py-1.5 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[11px] font-mono font-bold rounded-lg flex items-center gap-1.5 hover:opacity-90 transition-opacity cursor-pointer shadow-sm"
           >
             <Plus size={14} strokeWidth={3} />
             <span>Top-Up Wallet</span>
@@ -840,7 +840,7 @@ export const CustomerWallets = ({
                       onClick={() => handleApprovePayout(payout)}
                       disabled={isSelf || busy}
                       title={isSelf ? "You can't approve your own request" : 'Approve'}
-                      className="flex-1 h-8 rounded-lg text-[10px] font-mono font-bold bg-[var(--color-success)] text-[#0B0F19] disabled:opacity-40 flex items-center justify-center gap-1"
+                      className="flex-1 h-8 rounded-lg text-[10px] font-mono font-bold bg-[var(--color-success)] text-[var(--color-on-accent)] disabled:opacity-40 flex items-center justify-center gap-1"
                     >
                       <CheckCircle2 size={12} /> Approve
                     </button>
@@ -881,13 +881,13 @@ export const CustomerWallets = ({
       <div className="flex p-1 bg-[var(--color-surface-2)] rounded-lg w-fit">
         <button
           onClick={() => setWalletView('active')}
-          className={`px-3 py-1.5 text-[11px] font-mono font-bold rounded-md transition-colors ${walletView === 'active' ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)]' : 'text-[var(--color-muted)]'}`}
+          className={`px-3 py-1.5 text-[11px] font-mono font-bold rounded-md transition-colors ${walletView === 'active' ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]' : 'text-[var(--color-muted)]'}`}
         >
           Active
         </button>
         <button
           onClick={() => setWalletView('archived')}
-          className={`px-3 py-1.5 text-[11px] font-mono font-bold rounded-md transition-colors ${walletView === 'archived' ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)]' : 'text-[var(--color-muted)]'}`}
+          className={`px-3 py-1.5 text-[11px] font-mono font-bold rounded-md transition-colors ${walletView === 'archived' ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]' : 'text-[var(--color-muted)]'}`}
         >
           Archived
         </button>
@@ -962,7 +962,7 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
                 navigator.clipboard.writeText(sql);
                 showToast({ message: 'Migration SQL copied to clipboard!', type: 'success' });
               }}
-              className="px-3 py-1.5 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[11px] font-mono font-bold rounded-lg cursor-pointer hover:opacity-90"
+              className="px-3 py-1.5 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[11px] font-mono font-bold rounded-lg cursor-pointer hover:opacity-90"
             >
               Copy SQL Migration Query
             </button>
@@ -1038,7 +1038,7 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
                         setFormPhone(wallet.customer_phone || '');
                         setShowTopUpModal(true);
                       }}
-                      className="px-2 py-1 rounded text-[9px] font-mono font-bold bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)] hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-obsidian)] transition-colors flex items-center gap-1 cursor-pointer"
+                      className="px-2 py-1 rounded text-[9px] font-mono font-bold bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)] hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] transition-colors flex items-center gap-1 cursor-pointer"
                     >
                       <Plus size={10} strokeWidth={3} /> Top-Up
                     </button>
@@ -1216,7 +1216,7 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
                 <button
                   type="submit"
                   disabled={savingTopUp}
-                  className="flex-1 py-2.5 rounded-xl bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[11px] font-mono font-bold hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
+                  className="flex-1 py-2.5 rounded-xl bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[11px] font-mono font-bold hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   {savingTopUp ? <Loader2 size={14} className="animate-spin" /> : 'Confirm Top-Up'}
                 </button>
@@ -1396,7 +1396,7 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
               <button
                 onClick={() => handleRequestPayout(wallet)}
                 disabled={savingPayout}
-                className="w-full h-11 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg text-[12px] font-mono font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full h-11 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg text-[12px] font-mono font-bold disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 <HandCoins size={14} /> {savingPayout ? 'Requesting...' : 'Request Cash Payout'}
               </button>

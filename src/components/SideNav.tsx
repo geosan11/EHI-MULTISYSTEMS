@@ -308,7 +308,7 @@ export const SideNav = ({
                   style={{ flexShrink: 0, transition: "all 0.15s ease" }}
                   className={
                     isActive
-                      ? "text-[var(--color-obsidian)]"
+                      ? "text-[var(--color-on-accent)]"
                       : "text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)]"
                   }
                 />

@@ -115,7 +115,7 @@ export const KgTierEditor = ({
         <button
           onClick={handleAdd}
           disabled={!newMin.trim() || !newPrice.trim() || adding}
-          className="w-full h-10 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg text-[12px] font-bold disabled:opacity-40 flex items-center justify-center gap-2"
+          className="w-full h-10 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg text-[12px] font-bold disabled:opacity-40 flex items-center justify-center gap-2"
         >
           <Plus size={14} /> {adding ? 'Adding...' : 'Add Bracket'}
         </button>

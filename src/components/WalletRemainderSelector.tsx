@@ -23,7 +23,7 @@ export const WalletRemainderSelector = ({
       {(['Cash', 'Transfer', 'POS'] as const).map(m => (
         <button
           key={m} type="button" onClick={() => onModeChange(m)}
-          className={`flex-1 h-9 rounded-lg text-[11px] font-bold font-mono transition-colors ${mode === m ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)]' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)] border border-[var(--color-border)]'}`}
+          className={`flex-1 h-9 rounded-lg text-[11px] font-bold font-mono transition-colors ${mode === m ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)] border border-[var(--color-border)]'}`}
         >{m}</button>
       ))}
     </div>

@@ -1,4 +1,4 @@
-import { AlertTriangle, XCircle, CheckCircle, Info, Phone } from 'lucide-react';
+import { AlertTriangle, XCircle, CheckCircle, Info } from 'lucide-react';
 import { ScanValidationResult } from '../lib/types';
 
 // ── WRONG DESTINATION ALERT ──────────────────────────
@@ -115,7 +115,10 @@ export const WrongDestinationAlert = ({
       Contact the dispatch supervisor.
     </div>
 
-    {/* Action buttons */}
+    {/* Action buttons. The "CALL DISPATCH" button was removed here: it did
+        `window.location.href = 'tel:'` with no number (a no-op on desktop, an
+        empty dialer on mobile). Restore it once a real dispatch number is
+        configured (e.g. a Settings field threaded in as a prop). */}
     <div style={{ display: 'flex', gap: 12, width: '100%', maxWidth: 360 }}>
       <button
         onClick={onAcknowledge}
@@ -130,21 +133,6 @@ export const WrongDestinationAlert = ({
         }}
       >
         ACKNOWLEDGE
-      </button>
-      <button
-        onClick={() => { window.location.href = 'tel:'; }}
-        style={{
-          flex: 1, padding: '13px',
-          background: '#EF4444',
-          border: 'none',
-          borderRadius: 10, color: '#FFF',
-          fontSize: 12, fontFamily: 'monospace',
-          fontWeight: 700, cursor: 'pointer',
-          display: 'flex', alignItems: 'center',
-          justifyContent: 'center', gap: 6,
-        }}
-      >
-        <Phone size={14} /> CALL DISPATCH
       </button>
     </div>
   </div>

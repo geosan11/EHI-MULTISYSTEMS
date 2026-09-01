@@ -384,7 +384,7 @@ export const CorporateBilling = ({ user, onBack }: { user: User; onBack: () => v
           <button
             onClick={handleGenerate}
             disabled={!selectedClientId || generating}
-            className="w-full h-11 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded-lg text-[12px] font-bold font-mono disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full h-11 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg text-[12px] font-bold font-mono disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {generating ? <><Loader size={14} className="animate-spin" /> Generating...</> : 'Generate Bill'}
           </button>

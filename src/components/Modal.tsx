@@ -19,7 +19,7 @@ export const Modal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
   children,
-  backdropClassName = 'bg-black/80 backdrop-blur-md',
+  backdropClassName = 'ehi-scrim',
   containerClassName = 'w-full max-w-lg bg-[var(--color-surface-card)] rounded-2xl border border-[var(--color-border)] shadow-2xl overflow-hidden h-auto max-h-[85vh] flex flex-col',
   overlayZIndex = 'z-[99999]',
 }) => {

@@ -563,7 +563,7 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
         </div>
       </div>
 
-      <button onClick={() => setStep(2)} className="w-full h-12 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded font-bold font-mono flex justify-center items-center">
+      <button onClick={() => setStep(2)} className="w-full h-12 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded font-bold font-mono flex justify-center items-center">
         NEXT: COUNT FUNDS <ChevronRight size={16} className="ml-2" />
       </button>
     </div>
@@ -663,7 +663,7 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
           <button
             onClick={() => setStep(3)}
             disabled={countedCash === '' || countedTransfer === '' || countedPOS === ''}
-            className="flex-[2] h-12 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded font-bold font-mono disabled:opacity-50"
+            className="flex-[2] h-12 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded font-bold font-mono disabled:opacity-50"
           >
             NEXT: RECONCILE
           </button>
@@ -727,7 +727,7 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
         <button 
           onClick={() => setStep(4)} 
           disabled={needsReason && varianceReason.trim().length < 5}
-          className="flex-[2] h-12 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] rounded font-bold font-mono disabled:opacity-50"
+          className="flex-[2] h-12 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded font-bold font-mono disabled:opacity-50"
         >
           NEXT: REMIT
         </button>
@@ -850,7 +850,7 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
         <div className="absolute left-0 right-0 top-1/2 h-[1px] bg-[var(--color-surface-2)] -z-10" />
         {[1, 2, 3, 4].map(s => (
           <div key={s} className="flex flex-col items-center bg-[var(--color-obsidian)] px-2">
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold font-mono border ${s === step ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] border-[var(--color-accent-amber)]' : s < step ? 'bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] border-[var(--color-accent-amber)]' : 'bg-[var(--color-surface-card)] text-[var(--color-muted)] border-[var(--color-surface-2)]'}`}>
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold font-mono border ${s === step ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] border-[var(--color-accent-amber)]' : s < step ? 'bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] border-[var(--color-accent-amber)]' : 'bg-[var(--color-surface-card)] text-[var(--color-muted)] border-[var(--color-surface-2)]'}`}>
               {s < step ? <Check size={12} /> : s}
             </div>
             <span className={`text-[9px] font-mono mt-1 ${s === step ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-muted)]'}`}>{stepNames[s-1]}</span>

@@ -121,7 +121,7 @@ const ToastCard = ({ id, message, type, title, onDismiss }: ToastCardProps) => {
           <X size={14} />
         </button>
       </div>
-      <div className="h-[2px] w-full bg-black/10 dark:bg-white/5">
+      <div className="h-[2px] w-full bg-[var(--color-border-subtle)]">
         <div
           className="h-full"
           style={{

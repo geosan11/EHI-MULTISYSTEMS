@@ -727,7 +727,7 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
                   onClick={() => setPreset(p.id)}
                   className={`min-w-0 truncate px-3 py-2 text-[11px] font-mono border rounded-[var(--radius-sm)] transition-colors cursor-pointer ${
                     preset === p.id
-                      ? 'bg-[var(--color-accent-amber)] text-[#0B0F19] border-[var(--color-accent-amber)] font-bold'
+                      ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] border-[var(--color-accent-amber)] font-bold'
                       : 'bg-[var(--color-surface-2)] text-[var(--color-muted)] border-[var(--color-border)] font-medium hover:bg-[var(--color-surface-3)] hover:text-[var(--color-foreground)]'
                   }`}
                 >

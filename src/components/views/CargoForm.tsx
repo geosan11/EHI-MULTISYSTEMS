@@ -2041,7 +2041,7 @@ export const CargoForm = ({
                   showToast({ message: err?.message || 'Bluetooth print failed. Ensure the printer is paired and powered on.', type: 'error' });
                 });
               }}
-              className="w-full h-9 bg-[var(--color-accent-amber)] hover:bg-opacity-95 text-[#0D1117] text-[11px] font-bold font-sans rounded-lg shadow-sm transition-opacity cursor-pointer focus:outline-none border-none flex items-center justify-center gap-1"
+              className="w-full h-9 bg-[var(--color-accent-amber)] hover:opacity-90 text-[var(--color-on-accent)] text-[11px] font-bold font-sans rounded-lg shadow-sm transition-opacity cursor-pointer focus:outline-none border-none flex items-center justify-center gap-1"
             >
               <Bluetooth size={12} />
               <span>POS Print (80mm)</span>
@@ -2062,7 +2062,7 @@ export const CargoForm = ({
                   showToast({ message: err?.message || 'Bluetooth print failed. Ensure the printer is paired and powered on.', type: 'error' });
                 });
               }}
-              className="w-full h-9 bg-[var(--color-accent-amber)] hover:bg-opacity-85 text-[#0D1117] text-[11px] font-bold font-sans rounded-lg shadow-sm transition-opacity cursor-pointer focus:outline-none border-none flex items-center justify-center gap-1"
+              className="w-full h-9 bg-[var(--color-accent-amber)] hover:opacity-90 text-[var(--color-on-accent)] text-[11px] font-bold font-sans rounded-lg shadow-sm transition-opacity cursor-pointer focus:outline-none border-none flex items-center justify-center gap-1"
             >
               <Bluetooth size={12} />
               <span>POS Print (58mm)</span>
@@ -2123,7 +2123,7 @@ export const CargoForm = ({
           onClick={() => setActivePortal("retail")}
           className={`flex-1 flex items-center justify-center gap-2 py-3 text-[14px] font-sans font-bold rounded-md transition-all cursor-pointer ${
             activePortal === "retail"
-              ? "bg-[var(--color-accent-amber)] text-[#030712] shadow-md"
+              ? "bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-md"
               : "text-[var(--color-light-muted)] hover:text-[var(--color-foreground)]"
           }`}
         >
@@ -2133,7 +2133,7 @@ export const CargoForm = ({
           onClick={() => setActivePortal("corporate")}
           className={`flex-1 flex items-center justify-center gap-2 py-3 text-[14px] font-sans font-bold rounded-md transition-all cursor-pointer relative ${
             activePortal === "corporate"
-              ? "bg-[var(--color-accent-amber)] text-[#030712] shadow-md"
+              ? "bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-md"
               : "text-[var(--color-light-muted)] hover:text-[var(--color-foreground)]"
           }`}
         >
@@ -2247,8 +2247,8 @@ export const CargoForm = ({
                         onClick={() => setMode("Wallet")}
                         className={`px-2.5 py-1 rounded text-[10px] font-mono font-bold cursor-pointer transition-colors ${
                           mode === "Wallet"
-                            ? "bg-[var(--color-accent-amber)] text-[var(--color-obsidian)]"
-                            : "border border-[var(--color-accent-amber)] text-[var(--color-accent-amber)] hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-obsidian)]"
+                            ? "bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]"
+                            : "border border-[var(--color-accent-amber)] text-[var(--color-accent-amber)] hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)]"
                         }`}
                       >
                         {mode === "Wallet" ? "Using Wallet" : "Use Wallet"}
@@ -2288,7 +2288,7 @@ export const CargoForm = ({
                                 }
                               }
                             }}
-                            className="px-3 py-1 rounded bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[10px] font-bold font-mono"
+                            className="px-3 py-1 rounded bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[10px] font-bold font-mono"
                           >
                             Yes, Link as Office Work
                           </button>
@@ -2377,7 +2377,7 @@ export const CargoForm = ({
                   type="text"
                   value={awb || "Loading…"}
                   readOnly
-                  className={`${formInputClass} font-mono bg-opacity-50 cursor-not-allowed`}
+                  className={`${formInputClass} font-mono opacity-60 cursor-not-allowed`}
                   style={{ backgroundColor: 'var(--color-surface-3)', color: 'var(--color-muted)' }}
                 />
               </div>
@@ -2664,10 +2664,10 @@ export const CargoForm = ({
                 disabled={!isRetailFormValid || submitting}
                 className={`w-full py-4 rounded-[var(--radius-sm)] font-sans font-bold text-[16px] flex items-center justify-center gap-2 transition-all focus:outline-none ${
                   submitting
-                    ? "opacity-80 cursor-wait bg-[var(--color-accent-amber)] text-[#030712]"
+                    ? "opacity-80 cursor-wait bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]"
                     : !isRetailFormValid
                       ? "bg-[var(--color-surface-3)] text-[var(--color-muted)] cursor-not-allowed border border-[var(--color-border)]"
-                      : "bg-[var(--color-accent-amber)] text-[#030712] cursor-pointer hover:bg-opacity-95"
+                      : "bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] cursor-pointer hover:opacity-90"
                 }`}
               >
                 {submitting && <Loader2 size={18} className="animate-spin" />}
@@ -2942,7 +2942,7 @@ export const CargoForm = ({
                       type="text"
                       value={intakeAwb}
                       readOnly
-                      className={`${formInputClass} font-mono bg-opacity-50 cursor-not-allowed`}
+                      className={`${formInputClass} font-mono opacity-60 cursor-not-allowed`}
                       style={{ backgroundColor: 'var(--color-surface-3)', color: 'var(--color-muted)' }}
                     />
                   </div>
@@ -3005,7 +3005,7 @@ export const CargoForm = ({
 
                   <button
                     onClick={handleLogFieldIntake}
-                    className="w-full h-12 mt-4 cursor-pointer bg-[var(--color-accent-amber)] text-[#030712] font-semibold text-[14px] rounded-[var(--radius-sm)] flex items-center justify-center gap-2 hover:bg-opacity-95 transition-all text-center"
+                    className="w-full h-12 mt-4 cursor-pointer bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] font-semibold text-[14px] rounded-[var(--radius-sm)] flex items-center justify-center gap-2 hover:opacity-90 transition-all text-center"
                   >
                     <Rocket size={16} /> LOG INTAKE FOR WEIGHING
                   </button>
@@ -3388,7 +3388,7 @@ export const CargoForm = ({
                     <button
                       onClick={handleFinalizeWeighing}
                       disabled={!gateWeight || isWeighingSubmitting || (!contractRateForSelectedIntake && !customRateOverwrite)}
-                      className="w-full h-12 mt-5 cursor-pointer bg-[var(--color-accent-amber)] text-[#030712] font-semibold text-[14px] rounded flex items-center justify-center gap-2 hover:bg-opacity-95 transition-all text-center"
+                      className="w-full h-12 mt-5 cursor-pointer bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] font-semibold text-[14px] rounded flex items-center justify-center gap-2 hover:opacity-90 transition-all text-center"
                     >
                       {isWeighingSubmitting ? (
                         <Loader2 size={16} className="animate-spin" />
@@ -3528,7 +3528,7 @@ export const CargoForm = ({
               <button
                 onClick={handleCloseDay}
                 disabled={closingDay || closeSummaryLoading}
-                className="flex-1 h-11 rounded-lg bg-[var(--color-accent-amber)] text-[#0B0F19] text-[11px] font-mono font-bold hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
+                className="flex-1 h-11 rounded-lg bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[11px] font-mono font-bold hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
               >
                 {closingDay ? 'CLOSING…' : 'CONFIRM & CLOSE PERIOD'}
               </button>

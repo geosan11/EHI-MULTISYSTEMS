@@ -52,7 +52,7 @@ export const TerminalSwitch = ({ value, onChange }: { value: Terminal; onChange:
           value === t
             ? t === 'GAT'
               ? 'bg-[var(--color-accent-cobalt)] text-white shadow-md'
-              : 'bg-[var(--color-accent-amber)] text-[#030712] shadow-md'
+              : 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-md'
             : 'text-[var(--color-light-muted)] hover:text-[var(--color-foreground)]'
         }`}
       >{t}</button>

@@ -120,7 +120,7 @@ export const PartialRetrievalModal: React.FC<PartialRetrievalModalProps> = ({ en
           </div>
 
           <div className="flex p-1 bg-[var(--color-surface-2)] rounded-lg">
-            <button onClick={() => setRetrievalType('full')} className={`flex-1 py-2 text-[12px] font-bold rounded-md ${retrievalType === 'full' ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)]' : 'text-[var(--color-muted)]'}`}>Full Retrieval</button>
+            <button onClick={() => setRetrievalType('full')} className={`flex-1 py-2 text-[12px] font-bold rounded-md ${retrievalType === 'full' ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]' : 'text-[var(--color-muted)]'}`}>Full Retrieval</button>
             <button onClick={() => setRetrievalType('partial')} className={`flex-1 py-2 text-[12px] font-bold rounded-md ${retrievalType === 'partial' ? 'bg-[var(--color-accent-cobalt)] text-white' : 'text-[var(--color-muted)]'}`}>Partial</button>
           </div>
 
@@ -175,7 +175,7 @@ export const PartialRetrievalModal: React.FC<PartialRetrievalModalProps> = ({ en
 
         <div className="p-4 border-t border-[var(--color-border)] bg-[var(--color-surface-card)]">
           <button onClick={handleConfirm} disabled={invalid || busy}
-            className={`w-full h-12 flex items-center justify-center gap-2 rounded-lg text-[13px] font-bold disabled:opacity-50 ${retrievalType === 'full' ? 'bg-[var(--color-accent-amber)] text-[var(--color-obsidian)]' : 'bg-[var(--color-accent-cobalt)] text-white'}`}>
+            className={`w-full h-12 flex items-center justify-center gap-2 rounded-lg text-[13px] font-bold disabled:opacity-50 ${retrievalType === 'full' ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]' : 'bg-[var(--color-accent-cobalt)] text-white'}`}>
             {busy ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />} {busy ? 'Processing…' : 'Confirm Retrieval'}
           </button>
         </div>

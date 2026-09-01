@@ -1002,7 +1002,7 @@ export const Scanner = ({
           <button
             onClick={() => handleTrackLookup()}
             disabled={!trackRef.trim() || trackLoading}
-            className="h-11 px-4 bg-[var(--color-accent-amber)] text-[var(--color-obsidian)] text-[11px] font-mono font-bold rounded disabled:opacity-50 border-none cursor-pointer"
+            className="h-11 px-4 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[11px] font-mono font-bold rounded disabled:opacity-50 border-none cursor-pointer"
           >
             {trackLoading ? '...' : 'SEARCH'}
           </button>
@@ -1154,7 +1154,7 @@ export const Scanner = ({
                   background: 'var(--color-success)',
                   color: '#0d1117',
                 }}
-                className="py-3 hover:bg-opacity-90 text-[12px] font-bold font-sans rounded-[var(--radius-sm)] border-none transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                className="py-3 hover:opacity-90 text-[12px] font-bold font-sans rounded-[var(--radius-sm)] border-none transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
               >
                 {submittingBatch ? (
                   <>
@@ -1652,7 +1652,7 @@ export const Scanner = ({
               <button
                 onClick={handleCommitDelivery}
                 disabled={!pinInput.trim()}
-                className="flex-1 py-3 bg-[var(--color-purple)] text-white text-[12px] font-mono font-bold rounded-[var(--radius-md)] cursor-pointer hover:bg-opacity-90 transition-colors disabled:opacity-50"
+                className="flex-1 py-3 bg-[var(--color-purple)] text-white text-[12px] font-mono font-bold rounded-[var(--radius-md)] cursor-pointer hover:opacity-90 transition-colors disabled:opacity-50"
               >
                 CONFIRM
               </button>

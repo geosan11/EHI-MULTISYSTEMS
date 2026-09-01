@@ -186,7 +186,7 @@ export const ExpensesTab = ({ expenses = [], user, period = 'today', onAddExpens
            <button 
              onClick={handleLog}
              disabled={!amount || !desc}
-             className="w-full h-12 mt-2 bg-[var(--color-accent-amber)] disabled:opacity-50 hover:bg-opacity-90 text-[#0B0F19] text-[15px] font-sans font-bold rounded-xl transition-all focus:outline-none flex items-center justify-center space-x-2"
+             className="w-full h-12 mt-2 bg-[var(--color-accent-amber)] disabled:opacity-50 hover:opacity-90 text-[var(--color-on-accent)] text-[15px] font-sans font-bold rounded-xl transition-all focus:outline-none flex items-center justify-center space-x-2"
            >
              <Plus size={18} />
              <span>{requiresApproval ? "Submit for Approval" : "Log Expense"}</span>
@@ -257,7 +257,7 @@ export const ExpensesTab = ({ expenses = [], user, period = 'today', onAddExpens
       <div>
          <div className="flex justify-between items-center mb-3">
            <span className="text-[14px] font-sans font-semibold text-[var(--color-foreground)]">Expense Log</span>
-           <button onClick={handleExportExcel} className="flex items-center space-x-1 text-[11px] font-sans text-[var(--color-accent-cobalt)] bg-[rgba(59,130,246,0.1)] px-2 py-1 rounded focus:outline-none hover:bg-opacity-20 transition-colors">
+           <button onClick={handleExportExcel} className="flex items-center space-x-1 text-[11px] font-sans text-[var(--color-accent-cobalt)] bg-[rgba(59,130,246,0.1)] px-2 py-1 rounded focus:outline-none hover:bg-[rgba(59,130,246,0.2)] transition-colors">
              <Download size={12} />
              <span>Excel</span>
            </button>
