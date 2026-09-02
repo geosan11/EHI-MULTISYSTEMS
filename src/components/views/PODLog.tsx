@@ -160,7 +160,7 @@ export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => 
               <button
                 onClick={() => setSelectedPod(null)}
                 aria-label="Close"
-                className="p-1.5 bg-[var(--color-surface-2)] rounded hover:bg-white/10 text-[var(--color-muted)] cursor-pointer transition-colors border-none"
+                className="p-1.5 bg-[var(--color-surface-2)] rounded hover:bg-[var(--color-surface-hover)] text-[var(--color-muted)] cursor-pointer transition-colors border-none"
               >
                 <X size={16} />
               </button>

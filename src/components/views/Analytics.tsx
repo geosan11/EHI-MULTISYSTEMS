@@ -1265,7 +1265,7 @@ export const Analytics = ({
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border)]">
                   {clientParetoData.map((c, i) => (
-                    <tr key={i} className={`hover:bg-[rgba(255,255,255,0.02)] ${c.isTop20 ? 'bg-[rgba(245,158,11,0.03)]' : ''}`}>
+                    <tr key={i} className={`hover:bg-[var(--color-surface-hover)] ${c.isTop20 ? 'bg-[rgba(245,158,11,0.03)]' : ''}`}>
                       <td className="py-2.5 px-3 font-sans font-medium text-[var(--color-foreground)]">
                         <div className="flex items-center gap-2">
                           <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono font-bold ${i < 3 ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)]'}`}>

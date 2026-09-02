@@ -480,7 +480,10 @@ button:focus-visible,
 a:focus-visible,
 [role="button"]:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid var(--color-accent-amber);
+  /* Cobalt, not amber: an amber ring on an amber button is invisible, and
+     amber-on-light-grey is weak. --color-focus-ring is cobalt in both themes.
+     (Inputs keep their amber glow below -- inputs are never amber.) */
+  outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
 }
 

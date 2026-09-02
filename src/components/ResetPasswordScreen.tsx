@@ -68,7 +68,7 @@ export const ResetPasswordScreen = ({ onDone }: { onDone: () => void }) => {
           <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 160, height: 'auto', objectFit: 'contain' }} />
         </div>
 
-        <div className="w-full bg-[var(--color-surface-card-glass)] backdrop-blur-xl border border-white/10 rounded-[var(--radius-lg)] p-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+        <div className="w-full bg-[var(--color-surface-card-glass)] backdrop-blur-xl border border-[var(--color-border)] rounded-[var(--radius-lg)] p-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
           {done ? (
             <div className="text-center">
               <div className="text-[15px] font-sans font-bold text-[var(--color-foreground)] mb-2">

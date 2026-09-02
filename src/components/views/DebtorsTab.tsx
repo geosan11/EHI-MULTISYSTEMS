@@ -614,7 +614,7 @@ export const DebtorsTab = ({
                   {/* COLLAPSED ROW */}
                   <div
                     onClick={() => setExpandedId(isExpanded ? null : d.id)}
-                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-[rgba(255,255,255,0.02)] transition-colors"
+                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-[var(--color-surface-hover)] transition-colors"
                   >
                     {filter === 'Corporate' && (
                       <input

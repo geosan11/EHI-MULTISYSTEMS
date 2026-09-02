@@ -476,7 +476,7 @@ export const BankReconciliation = ({
               {bankTxList.map((btx) => {
                 const correspondingSysPayment = btx.matchedId ? systemPayments.find(sp => sp.id === btx.matchedId) : null;
                 return (
-                  <div key={btx.id} className="p-4 grid grid-cols-1 md:grid-cols-12 gap-4 items-center hover:bg-[rgba(255,255,255,0.01)] transition-colors">
+                  <div key={btx.id} className="p-4 grid grid-cols-1 md:grid-cols-12 gap-4 items-center hover:bg-[var(--color-surface-hover)] transition-colors">
                     <div className="md:col-span-5 space-y-1.5">
                       <div className="flex items-center space-x-2">
                         <span className="text-[11px] font-sans text-[var(--color-muted)]">{btx.date}</span>

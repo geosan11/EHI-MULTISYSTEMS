@@ -2903,7 +2903,7 @@ export const TransactionLedger = ({
             (index.css's body::before) -- same recipe already used for
             ResetPasswordScreen's card, applied here instead of the old
             flush/flat bg-surface-card + border-b strip. */}
-        <div className="mx-3 mt-3 px-4 py-3 rounded-2xl flex items-center justify-between shrink-0 bg-[var(--color-surface-card-glass)] backdrop-blur-xl border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
+        <div className="mx-3 mt-3 px-4 py-3 rounded-2xl flex items-center justify-between shrink-0 bg-[var(--color-surface-card-glass)] backdrop-blur-xl border border-[var(--color-border)] shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
           <div className="flex items-center gap-3 min-w-0">
             <BackButton onClick={onBack} label="Back" />
             <div className="min-w-0">
@@ -3065,7 +3065,7 @@ export const TransactionLedger = ({
             it -- otherwise it's the first section inside the single unified
             panel below, alongside KPI/chips/manifest. */}
         {showPrintHistory && (onStartShift || onEndShift || shiftAutoManaged) && (
-          <div className="mx-3 mt-2.5 px-4 py-2.5 rounded-2xl bg-[var(--color-surface-card-glass)] backdrop-blur-xl border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.25)] flex items-center justify-between gap-3 shrink-0 relative z-10">
+          <div className="mx-3 mt-2.5 px-4 py-2.5 rounded-2xl bg-[var(--color-surface-card-glass)] backdrop-blur-xl border border-[var(--color-border)] shadow-[0_8px_24px_rgba(0,0,0,0.25)] flex items-center justify-between gap-3 shrink-0 relative z-10">
             {shiftBarContent}
           </div>
         )}
@@ -3080,15 +3080,15 @@ export const TransactionLedger = ({
                 chips + airline manifest all in one continuous rounded
                 containment, instead of separate flush strips -- matches the
                 Top Bar/Filter Strip's glass treatment above/below it. */}
-            <div className="mx-3 mt-2.5 rounded-2xl bg-[var(--color-surface-card-glass)] backdrop-blur-xl border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.25)] overflow-hidden shrink-0">
+            <div className="mx-3 mt-2.5 rounded-2xl bg-[var(--color-surface-card-glass)] backdrop-blur-xl border border-[var(--color-border)] shadow-[0_8px_24px_rgba(0,0,0,0.25)] overflow-hidden shrink-0">
               {(onStartShift || onEndShift || shiftAutoManaged) && (
-                <div className="px-4 py-2.5 border-b border-white/10 flex items-center justify-between gap-3 relative z-10">
+                <div className="px-4 py-2.5 border-b border-[var(--color-border)] flex items-center justify-between gap-3 relative z-10">
                   {shiftBarContent}
                 </div>
               )}
 
               {/* ── KPI Summary Cards ───────────────────────────── */}
-              <div className="px-4 py-3 border-b border-white/10">
+              <div className="px-4 py-3 border-b border-[var(--color-border)]">
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                 {/* Total */}
                 <div
@@ -3275,7 +3275,7 @@ export const TransactionLedger = ({
             </div>
 
               {/* ── Type Quick-Filter Chips ──────────────────────── */}
-              <div className="px-4 py-2 border-b border-white/10">
+              <div className="px-4 py-2 border-b border-[var(--color-border)]">
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
                 {([
                   { label: 'All',        value: 'All',        activeClass: 'bg-[var(--color-surface-2)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
@@ -3341,7 +3341,7 @@ export const TransactionLedger = ({
             {/* ── Filter Strip ─────────────────────────────────── */}
             {/* Same frosted-glass treatment as the Top Bar above -- see its
                 comment. */}
-            <div className="mx-3 mt-2.5 px-4 py-3 rounded-2xl space-y-2.5 shrink-0 bg-[var(--color-surface-card-glass)] backdrop-blur-xl border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
+            <div className="mx-3 mt-2.5 px-4 py-3 rounded-2xl space-y-2.5 shrink-0 bg-[var(--color-surface-card-glass)] backdrop-blur-xl border border-[var(--color-border)] shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
               {/* Row 1: Search + Shift Scope */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
                 <div className="w-full sm:flex-1 relative group">
@@ -3415,7 +3415,7 @@ export const TransactionLedger = ({
                       className={`h-7 px-3.5 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer flex-1 sm:flex-initial text-center inline-flex items-center justify-center gap-1.5 ${
                         shiftFilter === scope
                           ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-md'
-                          : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[rgba(255,255,255,0.03)]'
+                          : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-hover)]'
                       }`}
                     >
                       {/* Confirms the click registered immediately -- the
@@ -3555,7 +3555,7 @@ export const TransactionLedger = ({
                         className={`h-6 px-3 rounded-md text-[10px] font-mono font-bold transition-all cursor-pointer ${
                           terminalFilter === t
                             ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-sm'
-                            : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[rgba(255,255,255,0.03)]'
+                            : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-hover)]'
                         }`}
                       >
                         {t}

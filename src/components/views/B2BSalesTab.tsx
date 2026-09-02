@@ -350,7 +350,7 @@ export const B2BSalesTab = ({ transactions, user }: B2BSalesTabProps) => {
                 const outstanding = Math.max(0, t.amount - (t.mode === 'Debt' ? (t.amountPaid || 0) + ((t.raw as any)?.retrieved_amount || 0) : t.amount));
                 
                 return (
-                  <tr key={t.id} className="hover:bg-[rgba(255,255,255,0.01)] transition-colors">
+                  <tr key={t.id} className="hover:bg-[var(--color-surface-hover)] transition-colors">
                     <td className="p-3 font-mono text-[11px] font-bold text-[var(--color-foreground)]">{t.awb_tag_number || 'No Tag'}</td>
                     <td className="p-3 text-[var(--color-muted)] font-mono text-[11px]">
                       {t.created_at ? new Date(t.created_at).toLocaleDateString('en-GB') : (t.time || '-')}

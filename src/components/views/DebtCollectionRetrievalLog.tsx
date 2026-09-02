@@ -268,7 +268,7 @@ export const DebtCollectionRetrievalLog = ({ transactions, onBack }: { transacti
                 <HandCoins size={18} className="text-[var(--color-accent-cobalt)]" />
                 <h3 className="text-[12px] font-bold text-[var(--color-foreground)] uppercase font-mono">Debt Collection</h3>
               </div>
-              <button onClick={() => setSelectedEvent(null)} aria-label="Close" className="p-1.5 bg-[var(--color-surface-2)] rounded hover:bg-white/10 text-[var(--color-muted)] cursor-pointer transition-colors border-none">
+              <button onClick={() => setSelectedEvent(null)} aria-label="Close" className="p-1.5 bg-[var(--color-surface-2)] rounded hover:bg-[var(--color-surface-hover)] text-[var(--color-muted)] cursor-pointer transition-colors border-none">
                 <X size={16} />
               </button>
             </div>
@@ -303,7 +303,7 @@ export const DebtCollectionRetrievalLog = ({ transactions, onBack }: { transacti
                 <PackageCheck size={18} className="text-[var(--color-accent-amber)]" />
                 <h3 className="text-[12px] font-bold text-[var(--color-foreground)] uppercase font-mono">Retrieval</h3>
               </div>
-              <button onClick={() => setSelectedRetrieval(null)} aria-label="Close" className="p-1.5 bg-[var(--color-surface-2)] rounded hover:bg-white/10 text-[var(--color-muted)] cursor-pointer transition-colors border-none">
+              <button onClick={() => setSelectedRetrieval(null)} aria-label="Close" className="p-1.5 bg-[var(--color-surface-2)] rounded hover:bg-[var(--color-surface-hover)] text-[var(--color-muted)] cursor-pointer transition-colors border-none">
                 <X size={16} />
               </button>
             </div>

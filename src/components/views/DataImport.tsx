@@ -413,7 +413,7 @@ export const DataImport = ({ user, onBack }: { user: User; onBack: () => void })
                       {rows.slice(0, 10).map((r, i) => (
                         <tr
                           key={i}
-                          className={`border-t border-[var(--color-border)] ${errorRowIndices.has(i) ? 'bg-[rgba(239,68,68,0.05)]' : 'hover:bg-[rgba(255,255,255,0.02)]'}`}
+                          className={`border-t border-[var(--color-border)] ${errorRowIndices.has(i) ? 'bg-[rgba(239,68,68,0.05)]' : 'hover:bg-[var(--color-surface-hover)]'}`}
                         >
                           {columns.map(col => (
                             <td key={col} className="py-1.5 px-2.5 whitespace-nowrap max-w-[140px] truncate">

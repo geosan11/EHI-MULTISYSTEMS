@@ -156,7 +156,7 @@ export const Dispatch = ({ onBack }: { onBack: () => void }) => {
                 <button
                   onClick={() => setSelectedTrip(null)}
                   aria-label="Close"
-                  className="p-1.5 bg-[var(--color-surface-2)] rounded hover:bg-white/10 text-[var(--color-muted)] transition-colors border-none"
+                  className="p-1.5 bg-[var(--color-surface-2)] rounded hover:bg-[var(--color-surface-hover)] text-[var(--color-muted)] transition-colors border-none"
                 >
                   <X size={16} />
                 </button>

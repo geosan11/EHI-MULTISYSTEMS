@@ -123,8 +123,15 @@ export const Header = ({
             style={{
               width: 28, height: 28,
               borderRadius: 'var(--radius-full)',
-              background: 'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.08) 60%, rgba(100,110,130,0.18) 100%)',
-              border: '1px solid rgba(255,255,255,0.40)',
+              // Light nav bar is near-white -- a white frosted orb with a white
+              // border vanished on it, so light mode gets a tinted fill + a dark
+              // hairline. Dark mode keeps the original white-glass look.
+              background: theme === 'dark'
+                ? 'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.08) 60%, rgba(100,110,130,0.18) 100%)'
+                : 'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.95) 0%, rgba(226,232,240,0.75) 60%, rgba(148,163,184,0.45) 100%)',
+              border: theme === 'dark'
+                ? '1px solid rgba(255,255,255,0.40)'
+                : '1px solid rgba(15,23,42,0.18)',
               boxShadow: theme === 'dark'
                 ? '0 3px 9px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.2)'
                 : '0 3px 9px rgba(0,0,0,0.12), inset 0 0 0 1px rgba(255,255,255,0.6)',
@@ -177,8 +184,12 @@ export const Header = ({
             style={{
               width: 28, height: 28,
               borderRadius: 'var(--radius-full)',
-              background: 'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.08) 60%, rgba(100,110,130,0.18) 100%)',
-              border: isOffline ? '1px solid rgba(239,68,68,0.55)' : '1px solid rgba(255,255,255,0.40)',
+              background: theme === 'dark'
+                ? 'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.08) 60%, rgba(100,110,130,0.18) 100%)'
+                : 'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.95) 0%, rgba(226,232,240,0.75) 60%, rgba(148,163,184,0.45) 100%)',
+              border: isOffline
+                ? '1px solid rgba(239,68,68,0.55)'
+                : theme === 'dark' ? '1px solid rgba(255,255,255,0.40)' : '1px solid rgba(15,23,42,0.18)',
               boxShadow: isOffline
                 ? '0 3px 11px rgba(239,68,68,0.45), inset 0 0 0 1px rgba(255,255,255,0.2)'
                 : '0 3px 9px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.2)',
@@ -219,7 +230,9 @@ export const Header = ({
                 width: 30, height: 30,
                 borderRadius: 'var(--radius-full)',
                 background: 'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.35) 0%, rgba(251,191,36,0.2) 60%, rgba(180,83,9,0.3) 100%)',
-                border: showDropdown ? '1.5px solid rgba(253,230,138,0.9)' : '1px solid rgba(255,255,255,0.45)',
+                border: showDropdown
+                  ? '1.5px solid rgba(253,230,138,0.9)'
+                  : theme === 'dark' ? '1px solid rgba(255,255,255,0.45)' : '1px solid rgba(180,83,9,0.4)',
                 boxShadow: showDropdown
                   ? '0 0 0 3px rgba(251,191,36,0.35), 0 5px 14px rgba(251,191,36,0.6)'
                   : '0 3px 11px rgba(251,191,36,0.45), inset 0 0 0 1px rgba(255,255,255,0.3)',

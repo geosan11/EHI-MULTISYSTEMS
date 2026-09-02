@@ -117,7 +117,7 @@ const ToastCard = ({ id, message, type, title, onDismiss }: ToastCardProps) => {
         <button
           onClick={dismiss}
           aria-label="Dismiss"
-          className="shrink-0 -mr-1 p-1.5 rounded-full text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-white/10 transition-colors cursor-pointer"
+          className="shrink-0 -mr-1 p-1.5 rounded-full text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-hover)] transition-colors cursor-pointer"
         >
           <X size={14} />
         </button>

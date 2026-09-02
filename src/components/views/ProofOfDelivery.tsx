@@ -158,7 +158,7 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
             <ShieldCheck size={20} className="text-[var(--color-success)]" />
             <h2 className="text-[14px] font-bold text-[var(--color-foreground)] uppercase tracking-wider font-mono">Proof of Delivery</h2>
           </div>
-          <button onClick={onCancel} aria-label="Cancel" className="p-2 bg-[var(--color-surface-2)] rounded hover:bg-white/10 transition-colors cursor-pointer border-none text-[var(--color-error)]">
+          <button onClick={onCancel} aria-label="Cancel" className="p-2 bg-[var(--color-surface-2)] rounded hover:bg-[var(--color-surface-hover)] transition-colors cursor-pointer border-none text-[var(--color-error)]">
             <X size={16} />
           </button>
         </div>
