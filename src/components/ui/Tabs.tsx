@@ -27,15 +27,15 @@ export const Tabs = ({
 }) => (
   <div
     role="tablist"
-    className={`flex items-center gap-1 ${variant === 'underline' ? 'border-b border-[var(--color-border)]' : ''} ${
-      className || 'overflow-x-auto no-scrollbar'
+    className={`flex items-center ${variant === 'underline' ? 'border-b border-[var(--color-border)]' : ''} ${
+      className || 'gap-1 overflow-x-auto no-scrollbar'
     }`}
   >
     {items.map((t) => {
       const active = t.id === value;
       const Icon = t.icon;
       const base =
-        'inline-flex items-center gap-1.5 whitespace-nowrap font-mono font-bold text-[11px] uppercase tracking-wide transition-colors cursor-pointer';
+        'inline-flex items-center gap-1.5 whitespace-nowrap font-sans font-bold text-[12px] transition-colors cursor-pointer';
       const style =
         variant === 'pill'
           ? `px-3 py-1.5 rounded-full ${
@@ -43,9 +43,9 @@ export const Tabs = ({
                 ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]'
                 : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
             }`
-          : `px-3 py-2 border-b-2 -mb-px ${
+          : `pb-2.5 px-3 border-b-2 -mb-px ${
               active
-                ? 'border-[var(--color-accent-amber)] text-[var(--color-foreground)]'
+                ? 'border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]'
                 : 'border-transparent text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
             }`;
       return (

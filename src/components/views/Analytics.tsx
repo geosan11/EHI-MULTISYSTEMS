@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { fetchAllDebtAndRetrievalEntries, buildShadowRowExclusionCounts, extractPaymentHistoryEvents } from '../../lib/debt';
 import { isOfficeWorkEntry } from '../../lib/officeWork';
 import { AnimatedNumber } from '../ui/AnimatedNumber';
+import { Spinner, Tabs } from '../ui';
 import { useToast } from '../../lib/ToastContext';
 import { 
   TrendingUp, 
@@ -800,7 +801,7 @@ export const Analytics = ({
             <span className="text-[10px] font-mono text-[var(--color-accent-amber)] tracking-[0.15em] uppercase font-bold">
               ▸ CARGO SALES & REVENUE INTELLIGENCE
             </span>
-            <span className="px-2 py-0.5 rounded-full bg-[rgba(245,158,11,0.12)] border border-[rgba(245,158,11,0.3)] text-[var(--color-accent-amber)] text-[10px] font-mono font-bold">
+            <span className="px-2 py-0.5 rounded-full bg-[var(--color-amber-bg)] border border-[var(--color-amber-border)] text-[var(--color-accent-amber)] text-[10px] font-mono font-bold">
               EHI PRO 2
             </span>
           </div>
@@ -839,7 +840,7 @@ export const Analytics = ({
             onClick={() => window.dispatchEvent(new CustomEvent('ehi-nav', { detail: 'FlightRadar' }))}
             className="h-8 px-3 border rounded-lg text-[11px] font-mono font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
             style={flightAttentionCount > 0
-              ? { background: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.3)', color: 'var(--color-error)' }
+              ? { background: 'var(--color-error-bg)', borderColor: 'var(--color-error-border)', color: 'var(--color-error)' }
               : { background: 'var(--color-surface-1)', borderColor: 'var(--color-border)', color: 'var(--color-foreground)' }}
             title="Flight Radar"
           >
@@ -851,7 +852,7 @@ export const Analytics = ({
           {/* Excel Export */}
           <button
             onClick={exportExcelReport}
-            className="h-8 px-3 bg-[rgba(16,185,129,0.15)] hover:bg-[rgba(16,185,129,0.25)] text-[var(--color-success)] border border-[rgba(16,185,129,0.3)] rounded-lg text-[11px] font-mono font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+            className="h-8 px-3 bg-[var(--color-success-bg)] hover:bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)] rounded-lg text-[11px] font-mono font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
             title="Export Excel Worksheet"
           >
             <FileSpreadsheet size={14} />
@@ -1039,7 +1040,7 @@ export const Analytics = ({
           below: an incomplete revenue figure is a data-integrity problem,
           not a business-insight flag. */}
       {debtFetchError && (
-        <div className="bg-[rgba(239,68,68,0.08)] border border-[rgba(239,68,68,0.3)] rounded-xl p-4 flex items-start gap-3">
+        <div className="bg-[var(--color-error-bg)] border border-[var(--color-error-border)] rounded-xl p-4 flex items-start gap-3">
           <AlertCircle size={18} className="text-[var(--color-error)] shrink-0 mt-0.5" />
           <div className="flex-1 text-[12px]">
             <div className="font-bold text-[var(--color-error)] font-mono uppercase tracking-wider mb-0.5">
@@ -1060,7 +1061,7 @@ export const Analytics = ({
 
       {/* ── Zone 4: Revenue Leakage Anomaly Warning Banner (if triggered) ─ */}
       {leakageWarningSignal && (
-        <div className="bg-[rgba(245,158,11,0.08)] border border-[rgba(245,158,11,0.3)] rounded-xl p-4 flex items-start gap-3 animate-in slide-in-from-top-2 duration-300">
+        <div className="bg-[var(--color-amber-bg)] border border-[var(--color-amber-border)] rounded-xl p-4 flex items-start gap-3 animate-in slide-in-from-top-2 duration-300">
           <AlertTriangle size={18} className="text-[var(--color-accent-amber)] shrink-0 mt-0.5" />
           <div className="flex-1 text-[12px]">
             <div className="font-bold text-[var(--color-accent-amber)] font-mono uppercase tracking-wider mb-0.5">
@@ -1074,52 +1075,20 @@ export const Analytics = ({
       )}
 
       {/* ── Zone 5: Analysis Navigation Tabs ─────────────────────────── */}
-      <div className="flex border-b border-[var(--color-border)] overflow-x-auto no-scrollbar gap-2">
-        <button
-          onClick={() => setActiveTab('overview')}
-          className={`pb-2.5 px-3 text-[12px] font-sans font-bold flex items-center gap-1.5 cursor-pointer transition-colors border-b-2 ${activeTab === 'overview' ? 'border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' : 'border-transparent text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
-        >
-          <BarChart3 size={14} />
-          <span>Revenue vs Volume Trend</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('pareto')}
-          className={`pb-2.5 px-3 text-[12px] font-sans font-bold flex items-center gap-1.5 cursor-pointer transition-colors border-b-2 ${activeTab === 'pareto' ? 'border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' : 'border-transparent text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
-        >
-          <Users size={14} />
-          <span>Client Pareto 80/20</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('cargo_types')}
-          className={`pb-2.5 px-3 text-[12px] font-sans font-bold flex items-center gap-1.5 cursor-pointer transition-colors border-b-2 ${activeTab === 'cargo_types' ? 'border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' : 'border-transparent text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
-        >
-          <Layers size={14} />
-          <span>Cargo Categories & Yield</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('terminal_shifts')}
-          className={`pb-2.5 px-3 text-[12px] font-sans font-bold flex items-center gap-1.5 cursor-pointer transition-colors border-b-2 ${activeTab === 'terminal_shifts' ? 'border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' : 'border-transparent text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
-        >
-          <Clock size={14} /> Time Analysis
-        </button>
-        <button
-          onClick={() => setActiveTab('past_shifts')}
-          className={`pb-2.5 px-3 text-[12px] font-sans font-bold flex items-center gap-1.5 cursor-pointer transition-colors border-b-2 ${activeTab === 'past_shifts' ? 'border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' : 'border-transparent text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
-        >
-          <Calendar size={14} /> Past Shifts
-        </button>
-
-        <button
-          onClick={() => setActiveTab('cash_flow')}
-          className={`pb-2.5 px-3 text-[12px] font-sans font-bold flex items-center gap-1.5 cursor-pointer transition-colors border-b-2 ${activeTab === 'cash_flow' ? 'border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' : 'border-transparent text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
-        >
-          <DollarSign size={14} />
-          <span>Cash Capture & Debts</span>
-        </button>
-      </div>
+      <Tabs
+        variant="underline"
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as typeof activeTab)}
+        className="overflow-x-auto no-scrollbar gap-2"
+        items={[
+          { id: 'overview', label: 'Revenue vs Volume Trend', icon: BarChart3 },
+          { id: 'pareto', label: 'Client Pareto 80/20', icon: Users },
+          { id: 'cargo_types', label: 'Cargo Categories & Yield', icon: Layers },
+          { id: 'terminal_shifts', label: 'Time Analysis', icon: Clock },
+          { id: 'past_shifts', label: 'Past Shifts', icon: Calendar },
+          { id: 'cash_flow', label: 'Cash Capture & Debts', icon: DollarSign },
+        ]}
+      />
 
       {/* ── Tab 1: Overview Dual-Axis Trend ──────────────────────────── */}
       {activeTab === 'overview' && (
@@ -1158,7 +1127,7 @@ export const Analytics = ({
                       name === 'revenue' ? 'Revenue' : 'Handling Weight'
                     ]}
                   />
-                  <Bar yAxisId="left" dataKey="revenue" fill="rgba(245,158,11,0.2)" stroke="var(--color-accent-amber)" radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="left" dataKey="revenue" fill="var(--color-accent-amber)" fillOpacity={0.2} stroke="var(--color-accent-amber)" radius={[4, 4, 0, 0]} />
                   <Line yAxisId="right" type="monotone" dataKey="weightKg" stroke="var(--color-accent-cobalt)" strokeWidth={2} dot={{ r: 3, fill: 'var(--color-accent-cobalt)' }} />
                 </ComposedChart>
               </ResponsiveContainer>
@@ -1273,7 +1242,7 @@ export const Analytics = ({
                           </span>
                           <span className="truncate max-w-[180px]">{c.clientName}</span>
                           {c.isTop20 && (
-                            <span className="px-1.5 py-0.2 rounded bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)] text-[9px] font-mono font-bold">
+                            <span className="px-1.5 py-0.2 rounded bg-[var(--color-amber-bg)] text-[var(--color-accent-amber)] text-[9px] font-mono font-bold">
                               TOP 20%
                             </span>
                           )}
@@ -1422,7 +1391,7 @@ export const Analytics = ({
                     <h2 className="text-[16px] font-bold text-[var(--color-foreground)] mb-1 flex items-center gap-2">
                       Shift Sales Details
                       {selectedPastShift.department && selectedPastShift.department !== 'all' && (
-                        <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[rgba(59,130,246,0.3)]">
+                        <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-[var(--color-info-bg)] text-[var(--color-accent-cobalt)] border border-[var(--color-info-border)]">
                           {selectedPastShift.department}
                         </span>
                       )}
@@ -1526,7 +1495,7 @@ export const Analytics = ({
                           list can hold several open-at-once departments for
                           the same hub/day -- the badge is what tells them apart. */}
                       {s.department && s.department !== 'all' && (
-                        <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[rgba(59,130,246,0.3)]">
+                        <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-[var(--color-info-bg)] text-[var(--color-accent-cobalt)] border border-[var(--color-info-border)]">
                           {s.department}
                         </span>
                       )}
@@ -1633,14 +1602,14 @@ export const Analytics = ({
           <button
             onClick={fetchAIInsights}
             disabled={loadingInsights}
-            className="px-3 py-1 bg-[rgba(245,158,11,0.15)] hover:bg-[rgba(245,158,11,0.25)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.3)] rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-colors"
+            className="px-3 py-1 bg-[var(--color-amber-bg)] hover:opacity-90 text-[var(--color-amber-fg)] border border-[var(--color-amber-border)] rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-opacity disabled:opacity-60"
           >
-            {loadingInsights ? <Loader2 size={12} className="animate-spin" /> : <span>↻ REFRESH AI</span>}
+            {loadingInsights ? <Spinner size="xs" tone="current" /> : <span>↻ REFRESH AI</span>}
           </button>
         </div>
 
         {insightError && (
-          <div className="text-[11px] font-mono text-[var(--color-error)] bg-[rgba(239,68,68,0.1)] p-2 rounded border border-[rgba(239,68,68,0.2)]">
+          <div className="text-[11px] font-mono text-[var(--color-error)] bg-[var(--color-error-bg)] p-2 rounded border border-[var(--color-error-bg)]">
             {insightError}
           </div>
         )}
@@ -1650,7 +1619,7 @@ export const Analytics = ({
             <div key={idx} className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg p-3 space-y-1">
               <div className="text-[11px] font-bold font-sans text-[var(--color-foreground)] flex items-center justify-between">
                 <span>{ins.title}</span>
-                <span className={`px-1.5 py-0.2 rounded text-[8px] font-mono font-bold uppercase ${ins.priority === 'high' ? 'bg-[rgba(239,68,68,0.15)] text-[var(--color-error)]' : ins.priority === 'medium' ? 'bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)]' : 'bg-[rgba(16,185,129,0.15)] text-[var(--color-success)]'}`}>
+                <span className={`px-1.5 py-0.2 rounded text-[8px] font-mono font-bold uppercase ${ins.priority === 'high' ? 'bg-[var(--color-error-bg)] text-[var(--color-error)]' : ins.priority === 'medium' ? 'bg-[var(--color-amber-bg)] text-[var(--color-accent-amber)]' : 'bg-[var(--color-success-bg)] text-[var(--color-success)]'}`}>
                   {ins.priority}
                 </span>
               </div>
