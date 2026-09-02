@@ -12,7 +12,8 @@ import { useHubRoutes, useHubNames } from "../../lib/hubRoutes";
 import { canAccessTab } from "../../lib/permissions";
 import { getEquivalentHubIds } from "../../lib/lagosHubSync";
 import { useAirlines } from "../../lib/airlines";
-import { statusChipClass } from "../../lib/status";
+import { statusChipClass, statusMeta } from "../../lib/status";
+import { Button } from "../ui";
 import { MIN_PACKAGE_AMOUNT } from "../../lib/constants";
 import { useContentTypes } from "../../lib/contentTypes";
 import { useSpecialGoodsRates, resolveSpecialGoodsRate } from "../../lib/specialGoodsRates";
@@ -64,8 +65,6 @@ import { LiveCreditFeed } from "../LiveCreditFeed";
 import { PartialRetrievalModal } from "./PartialRetrievalModal";
 import { CustomerWallet } from "../../lib/types";
 import { CustomerWalletPicker } from "../CustomerWalletPicker";
-import { WalletRemainderSelector } from "../WalletRemainderSelector";
-import { chargeWalletForSale } from "../../lib/walletPayment";
 import { fetchLedgerPage, fetchLedgerTotals, fetchProfileLookup, LedgerSearchParams, LedgerCursor, LedgerEntryType, LedgerTotals } from "../../lib/ledgerSearch";
 
 type Entry = {
@@ -311,6 +310,21 @@ export const TransactionLedger = ({
   // to click the button.
   const [txHistory, setTxHistory] = useState<any[]>([]);
   const [txHistoryLoading, setTxHistoryLoading] = useState(false);
+
+  // Esc-to-close for the four portalled modals on this screen (none had it).
+  // Closes the top-most; edit + clear-debt ignore Esc while a save is in flight.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (viewingQrTx) setViewingQrTx(null);
+      else if (clearDebtEntry) { if (!clearingDebt) setClearDebtEntry(null); }
+      else if (editingTx) { if (!savingEdit) setEditingTx(null); }
+      else if (viewingDetail) setViewingDetail(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [viewingDetail, editingTx, viewingQrTx, clearDebtEntry, clearingDebt, savingEdit]);
+
   useEffect(() => {
     if (!viewingDetail || viewingDetail.source !== 'transaction') { setTxHistory([]); return; }
     const tx = viewingDetail.raw as Transaction;
@@ -1163,6 +1177,17 @@ export const TransactionLedger = ({
   const userHubCode = getHubCode(user.hub_code || user.hub);
   const hasGat = useMemo(() => entries.some((e) => (e.raw as any)?.terminal === 'GAT'), [entries]);
 
+  // The entry open in the Edit modal has nothing left to owe -- every naira
+  // is already recorded as paid, retrieved, or wallet-deducted. "Customer
+  // Wallet" is disabled for it in the Payment Mode dropdown: charging a
+  // wallet against a settled entry only double-charges the customer (use
+  // Reopen Debt to correct a wrong payment instead).
+  const editFullySettled = !!editingTx && (
+    editOriginalMode === 'Debt Paid' ||
+    roundMoney((editingTx.amountPaid || 0) + ((editingTx.raw as any)?.retrieved_amount || 0) + editOriginalWalletDeduction)
+      >= roundMoney(editingTx.amount || 0)
+  );
+
   const handleEditClick = (e: Entry, evt: React.MouseEvent) => {
     evt.stopPropagation();
     // Debt-collection rows (real historical shadow rows, or the synthetic
@@ -1249,60 +1274,101 @@ export const TransactionLedger = ({
         return;
       }
 
-      // Switching an entry's mode TO 'Wallet' (from anything else) deducts
-      // the amount from the selected customer's wallet, same as picking
-      // Wallet at intake (CargoForm's chargeWalletForSale). Guarded by
-      // editOriginalWalletDeduction (captured when the modal opened), NOT
-      // just editOriginalMode -- a split entry (wallet covered part of the
-      // amount, the remainder booked under Cash/Transfer/POS) already has a
-      // real wallet_deduction_amount while its `mode` is NOT 'Wallet', so a
-      // mode-only check would treat re-selecting "Wallet" on that entry as
-      // a fresh charge and deduct the customer's wallet a second time for
-      // money it already paid.
-      const alreadyWalletCharged = editOriginalWalletDeduction > 0;
-      if (editingTx.mode === 'Wallet' && editOriginalMode !== 'Wallet' && alreadyWalletCharged) {
-        showToast({ message: 'This entry already has a wallet contribution recorded from an earlier save -- re-charging the wallet from this screen isn\'t supported. Pick the entry\'s actual remainder payment mode instead, or contact an admin to correct it.', type: 'error' });
-        return;
-      }
-      const switchingToWallet = editingTx.mode === 'Wallet' && editOriginalMode !== 'Wallet' && !alreadyWalletCharged;
-      let walletId = editingTx.wallet_id;
-      let walletDeduction = editingTx.wallet_deduction_amount;
-      // If the wallet can't cover the full amount, the remainder is
-      // collected by editWalletRemainderMode instead of blocking the save --
-      // same auto-split CargoForm.tsx's intake flow already does via
-      // chargeWalletForSale + WalletRemainderSelector.
-      let finalMode = editingTx.mode;
-      let finalBank = editingTx.bank;
-      if (switchingToWallet) {
+      // Picking "Customer Wallet" as the Payment Mode here means "settle this
+      // debt from the customer's wallet". It is ONLY valid for a Debt entry
+      // that still has an outstanding balance, and it is routed through
+      // clear_*_debt (with p_wallet_id) -- so the payment lands in
+      // payment_history / amount_paid and the entry reads "Debt Cleared" like
+      // any other cleared debt. It is NEVER a bare wallet charge from this
+      // screen any more: charging an already-settled entry silently
+      // double-charged the customer and left contradictory state (the old
+      // chargeWalletForSale path), and charging an OPEN debt this way wrote
+      // nothing to payment_history. Any correction to how a debt was already
+      // paid goes through "Reopen Debt" first.
+      if (editingTx.mode === 'Wallet' && editOriginalMode !== 'Wallet') {
+        if (editOriginalWalletDeduction > 0) {
+          showToast({ message: 'This entry already has a wallet contribution recorded. Use "Reopen Debt" to correct how it was paid.', type: 'error' });
+          return;
+        }
+        const debtRemaining = roundMoney(
+          (editingTx.amount || 0) - (editingTx.amountPaid || 0) - ((editingTx.raw as any)?.retrieved_amount || 0)
+        );
+        if (debtRemaining <= 0) {
+          showToast({ message: `This shipment is already fully settled (₦${fmt(alreadyAccountedFor)} recorded as paid/retrieved). Charging the wallet now would double-charge the customer -- use "Reopen Debt" first if the recorded payment was wrong.`, type: 'error' });
+          return;
+        }
         if (!editWallet) {
           showToast({ message: 'Select a customer wallet to charge before saving.', type: 'warning' });
           return;
         }
-        const walletRemainder = Math.max(0, amount - editWallet.balance);
-        if (walletRemainder > 0 && (editWalletRemainderMode === 'Transfer' || editWalletRemainderMode === 'POS') && !editWalletRemainderBank.trim()) {
-          showToast({ message: `Enter the bank/terminal for the ₦${fmt(walletRemainder)} remainder.`, type: 'warning' });
+        const walletPay = Math.min(debtRemaining, editWallet.balance);
+        if (walletPay <= 0) {
+          showToast({ message: `${editWallet.customer_name}'s wallet has no balance to apply.`, type: 'warning' });
           return;
         }
-        const charge = await chargeWalletForSale({
-          wallet: editWallet,
-          amount,
-          cargoRef: editingTx.id,
-          description: `Mode changed to Wallet on edit (${editingTx.type} ${editingTx.id})`,
-          loggedBy: user.name,
+        const settle = await clearDebt({
+          type: editingTx.type as DebtEntryType,
+          id: editingTx.id,
+          paymentAmount: walletPay,
+          paymentMode: 'Wallet',
+          walletId: editWallet.id,
+          loggedBy: user.name || 'Unknown',
+          expectedRemaining: debtRemaining,
         });
-        if (!charge.ok) {
-          showToast({ message: `Wallet charge failed: ${charge.error || 'unknown error'}. Entry not saved.`, type: 'error' });
+        if (!settle.ok) {
+          showToast({ message: settle.error || 'Failed to settle this debt from the wallet. Nothing was charged.', type: 'error' });
           return;
         }
-        walletId = editWallet.id;
-        walletDeduction = charge.walletDeduction;
-        if (charge.remainder > 0) {
-          // Book the entry under the remainder method; wallet's share stays
-          // tracked in wallet_deduction_amount, mirroring CargoForm.tsx.
-          finalMode = editWalletRemainderMode;
-          finalBank = (editWalletRemainderMode === 'Transfer' || editWalletRemainderMode === 'POS') ? editWalletRemainderBank.trim() : undefined;
+        const stillOwed = settle.remainingBalance ?? 0;
+        const fullyPaid = settle.fullyPaid ?? (stillOwed <= 0);
+        // wallet_txn_id must ride along -- handleUpdateTx writes this
+        // optimistic payment_history back over the server's, and
+        // reopen_*_debt needs the tag to find + refund the wallet later.
+        const historyEntry = {
+          amount: walletPay, mode: 'Wallet' as const, by: user.name || 'Unknown', at: new Date().toISOString(),
+          ...(settle.walletTxnId ? { wallet_txn_id: settle.walletTxnId } : {}),
+        };
+        const settled: Transaction = {
+          ...editingTx,
+          amountPaid: settle.newAmountPaid ?? ((editingTx.amountPaid || 0) + walletPay),
+          paymentHistory: [...(editingTx.paymentHistory || []), historyEntry],
+          mode: fullyPaid ? 'Debt Paid' : 'Debt',
+          paymentConfirmed: fullyPaid,
+          confirmedBy: fullyPaid ? (user.name || 'Unknown') : editingTx.confirmedBy,
+          confirmedAt: fullyPaid ? new Date().toISOString() : editingTx.confirmedAt,
+          ...(editingTx.type === 'package' && fullyPaid ? { debtPaid: true, debtPaidAt: new Date().toISOString() } : {}),
+        };
+        onUpdateTx(settled);
+        writeAuditLog({
+          user_id: user.id, user_name: user.name || 'Unknown', action: 'DEBT_COLLECTION',
+          table_name: RETRIEVAL_TABLE_NAME[editingTx.type as RetrievalEntryType], record_id: editingTx.id,
+          description: `₦${fmt(walletPay)} collected against ${editingTx.name}'s debt via Customer Wallet${stillOwed > 0 ? ` (₦${fmt(stillOwed)} still owed)` : ' (fully cleared)'}`,
+          hub: hubNames[editingTx.hub_id || ''] || editingTx.hub, hub_id: editingTx.hub_id,
+          old_values: { amount_paid: editingTx.amountPaid || 0 },
+          new_values: { amount_paid: settle.newAmountPaid, mode: 'Wallet', amount: walletPay },
+        }).catch(() => {});
+        refetchCustomerWallets?.();
+        showToast({
+          message: fullyPaid
+            ? `Debt cleared from ${editWallet.customer_name}'s wallet`
+            : `₦${fmt(walletPay)} applied from ${editWallet.customer_name}'s wallet -- ₦${fmt(stillOwed)} still owed`,
+          type: fullyPaid ? 'success' : 'warning',
+        });
+        if (viewingDetail && viewingDetail.id === editingTx.id) {
+          setViewingDetail({ ...viewingDetail, mode: fullyPaid ? 'Debt Paid' : 'Debt', raw: settled });
         }
+        setEditingTx(null);
+        setEditWallet(null);
+        setEditOriginalMode(null);
+        setEditOriginalWalletDeduction(0);
+        setEditWalletRemainderMode('Cash');
+        setEditWalletRemainderBank('');
+        return;
       }
+      const walletId = editingTx.wallet_id;
+      const walletDeduction = editingTx.wallet_deduction_amount;
+      const finalMode = editingTx.mode;
+      const finalBank = editingTx.bank;
 
       // Details fields (name, route, pieces, weight, etc.) are edited as
       // discrete fields, but `detail` is the composed string the rest of the
@@ -2868,7 +2934,7 @@ export const TransactionLedger = ({
             });
             if (ok) onStartShift && onStartShift();
           }}
-          className="h-9 px-4 rounded-lg bg-[var(--color-success)] hover:bg-emerald-600 text-white font-bold text-[12px] flex items-center justify-center gap-2 transition-colors cursor-pointer shrink-0"
+          className="h-9 px-4 rounded-lg bg-[var(--color-success)] hover:opacity-90 text-white font-bold text-[12px] flex items-center justify-center gap-2 transition-colors cursor-pointer shrink-0"
         >
           Start Day
         </button>
@@ -2885,7 +2951,7 @@ export const TransactionLedger = ({
             });
             if (ok) onEndShift && onEndShift();
           }}
-          className="h-9 px-4 rounded-lg bg-[var(--color-error)] hover:bg-red-600 text-white font-bold text-[12px] flex items-center justify-center gap-2 transition-colors cursor-pointer shrink-0"
+          className="h-9 px-4 rounded-lg bg-[var(--color-error)] hover:opacity-90 text-white font-bold text-[12px] flex items-center justify-center gap-2 transition-colors cursor-pointer shrink-0"
         >
           End Day
         </button>
@@ -3205,16 +3271,16 @@ export const TransactionLedger = ({
                   onClick={() => setModeFilter(modeFilter === 'Wallet' ? 'All' : 'Wallet')}
                   className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
                     modeFilter === 'Wallet'
-                      ? 'bg-[rgba(168,85,247,0.06)] border-purple-400 shadow-[var(--shadow-purple)]'
-                      : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-purple-400 shadow-[var(--shadow-sm)]'
+                      ? 'bg-[rgba(168,85,247,0.06)] border-[var(--color-purple-border)] shadow-[var(--shadow-purple)]'
+                      : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-purple-border)] shadow-[var(--shadow-sm)]'
                   }`}
                 >
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'Wallet' ? 'bg-[rgba(168,85,247,0.22)]' : 'bg-[rgba(168,85,247,0.12)]'}`}>
-                    <Wallet size={16} className="text-purple-400" />
+                    <Wallet size={16} className="text-[var(--color-purple-fg)]" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[9px] font-mono text-purple-400 uppercase tracking-wider truncate">Wallet</div>
-                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-purple-400 leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.walletAmount)}`}</div>
+                    <div className="text-[9px] font-mono text-[var(--color-purple-fg)] uppercase tracking-wider truncate">Wallet</div>
+                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-purple-fg)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.walletAmount)}`}</div>
                   </div>
                 </button>
               </div>
@@ -3282,7 +3348,7 @@ export const TransactionLedger = ({
                   { label: 'Cargo',      value: 'Cargo',      activeClass: 'bg-[rgba(59,130,246,0.15)] border-[var(--color-accent-cobalt)] text-[var(--color-accent-cobalt)]' },
                   { label: 'Baggage',    value: 'Baggage',    activeClass: 'bg-[rgba(245,158,11,0.15)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
                   { label: 'Marketing',  value: 'Marketing',  activeClass: 'bg-[rgba(16,185,129,0.15)] border-[var(--color-success)] text-[var(--color-success)]' },
-                  { label: 'Package',    value: 'Package',    activeClass: 'bg-[rgba(168,85,247,0.15)] border-purple-400 text-purple-400' },
+                  { label: 'Package',    value: 'Package',    activeClass: 'bg-[rgba(168,85,247,0.15)] border-[var(--color-purple-border)] text-[var(--color-purple-fg)]' },
                   { label: 'Expense',    value: 'Expense',    activeClass: 'bg-[rgba(239,68,68,0.15)] border-[var(--color-error)] text-[var(--color-error)]' },
                   { label: 'Office Work',value: 'Office Work',activeClass: 'bg-[var(--color-surface-2)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
                 ] as const).map(({ label, value, activeClass }) => {
@@ -3630,7 +3696,7 @@ export const TransactionLedger = ({
                 <button
                   onClick={selectAllCash}
                   disabled={bulkConfirming}
-                  className="bg-[var(--color-success)] text-[var(--color-on-accent)] px-3 py-1 rounded-lg text-[10px] font-mono font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                  className="bg-[var(--color-success)] text-[var(--color-on-accent)] px-3 py-1 rounded-lg text-[10px] font-mono font-bold hover:opacity-90 transition-colors disabled:opacity-50"
                 >
                   {bulkConfirming ? 'Confirming...' : 'Confirm All'}
                 </button>
@@ -3978,7 +4044,7 @@ export const TransactionLedger = ({
                               <button
                                 disabled={confirmingIds.has(e.id)}
                                 onClick={(evt) => toggleConfirm(e, evt)}
-                                className="flex items-center justify-center text-[var(--color-accent-amber)] hover:text-amber-400 disabled:opacity-50"
+                                className="flex items-center justify-center text-[var(--color-accent-amber)] hover:text-[var(--color-amber-fg)] disabled:opacity-50"
                               >
                                 {e.raw.paymentConfirmed ? (
                                   <div className="w-4 h-4 bg-[var(--color-accent-amber)] rounded flex items-center justify-center">
@@ -4261,7 +4327,7 @@ export const TransactionLedger = ({
       </>)}
       {viewingDetail && createPortal(
         <div
-          className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center animate-in fade-in"
+          className="fixed inset-0 z-[60] ehi-scrim flex items-end sm:items-center justify-center animate-in fade-in"
           onClick={() => setViewingDetail(null)}
         >
           <div 
@@ -4276,11 +4342,11 @@ export const TransactionLedger = ({
             <div className="p-4 sm:p-5 flex justify-between items-start shrink-0 border-b border-[var(--color-border)]">
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                  viewingDetail.type === 'cargo' ? 'bg-blue-500/20 text-blue-400' :
-                  viewingDetail.type === 'baggage' ? 'bg-amber-500/20 text-amber-400' :
-                  viewingDetail.type === 'marketing' ? 'bg-emerald-500/20 text-emerald-400' :
-                  viewingDetail.type === 'package' ? 'bg-purple-500/20 text-purple-400' :
-                  'bg-red-500/20 text-red-400'
+                  viewingDetail.type === 'cargo' ? 'bg-[var(--color-info-bg)] text-[var(--color-info-fg)]' :
+                  viewingDetail.type === 'baggage' ? 'bg-[var(--color-amber-bg)] text-[var(--color-amber-fg)]' :
+                  viewingDetail.type === 'marketing' ? 'bg-[var(--color-success-bg)] text-[var(--color-success-fg)]' :
+                  viewingDetail.type === 'package' ? 'bg-[var(--color-purple-bg)] text-[var(--color-purple-fg)]' :
+                  'bg-[var(--color-error-bg)] text-[var(--color-error-fg)]'
                 }`}>
                   {viewingDetail.type === 'cargo' && <Package size={20} />}
                   {viewingDetail.type === 'baggage' && <Plane size={20} />}
@@ -4406,11 +4472,10 @@ export const TransactionLedger = ({
                   <h4 className="text-[10px] font-mono text-[var(--color-muted)] uppercase mb-2">Status & Tracking</h4>
                   <div className="bg-[var(--color-surface-1)] rounded-lg p-3 border border-[var(--color-border)] flex flex-col gap-2">
                     <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${
-                        viewingDetail.status === "Delivered" ? "bg-emerald-500" : 
-                        ["In-Transit", "Departure", "Dispatched"].includes(viewingDetail.status) ? "bg-blue-500" : 
-                        viewingDetail.status === "Arrived" ? "bg-amber-500" : "bg-slate-400"
-                      }`} />
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ background: `var(--color-${statusMeta(viewingDetail.status).tone}-fg)` }}
+                      />
                       <span className="text-[13px] font-bold text-[var(--color-foreground)]">{viewingDetail.status}</span>
                     </div>
                     {(viewingDetail.raw.hub || viewingDetail.raw.destination) && (
@@ -4630,13 +4695,13 @@ export const TransactionLedger = ({
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <button
                           onClick={() => handleReprintReceipt('80mm')}
-                          className="py-2 px-2 flex items-center justify-center gap-1.5 bg-[var(--color-accent-amber)] hover:bg-amber-400 text-[var(--color-on-accent)] rounded-lg transition-colors border-none text-[11px] font-bold shadow-[var(--shadow-button)]"
+                          className="py-2 px-2 flex items-center justify-center gap-1.5 bg-[var(--color-accent-amber)] hover:opacity-90 text-[var(--color-on-accent)] rounded-lg transition-colors border-none text-[11px] font-bold shadow-[var(--shadow-button)]"
                         >
                           <Printer size={13} /> Receipt (80)
                         </button>
                         <button
                           onClick={() => handleReprintReceipt('58mm')}
-                          className="py-2 px-2 flex items-center justify-center gap-1.5 bg-[var(--color-accent-amber)] hover:bg-amber-400 text-[var(--color-on-accent)] rounded-lg transition-colors border-none text-[11px] font-bold shadow-[var(--shadow-button)]"
+                          className="py-2 px-2 flex items-center justify-center gap-1.5 bg-[var(--color-accent-amber)] hover:opacity-90 text-[var(--color-on-accent)] rounded-lg transition-colors border-none text-[11px] font-bold shadow-[var(--shadow-button)]"
                         >
                           <Printer size={13} /> Receipt (58)
                         </button>
@@ -4645,7 +4710,7 @@ export const TransactionLedger = ({
                           <>
                             <button
                               onClick={() => handleReprintTag('80mm')}
-                              className="py-2 px-2 flex items-center justify-center gap-1.5 bg-[var(--color-accent-amber)] hover:bg-amber-400 text-[var(--color-on-accent)] rounded-lg transition-colors border-none text-[11px] font-bold shadow-[var(--shadow-button)]"
+                              className="py-2 px-2 flex items-center justify-center gap-1.5 bg-[var(--color-accent-amber)] hover:opacity-90 text-[var(--color-on-accent)] rounded-lg transition-colors border-none text-[11px] font-bold shadow-[var(--shadow-button)]"
                             >
                               <Printer size={13} /> Print Tag
                             </button>
@@ -4681,7 +4746,7 @@ export const TransactionLedger = ({
 
       {/* Edit Modal Dialog */}
       {editingTx && createPortal(
-        <div className="fixed inset-0 z-[60] bg-black/65 backdrop-blur-sm flex items-center justify-center p-4 select-none animate-in fade-in" onClick={() => setEditingTx(null)}>
+        <div className="fixed inset-0 z-[60] ehi-scrim flex items-center justify-center p-4 select-none animate-in fade-in" onClick={() => setEditingTx(null)}>
           <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-2xl w-full max-w-md max-h-[85vh] sm:max-h-[90vh] shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="p-4 border-b border-[var(--color-border)] flex justify-between items-center bg-[var(--color-surface-card)] shrink-0">
               <h3 className="font-bold font-sans text-[15px] text-[var(--color-foreground)] tracking-wide">
@@ -5214,35 +5279,46 @@ export const TransactionLedger = ({
                       Disabled for an already-cleared entry so staff aren't
                       misled; use the dedicated Reopen Debt button instead. */}
                   <option value="Debt" disabled={editOriginalMode === 'Debt Paid'}>Debt</option>
-                  <option value="Wallet">Customer Wallet</option>
+                  {/* "Customer Wallet" here = settle this debt from the
+                      customer's wallet (routed through clear_*_debt, recorded
+                      in payment_history). Disabled once the entry is fully
+                      settled -- charging a wallet then only double-charges;
+                      use Reopen Debt to fix a wrong payment. */}
+                  <option value="Wallet" disabled={editFullySettled}>Customer Wallet</option>
                 </select>
+                {editFullySettled && (
+                  <p className="text-[10px] font-sans text-[var(--color-muted)] mt-1">
+                    Already settled — use “Reopen Debt” to change how it was paid.
+                  </p>
+                )}
               </div>
 
-              {editingTx.mode === 'Wallet' && editOriginalMode !== 'Wallet' && (
-                <div className="space-y-1">
-                  <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
-                    Charge Wallet (deducts ₦{fmt(parseFloat(amountInput) || 0)} on save)
-                  </label>
-                  <CustomerWalletPicker
-                    wallets={customerWallets}
-                    selectedWallet={editWallet}
-                    onSelectWallet={setEditWallet}
-                    currentCustomerName={editingTx.name}
-                  />
-                  {editWallet && editWallet.balance < (parseFloat(amountInput) || 0) && (
-                    <WalletRemainderSelector
-                      walletName={editWallet.customer_name}
-                      coverage={editWallet.balance}
-                      remainder={(parseFloat(amountInput) || 0) - editWallet.balance}
-                      mode={editWalletRemainderMode}
-                      bank={editWalletRemainderBank}
-                      onModeChange={setEditWalletRemainderMode}
-                      onBankChange={setEditWalletRemainderBank}
-                      banks={banks}
+              {editingTx.mode === 'Wallet' && editOriginalMode !== 'Wallet' && !editFullySettled && (() => {
+                const editAmt = parseFloat(amountInput) || 0;
+                const debtRemaining = roundMoney(
+                  editAmt - (editingTx.amountPaid || 0) - ((editingTx.raw as any)?.retrieved_amount || 0)
+                );
+                const walletPay = editWallet ? Math.min(debtRemaining, editWallet.balance) : 0;
+                const leftOnDebt = roundMoney(Math.max(0, debtRemaining - walletPay));
+                return (
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
+                      Settle debt from wallet {editWallet ? `(deducts ₦${fmt(walletPay)} on save)` : ''}
+                    </label>
+                    <CustomerWalletPicker
+                      wallets={customerWallets}
+                      selectedWallet={editWallet}
+                      onSelectWallet={setEditWallet}
+                      currentCustomerName={editingTx.name}
                     />
-                  )}
-                </div>
-              )}
+                    {editWallet && leftOnDebt > 0 && (
+                      <p className="text-[10px] font-sans text-[var(--color-muted)] mt-1">
+                        {editWallet.customer_name}’s wallet covers ₦{fmt(walletPay)}; the remaining ₦{fmt(leftOnDebt)} stays on this debt.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
 
               {editingTx.mode === "Transfer" && (
                 <div className="space-y-1">
@@ -5287,22 +5363,19 @@ export const TransactionLedger = ({
             </div>
 
             <div className="p-4 border-t border-[var(--color-border)] bg-[var(--color-surface-card)] flex gap-3 justify-end shrink-0">
-              <button
-                type="button"
-                onClick={() => setEditingTx(null)}
-                disabled={savingEdit}
-                className="h-11 px-4 border border-[var(--color-border)] bg-[var(--color-surface-2)] text-[var(--color-foreground)] font-bold text-[13px] rounded-xl hover:bg-[var(--color-surface-1)] transition-colors cursor-pointer"
-              >
+              <Button variant="secondary" size="lg" onClick={() => setEditingTx(null)} disabled={savingEdit}>
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="success"
+                size="lg"
+                iconLeft={Check}
                 onClick={handleSaveEdit}
-                disabled={savingEdit}
-                className="h-11 px-5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-bold font-sans text-[13px] rounded-xl cursor-pointer flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(16,185,129,0.3)] transition-all active:scale-[0.98] disabled:opacity-50"
+                loading={savingEdit}
+                loadingLabel="Saving…"
               >
-                <Check size={16} strokeWidth={2.5} />
-                <span>{savingEdit ? 'Saving...' : 'Save Changes'}</span>
-              </button>
+                Save Changes
+              </Button>
             </div>
           </div>
         </div>,
@@ -5326,7 +5399,7 @@ export const TransactionLedger = ({
         const tx = clearDebtEntry.raw as Transaction;
         const remaining = tx.amount - (tx.amountPaid || 0) - ((tx.raw as any)?.retrieved_amount || 0);
         return createPortal(
-          <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => !clearingDebt && setClearDebtEntry(null)}>
+          <div className="fixed inset-0 z-[70] ehi-scrim flex items-center justify-center p-4" onClick={() => !clearingDebt && setClearDebtEntry(null)}>
             <div className="bg-[var(--color-obsidian)] border border-[var(--color-border)] rounded-xl w-full max-w-sm shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
               <div className="p-4 border-b border-[var(--color-border)] bg-[var(--color-surface-card)] flex items-center justify-between">
                 <h3 className="text-[14px] font-bold text-[var(--color-foreground)]">Clear Debt</h3>
@@ -5388,7 +5461,7 @@ export const TransactionLedger = ({
       })()}
 
       {viewingQrTx && createPortal(
-        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in" onClick={() => setViewingQrTx(null)}>
+        <div className="fixed inset-0 z-[60] ehi-scrim flex items-center justify-center p-4 animate-in fade-in" onClick={() => setViewingQrTx(null)}>
           <div className="bg-[var(--color-surface-card)] border border-[var(--color-surface-2)] rounded-xl w-full max-w-sm shadow-xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="p-4 border-b border-[var(--color-border)] flex justify-between items-center bg-[var(--color-surface-card)]">
               <h3 className="font-bold font-sans text-[var(--color-foreground)]">

@@ -11,12 +11,14 @@ import { Spinner } from './Spinner';
 // the same tokens/recipe as .ehi-btn-primary (amber gradient, --color-on-accent
 // ink, --radius-md, --shadow-amber) but is width-flexible and typed.
 
-export type ButtonVariant = 'primary' | 'secondary' | 'destructive' | 'ghost' | 'subtle';
+export type ButtonVariant = 'primary' | 'success' | 'secondary' | 'destructive' | 'ghost' | 'subtle';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 const VARIANT: Record<ButtonVariant, string> = {
   primary:
     'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-[var(--shadow-amber)] hover:opacity-90 disabled:bg-[var(--color-surface-2)] disabled:text-[var(--color-muted)] disabled:shadow-none',
+  success:
+    'bg-[var(--color-success)] text-[var(--color-on-accent)] shadow-[var(--shadow-success)] hover:opacity-90 disabled:bg-[var(--color-surface-2)] disabled:text-[var(--color-muted)] disabled:shadow-none',
   secondary:
     'bg-transparent border border-[var(--color-border-strong)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-2)] disabled:bg-[var(--color-surface-1)] disabled:text-[var(--color-muted)] disabled:border-[var(--color-border)]',
   destructive:
