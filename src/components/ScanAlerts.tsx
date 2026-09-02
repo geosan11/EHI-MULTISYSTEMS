@@ -2,7 +2,11 @@ import { AlertTriangle, XCircle, CheckCircle, Info } from 'lucide-react';
 import { ScanValidationResult } from '../lib/types';
 
 // ── WRONG DESTINATION ALERT ──────────────────────────
-// Full-screen red overlay — cannot be dismissed easily
+// Full-screen life-safety STOP. Deliberately NOT theme-aware: a near-opaque
+// alarm screen should look identical (dark, red, unmissable) whether the app
+// is in light or dark mode -- same rationale as a vehicle dashboard warning.
+// The overlay is near-opaque so nothing behind it shows through regardless.
+const ALARM_INK = '#F1F5F9';
 export const WrongDestinationAlert = ({
   result,
   onAcknowledge,
@@ -13,7 +17,7 @@ export const WrongDestinationAlert = ({
   <div
     style={{
       position: 'fixed', inset: 0, zIndex: 9999,
-      background: 'rgba(10, 4, 4, 0.97)',
+      background: 'var(--color-overlay-critical)',
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
       padding: 24,
@@ -28,12 +32,12 @@ export const WrongDestinationAlert = ({
       marginBottom: 24,
       animation: 'customPulse 1.5s ease-in-out infinite',
     }}>
-      <XCircle size={40} color="#EF4444" />
+      <XCircle size={40} style={{ color: '#ef4444' }} />
     </div>
 
     <div style={{
       fontFamily: 'JetBrains Mono, monospace',
-      fontSize: 11, color: '#EF4444',
+      fontSize: 11, color: '#ef4444',
       letterSpacing: '0.16em', textTransform: 'uppercase',
       marginBottom: 8,
     }}>
@@ -43,7 +47,7 @@ export const WrongDestinationAlert = ({
     <div style={{
       fontFamily: 'JetBrains Mono, monospace',
       fontSize: 22, fontWeight: 800,
-      color: '#F1F5F9', marginBottom: 24,
+      color: ALARM_INK, marginBottom: 24,
       textAlign: 'center',
     }}>
       DO NOT OFFLOAD
@@ -63,16 +67,16 @@ export const WrongDestinationAlert = ({
         marginBottom: 14, paddingBottom: 14,
         borderBottom: '1px solid rgba(255,255,255,0.06)',
       }}>
-        <span style={{ fontSize: 9, fontFamily: 'monospace', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.1em' }}>AWB / Ref</span>
-        <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#F59E0B', fontWeight: 700 }}>{result.cargo?.awb}</span>
+        <span style={{ fontSize: 9, fontFamily: 'monospace', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>AWB / Ref</span>
+        <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#fbbf24', fontWeight: 700 }}>{result.cargo?.awb}</span>
       </div>
       <div style={{
         display: 'flex', justifyContent: 'space-between',
         marginBottom: 14, paddingBottom: 14,
         borderBottom: '1px solid rgba(255,255,255,0.06)',
       }}>
-        <span style={{ fontSize: 9, fontFamily: 'monospace', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Consignee</span>
-        <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#F1F5F9', fontWeight: 600 }}>{result.cargo?.name}</span>
+        <span style={{ fontSize: 9, fontFamily: 'monospace', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Consignee</span>
+        <span style={{ fontSize: 12, fontFamily: 'monospace', color: ALARM_INK, fontWeight: 600 }}>{result.cargo?.name}</span>
       </div>
 
       {/* Destination vs Current */}
@@ -84,10 +88,10 @@ export const WrongDestinationAlert = ({
           border: '1px solid rgba(16,185,129,0.2)',
           borderRadius: 8, padding: '10px 12px',
         }}>
-          <div style={{ fontSize: 8, fontFamily: 'monospace', color: '#10B981', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
+          <div style={{ fontSize: 8, fontFamily: 'monospace', color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
             CARGO GOING TO
           </div>
-          <div style={{ fontSize: 14, fontFamily: 'monospace', fontWeight: 800, color: '#10B981' }}>
+          <div style={{ fontSize: 14, fontFamily: 'monospace', fontWeight: 800, color: '#34d399' }}>
             {result.cargo?.destination?.toUpperCase()}
           </div>
         </div>
@@ -96,10 +100,10 @@ export const WrongDestinationAlert = ({
           border: '1px solid rgba(239,68,68,0.3)',
           borderRadius: 8, padding: '10px 12px',
         }}>
-          <div style={{ fontSize: 8, fontFamily: 'monospace', color: '#EF4444', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
+          <div style={{ fontSize: 8, fontFamily: 'monospace', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
             YOU ARE AT
           </div>
-          <div style={{ fontSize: 14, fontFamily: 'monospace', fontWeight: 800, color: '#EF4444' }}>
+          <div style={{ fontSize: 14, fontFamily: 'monospace', fontWeight: 800, color: '#ef4444' }}>
             {result.currentHub.split(' ')[0].toUpperCase()}
           </div>
         </div>
@@ -108,7 +112,7 @@ export const WrongDestinationAlert = ({
 
     {/* Instruction text */}
     <div style={{
-      fontSize: 12, color: '#94A3B8', textAlign: 'center',
+      fontSize: 12, color: '#94a3b8', textAlign: 'center',
       lineHeight: 1.6, marginBottom: 28, maxWidth: 300,
     }}>
       Return this consignment to the cargo hold immediately.
@@ -126,7 +130,7 @@ export const WrongDestinationAlert = ({
           flex: 1, padding: '13px',
           background: 'rgba(239,68,68,0.15)',
           border: '1px solid rgba(239,68,68,0.3)',
-          borderRadius: 10, color: '#EF4444',
+          borderRadius: 10, color: '#ef4444',
           fontSize: 12, fontFamily: 'monospace',
           fontWeight: 700, cursor: 'pointer',
           letterSpacing: '0.06em',
@@ -155,7 +159,7 @@ export const NotLoggedInAlert = ({
   <div
     style={{
       position: 'fixed', inset: 0, zIndex: 9998,
-      background: 'rgba(0,0,0,0.88)',
+      background: 'var(--color-overlay)',
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
       padding: 24,
@@ -165,21 +169,22 @@ export const NotLoggedInAlert = ({
     <div
       style={{
         width: '100%', maxWidth: 360,
-        background: '#1E293B',
-        border: '1px solid rgba(245,158,11,0.3)',
+        background: 'var(--color-surface-1)',
+        border: '1px solid var(--color-amber-border)',
         borderRadius: 14, overflow: 'hidden',
+        boxShadow: 'var(--shadow-modal)',
       }}
       onClick={e => e.stopPropagation()}
     >
       {/* Header */}
       <div style={{
-        background: 'rgba(245,158,11,0.1)',
-        borderBottom: '1px solid rgba(245,158,11,0.2)',
+        background: 'var(--color-amber-bg)',
+        borderBottom: '1px solid var(--color-amber-border)',
         padding: '16px 20px',
         display: 'flex', alignItems: 'center', gap: 10,
       }}>
-        <AlertTriangle size={18} color="#F59E0B" />
-        <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#F59E0B', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+        <AlertTriangle size={18} style={{ color: 'var(--color-amber-fg)' }} />
+        <span style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--color-amber-fg)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
           Not Checked In Here
         </span>
       </div>
@@ -187,21 +192,21 @@ export const NotLoggedInAlert = ({
       <div style={{ padding: 20 }}>
         {/* Cargo info */}
         <div style={{
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid rgba(255,255,255,0.06)',
+          background: 'var(--color-surface-2)',
+          border: '1px solid var(--color-border)',
           borderRadius: 8, padding: '10px 14px',
           marginBottom: 14,
         }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#F1F5F9', marginBottom: 2 }}>{result.cargo?.name}</div>
-          <div style={{ fontSize: 10, fontFamily: 'monospace', color: '#F59E0B' }}>{result.cargo?.awb}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-foreground)', marginBottom: 2 }}>{result.cargo?.name}</div>
+          <div style={{ fontSize: 10, fontFamily: 'monospace', color: 'var(--color-amber-fg)' }}>{result.cargo?.awb}</div>
         </div>
 
         {/* Message */}
-        <div style={{ fontSize: 12, color: '#94A3B8', lineHeight: 1.6, marginBottom: 14 }}>
+        <div style={{ fontSize: 12, color: 'var(--color-light-muted)', lineHeight: 1.6, marginBottom: 14 }}>
           {result.message ? result.message : (
             <>
-              This cargo has no <strong style={{ color: '#F1F5F9' }}>ARRIVE</strong> record
-              at <strong style={{ color: '#F1F5F9' }}>{result.currentHub}</strong>.
+              This cargo has no <strong style={{ color: 'var(--color-foreground)' }}>ARRIVE</strong> record
+              at <strong style={{ color: 'var(--color-foreground)' }}>{result.currentHub}</strong>.
               Scan ARRIVE first before departing.
             </>
           )}
@@ -210,18 +215,18 @@ export const NotLoggedInAlert = ({
         {/* Last known location */}
         {result.lastEvent && (
           <div style={{
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.06)',
+            background: 'var(--color-surface-2)',
+            border: '1px solid var(--color-border)',
             borderRadius: 8, padding: '10px 14px',
             marginBottom: 16,
           }}>
-            <div style={{ fontSize: 9, fontFamily: 'monospace', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
+            <div style={{ fontSize: 9, fontFamily: 'monospace', color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
               Last Known Location
             </div>
-            <div style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'monospace' }}>
+            <div style={{ fontSize: 11, color: 'var(--color-light-muted)', fontFamily: 'monospace' }}>
               {result.lastEvent.type} — {result.lastEvent.hub}
             </div>
-            <div style={{ fontSize: 10, color: '#64748B', fontFamily: 'monospace', marginTop: 2 }}>
+            <div style={{ fontSize: 10, color: 'var(--color-muted)', fontFamily: 'monospace', marginTop: 2 }}>
               {result.lastEvent.time}
             </div>
           </div>
@@ -231,21 +236,21 @@ export const NotLoggedInAlert = ({
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onOk} style={{
             flex: 1, padding: 12,
-            background: 'var(--color-border)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 8, color: '#94A3B8',
+            background: 'var(--color-surface-2)',
+            border: '1px solid var(--color-border-strong)',
+            borderRadius: 8, color: 'var(--color-light-muted)',
             fontSize: 11, fontFamily: 'monospace',
             cursor: 'pointer',
           }}>
             OK
           </button>
-          
+
           {mode === 'ARRIVE' && onSwitchToDepart ? (
             <button onClick={onSwitchToDepart} style={{
               flex: 1, padding: 12,
-              background: '#F59E0B',
+              background: 'var(--color-accent-amber)',
               border: 'none',
-              borderRadius: 8, color: '#0B0F19',
+              borderRadius: 8, color: 'var(--color-on-accent)',
               fontSize: 11, fontFamily: 'monospace',
               fontWeight: 700, cursor: 'pointer',
             }}>
@@ -254,9 +259,9 @@ export const NotLoggedInAlert = ({
           ) : (
             <button onClick={onSwitchToArrive} style={{
               flex: 1, padding: 12,
-              background: '#F59E0B',
+              background: 'var(--color-accent-amber)',
               border: 'none',
-              borderRadius: 8, color: '#0B0F19',
+              borderRadius: 8, color: 'var(--color-on-accent)',
               fontSize: 11, fontFamily: 'monospace',
               fontWeight: 700, cursor: 'pointer',
             }}>
@@ -280,7 +285,7 @@ export const AlreadyProcessedAlert = ({
   <div
     style={{
       position: 'fixed', inset: 0, zIndex: 9998,
-      background: 'rgba(0,0,0,0.85)',
+      background: 'var(--color-overlay)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: 24,
     }}
@@ -289,29 +294,30 @@ export const AlreadyProcessedAlert = ({
     <div
       style={{
         width: '100%', maxWidth: 340,
-        background: '#1E293B',
-        border: '1px solid rgba(59,130,246,0.3)',
+        background: 'var(--color-surface-1)',
+        border: '1px solid var(--color-info-border)',
         borderRadius: 14, padding: 20,
+        boxShadow: 'var(--shadow-modal)',
       }}
       onClick={e => e.stopPropagation()}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-        <Info size={16} color="#3B82F6" />
-        <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#3B82F6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+        <Info size={16} style={{ color: 'var(--color-info-fg)' }} />
+        <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--color-info-fg)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
           Already {result.lastEvent?.type}
         </span>
       </div>
-      <div style={{ fontSize: 12, color: '#94A3B8', lineHeight: 1.6, marginBottom: 14 }}>
+      <div style={{ fontSize: 12, color: 'var(--color-light-muted)', lineHeight: 1.6, marginBottom: 14 }}>
         {result.cargo?.name} was already recorded as {result.lastEvent?.type} from {result.lastEvent?.hub}.
       </div>
-      <div style={{ fontSize: 10, fontFamily: 'monospace', color: '#64748B', marginBottom: 16 }}>
+      <div style={{ fontSize: 10, fontFamily: 'monospace', color: 'var(--color-muted)', marginBottom: 16 }}>
         {result.lastEvent?.time} · by {result.lastEvent?.by}
       </div>
       <button onClick={onOk} style={{
         width: '100%', padding: 12,
-        background: 'rgba(59,130,246,0.1)',
-        border: '1px solid rgba(59,130,246,0.2)',
-        borderRadius: 8, color: '#3B82F6',
+        background: 'var(--color-info-bg)',
+        border: '1px solid var(--color-info-border)',
+        borderRadius: 8, color: 'var(--color-info-fg)',
         fontSize: 12, fontFamily: 'monospace',
         fontWeight: 700, cursor: 'pointer',
       }}>
@@ -328,22 +334,23 @@ export const SuccessFlash = ({
   result: ScanValidationResult;
 }) => {
   const isArrive = result.type === 'SUCCESS_ARRIVE';
-  const color = isArrive ? '#10B981' : '#3B82F6';
+  const tone = isArrive ? 'success' : 'info';
   const label = isArrive ? '✓ ARRIVED' : '✓ DEPARTED';
 
   return (
     <div style={{
       position: 'fixed', bottom: 80, left: 16, right: 16,
-      background: isArrive ? 'rgba(16,185,129,0.12)' : 'rgba(59,130,246,0.12)',
-      border: `1px solid ${isArrive ? 'rgba(16,185,129,0.3)' : 'rgba(59,130,246,0.3)'}`,
+      background: `var(--color-${tone}-bg)`,
+      border: `1px solid var(--color-${tone}-border)`,
       borderRadius: 10, padding: '12px 16px',
       display: 'flex', alignItems: 'center', gap: 10,
       zIndex: 200,
+      boxShadow: 'var(--shadow-sm)',
     }}>
-      <CheckCircle size={18} color={color} />
+      <CheckCircle size={18} style={{ color: `var(--color-${tone}-fg)` }} />
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 12, fontFamily: 'monospace', color, fontWeight: 700 }}>{label}</div>
-        <div style={{ fontSize: 10, color: '#94A3B8', fontFamily: 'monospace' }}>
+        <div style={{ fontSize: 12, fontFamily: 'monospace', color: `var(--color-${tone}-fg)`, fontWeight: 700 }}>{label}</div>
+        <div style={{ fontSize: 10, color: 'var(--color-light-muted)', fontFamily: 'monospace' }}>
           {result.cargo?.name} · {result.cargo?.awb}
         </div>
       </div>

@@ -416,7 +416,7 @@ export const AirlinePerformance = ({ user, onBack }: AirlinePerformanceProps) =>
           <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] p-4 rounded-xl shadow-sm">
             <div className="flex justify-between items-center mb-2">
               <span className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Top Carrier</span>
-              <Plane className="text-[#a78bfa]" size={16} />
+              <Plane className="text-[var(--color-purple-fg)]" size={16} />
             </div>
             <div className="text-[18px] font-bold font-mono text-[var(--color-foreground)] truncate">
               {topAirline}

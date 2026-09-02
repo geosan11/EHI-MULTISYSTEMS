@@ -12,6 +12,7 @@ import { useHubRoutes, useHubNames } from "../../lib/hubRoutes";
 import { canAccessTab } from "../../lib/permissions";
 import { getEquivalentHubIds } from "../../lib/lagosHubSync";
 import { useAirlines } from "../../lib/airlines";
+import { statusChipClass } from "../../lib/status";
 import { MIN_PACKAGE_AMOUNT } from "../../lib/constants";
 import { useContentTypes } from "../../lib/contentTypes";
 import { useSpecialGoodsRates, resolveSpecialGoodsRate } from "../../lib/specialGoodsRates";
@@ -3435,7 +3436,7 @@ export const TransactionLedger = ({
                   Filters, so an entry outside the current shift could look
                   like it doesn't exist with zero on-screen explanation. */}
               {shiftFilter === 'current' && (
-                <div className="text-[9.5px] font-mono text-[var(--color-muted)] flex items-center gap-1">
+                <div className="text-[10px] font-mono text-[var(--color-muted)] flex items-center gap-1">
                   <Clock size={10} />
                   <span>Only this shift's entries — switch to "All Time" for older results.</span>
                 </div>
@@ -3443,7 +3444,7 @@ export const TransactionLedger = ({
 
 
               {allTimeTotalsExcludeSomeActiveFilters && (
-                <div className="text-[9.5px] font-mono text-[var(--color-muted)] flex items-center gap-1">
+                <div className="text-[10px] font-mono text-[var(--color-muted)] flex items-center gap-1">
                   <AlertTriangle size={10} className="text-[var(--color-accent-amber)]" />
                   <span>Totals above don't account for Time/Flight/Dest filters or this Mode filter yet — they only narrow what's currently loaded on screen.</span>
                 </div>
@@ -3709,12 +3710,7 @@ export const TransactionLedger = ({
                     const displayDate = (e as any).displayDateMobile || 'Unknown';
                     const displayTime = (e as any).displayTime || e.time;
 
-                    const statusColor =
-                      e.status === 'Delivered' ? 'text-[var(--color-success)] bg-[rgba(16,185,129,0.12)] border-[rgba(16,185,129,0.3)]' :
-                      ['In-Transit','Dispatched','Departure'].includes(e.status) ? 'text-[var(--color-accent-cobalt)] bg-[rgba(59,130,246,0.12)] border-[rgba(59,130,246,0.3)]' :
-                      e.status === 'Arrived' ? 'text-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.12)] border-[rgba(245,158,11,0.3)]' :
-                      e.status === 'Cancelled' ? 'text-[var(--color-error)] bg-[rgba(239,68,68,0.12)] border-[rgba(239,68,68,0.3)]' :
-                      'text-[var(--color-muted)] bg-[rgba(255,255,255,0.06)] border-[var(--color-border)]';
+                    const statusColor = statusChipClass(e.status);
 
                     return (
                       <div key={e.id} data-index={virtualRow.index} ref={cardVirtualizer.measureElement} style={wrapperStyle}>
@@ -3927,13 +3923,8 @@ export const TransactionLedger = ({
                     const displayDate = (e as any).displayDate || 'Unknown date';
                     const displayTime = (e as any).displayTime || e.time;
 
-                  // Status colour
-                  const statusColor =
-                    e.status === 'Delivered' ? 'text-[var(--color-success)] bg-[rgba(16,185,129,0.12)]' :
-                    ['In-Transit','Dispatched','Departure'].includes(e.status) ? 'text-[var(--color-accent-cobalt)] bg-[rgba(59,130,246,0.12)]' :
-                    e.status === 'Arrived' ? 'text-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.12)]' :
-                    e.status === 'Cancelled' ? 'text-[var(--color-error)] bg-[rgba(239,68,68,0.12)]' :
-                    'text-[var(--color-muted)] bg-[rgba(255,255,255,0.06)]';
+                  // Status colour -- shared canonical mapping (src/lib/status.ts)
+                  const statusColor = statusChipClass(e.status);
 
                   return (
                   <tr
@@ -4061,7 +4052,7 @@ export const TransactionLedger = ({
                           </span>
                         )}
                         {isOfficeWorkEntry(e) && (
-                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(139,92,246,0.15)] text-[#a78bfa] border border-[rgba(139,92,246,0.3)]">
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[var(--color-purple-bg)] text-[var(--color-purple-fg)] border border-[var(--color-purple-border)]">
                             OFFICE WORK
                           </span>
                         )}

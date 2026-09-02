@@ -170,7 +170,7 @@ export const Forecasting = ({
         <button 
           onClick={handleGenerateForecast}
           disabled={loading}
-          className="bg-[var(--color-accent-amber)] hover:bg-amber-600 disabled:opacity-50 text-[var(--color-on-accent)] font-mono text-[10.5px] uppercase font-black px-4 py-2 rounded-lg flex items-center space-x-1.5 cursor-pointer shadow-lg shadow-amber-500/10"
+          className="bg-[var(--color-accent-amber)] hover:bg-amber-600 disabled:opacity-50 text-[var(--color-on-accent)] font-mono text-[11px] uppercase font-black px-4 py-2 rounded-lg flex items-center space-x-1.5 cursor-pointer shadow-lg shadow-amber-500/10"
         >
           {loading ? (
             <>
@@ -320,7 +320,7 @@ export const Forecasting = ({
                   <tr key={idx} className="hover:bg-black/10">
                     <td className="py-3 font-semibold text-[var(--color-foreground)] uppercase truncate max-w-[200px]">{heatmap.route}</td>
                     <td className="py-3 px-2">
-                      <span className={`px-2 py-1 rounded text-[9.5px] uppercase font-bold block text-center max-w-[50px] ${
+                      <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold block text-center max-w-[50px] ${
                         heatmap.Mon === 'high' ? 'bg-amber-500/20 text-[var(--color-accent-amber)]' :
                         heatmap.Mon === 'medium' ? 'bg-blue-500/10 text-blue-300' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)]'
                       }`}>
@@ -328,7 +328,7 @@ export const Forecasting = ({
                       </span>
                     </td>
                     <td className="py-3 px-2">
-                      <span className={`px-2 py-1 rounded text-[9.5px] uppercase font-bold block text-center max-w-[50px] ${
+                      <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold block text-center max-w-[50px] ${
                         heatmap.Tue === 'high' ? 'bg-amber-500/20 text-[var(--color-accent-amber)]' :
                         heatmap.Tue === 'medium' ? 'bg-blue-500/10 text-blue-300' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)]'
                       }`}>
@@ -336,7 +336,7 @@ export const Forecasting = ({
                       </span>
                     </td>
                     <td className="py-3 px-2">
-                      <span className={`px-2 py-1 rounded text-[9.5px] uppercase font-bold block text-center max-w-[50px] ${
+                      <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold block text-center max-w-[50px] ${
                         heatmap.Wed === 'high' ? 'bg-amber-500/20 text-[var(--color-accent-amber)]' :
                         heatmap.Wed === 'medium' ? 'bg-blue-500/10 text-blue-300' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)]'
                       }`}>
@@ -344,7 +344,7 @@ export const Forecasting = ({
                       </span>
                     </td>
                     <td className="py-3 px-2">
-                      <span className={`px-2 py-1 rounded text-[9.5px] uppercase font-bold block text-center max-w-[50px] ${
+                      <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold block text-center max-w-[50px] ${
                         heatmap.Thu === 'high' ? 'bg-amber-500/20 text-[var(--color-accent-amber)]' :
                         heatmap.Thu === 'medium' ? 'bg-blue-500/10 text-blue-300' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)]'
                       }`}>
@@ -352,7 +352,7 @@ export const Forecasting = ({
                       </span>
                     </td>
                     <td className="py-3 px-2">
-                      <span className={`px-2 py-1 rounded text-[9.5px] uppercase font-bold block text-center max-w-[50px] ${
+                      <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold block text-center max-w-[50px] ${
                         heatmap.Fri === 'high' ? 'bg-amber-500/20 text-[var(--color-accent-amber)]' :
                         heatmap.Fri === 'medium' ? 'bg-blue-500/10 text-blue-300' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)]'
                       }`}>
@@ -360,7 +360,7 @@ export const Forecasting = ({
                       </span>
                     </td>
                     <td className="py-3 px-2">
-                      <span className={`px-2 py-1 rounded text-[9.5px] uppercase font-bold block text-center max-w-[50px] ${
+                      <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold block text-center max-w-[50px] ${
                         heatmap.Sat === 'high' ? 'bg-amber-500/20 text-[var(--color-accent-amber)]' :
                         heatmap.Sat === 'medium' ? 'bg-blue-500/10 text-blue-300' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)]'
                       }`}>

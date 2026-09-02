@@ -63,20 +63,6 @@ export default defineConfig(() => {
                 },
               },
             },
-            {
-              urlPattern: /^https:\/\/cdn-uicons\.flaticon\.com\/.*/,
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'flaticon-icons',
-                expiration: {
-                  maxEntries: 20,
-                  maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
-                },
-                cacheableResponse: {
-                  statuses: [0, 200],
-                },
-              },
-            },
           ],
         }
       }),

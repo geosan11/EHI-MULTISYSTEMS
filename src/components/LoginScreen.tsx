@@ -172,7 +172,7 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
                 }}
               >
                 <AlertCircle size={15} className="shrink-0" style={{ color: notice.type === 'offline' ? '#94a3b8' : '#fbbf24' }} />
-                <p className="text-[11.5px] font-sans leading-snug font-medium" style={{ color: notice.type === 'offline' ? '#cbd5e1' : '#fde68a' }}>{notice.message}</p>
+                <p className="text-[12px] font-sans leading-snug font-medium" style={{ color: notice.type === 'offline' ? '#cbd5e1' : '#fde68a' }}>{notice.message}</p>
               </div>
             )}
 
@@ -325,13 +325,13 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
               {error && (
                 <div className="flex items-center gap-2.5 bg-red-500/10 border border-red-500/25 backdrop-blur-md rounded-xl px-3.5 py-2.5 animate-in fade-in">
                   <AlertCircle size={15} className="text-red-400 shrink-0" />
-                  <p className="text-[11.5px] font-sans text-red-200 leading-snug font-medium">{error}</p>
+                  <p className="text-[12px] font-sans text-red-200 leading-snug font-medium">{error}</p>
                 </div>
               )}
 
               {connStatus === 'unconfigured' && (
                 <div className="bg-amber-500/20 border border-amber-500/40 backdrop-blur-md rounded-xl px-3.5 py-2.5">
-                  <p className="text-[10.5px] font-mono text-amber-200">
+                  <p className="text-[11px] font-mono text-amber-200">
                     VITE_SUPABASE_URL not configured. Add it to Vercel environment variables.
                   </p>
                 </div>
@@ -376,7 +376,7 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
 
               {/* Signup Link */}
               <div className="text-center pt-1">
-                <span className="text-[11.5px] font-sans" style={{ color: 'var(--color-muted)' }}>
+                <span className="text-[12px] font-sans" style={{ color: 'var(--color-muted)' }}>
                   Don't have an account?{' '}
                   <button
                     type="button"
@@ -391,7 +391,7 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
             </form>
 
             {/* Footer Credit (Mobile only) */}
-            <div className="mt-4 text-center text-[9.5px] font-sans font-medium lg:hidden" style={{ color: 'var(--color-muted)' }}>
+            <div className="mt-4 text-center text-[10px] font-sans font-medium lg:hidden" style={{ color: 'var(--color-muted)' }}>
               Created by <span className="italic font-semibold" style={{ color: 'var(--color-foreground)' }}>EHI Multisystems Nigeria Ltd</span>
             </div>
           </div>

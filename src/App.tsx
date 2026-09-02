@@ -11,6 +11,7 @@ import { SplashScreen } from './components/SplashScreen';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastProvider } from './lib/ToastContext';
 import { ConfirmProvider } from './lib/ConfirmContext';
+import { statusMeta, statusColorVar } from './lib/status';
 
 const PublicTrackingPage = () => {
   const { waybillId } = useParams<{ waybillId?: string }>();
@@ -148,28 +149,11 @@ const PublicTrackingPage = () => {
     searchTracking(waybillId.trim().toUpperCase());
   }, [waybillId]);
 
-  // Every status string the rest of the app writes for these tables collapses
-  // into one of these 4 canonical stages. 'Dispatched' and 'Departure' are
-  // both used elsewhere (TransactionLedger.tsx, IncomingToHub.tsx) for the
-  // same in-transit state -- matching on a single exact string here caused
-  // the progress bar to silently fail to highlight for whichever variant
-  // wasn't in the list.
-  const STATUS_GROUPS: Record<string, number> = {
-    'Intake': 0,
-    'Dispatched': 1, 'Departure': 1, 'In-Transit': 1,
-    'Arrived': 2,
-    'Delivered': 3,
-  };
+  // Canonical stage + colour come from src/lib/status.ts (shared with the
+  // internal ledger, so a shipment reads the same everywhere).
   const canonicalSteps = ['Intake', 'In Transit', 'Arrived', 'Delivered'];
-  const currentStepIndex = result ? (STATUS_GROUPS[result.status] ?? 0) : 0;
-
-  const statusColor = (status: string) => {
-    const idx = STATUS_GROUPS[status] ?? 0;
-    if (idx === 3) return 'var(--color-success)';
-    if (idx === 1) return 'var(--color-warning)';
-    if (idx === 2) return 'var(--color-accent-cobalt)';
-    return 'var(--color-muted)';
-  };
+  const currentStepIndex = result ? statusMeta(result.status).step : 0;
+  const statusColor = (status: string) => statusColorVar(status);
 
   return (
     <div

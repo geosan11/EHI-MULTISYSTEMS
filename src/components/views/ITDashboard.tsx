@@ -750,7 +750,7 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
                       <h4 className="text-[13px] font-sans font-bold text-[var(--color-foreground)] tracking-wide">{b.title}</h4>
                       <p className="text-[11px] text-[var(--color-muted)] font-mono leading-relaxed bg-[var(--color-surface-2)]/40 p-2.5 rounded border border-[rgba(255,255,255,0.02)]">{b.description}</p>
                       
-                      <div className="text-[9.5px] font-mono text-[var(--color-light-muted)]">
+                      <div className="text-[10px] font-mono text-[var(--color-light-muted)]">
                         DETECTED AT: {new Date(b.timestamp).toLocaleString()}
                       </div>
                     </div>
@@ -759,7 +759,7 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
                       <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase mb-1 ehi-desktop-only">UPDATE WORKFLOW:</div>
                       
                       <div className="flex items-center gap-1.5 w-full">
-                        <span className={`px-2 py-1 rounded text-[9.5px] font-mono font-bold uppercase tracking-wide flex-1 text-center ${statusColor}`}>
+                        <span className={`px-2 py-1 rounded text-[10px] font-mono font-bold uppercase tracking-wide flex-1 text-center ${statusColor}`}>
                           {b.status}
                         </span>
                         
@@ -924,7 +924,7 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
                     <HardDrive size={16} className="text-[var(--color-muted)]" />
                     <div>
                       <div className="text-[12px] font-semibold text-[var(--color-foreground)] font-sans">Local Dexie Store Schema Integrity</div>
-                      <div className="text-[9.5px] font-mono text-[var(--color-muted)]">Check transaction, manifests, and queue tables</div>
+                      <div className="text-[10px] font-mono text-[var(--color-muted)]">Check transaction, manifests, and queue tables</div>
                     </div>
                   </div>
                   <div>
@@ -941,7 +941,7 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
                     <Activity size={16} className="text-[var(--color-muted)]" />
                     <div>
                       <div className="text-[12px] font-semibold text-[var(--color-foreground)] font-sans">Offline Queue State Sync Status</div>
-                      <div className="text-[9.5px] font-mono text-[var(--color-muted)]">Verify synchronization pipeline registers correctly</div>
+                      <div className="text-[10px] font-mono text-[var(--color-muted)]">Verify synchronization pipeline registers correctly</div>
                     </div>
                   </div>
                   <div>
@@ -958,7 +958,7 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
                     <Wifi size={16} className="text-[var(--color-muted)]" />
                     <div>
                       <div className="text-[12px] font-semibold text-[var(--color-foreground)] font-sans">Supabase Gateway Connection</div>
-                      <div className="text-[9.5px] font-mono text-[var(--color-muted)]">Ping database cluster and verify security layers</div>
+                      <div className="text-[10px] font-mono text-[var(--color-muted)]">Ping database cluster and verify security layers</div>
                     </div>
                   </div>
                   <div>
@@ -975,7 +975,7 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
                     <CheckCircle size={16} className="text-[var(--color-muted)]" />
                     <div>
                       <div className="text-[12px] font-semibold text-[var(--color-foreground)] font-sans">Required Frame Permissions</div>
-                      <div className="text-[9.5px] font-mono text-[var(--color-muted)]">Verify camera, GPS location, and files parameters in metadata.json</div>
+                      <div className="text-[10px] font-mono text-[var(--color-muted)]">Verify camera, GPS location, and files parameters in metadata.json</div>
                     </div>
                   </div>
                   <div>

@@ -1051,7 +1051,7 @@ export const Analytics = ({
           </div>
           <button
             onClick={() => setDebtFetchRetryKey(k => k + 1)}
-            className="shrink-0 h-8 px-3 bg-[var(--color-error)] text-white rounded-lg text-[11px] font-mono font-bold hover:opacity-90 transition-opacity"
+            className="shrink-0 h-8 px-3 bg-[var(--color-error)] text-[var(--color-on-accent-inverse)] rounded-lg text-[11px] font-mono font-bold hover:opacity-90 transition-opacity"
           >
             Retry
           </button>
@@ -1411,7 +1411,7 @@ export const Analytics = ({
             <div className="space-y-4">
               <button 
                 onClick={() => setSelectedPastShift(null)} 
-                className="flex items-center gap-2 text-[12px] font-bold text-[var(--color-muted)] hover:text-white transition-colors"
+                className="flex items-center gap-2 text-[12px] font-bold text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
               >
                 <ChevronDown className="rotate-90" size={16} /> Back to Shifts
               </button>
@@ -1419,7 +1419,7 @@ export const Analytics = ({
               <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-6">
                 <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--color-border)]">
                   <div>
-                    <h2 className="text-[16px] font-bold text-white mb-1 flex items-center gap-2">
+                    <h2 className="text-[16px] font-bold text-[var(--color-foreground)] mb-1 flex items-center gap-2">
                       Shift Sales Details
                       {selectedPastShift.department && selectedPastShift.department !== 'all' && (
                         <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[rgba(59,130,246,0.3)]">
@@ -1456,12 +1456,12 @@ export const Analytics = ({
                   </div>
                   <div className="bg-[var(--color-surface-1)] p-4 rounded-lg">
                     <div className="text-[11px] text-[var(--color-muted)] mb-1">Entries</div>
-                    <div className="text-[18px] font-bold text-white font-mono">{selectedPastShift.sales_summary?.totalTxCount || 0}</div>
+                    <div className="text-[18px] font-bold text-[var(--color-foreground)] font-mono">{selectedPastShift.sales_summary?.totalTxCount || 0}</div>
                   </div>
                 </div>
 
                 <div>
-                  <h3 className="text-[14px] font-bold text-white mb-4 border-b border-[var(--color-surface-2)] pb-2">Shift Transaction History</h3>
+                  <h3 className="text-[14px] font-bold text-[var(--color-foreground)] mb-4 border-b border-[var(--color-surface-2)] pb-2">Shift Transaction History</h3>
                   {shiftHistory.length === 0 ? (
                     <div className="text-center p-8 text-[var(--color-muted)] font-mono text-[12px]">No transactions found for this shift.</div>
                   ) : (

@@ -420,7 +420,7 @@ export const ExcessBaggageForm = ({
           {(s.tx as any).pickupPin ? (
             <div className="flex-1 border border-[var(--color-accent-amber)] rounded-xl bg-[rgba(251,191,36,0.05)] flex flex-col justify-center px-3.5 py-2 shadow-sm">
               <div className="flex justify-between items-center">
-                <span className="text-[9.5px] font-mono font-bold text-[var(--color-accent-amber)] uppercase tracking-wider">
+                <span className="text-[10px] font-mono font-bold text-[var(--color-accent-amber)] uppercase tracking-wider">
                   Pickup PIN
                 </span>
                 <button
@@ -438,15 +438,15 @@ export const ExcessBaggageForm = ({
               <div className="text-[22px] font-mono font-extrabold text-[var(--color-foreground)] tracking-widest mt-0.5">
                 {(s.tx as any).pickupPin}
               </div>
-              <p className="text-[9.5px] text-[var(--color-muted)] leading-tight mt-0.5">
+              <p className="text-[10px] text-[var(--color-muted)] leading-tight mt-0.5">
                 Share this PIN with passenger for claim verification.
               </p>
             </div>
           ) : (
             <div className="flex-1 flex flex-col justify-center border border-[var(--color-border)] rounded-xl bg-[var(--color-surface-2)] px-3.5 py-2 shadow-sm">
-              <span className="text-[9.5px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Receipt Ref</span>
+              <span className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Receipt Ref</span>
               <span className="text-[12px] font-mono font-semibold text-[var(--color-foreground)] truncate mt-0.5">{s.tx.id}</span>
-              <p className="text-[9.5px] text-[var(--color-muted)] leading-tight mt-0.5">
+              <p className="text-[10px] text-[var(--color-muted)] leading-tight mt-0.5">
                 Scannable baggage barcode generated.
               </p>
             </div>
@@ -716,7 +716,7 @@ export const ExcessBaggageForm = ({
           )}
           {linkedAsOfficeWork && detectedOfficeClient && (
             <div className="p-2 rounded border border-[rgba(139,92,246,0.4)] bg-[rgba(139,92,246,0.08)] flex items-center gap-2">
-              <span className="text-[9px] font-bold font-mono text-[#a78bfa] uppercase tracking-wider">OFFICE WORK</span>
+              <span className="text-[9px] font-bold font-mono text-[var(--color-purple-fg)] uppercase tracking-wider">OFFICE WORK</span>
               <span className="text-[10px] font-mono text-[var(--color-muted)] flex-1">{detectedOfficeClient.company_name}</span>
               <button type="button" onClick={() => { setLinkedAsOfficeWork(false); setAmountOverride(''); wasLinkedRef.current = false; }} className="text-[9px] font-mono text-[var(--color-muted)] hover:text-[var(--color-error)]">
                 unlink

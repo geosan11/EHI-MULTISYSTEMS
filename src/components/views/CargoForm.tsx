@@ -1897,7 +1897,7 @@ export const CargoForm = ({
               size={18}
               className="text-[var(--color-success)] shrink-0"
             />
-            <span className="text-[12.5px] font-bold text-[var(--color-success)] tracking-wide">
+            <span className="text-[13px] font-bold text-[var(--color-success)] tracking-wide">
               {successTx.mode === "Debt"
                 ? successTx.clientType === "Corporate"
                   ? "B2B Invoice Saved!"
@@ -2305,7 +2305,7 @@ export const CargoForm = ({
                   )}
                   {linkedAsOfficeWork && detectedOfficeClient && (
                     <div className="mt-2 p-2 rounded border border-[rgba(139,92,246,0.4)] bg-[rgba(139,92,246,0.08)] flex items-center gap-2">
-                      <span className="text-[9px] font-bold font-mono text-[#a78bfa] uppercase tracking-wider">OFFICE WORK</span>
+                      <span className="text-[9px] font-bold font-mono text-[var(--color-purple-fg)] uppercase tracking-wider">OFFICE WORK</span>
                       <span className="text-[10px] font-mono text-[var(--color-muted)] flex-1">{detectedOfficeClient.company_name}</span>
                       <button type="button" onClick={() => { setLinkedAsOfficeWork(false); setAmount(''); wasLinkedRef.current = false; }} className="text-[9px] font-mono text-[var(--color-muted)] hover:text-[var(--color-error)]">
                         unlink

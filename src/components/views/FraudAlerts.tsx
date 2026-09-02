@@ -521,24 +521,24 @@ export const FraudAlerts = ({
             >
               <div className="space-y-1.5 flex-1">
                 <div className="flex items-center space-x-2">
-                  <span className={`text-[8.5px] uppercase font-bold px-2 py-0.5 rounded-md ${
+                  <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-md ${
                     alert.severity === 'critical' ? 'bg-red-500/15 text-red-400' :
                     alert.severity === 'high' ? 'bg-amber-500/15 text-amber-400' :
                     'bg-[var(--color-surface-2)] text-[var(--color-muted)]'
                   }`}>
                     {alert.severity} Risk
                   </span>
-                  <span className="text-[8.5px] font-mono text-slate-500">{alert.time} &middot; ID: {alert.id}</span>
+                  <span className="text-[9px] font-mono text-slate-500">{alert.time} &middot; ID: {alert.id}</span>
                 </div>
 
                 <div className="space-y-0.5">
                   <h4 className="text-[13px] font-bold text-[var(--color-foreground)] block">{alert.title}</h4>
-                  <p className="text-[11.5px] text-slate-400 leading-relaxed font-mono">{alert.description}</p>
+                  <p className="text-[12px] text-slate-400 leading-relaxed font-mono">{alert.description}</p>
                 </div>
 
                 {alert.reviewed && alert.resolution && (
                   <div className="p-2.5 bg-black/30 rounded border border-[rgba(16,185,129,0.1)] text-[10px] text-[var(--color-success)] font-mono mt-2">
-                    <span className="font-bold uppercase text-[8.5px] block mb-0.5">AUDITED RESOLUTION CHECK:</span>
+                    <span className="font-bold uppercase text-[9px] block mb-0.5">AUDITED RESOLUTION CHECK:</span>
                     {alert.resolution}
                   </div>
                 )}

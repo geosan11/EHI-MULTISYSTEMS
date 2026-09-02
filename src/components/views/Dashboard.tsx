@@ -318,10 +318,10 @@ export const Dashboard = ({
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-[10px] font-mono uppercase tracking-wide" style={{ color: "#FFBD59" }}>
+                  <div className="text-[10px] font-mono uppercase tracking-wide" style={{ color: "var(--color-accent-amber)" }}>
                     Gross Today
                   </div>
-                  <div className="text-[28px] font-bold font-mono leading-tight" style={{ color: "#FFBD59" }}>
+                  <div className="text-[28px] font-bold font-mono leading-tight" style={{ color: "var(--color-accent-amber)" }}>
                     {fmt(grossTotal)}
                   </div>
                 </div>
@@ -377,7 +377,7 @@ export const Dashboard = ({
             {showPackage && (
               <ScoreCard
                 label="Package Desk" icon={Package2}
-                color="#8b5cf6"
+                color="var(--color-purple)"
                 bg="rgba(139,92,246,0.07)" borderColor="rgba(139,92,246,0.22)"
                 total={packageTotal}
                 sub1={`${packageTx.length} ${packageTx.length === 1 ? "entry" : "entries"}`}

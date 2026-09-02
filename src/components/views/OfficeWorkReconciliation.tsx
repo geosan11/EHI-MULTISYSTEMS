@@ -284,7 +284,7 @@ export const OfficeWorkReconciliation = ({ user, onBack }: { user: User; onBack:
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-[12px] font-bold text-[var(--color-foreground)]">{c.consignee_name}</span>
-                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[rgba(139,92,246,0.12)] text-[#a78bfa] uppercase">{c.clientName}</span>
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[var(--color-purple-bg)] text-[var(--color-purple-fg)] uppercase">{c.clientName}</span>
                           <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[var(--color-surface-2)] text-[var(--color-muted)] uppercase">{c.type}</span>
                           <span className="text-[9px] font-mono text-[var(--color-muted)]">{c.receipt_mode}</span>
                         </div>
