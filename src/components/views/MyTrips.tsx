@@ -3,6 +3,7 @@ import { User, DriverTrip, TripPing } from '../../lib/types';
 import { uid, tnow } from '../../lib/helpers';
 import { db } from '../../lib/db';
 import { Truck, Plus, ChevronDown, ChevronUp, MapPin } from 'lucide-react';
+import { Button } from '../ui';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../lib/ToastContext';
 import { useHubRoutes } from '../../lib/hubRoutes';
@@ -19,16 +20,20 @@ const TripCard: React.FC<TripCardProps> = ({
   trip, expandedTrip, onToggle, onComplete, onCancel
 }) => {
   const isExpanded = expandedTrip === trip.id;
-  const statusColor =
-    trip.status === 'Active' ? 'var(--color-accent-amber)' :
-    trip.status === 'Completed' ? 'var(--color-success)' : 'var(--color-error)';
+  // trip.status -> semantic tone. (Was a bare `var(--color-*)` string that
+  // got string-concatenated with alpha hex -- `${statusColor}18` produced
+  // the invalid value `var(--color-accent-amber)18`, so the status chip's
+  // background and border silently never rendered.)
+  const tone =
+    trip.status === 'Active' ? 'amber' :
+    trip.status === 'Completed' ? 'success' : 'error';
 
   const timeAgo = trip.lastPingAt ? Math.floor((Date.now() - new Date(trip.lastPingAt).getTime()) / 60000) : null;
 
   return (
     <div
       className="ehi-card overflow-hidden mb-3"
-      style={{ borderLeft: `3px solid ${statusColor}` }}
+      style={{ borderLeft: `3px solid var(--color-${tone}-fg)` }}
     >
       {/* Card header */}
       <div
@@ -36,7 +41,7 @@ const TripCard: React.FC<TripCardProps> = ({
         onClick={() => onToggle(trip.id)}
       >
         <div className="flex items-center gap-3">
-          <Truck size={18} style={{ color: statusColor }} />
+          <Truck size={18} style={{ color: `var(--color-${tone}-fg)` }} />
           <div>
             <div className="text-[13px] font-bold text-[var(--color-foreground)]">
               {trip.vehiclePlate}
@@ -48,11 +53,11 @@ const TripCard: React.FC<TripCardProps> = ({
         </div>
         <div className="flex items-center gap-3">
           <span
-            className="text-[9px] font-mono font-bold px-2 py-1 rounded"
+            className="text-[9px] font-mono font-bold px-2 py-1 rounded border"
             style={{
-              background: `${statusColor}18`,
-              color: statusColor,
-              border: `1px solid ${statusColor}40`,
+              background: `var(--color-${tone}-bg)`,
+              color: `var(--color-${tone}-fg)`,
+              borderColor: `var(--color-${tone}-border)`,
             }}
           >
             {trip.status.toUpperCase()}
@@ -72,7 +77,7 @@ const TripCard: React.FC<TripCardProps> = ({
 
       {/* Expanded details */}
       {isExpanded && (
-        <div className="px-4 pb-4 space-y-3 border-t border-[rgba(255,255,255,0.06)]">
+        <div className="px-4 pb-4 space-y-3 border-t border-[var(--color-border)]">
           <div className="grid grid-cols-2 gap-3 pt-3">
             <div>
               <div className="text-[8px] font-mono text-[var(--color-muted)] uppercase tracking-wider">
@@ -107,12 +112,7 @@ const TripCard: React.FC<TripCardProps> = ({
                 {trip.cargoRefs.map(ref => (
                   <span
                     key={ref}
-                    className="text-[9px] font-mono px-2 py-0.5 rounded"
-                    style={{
-                      background: 'rgba(245,158,11,0.1)',
-                      color: 'var(--color-accent-amber)',
-                      border: '1px solid rgba(245,158,11,0.2)',
-                    }}
+                    className="text-[9px] font-mono px-2 py-0.5 rounded border bg-[var(--color-amber-bg)] border-[var(--color-amber-border)] text-[var(--color-amber-fg)]"
                   >
                     {ref}
                   </span>
@@ -137,23 +137,13 @@ const TripCard: React.FC<TripCardProps> = ({
             <div className="flex gap-2 pt-1">
               <button
                 onClick={() => onComplete(trip.id)}
-                className="flex-1 py-2 rounded text-[11px] font-bold font-mono cursor-pointer"
-                style={{
-                  background: 'rgba(16,185,129,0.1)',
-                  border: '1px solid rgba(16,185,129,0.3)',
-                  color: 'var(--color-success)',
-                }}
+                className="flex-1 py-2 rounded text-[11px] font-bold font-mono cursor-pointer border bg-[var(--color-success-bg)] border-[var(--color-success-border)] text-[var(--color-success-fg)]"
               >
                 ✓ MARK ARRIVED
               </button>
               <button
                 onClick={() => onCancel(trip.id)}
-                className="flex-1 py-2 rounded text-[11px] font-mono cursor-pointer"
-                style={{
-                  background: 'rgba(239,68,68,0.05)',
-                  border: '1px solid rgba(239,68,68,0.2)',
-                  color: 'var(--color-error)',
-                }}
+                className="flex-1 py-2 rounded text-[11px] font-mono cursor-pointer border bg-[var(--color-error-bg)] border-[var(--color-error-border)] text-[var(--color-error-fg)]"
               >
                 CANCEL
               </button>
@@ -425,14 +415,9 @@ export const MyTrips = ({ user }: { user: User }) => {
         </div>
         <button
           onClick={() => setShowNewTripForm(!showNewTripForm)}
-          className="flex items-center gap-1.5 px-3 py-2 rounded text-[11px] font-bold font-mono cursor-pointer"
-          style={{
-            background: showNewTripForm
-              ? 'rgba(245,158,11,0.15)'
-              : 'var(--color-surface-1)',
-            border: '1px solid rgba(245,158,11,0.3)',
-            color: 'var(--color-accent-amber)',
-          }}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded text-[11px] font-bold font-mono cursor-pointer border border-[var(--color-amber-border)] text-[var(--color-accent-amber)] ${
+            showNewTripForm ? 'bg-[var(--color-amber-bg)]' : 'bg-[var(--color-surface-1)]'
+          }`}
         >
           <Plus size={13} />
           NEW TRIP
@@ -441,10 +426,7 @@ export const MyTrips = ({ user }: { user: User }) => {
 
       {/* New trip form */}
       {showNewTripForm && (
-        <div
-          className="bg-[var(--color-surface-1)] rounded-xl p-4 space-y-3 border"
-          style={{ borderColor: 'rgba(245,158,11,0.2)' }}
-        >
+        <div className="bg-[var(--color-surface-1)] rounded-xl p-4 space-y-3 border border-[var(--color-amber-border)]">
           <div className="text-[9px] font-mono text-[var(--color-accent-amber)] uppercase tracking-widest mb-2">
             ▸ LOG NEW TRIP
           </div>
@@ -493,7 +475,7 @@ export const MyTrips = ({ user }: { user: User }) => {
             className="w-full h-10 px-3 text-[12px] rounded bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-foreground)] focus:outline-none"
           />
 
-          <div className="flex items-start gap-2 bg-[rgba(255,255,255,0.02)] p-3 rounded">
+          <div className="flex items-start gap-2 bg-[var(--color-surface-2)] p-3 rounded">
             <input 
               type="checkbox" 
               checked={gpsEnabled} 
@@ -508,36 +490,25 @@ export const MyTrips = ({ user }: { user: User }) => {
           </div>
 
           <div className="flex gap-2">
-            <button
-              onClick={() => setShowNewTripForm(false)}
-              className="flex-1 py-2.5 rounded text-[11px] font-mono cursor-pointer"
-              style={{
-                background: 'var(--color-surface-2)',
-                border: '1px solid var(--color-border)',
-                color: 'var(--color-muted)',
-              }}
-            >
+            <Button variant="secondary" size="md" className="flex-1" onClick={() => setShowNewTripForm(false)}>
               CANCEL
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              className="flex-1"
               onClick={handleStartTrip}
               disabled={!vehiclePlate.trim()}
-              className="flex-1 py-2.5 rounded text-[11px] font-bold font-mono cursor-pointer disabled:opacity-50"
-              style={{
-                background: 'var(--color-accent-amber)',
-                border: 'none',
-                color: '#0B0F19',
-              }}
             >
               START TRIP
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
       {/* Stats row */}
       <div className="flex gap-3">
-        <div className="flex-1 bg-[rgba(245,158,11,0.07)] border border-[rgba(245,158,11,0.2)] rounded-lg p-3 text-center">
+        <div className="flex-1 bg-[var(--color-amber-bg)] border border-[var(--color-amber-border)] rounded-lg p-3 text-center">
           <div className="text-[22px] font-bold font-mono text-[var(--color-accent-amber)]">
             {activeTrips.length}
           </div>
@@ -545,7 +516,7 @@ export const MyTrips = ({ user }: { user: User }) => {
             Active
           </div>
         </div>
-        <div className="flex-1 bg-[rgba(16,185,129,0.07)] border border-[rgba(16,185,129,0.2)] rounded-lg p-3 text-center">
+        <div className="flex-1 bg-[var(--color-success-bg)] border border-[var(--color-success-border)] rounded-lg p-3 text-center">
           <div className="text-[22px] font-bold font-mono text-[var(--color-success)]">
             {completedTrips.filter(t => t.status === 'Completed').length}
           </div>
