@@ -300,11 +300,11 @@ export const PaymentValidation: React.FC<PaymentValidationProps> = ({ transactio
               value={emailText}
               onChange={(e) => setEmailText(e.target.value)}
             />
-            {errorMsg && <div className="text-red-400 text-[11px] mb-3">{errorMsg}</div>}
+            {errorMsg && <div className="text-[var(--color-error-fg)] text-[11px] mb-3">{errorMsg}</div>}
             <button
               onClick={handleParseAndMatch}
               disabled={parsing || !emailText.trim()}
-              className="w-full bg-[var(--color-accent-amber)] hover:bg-[var(--color-accent-amber-hover)] text-white text-[12px] font-bold py-2 rounded shadow-sm disabled:opacity-50 transition-colors"
+              className="w-full bg-[var(--color-accent-amber)] hover:bg-[var(--color-accent-amber-hover)] text-[var(--color-on-accent)] text-[12px] font-bold py-2 rounded shadow-sm disabled:opacity-50 transition-colors"
             >
               {parsing ? 'PARSING...' : 'PARSE & MATCH'}
             </button>
@@ -362,7 +362,7 @@ export const PaymentValidation: React.FC<PaymentValidationProps> = ({ transactio
                 <button
                   onClick={() => confirmMatch(matchResult.transaction, matchResult.alert)}
                   disabled={confirming}
-                  className="flex-1 bg-green-600 hover:bg-green-500 text-white text-[12px] font-bold py-2 rounded transition-colors flex justify-center items-center disabled:opacity-50"
+                  className="flex-1 bg-[var(--color-success)] hover:opacity-90 text-[var(--color-on-accent)] text-[12px] font-bold py-2 rounded transition-opacity flex justify-center items-center disabled:opacity-50"
                 >
                   <CheckCircle size={14} className="mr-2" /> {confirming ? 'CONFIRMING...' : 'CONFIRM THIS MATCH'}
                 </button>
@@ -396,7 +396,7 @@ export const PaymentValidation: React.FC<PaymentValidationProps> = ({ transactio
           <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-4 shadow-md">
             <h3 className="text-[13px] font-bold text-[var(--color-foreground)] mb-3 flex justify-between items-center">
               <span className="flex items-center"><CheckCircle size={14} className="mr-2 text-green-500" /> RECENTLY CONFIRMED</span>
-              <span className="bg-green-500/20 text-green-500 text-[10px] px-2 py-0.5 rounded-full">{recentlyConfirmed.length} TODAY</span>
+              <span className="bg-[var(--color-success-bg)] text-[var(--color-success-fg)] text-[10px] px-2 py-0.5 rounded-full">{recentlyConfirmed.length} TODAY</span>
             </h3>
             <div className="space-y-2 max-h-40 overflow-y-auto">
               {recentlyConfirmed.length === 0 ? (

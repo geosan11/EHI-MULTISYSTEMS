@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { User, Transaction } from '../../lib/types';
 import { fmt, roundMoney } from '../../lib/helpers';
-import { CreditCard, Building2, Users, Search, ArrowDownLeft, ArrowUpRight, TrendingDown, TrendingUp, Building, UserSquare2, Loader, FileDown } from 'lucide-react';
+import { CreditCard, Building2, Users, Search, ArrowDownLeft, ArrowUpRight, TrendingDown, TrendingUp, Building, UserSquare2, FileDown } from 'lucide-react';
+import { Spinner } from '../ui';
 import { BackButton } from '../BackButton';
 import { supabase, fetchAllRows } from '../../lib/supabase';
 import { normalizeAirlineName } from '../../lib/helpers';
@@ -239,12 +240,12 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
   };
 
   return (
-    <main className="flex-1 flex flex-col h-full bg-[var(--color-bg)] overflow-hidden">
+    <main className="flex-1 flex flex-col h-full bg-[var(--color-canvas)] overflow-hidden">
       {/* Header */}
       <div className="bg-[var(--color-surface-card)] border-b border-[var(--color-border)] p-4 flex flex-col">
         {onBack && <BackButton onClick={onBack} label="Back to Menu" className="mb-3" />}
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[rgba(245,158,11,0.1)] rounded-lg">
+          <div className="p-2 bg-[var(--color-amber-bg)] rounded-lg">
             <CreditCard size={20} strokeWidth={1.5} className="text-[var(--color-accent-amber)]" />
           </div>
           <div>
@@ -253,11 +254,11 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
           </div>
         </div>
 
-        <div className="flex bg-[var(--color-obsidian)] border border-[var(--color-border)] p-1 rounded-lg mt-5 mb-2 w-full">
+        <div className="flex bg-[var(--color-surface-sunken)] border border-[var(--color-border)] p-1 rounded-lg mt-5 mb-2 w-full">
           <button
             onClick={() => setActiveTab('debts')}
             className={`flex-1 py-2.5 text-[11px] font-bold font-mono uppercase tracking-wider rounded transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'debts' ? 'bg-[var(--color-surface-2)] text-[var(--color-accent-amber)] shadow-sm border border-[rgba(245,158,11,0.2)]' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+              activeTab === 'debts' ? 'bg-[var(--color-surface-2)] text-[var(--color-accent-amber)] shadow-sm border border-[var(--color-amber-border)]' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
             }`}
           >
             <ArrowDownLeft size={14} strokeWidth={2} /> Receivables
@@ -265,7 +266,7 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
           <button
             onClick={() => setActiveTab('credits')}
             className={`flex-1 py-2.5 text-[11px] font-bold font-mono uppercase tracking-wider rounded transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'credits' ? 'bg-[var(--color-surface-2)] text-[var(--color-success)] shadow-sm border border-[rgba(16,185,129,0.2)]' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+              activeTab === 'credits' ? 'bg-[var(--color-surface-2)] text-[var(--color-success)] shadow-sm border border-[var(--color-success-border)]' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
             }`}
           >
             <ArrowUpRight size={14} strokeWidth={2} /> Payables
@@ -297,7 +298,7 @@ export const CreditDebit = ({ user, transactions: _propTransactions, onBack }: {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {loading ? (
           <div className="flex items-center justify-center py-10 text-[var(--color-muted)] gap-2">
-            <Loader size={16} className="animate-spin" />
+            <Spinner size="sm" tone="muted" />
             <span className="text-[12px] font-mono">Loading ledger...</span>
           </div>
         ) : fetchError ? (

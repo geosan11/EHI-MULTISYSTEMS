@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { User, Transaction, Expense } from '../../lib/types';
 import { fmt, tnow, getShiftBoundary, formatShiftLabel, lagosBusinessDate } from '../../lib/helpers';
 import { Check, AlertTriangle, Printer, Lock, ChevronRight } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { PageHeader } from '../ui';
 import { LoadingState } from './LoadingState';
 import { supabase, writeAuditLog } from '../../lib/supabase';
 import { useToast } from '../../lib/ToastContext';
@@ -786,10 +786,10 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
       </div>
 
       {showLockConfirm && createPortal(
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 ehi-scrim flex items-center justify-center p-4 z-50">
           <div className="ehi-card max-w-xs w-full p-5 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-[rgba(239,68,68,0.15)] flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-full bg-[var(--color-error-bg)] flex items-center justify-center shrink-0">
                 <Lock size={18} className="text-[var(--color-error)]" />
               </div>
               <div>
@@ -797,7 +797,7 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
                 <p className="text-[11px] text-[var(--color-muted)] mt-0.5">This cannot be undone. All entries will be frozen.</p>
               </div>
             </div>
-            <div className="bg-[rgba(239,68,68,0.05)] border border-[rgba(239,68,68,0.2)] rounded-lg p-3">
+            <div className="bg-[var(--color-error-bg)] border border-[var(--color-error-border)] rounded-lg p-3">
               <p className="text-[11px] font-mono text-[var(--color-muted)]">Net cash to remit: <span className="text-[var(--color-foreground)] font-bold">{fmt(Number(countedCash))}</span></p>
               <p className="text-[11px] font-mono text-[var(--color-muted)] mt-1">Hub: <span className="text-[var(--color-foreground)]">{user.hub}</span></p>
               <p className="text-[11px] font-mono text-[var(--color-muted)] mt-1">Agent: <span className="text-[var(--color-foreground)]">{user.name}</span></p>
@@ -811,7 +811,7 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
               </button>
               <button
                 onClick={() => { setShowLockConfirm(false); handleLockEOD(); }}
-                className="flex-1 h-11 bg-[var(--color-error)] text-white rounded-lg text-[12px] font-bold hover:bg-red-700 transition-colors"
+                className="flex-1 h-11 bg-[var(--color-error)] text-[var(--color-on-accent-inverse)] rounded-lg text-[12px] font-bold hover:opacity-90 transition-opacity"
               >
                 Yes, Lock EOD
               </button>
@@ -826,19 +826,14 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
   const stepNames = ['Review', 'Count', 'Reconcile', 'Remit'];
 
   return (
-    <div className="flex flex-col h-full bg-[var(--color-obsidian)] overflow-y-auto">
+    <div className="flex flex-col h-full bg-[var(--color-canvas)] overflow-y-auto">
       {alreadyLocked && (
-        <div className="mx-4 mt-4 p-3 bg-[rgba(245,158,11,0.08)] border border-[rgba(245,158,11,0.3)] rounded-lg text-[12px] font-mono text-[var(--color-accent-amber)] flex items-center gap-2">
+        <div className="mx-4 mt-4 p-3 bg-[var(--color-amber-bg)] border border-[var(--color-amber-border)] rounded-lg text-[12px] font-mono text-[var(--color-accent-amber)] flex items-center gap-2">
           <span>⚠</span>
           <span>Today's EOD was already closed by <strong>{alreadyLocked.closed_by}</strong>. Locking again will be blocked -- contact them if these totals need correcting.</span>
         </div>
       )}
-      {/* Sticky header */}
-      <div className="ehi-view-header">
-        <BackButton onClick={onBack} label="Back" />
-        <span className="text-[10px] font-mono text-[var(--color-accent-amber)] tracking-widest font-bold">● EOD RECONCILIATION</span>
-        <div className="w-16" />
-      </div>
+      <PageHeader title="EOD Reconciliation" onBack={onBack} />
 
       {/* Constrained content */}
       <div className="ehi-page-body px-4 py-4 pb-24 relative text-[var(--color-foreground)] animate-in slide-in-from-right">
@@ -849,8 +844,8 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
       <div className="flex items-center justify-between mb-8 relative">
         <div className="absolute left-0 right-0 top-1/2 h-[1px] bg-[var(--color-surface-2)] -z-10" />
         {[1, 2, 3, 4].map(s => (
-          <div key={s} className="flex flex-col items-center bg-[var(--color-obsidian)] px-2">
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold font-mono border ${s === step ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] border-[var(--color-accent-amber)]' : s < step ? 'bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] border-[var(--color-accent-amber)]' : 'bg-[var(--color-surface-card)] text-[var(--color-muted)] border-[var(--color-surface-2)]'}`}>
+          <div key={s} className="flex flex-col items-center bg-[var(--color-canvas)] px-2">
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold font-mono border ${s === step ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] border-[var(--color-accent-amber)]' : s < step ? 'bg-[var(--color-amber-bg)] text-[var(--color-accent-amber)] border-[var(--color-accent-amber)]' : 'bg-[var(--color-surface-card)] text-[var(--color-muted)] border-[var(--color-surface-2)]'}`}>
               {s < step ? <Check size={12} /> : s}
             </div>
             <span className={`text-[9px] font-mono mt-1 ${s === step ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-muted)]'}`}>{stepNames[s-1]}</span>
