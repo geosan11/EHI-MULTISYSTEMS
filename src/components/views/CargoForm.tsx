@@ -1,5 +1,6 @@
 import { CARGO_ROUTES } from "../../lib/constants";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Button } from "../ui";
 import { createPortal } from "react-dom";
 import { Transaction, User, Expense, CustomerWallet } from "../../lib/types";
 import { fmt, roundMoney, tnow, generatePickupPin, normalizeAirlineName, airlineNamesLooselyMatch, getHubCode, upperOnChange, isStandalonePWA, formatPaymentModeDisplay, lagosBusinessDate } from "../../lib/helpers";
@@ -595,6 +596,16 @@ export const CargoForm = ({
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showSalesAnalysis, setShowSalesAnalysis] = useState(false);
   const [closingDay, setClosingDay] = useState(false);
+
+  // Esc closes the period-close modal (unless a close is already running).
+  useEffect(() => {
+    if (!showCloseModal) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !closingDay) setShowCloseModal(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showCloseModal, closingDay]);
   const [periodStart, setPeriodStart] = useState<string>('');
   const [periodEnd, setPeriodEnd] = useState<string>('');
   const [lastCloseEnd, setLastCloseEnd] = useState<string | null>(null);
@@ -2148,7 +2159,7 @@ export const CargoForm = ({
         >
           <Users size={16} /> Office Work (B2B)
           {pendingIntakes.length > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-600 text-white font-mono text-[10px] w-5 h-5 rounded-full flex items-center justify-center border-2 border-[var(--color-obsidian)] font-bold">
+            <span className="absolute -top-1 -right-1 bg-[var(--color-error)] text-[var(--color-on-accent-inverse)] font-mono text-[10px] w-5 h-5 rounded-full flex items-center justify-center border-2 border-[var(--color-obsidian)] font-bold">
               {pendingIntakes.length}
             </span>
           )}
@@ -2866,7 +2877,7 @@ export const CargoForm = ({
             >
               <Scale size={14} /> Phase 2: Yard Gate Weigh Scale
               {pendingIntakes.length > 0 && (
-                <span className="bg-red-600 text-white font-bold text-[10px] px-1.5 py-0.5 rounded-full">
+                <span className="bg-[var(--color-error)] text-[var(--color-on-accent-inverse)] font-bold text-[10px] px-1.5 py-0.5 rounded-full">
                   {pendingIntakes.length} pending
                 </span>
               )}
@@ -3070,7 +3081,7 @@ export const CargoForm = ({
                                 e.stopPropagation();
                                 handleDeletePendingIntake(pi);
                               }}
-                              className="text-red-500/60 hover:text-red-500 transition-colors p-1"
+                              className="text-[var(--color-error-fg)]/60 hover:text-[var(--color-error-fg)] transition-colors p-1"
                               title="Delete pending intake"
                             >
                               <Trash2 size={13} />
@@ -3218,7 +3229,7 @@ export const CargoForm = ({
                                   e.stopPropagation();
                                   handleDeletePendingIntake(pi);
                                 }}
-                                className="text-red-500/60 hover:text-red-500 transition-colors p-1"
+                                className="text-[var(--color-error-fg)]/60 hover:text-[var(--color-error-fg)] transition-colors p-1"
                                 title="Delete pending intake"
                               >
                                 <Trash2 size={14} />
@@ -3440,7 +3451,7 @@ export const CargoForm = ({
       )}
 
       {showCloseModal && createPortal(
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center sm:p-4">
+        <div className="fixed inset-0 ehi-scrim z-[9999] flex items-center justify-center sm:p-4">
           <div className="bg-[var(--color-obsidian)] border-0 sm:border border-[var(--color-border)] rounded-none sm:rounded-xl w-full h-full sm:h-auto sm:max-w-lg sm:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-[var(--color-border)] bg-[var(--color-surface-card)] shrink-0">
@@ -3481,16 +3492,16 @@ export const CargoForm = ({
                   <div className="space-y-1.5 text-[13px] font-mono pt-1 mb-4">
                     <div className="flex justify-between"><span className="text-[var(--color-muted)]">Total Sales</span><span className="font-bold text-[var(--color-foreground)]">{fmt(closeTotalSales)}</span></div>
                     <div className="flex justify-between"><span className="text-[var(--color-muted)]">Cash Sales</span><span className="text-[var(--color-foreground)]">{fmt(closeCashSales)}</span></div>
-                    {closeDebtCashRecoveredToday > 0 && <div className="flex justify-between text-emerald-400"><span>Debt Recovered (Cash)</span><span>+ {fmt(closeDebtCashRecoveredToday)}</span></div>}
+                    {closeDebtCashRecoveredToday > 0 && <div className="flex justify-between text-[var(--color-success-fg)]"><span>Debt Recovered (Cash)</span><span>+ {fmt(closeDebtCashRecoveredToday)}</span></div>}
                     <div className="flex justify-between"><span className="text-[var(--color-muted)]">POS</span><span className="text-[var(--color-foreground)]">{fmt(closePosSales)}</span></div>
                     <div className="flex justify-between"><span className="text-[var(--color-muted)]">Bank Transfer</span><span className="text-[var(--color-foreground)]">{fmt(closeTransferSales)}</span></div>
-                    {closeDebtSales > 0 && <div className="flex justify-between border-t border-[var(--color-border)] pt-1 mt-1"><span className="text-orange-400 font-sans">Unpaid Credit Sales (Owed)</span><span className="text-orange-400 font-bold">{fmt(closeDebtSales)}</span></div>}
-                    {closeDebtTotalRecoveredToday > 0 && <div className="flex justify-between"><span className="text-emerald-400 font-sans">Debt Collected Today</span><span className="text-emerald-400 font-bold">{fmt(closeDebtTotalRecoveredToday)}</span></div>}
+                    {closeDebtSales > 0 && <div className="flex justify-between border-t border-[var(--color-border)] pt-1 mt-1"><span className="text-[var(--color-warning-fg)] font-sans">Unpaid Credit Sales (Owed)</span><span className="text-[var(--color-warning-fg)] font-bold">{fmt(closeDebtSales)}</span></div>}
+                    {closeDebtTotalRecoveredToday > 0 && <div className="flex justify-between"><span className="text-[var(--color-success-fg)] font-sans">Debt Collected Today</span><span className="text-[var(--color-success-fg)] font-bold">{fmt(closeDebtTotalRecoveredToday)}</span></div>}
                   </div>
                   <div className="bg-[rgba(245,158,11,0.1)] border border-[var(--color-accent-amber)] rounded-xl p-4">
                     <div className="flex justify-between items-center">
                       <span className="text-[14px] text-[var(--color-accent-amber)] font-bold font-mono">BAL. CASH</span>
-                      <span className={`text-[22px] font-bold font-mono ${closeBalanceCash >= 0 ? 'text-[var(--color-accent-amber)]' : 'text-red-400'}`}>{fmt(Math.abs(closeBalanceCash))}</span>
+                      <span className={`text-[22px] font-bold font-mono ${closeBalanceCash >= 0 ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-error-fg)]'}`}>{fmt(Math.abs(closeBalanceCash))}</span>
                     </div>
                     <div className="text-[11px] mt-1 text-[rgba(245,158,11,0.7)]">({fmt(closePhysicalCash)} cash-in-hand − {fmt(closeTotalExpenses)} expenses)</div>
                   </div>
@@ -3530,17 +3541,20 @@ export const CargoForm = ({
                     balanceCash: closeBalanceCash,
                   }));
                 }}
-                className="flex-1 h-11 rounded-lg bg-transparent border border-[rgba(245,158,11,0.4)] text-[var(--color-accent-amber)] text-[11px] font-mono font-bold hover:bg-[rgba(245,158,11,0.08)] transition-colors disabled:opacity-50 cursor-pointer"
+                className="flex-1 h-11 rounded-lg bg-transparent border border-[var(--color-amber-border)] text-[var(--color-accent-amber)] text-[11px] font-mono font-bold hover:bg-[var(--color-amber-bg)] transition-colors disabled:opacity-50 cursor-pointer"
               >
                 DOWNLOAD SUMMARY PDF
               </button>
-              <button
+              <Button
+                variant="primary"
+                className="flex-1"
                 onClick={handleCloseDay}
-                disabled={closingDay || closeSummaryLoading}
-                className="flex-1 h-11 rounded-lg bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[11px] font-mono font-bold hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
+                disabled={closeSummaryLoading}
+                loading={closingDay}
+                loadingLabel="CLOSING…"
               >
-                {closingDay ? 'CLOSING…' : 'CONFIRM & CLOSE PERIOD'}
-              </button>
+                CONFIRM &amp; CLOSE PERIOD
+              </Button>
             </div>
           </div>
         </div>,
