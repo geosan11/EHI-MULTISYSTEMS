@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Tag, Plus, Trash2, Loader, Power, Sparkles, Layers, Ruler, Pencil } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { Tag, Plus, Trash2, Power, Sparkles, Layers, Ruler, Pencil } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
+import { Badge, Button, PageHeader, Spinner, TextField } from '../ui';
 
 interface ContentType {
   id: string;
@@ -137,18 +137,11 @@ export const ContentTypes = ({ onBack, onManageRates }: { onBack: () => void; on
   };
 
   return (
-    <main className="flex flex-col h-full bg-[var(--color-obsidian)] overflow-y-auto">
-      <div className="ehi-view-header">
-        <BackButton onClick={onBack} />
-        <div className="text-center">
-          <div className="text-[12px] font-bold text-[var(--color-foreground)]">Content Types</div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">Synced across all devices</div>
-        </div>
-        <div className="w-8" />
-      </div>
+    <main className="flex flex-col h-full bg-[var(--color-canvas)] overflow-y-auto">
+      <PageHeader title="Content Types" subtitle="Synced across all devices" onBack={onBack} />
 
       <div className="ehi-page-body px-4 pt-4 pb-6 space-y-3">
-        <div className="bg-[rgba(59,130,246,0.08)] border border-[rgba(59,130,246,0.2)] rounded-xl p-3">
+        <div className="bg-[var(--color-info-bg)] border border-[var(--color-info-border)] rounded-xl p-3">
           <p className="text-[11px] text-[var(--color-accent-cobalt)] font-sans leading-relaxed">
             These are the cargo/package content categories staff pick from at intake. Deactivating one hides
             it from new entries without touching existing ones. "Other" always stays available for a
@@ -158,29 +151,28 @@ export const ContentTypes = ({ onBack, onManageRates }: { onBack: () => void; on
 
         {loading ? (
           <div className="flex justify-center py-12">
-            <Loader size={20} className="animate-spin text-[var(--color-accent-amber)]" />
+            <Spinner size="lg" />
           </div>
         ) : (
           <>
             <div className="ehi-card p-4 space-y-3">
               <div className="text-[11px] font-bold text-[var(--color-muted)] uppercase tracking-widest">Add Content Type</div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
+              <div className="flex items-end gap-2">
+                <TextField
+                  containerClassName="flex-1"
                   placeholder="e.g. Auto Parts"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-                  className="flex-1 ehi-input"
                 />
-                <button
+                <Button
+                  variant="primary"
+                  iconLeft={Plus}
                   onClick={handleAdd}
-                  disabled={!newName.trim() || adding}
+                  loading={adding}
+                  disabled={!newName.trim()}
                   aria-label="Add content type"
-                  className="px-3 h-10 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg font-bold disabled:opacity-40 hover:opacity-90 transition-opacity"
-                >
-                  <Plus size={15} />
-                </button>
+                />
               </div>
             </div>
 
@@ -191,7 +183,7 @@ export const ContentTypes = ({ onBack, onManageRates }: { onBack: () => void; on
                     <button
                       onClick={() => handleDelete(t)}
                       aria-label={`Remove ${t.name}`}
-                      className="p-1.5 bg-[rgba(239,68,68,0.08)] hover:bg-[rgba(239,68,68,0.18)] rounded-lg text-[var(--color-error)] transition-colors shrink-0"
+                      className="p-1.5 bg-[var(--color-error-bg)] hover:bg-[var(--color-error-border)] rounded-lg text-[var(--color-error-fg)] transition-colors shrink-0"
                     >
                       <Trash2 size={13} strokeWidth={1.5} />
                     </button>
@@ -233,22 +225,22 @@ export const ContentTypes = ({ onBack, onManageRates }: { onBack: () => void; on
                     <button
                       onClick={() => handleToggleActive(t)}
                       aria-label={t.active ? `Deactivate ${t.name}` : `Activate ${t.name}`}
-                      className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold shrink-0 transition-colors ${
-                        t.active
-                          ? 'bg-[rgba(34,197,94,0.1)] text-[var(--color-success)]'
-                          : 'bg-[var(--color-surface-2)] text-[var(--color-muted)]'
-                      }`}
+                      className="shrink-0 rounded-full cursor-pointer"
                     >
-                      <Power size={11} /> {t.active ? 'Active' : 'Inactive'}
+                      <Badge tone={t.active ? 'success' : 'neutral'}>
+                        <Power size={10} /> {t.active ? 'Active' : 'Inactive'}
+                      </Badge>
                     </button>
                   </div>
                   <div className="flex items-center gap-2 pl-11">
+                    {/* Flag toggles -- longer "Mark X" labels than a status Badge
+                        wants, kept as plain tokenised pills. */}
                     <button
                       onClick={() => handleToggleSpecialGoods(t)}
                       aria-label={t.is_special_goods ? `Unflag ${t.name} as special goods` : `Flag ${t.name} as special goods`}
                       className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold shrink-0 transition-colors ${
                         t.is_special_goods
-                          ? 'bg-[rgba(245,158,11,0.12)] text-[var(--color-accent-amber)]'
+                          ? 'bg-[var(--color-amber-bg)] text-[var(--color-amber-fg)]'
                           : 'bg-[var(--color-surface-2)] text-[var(--color-muted)]'
                       }`}
                     >
@@ -259,7 +251,7 @@ export const ContentTypes = ({ onBack, onManageRates }: { onBack: () => void; on
                       aria-label={t.is_flat_tier ? `Unflag ${t.name} as flat tier` : `Flag ${t.name} as flat tier`}
                       className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold shrink-0 transition-colors ${
                         t.is_flat_tier
-                          ? 'bg-[rgba(59,130,246,0.12)] text-[var(--color-accent-cobalt)]'
+                          ? 'bg-[var(--color-info-bg)] text-[var(--color-info-fg)]'
                           : 'bg-[var(--color-surface-2)] text-[var(--color-muted)]'
                       }`}
                     >
@@ -270,7 +262,7 @@ export const ContentTypes = ({ onBack, onManageRates }: { onBack: () => void; on
                       aria-label={t.is_size_tier ? `Unflag ${t.name} as size tier` : `Flag ${t.name} as size tier`}
                       className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold shrink-0 transition-colors ${
                         t.is_size_tier
-                          ? 'bg-[rgba(59,130,246,0.12)] text-[var(--color-accent-cobalt)]'
+                          ? 'bg-[var(--color-info-bg)] text-[var(--color-info-fg)]'
                           : 'bg-[var(--color-surface-2)] text-[var(--color-muted)]'
                       }`}
                     >
@@ -292,7 +284,7 @@ export const ContentTypes = ({ onBack, onManageRates }: { onBack: () => void; on
                     // than one flag set here, whichever bracket an admin
                     // configures for a LOWER-priority flag is silently
                     // ignored with no indication anything's wrong.
-                    <div className="ml-11 px-2.5 py-1.5 rounded-lg bg-[rgba(245,158,11,0.08)] border border-[rgba(245,158,11,0.25)] text-[10px] font-mono text-[var(--color-accent-amber)] leading-relaxed">
+                    <div className="ml-11 px-2.5 py-1.5 rounded-lg bg-[var(--color-amber-bg)] border border-[var(--color-amber-border)] text-[10px] font-mono text-[var(--color-amber-fg)] leading-relaxed">
                       Multiple pricing modes flagged -- only {t.is_size_tier ? 'Size Tier' : t.is_flat_tier ? 'Flat Tier' : 'Special Goods'} rates actually apply to "{t.name}" (size beats flat beats special-goods/per-kg); the others are configured but silently ignored.
                     </div>
                   )}

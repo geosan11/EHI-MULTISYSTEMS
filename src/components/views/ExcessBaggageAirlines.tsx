@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Plane, Plus, Trash2, Loader, Power } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { Plane, Plus, Trash2, Power } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
 import { ExcessBaggageAirline } from '../../lib/types';
+import { Badge, Button, PageHeader, Spinner } from '../ui';
 
 export const ExcessBaggageAirlines = ({ onBack }: { onBack: () => void }) => {
   const [airlines, setAirlines] = useState<ExcessBaggageAirline[]>([]);
@@ -99,18 +99,11 @@ export const ExcessBaggageAirlines = ({ onBack }: { onBack: () => void }) => {
   };
 
   return (
-    <main className="flex flex-col h-full bg-[var(--color-obsidian)] overflow-y-auto">
-      <div className="ehi-view-header">
-        <BackButton onClick={onBack} />
-        <div className="text-center">
-          <div className="text-[12px] font-bold text-[var(--color-foreground)]">Excess Baggage Airlines</div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">Synced across all devices</div>
-        </div>
-        <div className="w-8" />
-      </div>
+    <main className="flex flex-col h-full bg-[var(--color-canvas)] overflow-y-auto">
+      <PageHeader title="Excess Baggage Airlines" subtitle="Synced across all devices" onBack={onBack} />
 
       <div className="ehi-page-body px-4 pt-4 pb-6 space-y-3">
-        <div className="bg-[rgba(59,130,246,0.08)] border border-[rgba(59,130,246,0.2)] rounded-xl p-3">
+        <div className="bg-[var(--color-info-bg)] border border-[var(--color-info-border)] rounded-xl p-3">
           <p className="text-[11px] text-[var(--color-accent-cobalt)] font-sans leading-relaxed">
             Every active airline here gets its own ticketing tab automatically -- no app update needed.
             Flight Prefix is shown before the flight number on the ticketing form (e.g. "VK"). Tag Code
@@ -121,7 +114,7 @@ export const ExcessBaggageAirlines = ({ onBack }: { onBack: () => void }) => {
 
         {loading ? (
           <div className="flex justify-center py-12">
-            <Loader size={20} className="animate-spin text-[var(--color-accent-amber)]" />
+            <Spinner size="lg" />
           </div>
         ) : (
           <>
@@ -172,13 +165,17 @@ export const ExcessBaggageAirlines = ({ onBack }: { onBack: () => void }) => {
                   />
                 </div>
               </div>
-              <button
+              <Button
+                variant="primary"
+                fullWidth
+                iconLeft={Plus}
                 onClick={handleAdd}
-                disabled={!newName.trim() || !newFlightPrefix.trim() || !newTagCode.trim() || adding}
-                className="w-full h-10 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg text-[12px] font-bold disabled:opacity-40 flex items-center justify-center gap-2"
+                loading={adding}
+                loadingLabel="Adding…"
+                disabled={!newName.trim() || !newFlightPrefix.trim() || !newTagCode.trim()}
               >
-                <Plus size={14} /> {adding ? 'Adding...' : 'Add Airline'}
-              </button>
+                Add Airline
+              </Button>
             </div>
 
             <div className="space-y-2">
@@ -188,7 +185,7 @@ export const ExcessBaggageAirlines = ({ onBack }: { onBack: () => void }) => {
                     <button
                       onClick={() => handleDelete(a)}
                       aria-label={`Remove ${a.name}`}
-                      className="p-1.5 bg-[rgba(239,68,68,0.08)] hover:bg-[rgba(239,68,68,0.18)] rounded-lg text-[var(--color-error)] transition-colors shrink-0"
+                      className="p-1.5 bg-[var(--color-error-bg)] hover:bg-[var(--color-error-border)] rounded-lg text-[var(--color-error-fg)] transition-colors shrink-0"
                     >
                       <Trash2 size={13} strokeWidth={1.5} />
                     </button>
@@ -202,13 +199,11 @@ export const ExcessBaggageAirlines = ({ onBack }: { onBack: () => void }) => {
                     <button
                       onClick={() => handleFieldChange(a.id, 'active', !a.active)}
                       aria-label={a.active ? `Deactivate ${a.name}` : `Activate ${a.name}`}
-                      className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold shrink-0 transition-colors ${
-                        a.active
-                          ? 'bg-[rgba(34,197,94,0.1)] text-[var(--color-success)]'
-                          : 'bg-[var(--color-surface-2)] text-[var(--color-muted)]'
-                      }`}
+                      className="shrink-0 rounded-full cursor-pointer"
                     >
-                      <Power size={11} /> {a.active ? 'Active' : 'Inactive'}
+                      <Badge tone={a.active ? 'success' : 'neutral'}>
+                        <Power size={10} /> {a.active ? 'Active' : 'Inactive'}
+                      </Badge>
                     </button>
                   </div>
                   {/* defaultValue+onBlur (uncontrolled), not value+onChange -- the

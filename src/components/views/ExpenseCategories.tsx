@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Receipt, Plus, Trash2, Loader, Power } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { Receipt, Plus, Trash2, Power } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
+import { Badge, Button, PageHeader, Spinner, TextField } from '../ui';
 
 interface ExpenseCategoryRow {
   id: string;
@@ -79,18 +79,11 @@ export const ExpenseCategories = ({ onBack }: { onBack: () => void }) => {
   };
 
   return (
-    <main className="flex flex-col h-full bg-[var(--color-obsidian)] overflow-y-auto">
-      <div className="ehi-view-header">
-        <BackButton onClick={onBack} />
-        <div className="text-center">
-          <div className="text-[12px] font-bold text-[var(--color-foreground)]">Expense Categories</div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">Synced across all devices</div>
-        </div>
-        <div className="w-8" />
-      </div>
+    <main className="flex flex-col h-full bg-[var(--color-canvas)] overflow-y-auto">
+      <PageHeader title="Expense Categories" subtitle="Synced across all devices" onBack={onBack} />
 
       <div className="ehi-page-body px-4 pt-4 pb-6 space-y-3">
-        <div className="bg-[rgba(59,130,246,0.08)] border border-[rgba(59,130,246,0.2)] rounded-xl p-3" style={{ boxShadow: 'var(--shadow-sm)' }}>
+        <div className="bg-[var(--color-info-bg)] border border-[var(--color-info-border)] rounded-xl p-3" style={{ boxShadow: 'var(--shadow-sm)' }}>
           <p className="text-[11px] text-[var(--color-accent-cobalt)] font-sans leading-relaxed">
             These are the categories staff pick from when logging an expense. Monthly budgets for each
             category are set in the Expense tab's Budget Tracker, not here -- this screen only manages
@@ -100,29 +93,28 @@ export const ExpenseCategories = ({ onBack }: { onBack: () => void }) => {
 
         {loading ? (
           <div className="flex justify-center py-12">
-            <Loader size={20} className="animate-spin text-[var(--color-accent-amber)]" />
+            <Spinner size="lg" />
           </div>
         ) : (
           <>
             <div className="ehi-card p-4 space-y-3">
               <div className="text-[11px] font-bold text-[var(--color-muted)] uppercase tracking-widest">Add Category</div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
+              <div className="flex items-end gap-2">
+                <TextField
+                  containerClassName="flex-1"
                   placeholder="e.g. Fuel"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-                  className="flex-1 ehi-input"
                 />
-                <button
+                <Button
+                  variant="primary"
+                  iconLeft={Plus}
                   onClick={handleAdd}
-                  disabled={!newName.trim() || adding}
+                  loading={adding}
+                  disabled={!newName.trim()}
                   aria-label="Add expense category"
-                  className="px-3 h-10 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg font-bold disabled:opacity-40 hover:opacity-90 transition-opacity"
-                >
-                  <Plus size={15} />
-                </button>
+                />
               </div>
             </div>
 
@@ -132,7 +124,7 @@ export const ExpenseCategories = ({ onBack }: { onBack: () => void }) => {
                   <button
                     onClick={() => handleDelete(c)}
                     aria-label={`Remove ${c.name}`}
-                    className="p-1.5 bg-[rgba(239,68,68,0.08)] hover:bg-[rgba(239,68,68,0.18)] rounded-lg text-[var(--color-error)] transition-colors shrink-0"
+                    className="p-1.5 bg-[var(--color-error-bg)] hover:bg-[var(--color-error-border)] rounded-lg text-[var(--color-error-fg)] transition-colors shrink-0"
                   >
                     <Trash2 size={13} strokeWidth={1.5} />
                   </button>
@@ -143,13 +135,11 @@ export const ExpenseCategories = ({ onBack }: { onBack: () => void }) => {
                   <button
                     onClick={() => handleToggleActive(c)}
                     aria-label={c.active ? `Deactivate ${c.name}` : `Activate ${c.name}`}
-                    className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold shrink-0 transition-colors ${
-                      c.active
-                        ? 'bg-[rgba(34,197,94,0.1)] text-[var(--color-success)]'
-                        : 'bg-[var(--color-surface-2)] text-[var(--color-muted)]'
-                    }`}
+                    className="shrink-0 rounded-full cursor-pointer"
                   >
-                    <Power size={11} /> {c.active ? 'Active' : 'Inactive'}
+                    <Badge tone={c.active ? 'success' : 'neutral'}>
+                      <Power size={10} /> {c.active ? 'Active' : 'Inactive'}
+                    </Badge>
                   </button>
                 </div>
               ))}
