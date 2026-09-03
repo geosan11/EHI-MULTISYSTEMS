@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
 import { User } from '../../lib/types';
-import { MessageSquarePlus, CheckCircle2, Circle, Clock, MessageSquare, Loader2 } from 'lucide-react';
-import { BackButton } from '../BackButton';
-import { fmt, tnow } from '../../lib/helpers';
+import { MessageSquarePlus, CheckCircle2, Circle, Clock, MessageSquare } from 'lucide-react';
+import { tnow } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../lib/ToastContext';
+import { Badge, Button, PageHeader, Spinner, TextField, Textarea } from '../ui';
+import type { BadgeTone } from '../ui';
 
 export interface Ticket {
   id: string;
@@ -16,6 +17,22 @@ export interface Ticket {
   createdAt: string;
   resolvedAt?: string;
 }
+
+const STATUS_META: Record<Ticket['status'], { label: string; tone: BadgeTone; icon: typeof Circle }> = {
+  open: { label: 'Open', tone: 'error', icon: Circle },
+  in_progress: { label: 'In Progress', tone: 'amber', icon: Clock },
+  resolved: { label: 'Resolved', tone: 'success', icon: CheckCircle2 },
+};
+
+const StatusBadge = ({ status }: { status: Ticket['status'] }) => {
+  const m = STATUS_META[status];
+  const Icon = m.icon;
+  return (
+    <Badge tone={m.tone}>
+      <Icon size={10} /> {m.label}
+    </Badge>
+  );
+};
 
 export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => void }) => {
   const { showToast } = useToast();
@@ -35,7 +52,7 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
       const baseQuery = supabase.from('support_tickets').select('*');
       const query = canManage ? baseQuery : baseQuery.eq('user_id', user.id);
       const { data, error } = await query.order('created_at', { ascending: false });
-      
+
       if (!error && data) {
         const mapped = data.map(d => ({
           id: d.id,
@@ -65,7 +82,7 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
 
   const handleCreate = async () => {
     if (!subject.trim() || !description.trim()) return;
-    
+
     const newId = `TCK-${Math.floor(1000 + Math.random() * 9000)}`;
     const newTicket: Ticket = {
       id: newId,
@@ -76,7 +93,7 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
       status: 'open',
       createdAt: tnow()
     };
-    
+
     setTickets([newTicket, ...tickets]);
     setIsCreating(false);
     setSubject('');
@@ -125,56 +142,48 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
     }
   };
 
+  const PRIORITY_ACTIVE: Record<'normal' | 'high' | 'critical', string> = {
+    critical: 'bg-[var(--color-error-bg)] border border-[var(--color-error-border)] text-[var(--color-error-fg)]',
+    high: 'bg-[var(--color-amber-bg)] border border-[var(--color-amber-border)] text-[var(--color-amber-fg)]',
+    normal: 'bg-[var(--color-success-bg)] border border-[var(--color-success-border)] text-[var(--color-success-fg)]',
+  };
+
   return (
-    <div className="flex flex-col h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] relative animate-in slide-in-from-right overflow-hidden">
-      {/* Header */}
-      <div className="p-4 border-b border-[var(--color-border)] flex items-center justify-between shrink-0">
-        <BackButton onClick={onBack} label="Back" />
-        <span className="text-[10px] font-mono text-[var(--color-accent-amber)] tracking-widest font-bold">
-          ● ISSUE RESOLUTION
-        </span>
-      </div>
+    <div className="flex flex-col h-full bg-[var(--color-canvas)] text-[var(--color-foreground)] relative animate-in slide-in-from-right overflow-hidden">
+      <PageHeader title="Support Tickets" onBack={onBack} />
 
       {!isCreating && !selectedTicket ? (
         <div className="flex-1 overflow-y-auto">
           <div className="ehi-page-body px-4 py-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-[16px] font-bold font-sans text-[var(--color-foreground)]">Complain Box</h2>
-            <button 
-              onClick={() => setIsCreating(true)}
-              className="px-3 py-1.5 bg-[var(--color-accent-amber)] hover:bg-amber-500 text-[var(--color-on-accent)] text-[11px] font-bold rounded-lg transition-colors flex items-center gap-1.5"
-            >
-              <MessageSquarePlus size={14} />
-              <span>Report Issue</span>
-            </button>
+            <Button variant="primary" size="sm" iconLeft={MessageSquarePlus} onClick={() => setIsCreating(true)}>
+              Report Issue
+            </Button>
           </div>
 
           <div className="space-y-3">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-12 text-[var(--color-muted)]">
-                <Loader2 size={24} className="animate-spin mb-3" />
+                <Spinner size="xl" tone="muted" className="mb-3" />
                 <p className="text-[12px] font-mono">Loading tickets...</p>
               </div>
             ) : visibleTickets.length === 0 ? (
-              <div className="text-center py-12 border border-[var(--color-border)] rounded-lg bg-[rgba(255,255,255,0.02)] text-[var(--color-muted)]">
+              <div className="text-center py-12 border border-[var(--color-border)] rounded-lg bg-[var(--color-surface-2)] text-[var(--color-muted)]">
                 <MessageSquare size={32} className="mx-auto mb-3 opacity-20" />
                 <p className="text-[13px] font-medium font-sans">No complaints or issues reported.</p>
                 <p className="text-[11px] font-mono mt-1 opacity-60">You can use this box to report system or operational issues.</p>
               </div>
             ) : (
               visibleTickets.map(t => (
-                <div 
-                  key={t.id} 
+                <div
+                  key={t.id}
                   onClick={() => setSelectedTicket(t)}
-                  className="p-3 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-surface-2)] rounded-lg cursor-pointer transition-colors"
+                  className="p-3 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-border-strong)] rounded-lg cursor-pointer transition-colors"
                 >
-                  <div className="flex justify-between items-start mb-2">
+                  <div className="flex justify-between items-start mb-2 gap-2">
                     <h3 className="text-[13px] font-bold text-[var(--color-foreground)]">{t.subject}</h3>
-                    <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold">
-                      {t.status === 'open' && <span className="text-red-400 flex items-center gap-1"><Circle size={10} /> Open</span>}
-                      {t.status === 'in_progress' && <span className="text-amber-400 flex items-center gap-1"><Clock size={10} /> In Progress</span>}
-                      {t.status === 'resolved' && <span className="text-emerald-400 flex items-center gap-1"><CheckCircle2 size={10} /> Resolved</span>}
-                    </div>
+                    <StatusBadge status={t.status} />
                   </div>
                   <div className="text-[11px] text-[var(--color-light-muted)] line-clamp-1 mb-2">
                     {t.description}
@@ -193,10 +202,12 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
         <div className="flex-1 overflow-y-auto">
           <div className="ehi-page-body px-4 py-4 space-y-4">
             <div className="text-[12px] font-bold text-[var(--color-foreground)] font-sans">New Support Ticket</div>
-            <div className="space-y-1.5">
-              <label htmlFor="ticket-subject" className="ehi-label">Subject</label>
-              <input id="ticket-subject" value={subject} onChange={e => setSubject(e.target.value)} placeholder="Brief description of the issue" className="ehi-input" />
-            </div>
+            <TextField
+              label="Subject"
+              value={subject}
+              onChange={e => setSubject(e.target.value)}
+              placeholder="Brief description of the issue"
+            />
             <div className="space-y-1.5">
               <label className="ehi-label">Priority</label>
               <div className="grid grid-cols-3 gap-2">
@@ -206,9 +217,7 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
                     onClick={() => setPriority(p)}
                     className={`py-2 rounded-lg text-[11px] font-bold font-mono uppercase transition-colors ${
                       priority === p
-                        ? p === 'critical' ? 'bg-[rgba(239,68,68,0.2)] border border-[rgba(239,68,68,0.5)] text-[var(--color-error)]'
-                          : p === 'high' ? 'bg-[rgba(245,158,11,0.2)] border border-[rgba(245,158,11,0.5)] text-[var(--color-accent-amber)]'
-                          : 'bg-[rgba(16,185,129,0.15)] border border-[rgba(16,185,129,0.4)] text-[var(--color-success)]'
+                        ? PRIORITY_ACTIVE[p]
                         : 'bg-[var(--color-surface-card)] border border-[var(--color-border)] text-[var(--color-muted)]'
                     }`}
                   >
@@ -217,20 +226,29 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
                 ))}
               </div>
             </div>
-            <div className="space-y-1.5">
-              <label htmlFor="ticket-description" className="ehi-label">Description</label>
-              <textarea
-                id="ticket-description"
-                value={description}
-                onChange={e => setDescription(e.target.value)}
-                rows={5}
-                placeholder="Describe the issue in detail — include steps to reproduce if applicable"
-                className="ehi-input resize-none"
-              />
-            </div>
+            <Textarea
+              label="Description"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              rows={5}
+              placeholder="Describe the issue in detail — include steps to reproduce if applicable"
+            />
             <div className="flex gap-3">
-              <button onClick={() => { setIsCreating(false); setSubject(''); setDescription(''); setPriority('normal'); }} className="flex-1 h-11 border border-[var(--color-border)] rounded-lg text-[12px] font-bold text-[var(--color-muted)]">Cancel</button>
-              <button onClick={handleCreate} disabled={!subject.trim() || !description.trim()} className="flex-1 h-11 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg text-[12px] font-bold disabled:opacity-50">Submit Ticket</button>
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => { setIsCreating(false); setSubject(''); setDescription(''); setPriority('normal'); }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                className="flex-1"
+                onClick={handleCreate}
+                disabled={!subject.trim() || !description.trim()}
+              >
+                Submit Ticket
+              </Button>
             </div>
           </div>
         </div>
@@ -245,18 +263,14 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
           </button>
 
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg p-4 mb-4">
-            <div className="flex justify-between items-start mb-4 border-b border-[var(--color-border)] pb-4">
+            <div className="flex justify-between items-start mb-4 border-b border-[var(--color-border)] pb-4 gap-2">
               <div>
                 <h2 className="text-[15px] font-bold text-[var(--color-foreground)] mb-1">{selectedTicket.subject}</h2>
                 <div className="text-[10px] font-mono text-[var(--color-muted)]">
                   Ticket ID: {selectedTicket.id}
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] font-mono font-bold px-2 py-1 bg-[var(--color-border)] rounded">
-                {selectedTicket.status === 'open' && <span className="text-red-400 flex items-center gap-1"><Circle size={12} /> Open</span>}
-                {selectedTicket.status === 'in_progress' && <span className="text-amber-400 flex items-center gap-1"><Clock size={12} /> In Progress</span>}
-                {selectedTicket.status === 'resolved' && <span className="text-emerald-400 flex items-center gap-1"><CheckCircle2 size={12} /> Resolved</span>}
-              </div>
+              <StatusBadge status={selectedTicket.status} />
             </div>
 
             <div className="space-y-4 text-[13px] text-[var(--color-light-muted)]">
@@ -264,7 +278,7 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
                 <strong className="text-[11px] font-mono text-[var(--color-muted)] uppercase block mb-1">Description</strong>
                 <p className="whitespace-pre-wrap">{selectedTicket.description}</p>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4 border-t border-[var(--color-border)] pt-4 mt-4">
                 <div>
                   <strong className="text-[10px] font-mono text-[var(--color-muted)] uppercase block mb-1">Reported By</strong>
@@ -277,7 +291,7 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
                 {selectedTicket.resolvedAt && (
                   <div className="col-span-2">
                     <strong className="text-[10px] font-mono text-[var(--color-muted)] uppercase block mb-1">Resolved At</strong>
-                    <span className="font-medium text-emerald-400">{selectedTicket.resolvedAt}</span>
+                    <span className="font-medium text-[var(--color-success-fg)]">{selectedTicket.resolvedAt}</span>
                   </div>
                 )}
               </div>
@@ -291,17 +305,17 @@ export const SupportTickets = ({ user, onBack }: { user: User; onBack: () => voi
                 <button
                   onClick={() => handleUpdateStatus(selectedTicket.id, 'open')}
                   disabled={selectedTicket.status === 'open'}
-                  className="flex-1 py-2 bg-[rgba(239,68,68,0.1)] text-red-400 text-[11px] font-bold rounded-lg border border-[rgba(239,68,68,0.2)] disabled:opacity-50"
+                  className="flex-1 py-2 bg-[var(--color-error-bg)] text-[var(--color-error-fg)] text-[11px] font-bold rounded-lg border border-[var(--color-error-border)] disabled:opacity-50"
                 >Mark Open</button>
                 <button
                   onClick={() => handleUpdateStatus(selectedTicket.id, 'in_progress')}
                   disabled={selectedTicket.status === 'in_progress'}
-                  className="flex-1 py-2 bg-[rgba(245,158,11,0.1)] text-amber-400 text-[11px] font-bold rounded-lg border border-[rgba(245,158,11,0.2)] disabled:opacity-50"
+                  className="flex-1 py-2 bg-[var(--color-amber-bg)] text-[var(--color-amber-fg)] text-[11px] font-bold rounded-lg border border-[var(--color-amber-border)] disabled:opacity-50"
                 >In Progress</button>
                 <button
                   onClick={() => handleUpdateStatus(selectedTicket.id, 'resolved')}
                   disabled={selectedTicket.status === 'resolved'}
-                  className="flex-1 py-2 bg-[rgba(16,185,129,0.1)] text-emerald-400 text-[11px] font-bold rounded-lg border border-[rgba(16,185,129,0.2)] disabled:opacity-50"
+                  className="flex-1 py-2 bg-[var(--color-success-bg)] text-[var(--color-success-fg)] text-[11px] font-bold rounded-lg border border-[var(--color-success-border)] disabled:opacity-50"
                 >Resolve</button>
               </div>
             </div>

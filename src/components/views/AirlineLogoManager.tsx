@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { User } from '../../lib/types';
-import { Upload, Trash2, Plane, Loader2 } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { Upload, Trash2 } from 'lucide-react';
 import { listAirlineLogos, uploadAirlineLogo, deleteAirlineLogo } from '../../lib/airlineLogos';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
+import { Button, PageHeader, Spinner, TextField } from '../ui';
 
 export const AirlineLogoManager = ({ user, onBack }: { user: User; onBack: () => void }) => {
   const [logos, setLogos] = useState<Array<{ name: string; slug: string; url: string }>>([]);
@@ -57,13 +57,8 @@ export const AirlineLogoManager = ({ user, onBack }: { user: User; onBack: () =>
   }
 
   return (
-    <div className="flex flex-col h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] animate-in slide-in-from-right overflow-hidden">
-      {/* Header */}
-      <div className="ehi-view-header">
-        <BackButton onClick={onBack} label="Back" />
-        <span className="text-[10px] font-mono text-[var(--color-accent-amber)] tracking-widest font-bold">● AIRLINE LOGOS</span>
-        <div className="w-12" />
-      </div>
+    <div className="flex flex-col h-full bg-[var(--color-canvas)] text-[var(--color-foreground)] animate-in slide-in-from-right overflow-hidden">
+      <PageHeader title="Airline Logos" onBack={onBack} />
 
       <div className="flex-1 overflow-y-auto">
         <div className="ehi-page-body px-4 py-4 space-y-6">
@@ -76,16 +71,12 @@ export const AirlineLogoManager = ({ user, onBack }: { user: User; onBack: () =>
               appears on cargo tags, receipts, and PDF waybills — no app update needed.
             </div>
 
-            <div className="space-y-1.5">
-              <label htmlFor="airline-logo-name" className="ehi-label">Airline Name (exactly as entered in Cargo Form)</label>
-              <input
-                id="airline-logo-name"
-                value={newAirlineName}
-                onChange={e => setNewAirlineName(e.target.value)}
-                placeholder="e.g. Overland Airways"
-                className="ehi-input"
-              />
-            </div>
+            <TextField
+              label="Airline Name (exactly as entered in Cargo Form)"
+              value={newAirlineName}
+              onChange={e => setNewAirlineName(e.target.value)}
+              placeholder="e.g. Overland Airways"
+            />
 
             <div className="space-y-1.5">
               <label htmlFor="airline-logo-file" className="ehi-label">Logo File (PNG recommended)</label>
@@ -104,14 +95,17 @@ export const AirlineLogoManager = ({ user, onBack }: { user: User; onBack: () =>
               </div>
             )}
 
-            <button
+            <Button
+              variant="primary"
+              fullWidth
+              iconLeft={Upload}
               onClick={handleUpload}
-              disabled={!newAirlineName.trim() || !selectedFile || uploading}
-              className="w-full h-10 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg text-[12px] font-bold disabled:opacity-40 flex items-center justify-center gap-2"
+              loading={uploading}
+              loadingLabel="Uploading…"
+              disabled={!newAirlineName.trim() || !selectedFile}
             >
-              {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-              {uploading ? 'Uploading...' : 'Upload Logo'}
-            </button>
+              Upload Logo
+            </Button>
           </div>
 
           {/* Existing logos list */}
@@ -121,8 +115,8 @@ export const AirlineLogoManager = ({ user, onBack }: { user: User; onBack: () =>
             </div>
 
             {loading ? (
-              <div className="flex items-center justify-center py-8 text-[var(--color-muted)]">
-                <Loader2 size={20} className="animate-spin" />
+              <div className="flex items-center justify-center py-8">
+                <Spinner size="lg" tone="muted" />
               </div>
             ) : logos.length === 0 ? (
               <div className="text-center py-8 text-[var(--color-muted)] text-[12px] font-mono">
@@ -145,7 +139,7 @@ export const AirlineLogoManager = ({ user, onBack }: { user: User; onBack: () =>
                     <button
                       onClick={() => handleDelete(logo.name)}
                       aria-label={`Remove logo for ${logo.name}`}
-                      className="p-1.5 text-[var(--color-error)] hover:bg-[rgba(239,68,68,0.1)] rounded transition-colors"
+                      className="p-1.5 text-[var(--color-error-fg)] hover:bg-[var(--color-error-bg)] rounded transition-colors"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -156,7 +150,7 @@ export const AirlineLogoManager = ({ user, onBack }: { user: User; onBack: () =>
           </div>
 
           {/* Instructions */}
-          <div className="bg-[rgba(245,158,11,0.05)] border border-[rgba(245,158,11,0.15)] rounded-lg p-3 text-[11px] text-[var(--color-muted)] space-y-1">
+          <div className="bg-[var(--color-amber-bg)] border border-[var(--color-amber-border)] rounded-lg p-3 text-[11px] text-[var(--color-muted)] space-y-1">
             <div className="font-bold text-[var(--color-accent-amber)] mb-1">How to migrate existing logos</div>
             <div>Upload logos for each current airline partner:</div>
             <div className="font-mono text-[10px] space-y-0.5 mt-1">

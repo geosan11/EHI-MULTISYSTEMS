@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Fuel, Truck, Wrench, Loader } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { Plus, Fuel, Truck } from 'lucide-react';
 import { fmt } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
 import { User } from '../../lib/types';
 import { EmptyState } from './EmptyState';
+import { Button, PageHeader, Spinner, Tabs } from '../ui';
 
 interface Vehicle {
   id: string;
@@ -61,6 +61,18 @@ export const Fleet = ({ onBack, user }: { onBack: () => void; user?: User }) => 
   const [station, setStation] = useState('');
 
   const canEdit = user?.role === 'admin' || user?.role === 'super_admin';
+
+  // Esc closes whichever add-modal is open (unless a save is running).
+  useEffect(() => {
+    if (!showAddVehicle && !showAddFuel) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || submitting) return;
+      setShowAddVehicle(false);
+      setShowAddFuel(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showAddVehicle, showAddFuel, submitting]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -150,42 +162,45 @@ export const Fleet = ({ onBack, user }: { onBack: () => void; user?: User }) => 
   };
 
   const statusColor = (s: string) => ({
-    Available: 'text-[var(--color-success)] bg-[rgba(16,185,129,0.1)]',
-    'On Trip': 'text-[var(--color-accent-cobalt)] bg-[rgba(59,130,246,0.1)]',
-    Maintenance: 'text-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.1)]',
+    Available: 'text-[var(--color-success-fg)] bg-[var(--color-success-bg)]',
+    'On Trip': 'text-[var(--color-info-fg)] bg-[var(--color-info-bg)]',
+    Maintenance: 'text-[var(--color-amber-fg)] bg-[var(--color-amber-bg)]',
     Inactive: 'text-[var(--color-muted)] bg-[var(--color-surface-2)]'
   }[s] || 'text-[var(--color-muted)]');
 
   return (
-    <div className="flex flex-col min-h-full bg-[var(--color-obsidian)]">
+    <div className="flex flex-col min-h-full bg-[var(--color-canvas)]">
       <div className="ehi-page-body px-4 pt-4 text-[var(--color-foreground)]">
-      <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2 mb-4">
-        <BackButton onClick={onBack} label="Back" />
-        <span className="text-[10px] font-mono text-[var(--color-accent-cobalt)] tracking-widest font-bold">● FLEET</span>
-      </div>
+      <PageHeader title="Fleet" onBack={onBack} sticky={false} />
 
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-[14px] font-bold">Fleet Management</h2>
         {canEdit && (
-          <button onClick={() => activeTab === 'vehicles' ? setShowAddVehicle(true) : setShowAddFuel(true)}
-            className="flex items-center gap-1.5 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[11px] font-bold px-3 py-1.5 rounded">
-            <Plus size={12} /> {activeTab === 'vehicles' ? 'Add Vehicle' : 'Log Fuel'}
-          </button>
+          <Button
+            variant="primary"
+            size="sm"
+            iconLeft={Plus}
+            onClick={() => activeTab === 'vehicles' ? setShowAddVehicle(true) : setShowAddFuel(true)}
+          >
+            {activeTab === 'vehicles' ? 'Add Vehicle' : 'Log Fuel'}
+          </Button>
         )}
       </div>
 
-      <div className="flex border-b border-[var(--color-border)] mb-4">
-        {(['vehicles', 'fuel'] as const).map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)}
-            className={`pb-2 px-4 text-[11px] font-mono font-bold border-b-2 transition-all capitalize ${activeTab === tab ? 'border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' : 'border-transparent text-[var(--color-muted)]'}`}>
-            {tab === 'vehicles' ? `Vehicles (${vehicles.length})` : `Fuel Logs (${fuelLogs.length})`}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        variant="underline"
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as typeof activeTab)}
+        className="mb-4"
+        items={[
+          { id: 'vehicles', label: 'Vehicles', count: vehicles.length },
+          { id: 'fuel', label: 'Fuel Logs', count: fuelLogs.length },
+        ]}
+      />
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
-          <Loader size={24} className="animate-spin text-[var(--color-accent-amber)]" />
+          <Spinner size="xl" />
           <p className="text-[12px] font-mono text-[var(--color-muted)]">Loading fleet data...</p>
         </div>
       ) : fetchError ? (
@@ -230,7 +245,7 @@ export const Fleet = ({ onBack, user }: { onBack: () => void; user?: User }) => 
           </div>
         ) : (
           <div className="space-y-2">
-            <div className="ehi-card p-3 flex justify-between items-center mb-3 bg-[rgba(245,158,11,0.05)] border-[rgba(245,158,11,0.2)]">
+            <div className="ehi-card p-3 flex justify-between items-center mb-3 bg-[var(--color-amber-bg)] border-[var(--color-amber-border)]">
               <span className="text-[10px] font-mono text-[var(--color-muted)]">Total Fuel Spend</span>
               <span className="text-[14px] font-bold font-mono text-[var(--color-accent-amber)]">{fmt(fuelLogs.reduce((s, f) => s + f.total_cost, 0))}</span>
             </div>
@@ -254,11 +269,11 @@ export const Fleet = ({ onBack, user }: { onBack: () => void; user?: User }) => 
 
       {/* Add Vehicle Modal */}
       {showAddVehicle && createPortal(
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="ehi-card max-w-sm w-full">
+        <div className="fixed inset-0 ehi-scrim flex items-center justify-center p-4 z-50" onClick={() => !submitting && setShowAddVehicle(false)}>
+          <div className="ehi-card max-w-sm w-full" onClick={e => e.stopPropagation()}>
             <div className="p-4 border-b border-[var(--color-border)] flex justify-between items-center">
               <span className="text-[11px] font-mono font-bold">Register Vehicle</span>
-              <button onClick={() => setShowAddVehicle(false)} aria-label="Close" className="text-[var(--color-muted)] font-mono">✕</button>
+              <button onClick={() => setShowAddVehicle(false)} aria-label="Close" className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] font-mono">✕</button>
             </div>
             <form onSubmit={handleAddVehicle} className="p-4 space-y-3">
               <div className="space-y-1">
@@ -296,8 +311,8 @@ export const Fleet = ({ onBack, user }: { onBack: () => void; user?: User }) => 
                 <input id="fleet-vehicle-driver" type="text" value={driver} onChange={e => setDriver(e.target.value)} placeholder="Driver Tunde" className="w-full ehi-input text-[12px]" />
               </div>
               <div className="flex gap-2 pt-1">
-                <button type="submit" disabled={submitting} className="flex-1 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] font-bold text-[11px] py-2.5 rounded disabled:opacity-50">{submitting ? 'Adding…' : 'Add Vehicle'}</button>
-                <button type="button" onClick={() => setShowAddVehicle(false)} disabled={submitting} className="px-4 bg-[var(--color-surface-2)] text-[var(--color-muted)] text-[11px] rounded disabled:opacity-50">Cancel</button>
+                <Button type="submit" variant="primary" className="flex-1" size="sm" loading={submitting} loadingLabel="Adding…">Add Vehicle</Button>
+                <Button type="button" variant="secondary" size="sm" onClick={() => setShowAddVehicle(false)} disabled={submitting}>Cancel</Button>
               </div>
             </form>
           </div>
@@ -307,11 +322,11 @@ export const Fleet = ({ onBack, user }: { onBack: () => void; user?: User }) => 
 
       {/* Add Fuel Modal */}
       {showAddFuel && createPortal(
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="ehi-card max-w-sm w-full">
+        <div className="fixed inset-0 ehi-scrim flex items-center justify-center p-4 z-50" onClick={() => !submitting && setShowAddFuel(false)}>
+          <div className="ehi-card max-w-sm w-full" onClick={e => e.stopPropagation()}>
             <div className="p-4 border-b border-[var(--color-border)] flex justify-between items-center">
               <span className="text-[11px] font-mono font-bold">Log Fuel</span>
-              <button onClick={() => setShowAddFuel(false)} aria-label="Close" className="text-[var(--color-muted)] font-mono">✕</button>
+              <button onClick={() => setShowAddFuel(false)} aria-label="Close" className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] font-mono">✕</button>
             </div>
             <form onSubmit={handleAddFuel} className="p-4 space-y-3">
               <div className="space-y-1">
@@ -338,8 +353,8 @@ export const Fleet = ({ onBack, user }: { onBack: () => void; user?: User }) => 
                 <input id="fleet-fuel-station" type="text" value={station} onChange={e => setStation(e.target.value)} placeholder="e.g. BOVAS Ikeja" className="w-full ehi-input text-[12px]" />
               </div>
               <div className="flex gap-2 pt-1">
-                <button type="submit" disabled={submitting} className="flex-1 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] font-bold text-[11px] py-2.5 rounded disabled:opacity-50">{submitting ? 'Saving…' : 'Save Log'}</button>
-                <button type="button" onClick={() => setShowAddFuel(false)} disabled={submitting} className="px-4 bg-[var(--color-surface-2)] text-[var(--color-muted)] text-[11px] rounded disabled:opacity-50">Cancel</button>
+                <Button type="submit" variant="primary" className="flex-1" size="sm" loading={submitting} loadingLabel="Saving…">Save Log</Button>
+                <Button type="button" variant="secondary" size="sm" onClick={() => setShowAddFuel(false)} disabled={submitting}>Cancel</Button>
               </div>
             </form>
           </div>
