@@ -255,8 +255,8 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
     }
   };
 
-  const handlePodComplete = async () => {
-    if (!activePodCapture) return;
+  const handlePodComplete = async (): Promise<boolean> => {
+    if (!activePodCapture) return false;
     const { ref, cargo } = activePodCapture;
     try {
       const { error } = await supabase.from('cargo_entries').update({
@@ -278,12 +278,15 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
       // Delivered, or a pickup PIN never marked used (reusable again).
       console.error('Failed to finalize delivery after signature capture:', err);
       showToast({ message: `Signature captured, but finalizing delivery failed: ${err.message || 'unknown error'}. Try again -- do not hand over cargo a second time.`, type: 'error' });
-      return;
+      // Keep the POD form mounted (signature/photo intact) and tell it to
+      // re-enable Confirm Delivery for a retry, instead of freezing it.
+      return false;
     }
     setActivePodCapture(null);
     setSelectedCargo(null);
     setPinValue(['', '', '', '', '']);
     fetchCargo();
+    return true;
   };
 
   if (activePodCapture) {

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, ReactNode } from 'react';
+import React, { useState, useEffect, useRef, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { ICON } from '../lib/ui';
+import { lockBodyScroll, unlockBodyScroll } from '../lib/bodyScrollLock';
 
 const SIZE_MAXW: Record<string, string> = {
   sm: 'max-w-sm',
@@ -46,17 +47,20 @@ export const Modal: React.FC<ModalProps> = ({
 }) => {
   const [isRendered, setIsRendered] = useState(isOpen);
   const [isClosing, setIsClosing] = useState(false);
+  // Ref, not the isClosing state -- the keydown handler is bound per
+  // open/close of `isOpen` and would otherwise read a stale `isClosing`,
+  // so a double-Esc inside the 200ms close window fired onClose twice.
+  const closingRef = useRef(false);
 
   useEffect(() => {
     if (isOpen) {
-      const prevOverflow = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
+      lockBodyScroll();
       const onKey = (e: KeyboardEvent) => {
         if (closeOnEsc && e.key === 'Escape') handleClose();
       };
       window.addEventListener('keydown', onKey);
       return () => {
-        document.body.style.overflow = prevOverflow;
+        unlockBodyScroll();
         window.removeEventListener('keydown', onKey);
       };
     }
@@ -67,6 +71,7 @@ export const Modal: React.FC<ModalProps> = ({
     if (isOpen) {
       setIsRendered(true);
       setIsClosing(false);
+      closingRef.current = false;
     } else if (isRendered && !isClosing) {
       handleClose();
     }
@@ -74,11 +79,13 @@ export const Modal: React.FC<ModalProps> = ({
   }, [isOpen]);
 
   const handleClose = () => {
-    if (isClosing) return;
+    if (closingRef.current) return;
+    closingRef.current = true;
     setIsClosing(true);
     setTimeout(() => {
       setIsRendered(false);
       setIsClosing(false);
+      closingRef.current = false;
       onClose();
     }, 200); // matches CSS exit duration
   };
@@ -110,7 +117,7 @@ export const Modal: React.FC<ModalProps> = ({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-label={title || 'Dialog'}
         className={`${isClosing ? 'animate-modal-slide-out' : 'animate-modal-slide-in'} ${container}`}
       >
         {title && (
@@ -120,6 +127,7 @@ export const Modal: React.FC<ModalProps> = ({
             </h2>
             {!hideClose && (
               <button
+                type="button"
                 onClick={handleClose}
                 aria-label="Close"
                 className="p-1 -mr-1 rounded-full text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-hover)] transition-colors cursor-pointer shrink-0"

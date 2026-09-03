@@ -51,6 +51,7 @@ export const Tabs = ({
       return (
         <button
           key={t.id}
+          type="button"
           role="tab"
           aria-selected={active}
           onClick={() => onChange(t.id)}

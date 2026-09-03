@@ -1121,7 +1121,7 @@ export const Analytics = ({
                   <YAxis yAxisId="left" stroke="var(--color-accent-amber)" strokeWidth={0.5} tickLine={false} tickFormatter={(val) => `₦${val/1000}k`} />
                   <YAxis yAxisId="right" orientation="right" stroke="var(--color-accent-cobalt)" strokeWidth={0.5} tickLine={false} tickFormatter={(val) => `${val}kg`} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: 'var(--chart-tooltip-bg)', borderColor: 'var(--chart-tooltip-border)', color: 'var(--color-foreground)', fontSize: '11px', borderRadius: '8px' }}
+                    contentStyle={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-chart-tooltip-border)', color: 'var(--color-foreground)', fontSize: '11px', borderRadius: '8px' }}
                     formatter={(val: any, name: any) => [
                       name === 'revenue' ? `₦${Number(val).toLocaleString()}` : `${Number(val).toLocaleString()} KG`,
                       name === 'revenue' ? 'Revenue' : 'Handling Weight'
@@ -1234,7 +1234,7 @@ export const Analytics = ({
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border)]">
                   {clientParetoData.map((c, i) => (
-                    <tr key={i} className={`hover:bg-[var(--color-surface-hover)] ${c.isTop20 ? 'bg-[rgba(245,158,11,0.03)]' : ''}`}>
+                    <tr key={i} className={c.isTop20 ? 'bg-[rgba(245,158,11,0.03)] hover:bg-[rgba(245,158,11,0.09)]' : 'hover:bg-[var(--color-surface-hover)]'}>
                       <td className="py-2.5 px-3 font-sans font-medium text-[var(--color-foreground)]">
                         <div className="flex items-center gap-2">
                           <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono font-bold ${i < 3 ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)]'}`}>
@@ -1317,12 +1317,12 @@ export const Analytics = ({
                       nameKey="category"
                     >
                       {cargoCategoryData.map((_, idx) => (
-                        <Cell key={idx} fill={[`var(--chart-1)`, `var(--chart-2)`, `var(--chart-3)`, `var(--chart-4)`, `var(--chart-5)`, `var(--chart-6)`][idx % 6]} />
+                        <Cell key={idx} fill={[`var(--color-chart-1)`, `var(--color-chart-2)`, `var(--color-chart-3)`, `var(--color-chart-4)`, `var(--color-chart-5)`, `var(--color-chart-6)`][idx % 6]} />
                       ))}
                     </Pie>
                     <Tooltip
                       formatter={(val: any) => [`₦${fmt(Number(val))}`, 'Revenue']}
-                      contentStyle={{ backgroundColor: 'var(--chart-tooltip-bg)', borderColor: 'var(--chart-tooltip-border)', color: 'var(--color-foreground)', fontSize: '11px', borderRadius: '8px' }}
+                      contentStyle={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-chart-tooltip-border)', color: 'var(--color-foreground)', fontSize: '11px', borderRadius: '8px' }}
                     />
                   </PieChart>
                 </ResponsiveContainer>

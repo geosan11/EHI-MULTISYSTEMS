@@ -1147,7 +1147,15 @@ export const CargoForm = ({
     try {
       const { error } = await supabase.from('pending_corporate_intakes').delete().eq('id', pi.id);
       if (error) throw error;
-      updateLocalPendingIntakes(pendingIntakes.filter(x => x.id !== pi.id));
+      // Functional update -- `pendingIntakes` captured in this handler's
+      // closure is stale by the time the await resolves; a gate intake
+      // logged during the round-trip (handleLogFieldIntake) would otherwise
+      // be wiped from state AND localStorage, invisible until a remount.
+      setPendingIntakes(prev => {
+        const next = prev.filter(x => x.id !== pi.id);
+        try { localStorage.setItem("ehi_pending_intakes_v2", JSON.stringify(next)); } catch { /* quota / private mode */ }
+        return next;
+      });
       if (selectedIntake?.id === pi.id) {
         setSelectedIntake(null);
         setGateWeight("");

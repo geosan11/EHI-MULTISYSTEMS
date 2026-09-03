@@ -131,7 +131,9 @@ export const Select = ({
 export interface TextareaFieldProps extends Shared, TextareaHTMLAttributes<HTMLTextAreaElement> {}
 
 export const Textarea = ({
-  label, hint, error, required, containerClassName,
+  // fieldSize is part of Shared but a textarea has no height variants
+  // (it's resize-y) -- pull it out so it doesn't spread onto the DOM node.
+  label, hint, error, required, containerClassName, fieldSize: _fieldSize,
   id, className = '', rows = 3, ...rest
 }: TextareaFieldProps) => {
   const auto = useId();

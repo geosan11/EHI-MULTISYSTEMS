@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, HelpCircle } from 'lucide-react';
+import { lockBodyScroll, unlockBodyScroll } from '../lib/bodyScrollLock';
 
 export interface ConfirmOptions {
   title?: string;
@@ -25,11 +26,17 @@ export const ConfirmDialog = ({
   onCancel,
 }: ConfirmDialogProps) => {
   const [isClosing, setIsClosing] = useState(false);
+  // Ref, not the isClosing state -- the keydown handler below is bound once
+  // (deps []), so reading the state there would always see its first-render
+  // value (false) and the "already closing" guard would never trip, letting
+  // a double-Esc schedule onCancel twice.
+  const closingRef = useRef(false);
   const isDanger = tone === 'danger';
   const Icon = isDanger ? AlertTriangle : HelpCircle;
 
   const handleAction = (callback: () => void) => {
-    if (isClosing) return;
+    if (closingRef.current) return;
+    closingRef.current = true;
     setIsClosing(true);
     setTimeout(() => {
       callback();
@@ -37,16 +44,17 @@ export const ConfirmDialog = ({
   };
 
   // Scroll-lock + Escape-to-close, matching Modal.tsx. (Most of the ~35
-  // hand-rolled dialogs in this app have neither.)
+  // hand-rolled dialogs in this app have neither.) Ref-counted lock so a
+  // dialog stacked over another scroll-locking overlay can't leave the page
+  // stuck unscrollable when they unmount out of order.
   useEffect(() => {
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    lockBodyScroll();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') handleAction(onCancel);
     };
     window.addEventListener('keydown', onKey);
     return () => {
-      document.body.style.overflow = prevOverflow;
+      unlockBodyScroll();
       window.removeEventListener('keydown', onKey);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

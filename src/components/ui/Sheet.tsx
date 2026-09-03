@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { ICON } from '../../lib/ui';
+import { lockBodyScroll, unlockBodyScroll } from '../../lib/bodyScrollLock';
 
 // Drawer / bottom-sheet primitive. The app has no such component today --
 // mobile sheets are faked per-file with `items-end` + `rounded-t-2xl`.
@@ -34,14 +35,13 @@ export const Sheet = ({
 }) => {
   useEffect(() => {
     if (!isOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    lockBodyScroll();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => {
-      document.body.style.overflow = prev;
+      unlockBodyScroll();
       window.removeEventListener('keydown', onKey);
     };
   }, [isOpen, onClose]);
@@ -63,7 +63,7 @@ export const Sheet = ({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-label={title || 'Dialog'}
         className={`absolute bg-[var(--color-surface-card)] border border-[var(--color-border)] shadow-[var(--shadow-modal)] flex flex-col max-h-[92vh] ${
           side === 'right' ? 'w-full' : ''
         } ${SIZE[size]} ${side === 'right' ? '' : 'mx-auto'} ${panelPos} ${className}`}
@@ -72,6 +72,7 @@ export const Sheet = ({
           <div className="flex items-center justify-between gap-3 p-4 border-b border-[var(--color-border)] shrink-0">
             <h2 className="text-[14px] font-bold text-[var(--color-foreground)] tracking-tight">{title}</h2>
             <button
+              type="button"
               onClick={onClose}
               aria-label="Close"
               className="p-1 rounded-full text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-hover)] transition-colors cursor-pointer"

@@ -10,7 +10,10 @@ interface PODProps {
   awbNumber: string;
   consigneeName: string;
   user: User;
-  onComplete: (pod: ProofOfDelivery) => void;
+  // Returns false when server-side finalization failed and this form should
+  // stay mounted for a retry (see savePOD); void/true both mean "done, the
+  // caller is unmounting me".
+  onComplete: (pod: ProofOfDelivery) => void | boolean | Promise<void | boolean>;
   onCancel: () => void;
 }
 
@@ -28,6 +31,10 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
 
   const signatureRef = useRef<SignatureCanvas>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  // One POD id per mount (per physical delivery). A retry after a failed
+  // finalization must reuse it so the local Dexie write is an idempotent
+  // .put, not a second row.
+  const podIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -79,10 +86,11 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
     // physical delivery.
     if (submitting) return;
     setSubmitting(true);
+    if (!podIdRef.current) podIdRef.current = 'POD-' + Date.now().toString(36).toUpperCase();
 
     const savePOD = async (latitude?: number, longitude?: number) => {
       const pod: ProofOfDelivery = {
-        id: 'POD-' + Date.now().toString(36).toUpperCase(),
+        id: podIdRef.current!,
         awbNumber,
         consigneeName,
         deliveredBy: user.name,
@@ -113,7 +121,9 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
       // happened. Catching it here keeps the form mounted with everything
       // still captured, so a retry just re-attempts the same save.
       try {
-        await db.proof_of_delivery.add(pod);
+        // .put not .add -- podIdRef is stable across a retry, so this
+        // overwrites the same row instead of inserting a duplicate.
+        await db.proof_of_delivery.put(pod);
       } catch (err: any) {
         console.error('Failed to save proof of delivery locally:', err);
         showToast({
@@ -123,7 +133,17 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
         setSubmitting(false);
         return;
       }
-      onComplete(pod);
+
+      // onComplete does the server-side finalization (status -> Delivered,
+      // pin_used_at, tracking event). If it reports failure we keep the form
+      // mounted with the signature/photo intact so the staff member can just
+      // hit Confirm Delivery again -- previously an unawaited onComplete left
+      // the button stuck on "Saving..." forever on any network/RLS failure.
+      const finalized = await onComplete(pod);
+      if (finalized === false) {
+        setSubmitting(false);
+        return;
+      }
 
       // Fire the Supabase sync in the background (not awaited) — the staff
       // member has already captured the signature and moved on. A failure
