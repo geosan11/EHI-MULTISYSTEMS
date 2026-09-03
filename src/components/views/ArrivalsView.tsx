@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { User } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
-import { Package, CheckCircle, RefreshCw, Loader, History } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { Package, CheckCircle, RefreshCw, History } from 'lucide-react';
+import { Button, PageHeader, Spinner } from '../ui';
 import { isTagAlreadyDelivered, logScanEvent } from '../../lib/scanLogic';
 import { ProofOfDeliveryForm } from './ProofOfDelivery';
 import { useToast } from '../../lib/ToastContext';
@@ -291,7 +291,7 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
 
   if (activePodCapture) {
     return createPortal(
-      <div className="fixed inset-0 z-[150] bg-[var(--color-bg)] flex flex-col">
+      <div className="fixed inset-0 z-[150] bg-[var(--color-canvas)] flex flex-col">
         <ProofOfDeliveryForm
           awbNumber={activePodCapture.ref}
           consigneeName={activePodCapture.cargo.consignee_name}
@@ -308,7 +308,7 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
   const eventColor = (type: string) =>
     type === 'ARRIVE' ? 'var(--color-success)' :
     type === 'DEPART' ? 'var(--color-accent-cobalt)' :
-    type === 'DELIVER' ? '#a855f7' : 'var(--color-error)';
+    type === 'DELIVER' ? 'var(--color-purple)' : 'var(--color-error)';
 
   const eventLabel = (type: string) =>
     type === 'ARRIVE' ? '▼ ARRIVED' :
@@ -323,16 +323,17 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
   ];
 
   return (
-    <div className="flex flex-col h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] overflow-hidden">
+    <div className="flex flex-col h-full bg-[var(--color-canvas)] text-[var(--color-foreground)] overflow-hidden">
 
-      {/* Header */}
-      <div className="ehi-view-header">
-        <BackButton onClick={onBack} label="Back" />
-        <span className="text-[10px] font-mono text-[var(--color-accent-amber)] tracking-widest font-bold">● ARRIVALS</span>
-        <button onClick={() => activeTab === 'LOG' ? fetchLog() : fetchCargo()} aria-label="Refresh" className="p-1.5 rounded hover:bg-[var(--color-surface-2)] transition-colors">
-          <RefreshCw size={14} className={`text-[var(--color-muted)] ${loading ? 'animate-spin' : ''}`} />
-        </button>
-      </div>
+      <PageHeader
+        title="Arrivals"
+        onBack={onBack}
+        actions={
+          <button onClick={() => activeTab === 'LOG' ? fetchLog() : fetchCargo()} aria-label="Refresh" className="p-1.5 rounded hover:bg-[var(--color-surface-2)] transition-colors">
+            <RefreshCw size={14} className={`text-[var(--color-muted)] ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        }
+      />
 
       {/* Tab bar */}
       <div className="flex border-b border-[var(--color-border)] shrink-0">
@@ -368,13 +369,13 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
         <div className="ehi-page-body px-4 py-4 space-y-3">
           {loading ? (
             <div className="flex justify-center py-12">
-              <Loader size={22} className="animate-spin text-[var(--color-accent-amber)]" />
+              <Spinner size="lg" />
             </div>
 
           ) : activeTab === 'LOG' ? (
             // ── SCAN LOG ──────────────────────────────────────────────────
             logList.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-14 border border-dashed border-[rgba(255,255,255,0.08)] rounded-xl">
+              <div className="flex flex-col items-center justify-center py-14 border border-dashed border-[var(--color-border)] rounded-xl">
                 <History size={32} className="text-[var(--color-muted)] mb-3 opacity-40" />
                 <p className="text-[13px] font-sans font-medium text-[var(--color-muted)]">
                   No scan events found for this period.
@@ -413,7 +414,7 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
                       {ev.scanned_by_name && <span> · by {ev.scanned_by_name}</span>}
                     </div>
                     {ev.event_type === 'WRONG_DESTINATION_ALERT' && ev.alert_reason && (
-                      <div className="text-[10px] font-mono text-[var(--color-error)] bg-[rgba(239,68,68,0.07)] px-2 py-1 rounded mt-1">
+                      <div className="text-[10px] font-mono text-[var(--color-error-fg)] bg-[var(--color-error-bg)] px-2 py-1 rounded mt-1">
                         {ev.alert_reason}
                       </div>
                     )}
@@ -426,7 +427,7 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
             })
 
           ) : cargoList.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-14 border border-dashed border-[rgba(255,255,255,0.08)] rounded-xl">
+            <div className="flex flex-col items-center justify-center py-14 border border-dashed border-[var(--color-border)] rounded-xl">
               <Package size={32} className="text-[var(--color-muted)] mb-3 opacity-40" />
               <p className="text-[13px] font-sans font-medium text-[var(--color-muted)]">
                 {activeTab === 'AWAITING'
@@ -455,17 +456,19 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
               </div>
 
               {activeTab === 'AWAITING' && (
-                <button
+                <Button
+                  variant="primary"
+                  size="md"
+                  className="shrink-0"
                   onClick={() => {
                     setSelectedCargo(c);
                     setPinModalOpen(true);
                     setPinError('');
                     setPinValue(['', '', '', '', '']);
                   }}
-                  className="shrink-0 px-5 py-2.5 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] font-bold text-[12px] rounded-lg hover:opacity-90 transition-opacity cursor-pointer border-none"
                 >
                   RELEASE CARGO
-                </button>
+                </Button>
               )}
               {activeTab === 'DELIVERED' && (
                 <div className="shrink-0 flex items-center gap-1.5 text-[var(--color-success)] text-[11px] font-bold font-mono">
@@ -479,8 +482,8 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
 
       {/* PIN modal */}
       {pinModalOpen && selectedCargo && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[var(--color-obsidian)] border border-[var(--color-border)] rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center ehi-scrim p-4">
+          <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-2xl w-full max-w-sm overflow-hidden shadow-[var(--shadow-modal)]">
             <div className="p-5 border-b border-[var(--color-border)] bg-[var(--color-surface-card)]">
               <div className="text-[16px] font-bold text-[var(--color-foreground)] mb-0.5">Customer PIN Verification</div>
               <div className="text-[12px] text-[var(--color-muted)]">
@@ -509,24 +512,30 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
                 ))}
               </div>
               {pinError && (
-                <div className="bg-[rgba(239,68,68,0.08)] border border-[rgba(239,68,68,0.25)] text-[var(--color-error)] p-3 rounded-lg text-[11px] font-sans leading-relaxed mb-4">
+                <div className="bg-[var(--color-error-bg)] border border-[var(--color-error-border)] text-[var(--color-error-fg)] p-3 rounded-lg text-[11px] font-sans leading-relaxed mb-4">
                   {pinError}
                 </div>
               )}
               <div className="flex gap-3">
-                <button
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  className="flex-1"
                   onClick={() => { setPinModalOpen(false); setPinError(''); setPinValue(['', '', '', '', '']); }}
-                  className="flex-1 h-11 bg-[var(--color-surface-2)] text-[var(--color-muted)] text-[12px] font-bold rounded-lg hover:bg-[var(--color-surface-card)] transition-colors cursor-pointer border-none"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="primary"
+                  size="lg"
+                  className="flex-1"
                   onClick={handleConfirmPin}
-                  disabled={releasing || pinValue.join('').length !== 5}
-                  className="flex-1 h-11 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[12px] font-bold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer border-none"
+                  disabled={pinValue.join('').length !== 5}
+                  loading={releasing}
+                  loadingLabel="Releasing…"
                 >
-                  {releasing ? 'Releasing…' : 'Confirm PIN'}
-                </button>
+                  Confirm PIN
+                </Button>
               </div>
             </div>
           </div>
