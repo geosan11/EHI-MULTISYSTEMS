@@ -4,8 +4,8 @@ import { Transaction } from '../../lib/types';
 import { fmt } from '../../lib/helpers';
 import { fetchAllDebtAndRetrievalEntries, buildShadowRowExclusionCounts, extractPaymentHistoryEvents, PaymentHistoryEvent } from '../../lib/debt';
 import { HandCoins, PackageCheck, Search, X, Calendar } from 'lucide-react';
-import { BackButton } from '../BackButton';
 import { EmptyState } from './EmptyState';
+import { PageHeader, Tabs } from '../ui';
 
 // A debt collection is a PAYMENT against a sale already recorded once via
 // its own original entry, not a second sale -- this view exists precisely
@@ -71,6 +71,17 @@ export const DebtCollectionRetrievalLog = ({ transactions, onBack }: { transacti
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    if (!selectedEvent && !selectedRetrieval) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setSelectedEvent(null);
+      setSelectedRetrieval(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedEvent, selectedRetrieval]);
+
   const mergedEntries = useMemo(() => {
     const byId = new Map<string, Transaction>();
     fetchedEntries.forEach(t => byId.set(t.id, t));
@@ -129,39 +140,30 @@ export const DebtCollectionRetrievalLog = ({ transactions, onBack }: { transacti
   return (
     <div className="animate-in fade-in">
       <div className="ehi-page-body px-4 pt-4 space-y-4">
-        {/* Header */}
-        <div className="flex items-center gap-3 border-b border-[var(--color-border)] pb-3">
-          <BackButton onClick={onBack} />
-          <div>
-            <div className="text-[9px] font-mono text-[var(--color-muted)] tracking-[0.12em] uppercase">▸ DEBT COLLECTION &amp; RETRIEVAL LOG</div>
-            <div className="text-[12px] font-bold text-[var(--color-foreground)] tracking-wide mt-0.5">Collections &amp; Retrievals</div>
-          </div>
-        </div>
+        <PageHeader title="Collections & Retrievals" subtitle="Debt collection & retrieval log" onBack={onBack} sticky={false} />
 
         {/* KPI tiles */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-xl px-3 py-2.5 border bg-[rgba(16,185,129,0.1)] border-[var(--color-success)]">
+          <div className="rounded-xl px-3 py-2.5 border bg-[var(--color-success-bg)] border-[var(--color-success-border)]">
             <div className="text-[9px] font-mono uppercase tracking-wider text-[var(--color-muted)]">Collected Today</div>
             <div className="text-[15px] font-mono font-bold text-[var(--color-success)]">₦{fmt(totalCollectedToday)}</div>
           </div>
-          <div className="rounded-xl px-3 py-2.5 border bg-[rgba(245,158,11,0.1)] border-[var(--color-accent-amber)]">
+          <div className="rounded-xl px-3 py-2.5 border bg-[var(--color-amber-bg)] border-[var(--color-amber-border)]">
             <div className="text-[9px] font-mono uppercase tracking-wider text-[var(--color-muted)]">Retrieved Today</div>
             <div className="text-[15px] font-mono font-bold text-[var(--color-accent-amber)]">₦{fmt(totalRetrievedToday)}</div>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 bg-[var(--color-surface-card)] p-1 rounded-xl border border-[var(--color-border)] w-max">
-          {(['Collections', 'Retrievals'] as Tab[]).map(t => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-4 py-1.5 rounded-full text-[12px] font-sans font-semibold transition-colors ${tab === t ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)] hover:text-[var(--color-foreground)] border border-[var(--color-border)]'}`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          variant="pill"
+          value={tab}
+          onChange={(id) => setTab(id as Tab)}
+          className="gap-1"
+          items={[
+            { id: 'Collections', label: 'Collections' },
+            { id: 'Retrievals', label: 'Retrievals' },
+          ]}
+        />
 
         {/* Search */}
         <div className="relative">
@@ -193,7 +195,7 @@ export const DebtCollectionRetrievalLog = ({ transactions, onBack }: { transacti
                     className="ehi-card p-3 flex items-center justify-between cursor-pointer hover:border-[var(--color-muted)] transition-colors group"
                   >
                     <div className="flex items-start gap-3 min-w-0">
-                      <div className="p-2 bg-[rgba(59,130,246,0.1)] rounded-lg text-[var(--color-accent-cobalt)] shrink-0">
+                      <div className="p-2 bg-[var(--color-info-bg)] rounded-lg text-[var(--color-accent-cobalt)] shrink-0">
                         <HandCoins size={18} />
                       </div>
                       <div className="min-w-0 flex flex-col items-start gap-1">
@@ -210,7 +212,7 @@ export const DebtCollectionRetrievalLog = ({ transactions, onBack }: { transacti
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
                       <span className="text-[13px] font-mono font-bold text-[var(--color-success)]">₦{fmt(e.amount)}</span>
-                      <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[rgba(59,130,246,0.3)]">
+                      <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[var(--color-info-bg)] text-[var(--color-accent-cobalt)] border border-[var(--color-info-border)]">
                         {e.mode?.toUpperCase()}
                       </span>
                     </div>
@@ -231,7 +233,7 @@ export const DebtCollectionRetrievalLog = ({ transactions, onBack }: { transacti
                   className="ehi-card p-3 flex items-center justify-between cursor-pointer hover:border-[var(--color-muted)] transition-colors group"
                 >
                   <div className="flex items-start gap-3 min-w-0">
-                    <div className="p-2 bg-[rgba(245,158,11,0.1)] rounded-lg text-[var(--color-accent-amber)] shrink-0">
+                    <div className="p-2 bg-[var(--color-amber-bg)] rounded-lg text-[var(--color-accent-amber)] shrink-0">
                       <PackageCheck size={18} />
                     </div>
                     <div className="min-w-0 flex flex-col items-start gap-1">
@@ -248,7 +250,7 @@ export const DebtCollectionRetrievalLog = ({ transactions, onBack }: { transacti
                   </div>
                   <div className="flex flex-col items-end gap-1 shrink-0">
                     <span className="text-[13px] font-mono font-bold text-[var(--color-foreground)]">₦{fmt(raw?.retrieved_amount || 0)}</span>
-                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold font-mono border ${fullyRetrieved ? 'bg-[rgba(239,68,68,0.12)] text-[var(--color-error)] border-[rgba(239,68,68,0.25)]' : 'bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)] border-[rgba(245,158,11,0.3)]'}`}>
+                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold font-mono border ${fullyRetrieved ? 'bg-[var(--color-error-bg)] text-[var(--color-error)] border-[var(--color-error-border)]' : 'bg-[var(--color-amber-bg)] text-[var(--color-accent-amber)] border-[var(--color-amber-border)]'}`}>
                       {fullyRetrieved ? 'FULL' : 'PARTIAL'}
                     </span>
                   </div>
@@ -261,9 +263,9 @@ export const DebtCollectionRetrievalLog = ({ transactions, onBack }: { transacti
 
       {/* Collection detail panel */}
       {selectedEvent && createPortal(
-        <div className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-start p-4 overflow-y-auto">
-          <div className="w-full max-w-lg bg-[var(--color-surface-1)] rounded-xl border border-[var(--color-border-strong)] relative flex flex-col overflow-hidden mb-10 shadow-2xl">
-            <div className="p-4 border-b border-[var(--color-border)] bg-[rgba(0,0,0,0.4)] flex justify-between items-center sticky top-0 z-10 backdrop-blur-md">
+        <div className="fixed inset-0 z-[60] ehi-scrim flex flex-col items-center justify-start p-4 overflow-y-auto" onClick={(e) => { if (e.target === e.currentTarget) { setSelectedEvent(null); setSelectedRetrieval(null); } }}>
+          <div className="w-full max-w-lg bg-[var(--color-surface-1)] rounded-xl border border-[var(--color-border-strong)] relative flex flex-col overflow-hidden mb-10 shadow-[var(--shadow-modal)]">
+            <div className="p-4 border-b border-[var(--color-border)] bg-[var(--color-surface-2)] flex justify-between items-center sticky top-0 z-10">
               <div className="flex items-center gap-2">
                 <HandCoins size={18} className="text-[var(--color-accent-cobalt)]" />
                 <h3 className="text-[12px] font-bold text-[var(--color-foreground)] uppercase font-mono">Debt Collection</h3>
@@ -279,7 +281,7 @@ export const DebtCollectionRetrievalLog = ({ transactions, onBack }: { transacti
                 <div className="text-[10px] text-[var(--color-muted)] font-mono uppercase mb-1">Sale</div>
                 <div className="text-[12px] text-[var(--color-light-muted)]">{selectedEvent.sourceDetail}</div>
               </div>
-              <div className="bg-[rgba(255,255,255,0.02)] p-3 rounded-lg flex flex-col gap-3 text-[11px]">
+              <div className="bg-[var(--color-surface-2)] p-3 rounded-lg flex flex-col gap-3 text-[11px]">
                 <div className="flex justify-between"><span className="text-[var(--color-muted)]">Amount Collected:</span><span className="font-bold text-[var(--color-success)]">₦{fmt(selectedEvent.amount)}</span></div>
                 <div className="flex justify-between"><span className="text-[var(--color-muted)]">Payment Mode:</span><span className="font-bold text-[var(--color-foreground)]">{selectedEvent.mode}</span></div>
                 <div className="flex justify-between"><span className="text-[var(--color-muted)]">Collected By:</span><span className="font-bold text-[var(--color-foreground)]">{selectedEvent.by}</span></div>
@@ -296,9 +298,9 @@ export const DebtCollectionRetrievalLog = ({ transactions, onBack }: { transacti
 
       {/* Retrieval detail panel */}
       {selectedRetrieval && createPortal(
-        <div className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-start p-4 overflow-y-auto">
-          <div className="w-full max-w-lg bg-[var(--color-surface-1)] rounded-xl border border-[var(--color-border-strong)] relative flex flex-col overflow-hidden mb-10 shadow-2xl">
-            <div className="p-4 border-b border-[var(--color-border)] bg-[rgba(0,0,0,0.4)] flex justify-between items-center sticky top-0 z-10 backdrop-blur-md">
+        <div className="fixed inset-0 z-[60] ehi-scrim flex flex-col items-center justify-start p-4 overflow-y-auto" onClick={(e) => { if (e.target === e.currentTarget) { setSelectedEvent(null); setSelectedRetrieval(null); } }}>
+          <div className="w-full max-w-lg bg-[var(--color-surface-1)] rounded-xl border border-[var(--color-border-strong)] relative flex flex-col overflow-hidden mb-10 shadow-[var(--shadow-modal)]">
+            <div className="p-4 border-b border-[var(--color-border)] bg-[var(--color-surface-2)] flex justify-between items-center sticky top-0 z-10">
               <div className="flex items-center gap-2">
                 <PackageCheck size={18} className="text-[var(--color-accent-amber)]" />
                 <h3 className="text-[12px] font-bold text-[var(--color-foreground)] uppercase font-mono">Retrieval</h3>
@@ -314,7 +316,7 @@ export const DebtCollectionRetrievalLog = ({ transactions, onBack }: { transacti
                 <div className="text-[10px] text-[var(--color-muted)] font-mono uppercase mb-1">Sale</div>
                 <div className="text-[12px] text-[var(--color-light-muted)]">{selectedRetrieval.detail}</div>
               </div>
-              <div className="bg-[rgba(255,255,255,0.02)] p-3 rounded-lg flex flex-col gap-3 text-[11px]">
+              <div className="bg-[var(--color-surface-2)] p-3 rounded-lg flex flex-col gap-3 text-[11px]">
                 <div className="flex justify-between"><span className="text-[var(--color-muted)]">Retrieved Value:</span><span className="font-bold text-[var(--color-foreground)]">₦{fmt((selectedRetrieval.raw as any)?.retrieved_amount || 0)} of ₦{fmt(selectedRetrieval.amount)}</span></div>
                 <div className="flex justify-between"><span className="text-[var(--color-muted)]">Balance Remaining:</span><span className="font-bold text-[var(--color-accent-amber)]">₦{fmt(selectedRetrieval.amount - ((selectedRetrieval.raw as any)?.retrieved_amount || 0))}</span></div>
                 <div className="flex justify-between"><span className="text-[var(--color-muted)]">Retrieved Qty:</span><span className="font-bold text-[var(--color-foreground)]">{(selectedRetrieval.raw as any)?.retrieved_pieces || 0} pcs / {(selectedRetrieval.raw as any)?.retrieved_kg || 0} kg</span></div>

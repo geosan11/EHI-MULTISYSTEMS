@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { db } from '../../lib/db';
 import { DriverTrip, TripPing } from '../../lib/types';
-import { MapPin, Navigation, X, Truck, Phone } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { MapPin, Navigation, X, Truck } from 'lucide-react';
+import { PageHeader } from '../ui';
 import { MapContainer, TileLayer, Polyline, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -24,6 +24,13 @@ interface TripWithPings extends DriverTrip {
 export const Dispatch = ({ onBack }: { onBack: () => void }) => {
   const [activeTrips, setActiveTrips] = useState<TripWithPings[]>([]);
   const [selectedTrip, setSelectedTrip] = useState<TripWithPings | null>(null);
+
+  useEffect(() => {
+    if (!selectedTrip) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelectedTrip(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedTrip]);
 
   useEffect(() => {
     const fetchTrips = async () => {
@@ -64,15 +71,7 @@ export const Dispatch = ({ onBack }: { onBack: () => void }) => {
   return (
     <div className="animate-in fade-in flex flex-col">
       <div className="ehi-page-body px-4 pt-4 space-y-4 flex flex-col flex-1">
-      <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2">
-        <div className="flex items-center gap-2">
-          <BackButton onClick={onBack} />
-          <div>
-            <div className="text-[9px] font-mono text-[var(--color-muted)] tracking-[0.12em] uppercase">▸ DISPATCH</div>
-            <div className="text-[12px] font-bold text-[var(--color-foreground)] tracking-wide mt-0.5">ACTIVE FLEET</div>
-          </div>
-        </div>
-      </div>
+      <PageHeader title="Active Fleet" subtitle="Dispatch · live GPS" onBack={onBack} sticky={false} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {activeTrips.length === 0 ? (
@@ -93,7 +92,7 @@ export const Dispatch = ({ onBack }: { onBack: () => void }) => {
               <div 
                 key={trip.id} 
                 onClick={() => setSelectedTrip(trip)}
-                className="ehi-card cursor-pointer hover:border-[var(--color-accent-blue)] transition-colors group"
+                className="ehi-card cursor-pointer hover:border-[var(--color-accent-cobalt)] transition-colors group"
               >
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex items-center gap-3">
@@ -136,31 +135,28 @@ export const Dispatch = ({ onBack }: { onBack: () => void }) => {
       </div>
 
       {selectedTrip && createPortal(
-        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col p-4 md:p-8">
-          <div className="w-full h-full max-w-5xl mx-auto bg-[var(--color-surface-1)] rounded-xl border border-[var(--color-border-strong)] flex flex-col overflow-hidden shadow-2xl relative">
-            <div className="p-4 border-b border-[var(--color-border)] bg-[rgba(0,0,0,0.4)] flex justify-between items-center">
+        <div
+          className="fixed inset-0 z-50 ehi-scrim flex flex-col p-4 md:p-8"
+          onClick={(e) => { if (e.target === e.currentTarget) setSelectedTrip(null); }}
+        >
+          <div className="w-full h-full max-w-5xl mx-auto bg-[var(--color-surface-1)] rounded-xl border border-[var(--color-border-strong)] flex flex-col overflow-hidden shadow-[var(--shadow-modal)] relative">
+            <div className="p-4 border-b border-[var(--color-border)] bg-[var(--color-surface-2)] flex justify-between items-center">
               <div className="flex items-center gap-3">
-                <Navigation size={18} className="text-[var(--color-accent-blue)]" />
+                <Navigation size={18} className="text-[var(--color-accent-cobalt)]" />
                 <div>
                   <h3 className="text-[14px] font-bold text-[var(--color-foreground)] uppercase tracking-wider">{selectedTrip.vehiclePlate} Tracking</h3>
                   <div className="text-[10px] text-[var(--color-muted)] font-mono">{selectedTrip.driverName}</div>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <a 
-                  href={`tel:0000000000`} 
-                  className="px-3 py-1.5 bg-[rgba(16,185,129,0.1)] text-[var(--color-success)] border border-[rgba(16,185,129,0.3)] rounded text-[11px] font-bold uppercase font-mono flex items-center gap-1.5 hover:bg-[rgba(16,185,129,0.2)]"
-                >
-                  <Phone size={12} /> Call Driver
-                </a>
-                <button
-                  onClick={() => setSelectedTrip(null)}
-                  aria-label="Close"
-                  className="p-1.5 bg-[var(--color-surface-2)] rounded hover:bg-[var(--color-surface-hover)] text-[var(--color-muted)] transition-colors border-none"
-                >
-                  <X size={16} />
-                </button>
-              </div>
+              {/* "Call Driver" button removed -- it dialled a hardcoded
+                  tel:0000000000 (driver phone isn't on the trip record). */}
+              <button
+                onClick={() => setSelectedTrip(null)}
+                aria-label="Close"
+                className="p-1.5 bg-[var(--color-surface-2)] rounded hover:bg-[var(--color-surface-hover)] text-[var(--color-muted)] transition-colors border-none"
+              >
+                <X size={16} />
+              </button>
             </div>
 
             <div className="flex-1 relative bg-[var(--color-surface-2)]">
@@ -201,7 +197,7 @@ export const Dispatch = ({ onBack }: { onBack: () => void }) => {
               )}
             </div>
 
-            <div className="p-3 border-t border-[var(--color-border)] bg-[rgba(0,0,0,0.4)] flex justify-between items-center text-[10px] font-mono">
+            <div className="p-3 border-t border-[var(--color-border)] bg-[var(--color-surface-2)] flex justify-between items-center text-[10px] font-mono">
               <div><span className="text-[var(--color-muted)]">Origin:</span> <span className="text-[var(--color-foreground)]">{selectedTrip.origin}</span></div>
               <div><span className="text-[var(--color-muted)]">Destination:</span> <span className="text-[var(--color-foreground)]">{selectedTrip.destination}</span></div>
               <div><span className="text-[var(--color-muted)]">Pings logged:</span> <span className="text-[var(--color-accent-amber)] font-bold">{selectedTrip.pings.length}</span></div>

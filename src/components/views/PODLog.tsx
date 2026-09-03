@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { fetchProofOfDeliveryRecords, fetchProofOfDeliveryMedia } from '../../lib/sync';
 import { ProofOfDelivery, User } from '../../lib/types';
-import { ShieldCheck, MapPin, Search, Calendar, ChevronRight, RefreshCw, X, Loader2 } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { ShieldCheck, MapPin, Search, Calendar, ChevronRight, RefreshCw, X } from 'lucide-react';
 import { EmptyState } from './EmptyState';
+import { PageHeader, Spinner } from '../ui';
 
 export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => {
   const [pods, setPods] = useState<ProofOfDelivery[]>([]);
@@ -59,6 +59,13 @@ export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => 
     fetchPods();
   }, []);
 
+  useEffect(() => {
+    if (!selectedPod) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelectedPod(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedPod]);
+
   const filteredPods = pods.filter(p => 
     p.awbNumber.toLowerCase().includes(searchTerm.toLowerCase()) || 
     p.receivedByName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -68,17 +75,10 @@ export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => 
   return (
     <div className="animate-in fade-in">
       <div className="ehi-page-body px-4 pt-4 space-y-4">
-      {/* Header */}
-      <div className="flex items-center gap-3 border-b border-[var(--color-border)] pb-3">
-        <BackButton onClick={onBack} />
-        <div>
-          <div className="text-[9px] font-mono text-[var(--color-muted)] tracking-[0.12em] uppercase">▸ PROOF OF DELIVERY LOG</div>
-          <div className="text-[12px] font-bold text-[var(--color-foreground)] tracking-wide mt-0.5">Secure Evidence</div>
-        </div>
-      </div>
+      <PageHeader title="Proof of Delivery" subtitle="Secure evidence log" onBack={onBack} sticky={false} />
 
       {capped && (
-        <div className="text-[10px] font-mono text-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.08)] border border-[rgba(245,158,11,0.2)] rounded-lg px-3 py-2">
+        <div className="text-[10px] font-mono text-[var(--color-amber-fg)] bg-[var(--color-amber-bg)] border border-[var(--color-amber-border)] rounded-lg px-3 py-2">
           Showing the most recent 5,000 records -- older deliveries may not appear in search results.
         </div>
       )}
@@ -108,7 +108,7 @@ export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => 
       <div className="flex flex-col gap-2">
         {loading ? (
           <div className="text-center py-10 text-[var(--color-muted)] font-mono text-[11px] flex flex-col items-center">
-            <RefreshCw size={24} className="animate-spin mb-4" />
+            <Spinner size="xl" tone="muted" className="mb-4" />
             Loading records...
           </div>
         ) : fetchError ? (
@@ -125,10 +125,10 @@ export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => 
             <div 
               key={pod.id}
               onClick={() => handleSelectPod(pod)}
-              className="ehi-card p-3 flex items-center justify-between cursor-pointer hover:border-[var(--color-muted)] transition-colors group"
+              className="ehi-card p-3 flex items-center justify-between cursor-pointer hover:border-[var(--color-border-strong)] transition-colors group"
             >
               <div className="flex items-start gap-3 min-w-0">
-                <div className="p-2 bg-[rgba(16,185,129,0.1)] rounded-lg text-[var(--color-success)] shrink-0">
+                <div className="p-2 bg-[var(--color-success-bg)] rounded-lg text-[var(--color-success-fg)] shrink-0">
                   <ShieldCheck size={18} />
                 </div>
                 <div className="min-w-0 flex flex-col items-start gap-1">
@@ -149,10 +149,13 @@ export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => 
 
       {/* Modal */}
       {selectedPod && createPortal(
-        <div className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-start p-4 overflow-y-auto">
-          <div className="w-full max-w-lg bg-[var(--color-surface-1)] rounded-xl border border-[var(--color-border-strong)] relative flex flex-col overflow-hidden mb-10 shadow-2xl">
+        <div
+          className="fixed inset-0 z-[60] ehi-scrim flex flex-col items-center justify-start p-4 overflow-y-auto"
+          onClick={(e) => { if (e.target === e.currentTarget) setSelectedPod(null); }}
+        >
+          <div className="w-full max-w-lg bg-[var(--color-surface-1)] rounded-xl border border-[var(--color-border-strong)] relative flex flex-col overflow-hidden mb-10 shadow-[var(--shadow-modal)]">
             {/* Modal Header */}
-            <div className="p-4 border-b border-[var(--color-border)] bg-[rgba(0,0,0,0.4)] flex justify-between items-center sticky top-0 z-10 backdrop-blur-md">
+            <div className="p-4 border-b border-[var(--color-border)] bg-[var(--color-surface-2)] flex justify-between items-center sticky top-0 z-10">
               <div className="flex items-center gap-2">
                 <ShieldCheck size={18} className="text-[var(--color-success)]" />
                 <h3 className="text-[12px] font-bold text-[var(--color-foreground)] uppercase font-mono">Proof of Delivery</h3>
@@ -187,7 +190,7 @@ export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => 
               {/* Recipient info */}
               <div>
                 <h4 className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-widest border-b border-[var(--color-border)] pb-1 mb-2">Recipient Details</h4>
-                <div className="bg-[rgba(255,255,255,0.02)] p-3 rounded-lg flex flex-col gap-3 text-[11px]">
+                <div className="bg-[var(--color-surface-2)] p-3 rounded-lg flex flex-col gap-3 text-[11px]">
                   <div className="flex justify-between">
                     <span className="text-[var(--color-muted)]">Consignee Name:</span>
                     <span className="font-bold text-[var(--color-light-muted)] text-right">{selectedPod.consigneeName}</span>
@@ -216,17 +219,17 @@ export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => 
 
               {/* Staff & GPS */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-[rgba(255,255,255,0.02)] p-2.5 rounded-lg">
+                <div className="bg-[var(--color-surface-2)] p-2.5 rounded-lg">
                   <div className="text-[9px] text-[var(--color-muted)] font-mono uppercase">Handling Staff</div>
                   <div className="text-[11px] font-bold font-sans mt-0.5">{selectedPod.deliveredBy}</div>
                 </div>
-                <div className="bg-[rgba(255,255,255,0.02)] p-2.5 rounded-lg flex justify-between items-center group">
+                <div className="bg-[var(--color-surface-2)] p-2.5 rounded-lg flex justify-between items-center group">
                   <div>
                     <div className="text-[9px] text-[var(--color-muted)] font-mono uppercase">GPS Trace</div>
                     {selectedPod.gpsLatitude ? (
-                      <div className="text-[9px] font-mono text-[var(--color-success)] mt-0.5">Recorded</div>
+                      <div className="text-[9px] font-mono text-[var(--color-success-fg)] mt-0.5">Recorded</div>
                     ) : (
-                      <div className="text-[9px] font-mono text-[var(--color-error)] mt-0.5">Not Available</div>
+                      <div className="text-[9px] font-mono text-[var(--color-error-fg)] mt-0.5">Not Available</div>
                     )}
                   </div>
                   {selectedPod.gpsLatitude && selectedPod.gpsLongitude && (
@@ -250,7 +253,7 @@ export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => 
                     {selectedPod.signatureData ? (
                       <img src={selectedPod.signatureData} alt="Signature" className="max-h-full object-contain" />
                     ) : (
-                      <Loader2 size={20} className="animate-spin text-[var(--color-muted)]" />
+                      <Spinner size="lg" tone="muted" />
                     )}
                   </div>
                 </div>
@@ -267,7 +270,7 @@ export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => 
 
               {/* Notes */}
               {selectedPod.notes && (
-                <div className="mt-2 bg-[rgba(245,158,11,0.05)] border border-[rgba(245,158,11,0.2)] rounded-lg p-3">
+                <div className="mt-2 bg-[var(--color-amber-bg)] border border-[var(--color-amber-border)] rounded-lg p-3">
                   <div className="text-[9px] font-mono text-[var(--color-accent-amber)] uppercase font-bold mb-1">Notes / Remarks</div>
                   <div className="text-[11px] text-[var(--color-light-muted)] italic leading-relaxed">{selectedPod.notes}</div>
                 </div>
