@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Plus, RefreshCw, Search, Edit2, UserX, UserCheck,
-  MapPin, Phone, Mail, Loader, AlertTriangle, Check, Eye, EyeOff, Shield, Upload, Printer
+  MapPin, Phone, Mail, AlertTriangle, Check, Eye, EyeOff, Shield, Upload, Printer
 } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { Button, PageHeader, Spinner } from '../ui';
 import { User, UserRole } from '../../lib/types';
 import { supabase, writeAuditLog } from '../../lib/supabase';
 import { createStaffAccount, updateStaffProfile } from '../../lib/auth';
@@ -49,11 +49,11 @@ const roleColor = (role: string) => ({
   admin:           'text-[var(--color-accent-cobalt)] bg-[rgba(59,130,246,0.12)]',
   cargo_agent:     'text-[var(--color-success)] bg-[rgba(16,185,129,0.12)]',
   baggage_agent:   'text-[var(--color-purple)] bg-[rgba(168,85,247,0.12)]',
-  accountant:      'text-teal-400 bg-[rgba(20,184,166,0.12)]',
-  auditor:         'text-orange-400 bg-[rgba(249,115,22,0.12)]',
+  accountant:      'text-[var(--color-teal)] bg-[rgba(20,184,166,0.12)]',
+  auditor:         'text-[var(--color-warning)] bg-[rgba(249,115,22,0.12)]',
   driver:          'text-[var(--color-muted)] bg-[rgba(100,116,139,0.12)]',
   marketing_agent: 'text-[var(--color-success)] bg-[rgba(16,185,129,0.10)]',
-  office_work:     'text-blue-400 bg-[rgba(96,165,250,0.10)]',
+  office_work:     'text-[var(--color-accent-cobalt)] bg-[rgba(96,165,250,0.10)]',
 }[role] || 'text-[var(--color-muted)] bg-[var(--color-surface-2)]');
 
 export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => void }) => {
@@ -246,22 +246,18 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
   });
 
   return (
-    <div className="flex flex-col h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] overflow-hidden">
-      {/* Header */}
-      <div className="p-4 border-b border-[var(--color-border)] flex items-center justify-between shrink-0">
-        <BackButton onClick={onBack} label="Back" />
-        <span className="text-[10px] font-mono text-[var(--color-accent-amber)] tracking-widest font-bold">● STAFF MANAGEMENT</span>
-      </div>
+    <div className="flex flex-col h-full bg-[var(--color-canvas)] text-[var(--color-foreground)] overflow-hidden">
+      <PageHeader title="Staff Management" onBack={onBack} />
 
       {/* Alerts */}
       {error && (
-        <div className="mx-4 mt-3 p-3 bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.3)] rounded-lg flex items-center gap-2 text-[12px] text-[var(--color-error)]">
+        <div className="mx-4 mt-3 p-3 bg-[var(--color-error-bg)] border border-[var(--color-error-border)] rounded-lg flex items-center gap-2 text-[12px] text-[var(--color-error-fg)]">
           <AlertTriangle size={14} />{error}
           <button onClick={() => setError('')} aria-label="Dismiss" className="ml-auto font-mono">✕</button>
         </div>
       )}
       {success && (
-        <div className="mx-4 mt-3 p-3 bg-[rgba(16,185,129,0.1)] border border-[rgba(16,185,129,0.3)] rounded-lg flex items-center gap-2 text-[12px] text-[var(--color-success)]">
+        <div className="mx-4 mt-3 p-3 bg-[var(--color-success-bg)] border border-[var(--color-success-border)] rounded-lg flex items-center gap-2 text-[12px] text-[var(--color-success-fg)]">
           <Check size={14} />{success}
           <button onClick={() => setSuccess('')} aria-label="Dismiss" className="ml-auto font-mono">✕</button>
         </div>
@@ -327,14 +323,14 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
       <div className="flex-1 overflow-y-auto px-4 pb-20 space-y-2">
         {loading ? (
           <div className="flex justify-center py-12">
-            <Loader size={24} className="animate-spin text-[var(--color-accent-amber)]" />
+            <Spinner size="lg" />
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-12 text-[var(--color-muted)] text-[12px] font-mono">
             No staff found
           </div>
         ) : filtered.map(member => (
-          <div key={member.id} className={`ehi-card p-4 rounded-xl border transition-colors ${!member.active ? 'opacity-50 border-[rgba(239,68,68,0.2)]' : 'border-[var(--color-border)]'}`}>
+          <div key={member.id} className={`ehi-card p-4 rounded-xl border transition-colors ${!member.active ? 'opacity-50 border-[var(--color-error-border)]' : 'border-[var(--color-border)]'}`}>
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -408,7 +404,7 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
 
       {/* CREATE STAFF MODAL */}
       {showCreate && createPortal(
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 ehi-scrim flex items-end sm:items-center justify-center z-50 p-4">
           <div className="ehi-card w-full max-w-sm rounded-2xl overflow-hidden">
             <div className="p-4 border-b border-[var(--color-border)] flex justify-between items-center bg-[var(--color-surface-card)]">
               <span className="text-[12px] font-bold text-[var(--color-foreground)]">Create Staff Account</span>
@@ -475,14 +471,14 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
               </div>
 
               {error && (
-                <div className="text-[11px] text-[var(--color-error)] bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.2)] p-2 rounded">{error}</div>
+                <div className="text-[11px] text-[var(--color-error-fg)] bg-[var(--color-error-bg)] border border-[var(--color-error-border)] p-2 rounded">{error}</div>
               )}
 
               <div className="flex gap-3 pt-1">
-                <button onClick={() => { setShowCreate(false); setError(''); }} className="flex-1 h-11 border border-[var(--color-border)] rounded-lg text-[12px] font-bold text-[var(--color-muted)]">Cancel</button>
-                <button onClick={handleCreate} disabled={saving} className="flex-1 h-11 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg text-[12px] font-bold disabled:opacity-60">
-                  {saving ? 'Creating...' : 'Create Account'}
-                </button>
+                <Button variant="secondary" size="md" className="flex-1" onClick={() => { setShowCreate(false); setError(''); }}>Cancel</Button>
+                <Button variant="primary" size="md" className="flex-1" onClick={handleCreate} loading={saving} loadingLabel="Creating…">
+                  Create Account
+                </Button>
               </div>
             </div>
           </div>
@@ -492,7 +488,7 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
 
       {/* EDIT STAFF MODAL */}
       {editingStaff && createPortal(
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 ehi-scrim flex items-end sm:items-center justify-center z-50 p-4">
           <div className="ehi-card w-full max-w-sm rounded-2xl overflow-hidden">
             <div className="p-4 border-b border-[var(--color-border)] flex justify-between items-center bg-[var(--color-surface-card)]">
               <div>
@@ -777,8 +773,13 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
               )}
 
               <div className="flex gap-3 pt-1">
-                <button onClick={() => { setEditingStaff(null); setError(''); }} className="flex-1 h-11 border border-[var(--color-border)] rounded-lg text-[12px] font-bold text-[var(--color-muted)]">Cancel</button>
-                <button
+                <Button variant="secondary" size="md" className="flex-1" onClick={() => { setEditingStaff(null); setError(''); }}>Cancel</Button>
+                <Button
+                  variant="primary"
+                  size="md"
+                  className="flex-1"
+                  loading={saving}
+                  loadingLabel="Saving…"
                   onClick={() => handleUpdateRole(editingStaff.id, {
                     name: editingStaff.name,
                     phone: editingStaff.phone,
@@ -806,11 +807,9 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
                       view_overrides: editingStaff.view_overrides ?? null,
                     } : {}),
                   })}
-                  disabled={saving}
-                  className="flex-1 h-11 bg-[var(--color-accent-cobalt)] text-white rounded-lg text-[12px] font-bold disabled:opacity-60"
                 >
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </button>
+                  Save Changes
+                </Button>
               </div>
             </div>
           </div>
@@ -819,7 +818,7 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
       )}
 
       {credModal && createPortal(
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 ehi-scrim z-50 flex items-center justify-center p-4">
           <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl p-6 max-w-sm w-full">
             <div className="text-[13px] font-bold mb-4 text-[var(--color-foreground)]">New Staff Credentials — Share Once</div>
             <div className="space-y-2 mb-4">
