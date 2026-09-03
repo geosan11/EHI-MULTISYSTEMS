@@ -7,6 +7,7 @@ import { applyWalletTransaction, requestWalletCashPayout, approveWalletCashPayou
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
 import { BackButton } from '../BackButton';
+import { Button } from '../ui';
 import { openPdfOrDownload } from '../../lib/helpers';
 import {
   Wallet,
@@ -156,6 +157,19 @@ export const CustomerWallets = ({
   const [payoutDepartment, setPayoutDepartment] = useState<RetrievalEntryType>('cargo');
   const [payoutNote, setPayoutNote] = useState('');
   const [savingPayout, setSavingPayout] = useState(false);
+
+  // Esc-to-close for the three portalled modals (none had it). Top-up / payout
+  // ignore Esc while a save is in flight.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (payoutWalletId) { if (!savingPayout) setPayoutWalletId(null); }
+      else if (showHistoryModal) setShowHistoryModal(false);
+      else if (showTopUpModal) { if (!savingTopUp) setShowTopUpModal(false); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showTopUpModal, showHistoryModal, payoutWalletId, savingTopUp, savingPayout]);
 
   // Pending cash payouts awaiting a second person's approval
   const [pendingPayouts, setPendingPayouts] = useState<WalletTransaction[]>([]);
@@ -780,13 +794,9 @@ export const CustomerWallets = ({
           </span>
         </div>
         {canTopUp && (
-          <button
-            onClick={() => setShowTopUpModal(true)}
-            className="px-3 py-1.5 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[11px] font-mono font-bold rounded-lg flex items-center gap-1.5 hover:opacity-90 transition-opacity cursor-pointer shadow-sm"
-          >
-            <Plus size={14} strokeWidth={3} />
-            <span>Top-Up Wallet</span>
-          </button>
+          <Button variant="primary" size="sm" iconLeft={Plus} onClick={() => setShowTopUpModal(true)}>
+            Top-Up Wallet
+          </Button>
         )}
       </div>
 
@@ -1141,7 +1151,7 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
 
       {/* Modal: Top-Up / Create Wallet */}
       {showTopUpModal && createPortal(
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 ehi-scrim flex items-center justify-center p-4">
           <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-2xl w-full max-w-md overflow-hidden space-y-4 p-5" style={{ boxShadow: 'var(--shadow-modal)' }}>
             <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-3">
               <div className="flex items-center gap-2">
@@ -1261,20 +1271,12 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
               </div>
 
               <div className="pt-2 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowTopUpModal(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] text-[11px] font-mono font-semibold hover:bg-[var(--color-surface-2)] cursor-pointer"
-                >
+                <Button type="button" variant="secondary" fullWidth onClick={() => setShowTopUpModal(false)}>
                   Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingTopUp}
-                  className="flex-1 py-2.5 rounded-xl bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[11px] font-mono font-bold hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  {savingTopUp ? <Loader2 size={14} className="animate-spin" /> : 'Confirm Top-Up'}
-                </button>
+                </Button>
+                <Button type="submit" variant="primary" fullWidth loading={savingTopUp} loadingLabel="Confirming…">
+                  Confirm Top-Up
+                </Button>
               </div>
             </form>
           </div>
@@ -1284,7 +1286,7 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
 
       {/* Modal: History */}
       {showHistoryModal && selectedWallet && createPortal(
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 ehi-scrim flex items-center justify-center p-4">
           <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-2xl w-full max-w-lg overflow-hidden space-y-4 p-5 max-h-[85vh] flex flex-col" style={{ boxShadow: 'var(--shadow-modal)' }}>
             <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-3 shrink-0">
               <div>
@@ -1428,7 +1430,7 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
         const wallet = wallets.find((w) => w.id === payoutWalletId);
         if (!wallet) return null;
         return createPortal(
-          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 ehi-scrim flex items-center justify-center p-4">
             <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-2xl w-full max-w-sm overflow-hidden space-y-4 p-5" style={{ boxShadow: 'var(--shadow-modal)' }}>
               <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-3">
                 <div>
@@ -1484,13 +1486,16 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
                 </div>
               </div>
 
-              <button
+              <Button
+                variant="primary"
+                fullWidth
+                iconLeft={HandCoins}
                 onClick={() => handleRequestPayout(wallet)}
-                disabled={savingPayout}
-                className="w-full h-11 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg text-[12px] font-mono font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+                loading={savingPayout}
+                loadingLabel="Requesting…"
               >
-                <HandCoins size={14} /> {savingPayout ? 'Requesting...' : 'Request Cash Payout'}
-              </button>
+                Request Cash Payout
+              </Button>
             </div>
           </div>,
           document.body
