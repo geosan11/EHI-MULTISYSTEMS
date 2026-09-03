@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { User } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../lib/ToastContext';
-import { RefreshCw, Loader, CheckCircle2 } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { RefreshCw, CheckCircle2 } from 'lucide-react';
+import { PageHeader, Spinner } from '../ui';
 
 function timeSince(dateStr: string): string {
   const diffMs = Date.now() - new Date(dateStr).getTime();
@@ -142,14 +142,16 @@ export const OutboundArrivals = ({ user, onBack }: { user: User; onBack: () => v
   useEffect(() => { fetchArrivals(); }, [user.hub_id]);
 
   return (
-    <div className="flex flex-col h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] overflow-hidden">
-      <div className="ehi-view-header">
-        <BackButton onClick={onBack} label="Back" />
-        <span className="text-[10px] font-mono text-[var(--color-success)] tracking-widest font-bold">● OUTBOUND ARRIVALS</span>
-        <button onClick={fetchArrivals} aria-label="Refresh" className="p-1.5 rounded hover:bg-[var(--color-surface-2)] transition-colors">
-          <RefreshCw size={14} className={`text-[var(--color-muted)] ${loading ? 'animate-spin' : ''}`} />
-        </button>
-      </div>
+    <div className="flex flex-col h-full bg-[var(--color-canvas)] text-[var(--color-foreground)] overflow-hidden">
+      <PageHeader
+        title="Outbound Arrivals"
+        onBack={onBack}
+        actions={
+          <button onClick={fetchArrivals} aria-label="Refresh" className="p-1.5 rounded hover:bg-[var(--color-surface-2)] transition-colors">
+            <RefreshCw size={14} className={`text-[var(--color-muted)] ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        }
+      />
 
       <div className="px-4 py-3 text-[11px] font-sans text-[var(--color-muted)] border-b border-[var(--color-border)]">
         Shipments dispatched from <strong className="text-[var(--color-foreground)]">{user.hub}</strong> — confirmed arrived at destination
@@ -159,10 +161,10 @@ export const OutboundArrivals = ({ user, onBack }: { user: User; onBack: () => v
         <div className="ehi-page-body px-4 py-4 space-y-3">
           {loading ? (
             <div className="flex justify-center py-12">
-              <Loader size={22} className="animate-spin text-[var(--color-success)]" />
+              <Spinner size="lg" tone="current" className="text-[var(--color-success)]" />
             </div>
           ) : rows.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-14 border border-dashed border-[rgba(255,255,255,0.08)] rounded-xl">
+            <div className="flex flex-col items-center justify-center py-14 border border-dashed border-[var(--color-border)] rounded-xl">
               <CheckCircle2 size={32} className="text-[var(--color-muted)] mb-3 opacity-40" />
               <p className="text-[13px] font-sans font-medium text-[var(--color-muted)]">
                 Nothing dispatched from this hub has been confirmed as arrived yet.
