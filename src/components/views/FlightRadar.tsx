@@ -3,12 +3,12 @@ import { supabase } from '../../lib/supabase';
 import { User } from '../../lib/types';
 import { lagosBusinessDate } from '../../lib/helpers';
 import { useToast } from '../../lib/ToastContext';
-import { BackButton } from '../BackButton';
 import { EmptyState } from './EmptyState';
 import { Modal } from '../Modal';
+import { PageHeader, Spinner } from '../ui';
 import { StatusBadge, flightStatusMeta, FlightStatus } from '../ui/StatusBadge';
 import { getAirportCoordinate } from '../../lib/airportCoordinates';
-import { Radar, RefreshCw, Plane, Package2, Loader2, Search, X } from 'lucide-react';
+import { Radar, RefreshCw, Plane, Package2, Search, X } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Polyline, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -457,35 +457,35 @@ export const FlightRadar = ({ user, onBack }: { user: User; onBack: () => void }
   ];
 
   return (
-    <div className="flex flex-col h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] overflow-hidden">
-      <div className="ehi-view-header">
-        <BackButton onClick={onBack} label="Back" />
-        <span className="inline-flex items-center gap-1.5 text-[10px] font-mono text-[var(--color-accent-amber)] tracking-widest font-bold">
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-success)', animation: 'livePulse 1.6s ease-in-out infinite', flexShrink: 0 }} />
-          FLIGHT RADAR
-        </span>
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={date}
-            onChange={e => setDate(e.target.value)}
-            className="h-7 px-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded text-[11px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
-          />
-          <button
-            onClick={tab === 'mine' ? fetchBoard : fetchNationalBoard}
-            className="h-7 w-7 flex items-center justify-center bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded text-[var(--color-muted)] hover:text-[var(--color-accent-amber)]"
-          >
-            <RefreshCw size={13} className={(tab === 'mine' ? loading : nationalLoading) ? 'animate-spin' : ''} />
-          </button>
-        </div>
-      </div>
+    <div className="flex flex-col h-full bg-[var(--color-canvas)] text-[var(--color-foreground)] overflow-hidden">
+      <PageHeader
+        title="Flight Radar"
+        onBack={onBack}
+        actions={
+          <>
+            <input
+              type="date"
+              value={date}
+              onChange={e => setDate(e.target.value)}
+              className="h-8 px-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded text-[11px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
+            />
+            <button
+              onClick={tab === 'mine' ? fetchBoard : fetchNationalBoard}
+              aria-label="Refresh"
+              className="h-8 w-8 flex items-center justify-center bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded text-[var(--color-muted)] hover:text-[var(--color-accent-amber)]"
+            >
+              <RefreshCw size={13} className={(tab === 'mine' ? loading : nationalLoading) ? 'animate-spin' : ''} />
+            </button>
+          </>
+        }
+      />
 
       <div className="px-4 pt-3 flex items-center gap-2 shrink-0">
         <button
           onClick={() => setTab('mine')}
           className="px-3 py-1.5 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wide"
           style={tab === 'mine'
-            ? { background: 'var(--color-accent-amber)', color: 'var(--color-obsidian)' }
+            ? { background: 'var(--color-accent-amber)', color: 'var(--color-on-accent)' }
             : { background: 'var(--color-surface-2)', color: 'var(--color-muted)', border: '1px solid var(--color-border)' }}
         >
           My Shipments
@@ -494,7 +494,7 @@ export const FlightRadar = ({ user, onBack }: { user: User; onBack: () => void }
           onClick={() => setTab('national')}
           className="px-3 py-1.5 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wide"
           style={tab === 'national'
-            ? { background: 'var(--color-accent-amber)', color: 'var(--color-obsidian)' }
+            ? { background: 'var(--color-accent-amber)', color: 'var(--color-on-accent)' }
             : { background: 'var(--color-surface-2)', color: 'var(--color-muted)', border: '1px solid var(--color-border)' }}
         >
           Nigeria Today
@@ -542,7 +542,7 @@ export const FlightRadar = ({ user, onBack }: { user: User; onBack: () => void }
         <div className="flex-1 overflow-y-auto p-4 space-y-5">
           {loading ? (
             <div className="flex justify-center py-12">
-              <Loader2 className="animate-spin" size={22} style={{ color: 'var(--color-accent-amber)' }} />
+              <Spinner size={22} />
             </div>
           ) : flights.length === 0 ? (
             <EmptyState
@@ -577,7 +577,7 @@ export const FlightRadar = ({ user, onBack }: { user: User; onBack: () => void }
         <div className="flex-1 overflow-y-auto p-4 space-y-5">
           {nationalLoading ? (
             <div className="flex justify-center py-12">
-              <Loader2 className="animate-spin" size={22} style={{ color: 'var(--color-accent-amber)' }} />
+              <Spinner size={22} />
             </div>
           ) : nationalFlights.length === 0 ? (
             <EmptyState
@@ -627,7 +627,7 @@ export const FlightRadar = ({ user, onBack }: { user: User; onBack: () => void }
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {detailLoading ? (
                 <div className="flex justify-center py-8">
-                  <Loader2 className="animate-spin" size={20} style={{ color: 'var(--color-accent-amber)' }} />
+                  <Spinner size={20} />
                 </div>
               ) : (
                 <>

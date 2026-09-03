@@ -281,7 +281,7 @@ export const AirlinePerformance = ({ user, onBack }: AirlinePerformanceProps) =>
   };
 
   return (
-    <div className="flex flex-col h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] overflow-y-auto animate-in slide-in-from-right">
+    <div className="flex flex-col h-full bg-[var(--color-canvas)] text-[var(--color-foreground)] overflow-y-auto animate-in slide-in-from-right">
       {/* Header */}
       <div className="p-4 md:p-6 border-b border-[var(--color-border)] flex flex-col md:flex-row gap-4 items-start md:items-center justify-between shrink-0 bg-[var(--color-surface-card)]">
         <div className="flex items-center space-x-4">
@@ -302,7 +302,7 @@ export const AirlinePerformance = ({ user, onBack }: AirlinePerformanceProps) =>
         <div className="flex items-center gap-2">
           <button
             onClick={handleExportExcel}
-            className="px-3.5 py-2 rounded-lg bg-[var(--color-accent-cobalt)] hover:opacity-90 text-white font-mono text-[12px] font-bold flex items-center gap-1.5 shadow-sm transition-all"
+            className="px-3.5 py-2 rounded-lg bg-[var(--color-accent-cobalt)] hover:opacity-90 text-[var(--color-on-accent-inverse)] font-mono text-[12px] font-bold flex items-center gap-1.5 shadow-sm transition-all"
           >
             <Download size={14} /> Export Excel
           </button>
@@ -481,7 +481,7 @@ export const AirlinePerformance = ({ user, onBack }: AirlinePerformanceProps) =>
                     const share = grandTotalSales > 0 ? ((st.totalSales / grandTotalSales) * 100).toFixed(1) : '0';
 
                     return (
-                      <tr key={st.airline} className="hover:bg-[var(--color-surface-1)] transition-colors">
+                      <tr key={st.airline} className="hover:bg-[var(--color-surface-hover)] transition-colors">
                         <td className="py-3.5 px-4 font-bold text-[var(--color-foreground)] flex items-center gap-2">
                           <Plane size={14} className="text-[var(--color-accent-amber)]" />
                           <span>{st.airline}</span>
