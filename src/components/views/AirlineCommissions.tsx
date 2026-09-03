@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Percent, Save, Building2, Plus, Trash2, Loader, Check } from 'lucide-react';
+import { Percent, Save, Building2, Plus, Trash2, Check } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
-import { BackButton } from '../BackButton';
 import { AIRLINES_CACHE_KEY } from '../../lib/airlines';
+import { Button, PageHeader, Spinner } from '../ui';
 
 const DEFAULT_COMMISSIONS: Record<string, string> = {
   'Arik Air':              '7',
@@ -174,39 +174,42 @@ export const AirlineCommissions = ({ onBack }: { onBack: () => void }) => {
   };
 
   return (
-    <main className="flex flex-col h-full bg-[var(--color-obsidian)] overflow-y-auto">
-      {/* Header */}
-      <div className="ehi-view-header">
-        <BackButton onClick={onBack} />
-        <div className="text-center">
-          <div className="text-[12px] font-bold text-[var(--color-foreground)]">Airline Commissions</div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">Synced across all devices</div>
-        </div>
-        <button
-          onClick={handleSave}
-          disabled={saved || saving}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-[rgba(245,158,11,0.1)] border border-[rgba(245,158,11,0.3)] text-[var(--color-accent-amber)] text-[11px] font-bold rounded-lg hover:bg-[rgba(245,158,11,0.2)] transition-colors disabled:opacity-60"
-        >
-          {saved ? <><Check size={12} /> Saved</> : saving ? 'Saving...' : <><Save size={12} /> Save</>}
-        </button>
-      </div>
+    <main className="flex flex-col h-full bg-[var(--color-canvas)] overflow-y-auto">
+      <PageHeader
+        title="Airline Commissions"
+        subtitle="Synced across all devices"
+        onBack={onBack}
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            iconLeft={saved ? Check : Save}
+            onClick={handleSave}
+            disabled={saved}
+            loading={saving}
+            loadingLabel="Saving…"
+          >
+            {saved ? 'Saved' : 'Save'}
+          </Button>
+        }
+      />
 
       <div className="ehi-page-body px-4 pt-4 pb-6 space-y-3">
         {usingFallback && !loading && (
-          <div className="bg-[rgba(239,68,68,0.08)] border border-[rgba(239,68,68,0.25)] rounded-xl p-3">
-            <p className="text-[11px] text-[var(--color-error)] font-sans leading-relaxed">
+          <div className="bg-[var(--color-error-bg)] border border-[var(--color-error-border)] rounded-xl p-3">
+            <p className="text-[11px] text-[var(--color-error-fg)] font-sans leading-relaxed">
               Showing cached commission rates — could not reach the server. Changes will not save until connection is restored.
             </p>
           </div>
         )}
         {loading ? (
           <div className="flex justify-center py-12">
-            <Loader size={20} className="animate-spin text-[var(--color-accent-amber)]" />
+            <Spinner size="lg" />
           </div>
         ) : (
           <>
             {/* Info banner */}
-            <div className="bg-[rgba(59,130,246,0.08)] border border-[rgba(59,130,246,0.2)] rounded-xl p-3">
+            <div className="bg-[var(--color-info-bg)] border border-[var(--color-info-border)] rounded-xl p-3">
               <p className="text-[11px] text-[var(--color-accent-cobalt)] font-sans leading-relaxed">
                 Commissions are applied when generating reports and airline billing statements. Changes save to the database and take effect on all devices immediately.
               </p>
@@ -252,7 +255,7 @@ export const AirlineCommissions = ({ onBack }: { onBack: () => void }) => {
                   <button
                     onClick={() => handleDeleteAirline(airline)}
                     aria-label={`Delete ${airline} commission rate`}
-                    className="p-1.5 bg-[rgba(239,68,68,0.08)] hover:bg-[rgba(239,68,68,0.18)] rounded-lg text-[var(--color-error)] transition-colors shrink-0"
+                    className="p-1.5 bg-[var(--color-error-bg)] hover:bg-[var(--color-error-border)] rounded-lg text-[var(--color-error-fg)] transition-colors shrink-0"
                   >
                     <Trash2 size={13} strokeWidth={1.5} />
                   </button>
@@ -274,13 +277,18 @@ export const AirlineCommissions = ({ onBack }: { onBack: () => void }) => {
               ))}
             </div>
 
-            <button
+            <Button
+              variant="primary"
+              size="lg"
+              fullWidth
+              iconLeft={saved ? Check : Save}
               onClick={handleSave}
-              disabled={saved || saving}
-              className="w-full h-12 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] font-bold text-[13px] rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-60"
+              disabled={saved}
+              loading={saving}
+              loadingLabel="Saving…"
             >
-              {saved ? <><Check size={16} /> Saved to all devices</> : saving ? 'Saving...' : <><Save size={16} /> Save Commission Rates</>}
-            </button>
+              {saved ? 'Saved to all devices' : 'Save Commission Rates'}
+            </Button>
           </>
         )}
       </div>

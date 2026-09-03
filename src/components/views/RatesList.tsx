@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Search, ChevronDown, ChevronRight, Loader } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { Search, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { PageHeader, Spinner } from '../ui';
 import { fmt } from '../../lib/helpers';
 import { useSpecialGoodsRates } from '../../lib/specialGoodsRates';
 import { useMinimumCharges } from '../../lib/minimumCharges';
@@ -148,7 +148,7 @@ export const RatesList = ({ onBack, onOpenConfig }: { onBack: () => void; onOpen
       <div className="ehi-card overflow-hidden">
         <button
           onClick={() => toggle(id)}
-          className="w-full flex items-center gap-2 p-3.5 text-left hover:bg-[var(--color-surface-1)] transition-colors"
+          className="w-full flex items-center gap-2 p-3.5 text-left hover:bg-[var(--color-surface-hover)] transition-colors"
         >
           {isCollapsed ? <ChevronRight size={14} className="text-[var(--color-muted)] shrink-0" /> : <ChevronDown size={14} className="text-[var(--color-muted)] shrink-0" />}
           <div className="flex-1 min-w-0">
@@ -194,15 +194,12 @@ export const RatesList = ({ onBack, onOpenConfig }: { onBack: () => void; onOpen
   const filteredSizeTier = sizeTierByGroup.filter(g => matches(g.content_type_name, g.airline));
 
   return (
-    <main className="flex flex-col h-full bg-[var(--color-obsidian)] overflow-y-auto">
-      <div className="ehi-view-header">
-        <BackButton onClick={onBack} />
-        <div className="text-center">
-          <div className="text-[12px] font-bold text-[var(--color-foreground)]">Rates Directory</div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">Read-only &middot; edit from each config screen</div>
-        </div>
-        <div className="w-8" />
-      </div>
+    <main className="flex flex-col h-full bg-[var(--color-canvas)] overflow-y-auto">
+      <PageHeader
+        title="Rates Directory"
+        subtitle="Read-only · edit from each config screen"
+        onBack={onBack}
+      />
 
       <div className="ehi-page-body px-4 pt-4 pb-6 space-y-3">
         <div className="relative">
@@ -218,7 +215,7 @@ export const RatesList = ({ onBack, onOpenConfig }: { onBack: () => void; onOpen
 
         {loading ? (
           <div className="flex justify-center py-12">
-            <Loader size={20} className="animate-spin text-[var(--color-accent-amber)]" />
+            <Spinner size="lg" />
           </div>
         ) : (
           <>

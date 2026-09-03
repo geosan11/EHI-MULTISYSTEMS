@@ -2,11 +2,11 @@ import { useState, useEffect, useMemo } from 'react';
 import { useHubRoutes } from '../../lib/hubRoutes';
 import { useAirlines } from '../../lib/airlines';
 import { DollarSign, Trash2 } from 'lucide-react';
-import { BackButton } from '../BackButton';
 import { User } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../lib/ToastContext';
 import { syncLagosRates } from '../../lib/lagosHubSync';
+import { PageHeader } from '../ui';
 
 const HUB_DEFAULT_AIRLINE = '__HUB_DEFAULT__';
 
@@ -150,13 +150,12 @@ export const HubCargoRates = ({ user, onBack }: { user: User; onBack: () => void
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center space-x-4 mb-4">
-        <BackButton onClick={onBack} />
-        <div>
-          <h2 className="text-[20px] font-sans font-bold text-[var(--color-foreground)] tracking-tight">Hub Cargo Rates</h2>
-          <p className="text-[12px] font-mono text-[var(--color-muted)]">Per-hub, per-airline overrides on top of the standard route rate</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Hub Cargo Rates"
+        subtitle="Per-hub, per-airline overrides on top of the standard route rate"
+        onBack={onBack}
+        sticky={false}
+      />
 
       <div className="ehi-card p-4 space-y-4">
         <div className="flex justify-between items-center">
@@ -174,7 +173,7 @@ export const HubCargoRates = ({ user, onBack }: { user: User; onBack: () => void
                 id="hub-select"
                 value={selectedHubId}
                 onChange={(e) => setSelectedHubId(e.target.value)}
-                className="w-full bg-[var(--color-bg)] border border-[var(--color-surface-2)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                className="w-full bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
               >
                 <option value="">Select a hub…</option>
                 {hubs.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
@@ -187,7 +186,7 @@ export const HubCargoRates = ({ user, onBack }: { user: User; onBack: () => void
               id="airline-select"
               value={selectedAirline}
               onChange={(e) => setSelectedAirline(e.target.value)}
-              className="w-full bg-[var(--color-bg)] border border-[var(--color-surface-2)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
+              className="w-full bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
             >
               <option value={HUB_DEFAULT_AIRLINE}>Hub default (any airline)</option>
               {airlines.map((a) => <option key={a} value={a}>{a}</option>)}
@@ -233,7 +232,7 @@ export const HubCargoRates = ({ user, onBack }: { user: User; onBack: () => void
                         }
                         handleSetRate(route, e.target.value);
                       }}
-                      className="w-24 bg-[var(--color-bg)] border border-[var(--color-surface-2)] rounded px-2 py-1 text-[12px] font-mono text-[var(--color-foreground)] text-right focus:outline-none focus:border-[var(--color-accent-amber)]"
+                      className="w-24 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded px-2 py-1 text-[12px] font-mono text-[var(--color-foreground)] text-right focus:outline-none focus:border-[var(--color-accent-amber)]"
                     />
                     <span className="text-[10px] text-[var(--color-muted)]">/KG</span>
                   </div>
