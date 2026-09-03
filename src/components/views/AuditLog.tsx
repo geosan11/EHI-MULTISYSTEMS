@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Shield, Download, Search, Loader } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { Shield, Download, Search } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { User } from '../../lib/types';
 import { EmptyState } from './EmptyState';
+import { Button, PageHeader, Spinner } from '../ui';
 import { sanitizeSpreadsheetAoA } from '../../lib/helpers';
 
 interface AuditLogEntry {
@@ -110,6 +110,13 @@ export const AuditLog = ({ onBack, user }: { onBack: () => void; user?: User }) 
     fetchLogs();
   }, []);
 
+  useEffect(() => {
+    if (!selectedEntry) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelectedEntry(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedEntry]);
+
   const retryFetch = () => {
     setFetchError(false);
     fetchLogs();
@@ -147,36 +154,33 @@ export const AuditLog = ({ onBack, user }: { onBack: () => void; user?: User }) 
 
   const actionColor = (action: string) => {
     switch (action) {
-      case 'CREATE': return 'text-[var(--color-success)] bg-[rgba(16,185,129,0.1)]';
-      case 'UPDATE': return 'text-[var(--color-accent-cobalt)] bg-[rgba(59,130,246,0.1)]';
-      case 'DELETE': return 'text-[var(--color-error)] bg-[rgba(239,68,68,0.1)]';
-      case 'LOGIN': return 'text-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.1)]';
-      case 'EOD_LOCK': return 'text-[var(--color-purple)] bg-[rgba(168,85,247,0.1)]';
-      case 'RETRIEVAL': return 'text-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.1)]';
-      case 'UNRETRIEVE': return 'text-[var(--color-error)] bg-[rgba(239,68,68,0.1)]';
-      case 'RETRIEVAL_APPROVE': return 'text-[var(--color-success)] bg-[rgba(16,185,129,0.1)]';
-      case 'DEBT_COLLECTION': return 'text-[var(--color-success)] bg-[rgba(16,185,129,0.1)]';
+      case 'CREATE':
+      case 'RETRIEVAL_APPROVE':
+      case 'DEBT_COLLECTION': return 'text-[var(--color-success-fg)] bg-[var(--color-success-bg)]';
+      case 'UPDATE': return 'text-[var(--color-info-fg)] bg-[var(--color-info-bg)]';
+      case 'DELETE':
+      case 'UNRETRIEVE': return 'text-[var(--color-error-fg)] bg-[var(--color-error-bg)]';
+      case 'LOGIN':
+      case 'RETRIEVAL': return 'text-[var(--color-amber-fg)] bg-[var(--color-amber-bg)]';
+      case 'EOD_LOCK': return 'text-[var(--color-purple-fg)] bg-[var(--color-purple-bg)]';
       default: return 'text-[var(--color-muted)] bg-[var(--color-surface-2)]';
     }
   };
 
   return (
-    <div className="flex flex-col min-h-full bg-[var(--color-obsidian)]">
+    <div className="flex flex-col min-h-full bg-[var(--color-canvas)]">
       <div className="ehi-page-body px-4 pt-4 text-[var(--color-foreground)]">
-      <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2 mb-4">
-        <BackButton onClick={onBack} label="Back" />
-        <span className="text-[10px] font-mono text-[var(--color-purple)] tracking-widest font-bold">● AUDIT TRAIL</span>
-      </div>
-
-      <div className="flex justify-between items-center mb-4">
-        <div>
-          <h2 className="text-[14px] font-bold">Platform Audit Log</h2>
-          <p className="text-[10px] font-mono text-[var(--color-muted)]">{filtered.length} entries</p>
-        </div>
-        <button onClick={handleExportExcel} disabled={filtered.length === 0} className="flex items-center gap-1.5 bg-[var(--color-surface-card)] border border-[var(--color-border)] text-[11px] font-mono px-3 py-1.5 rounded hover:border-[var(--color-success)] transition-colors disabled:opacity-40">
-          <Download size={12} /> Export Excel
-        </button>
-      </div>
+      <PageHeader
+        title="Platform Audit Log"
+        subtitle={`${filtered.length} entries`}
+        onBack={onBack}
+        sticky={false}
+        actions={
+          <Button variant="secondary" size="sm" iconLeft={Download} onClick={handleExportExcel} disabled={filtered.length === 0}>
+            Export Excel
+          </Button>
+        }
+      />
 
       <div className="flex gap-2 mb-4">
         <div className="relative flex-1">
@@ -201,7 +205,7 @@ export const AuditLog = ({ onBack, user }: { onBack: () => void; user?: User }) 
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
-          <Loader size={24} className="animate-spin text-[var(--color-accent-amber)]" />
+          <Spinner size="xl" />
           <p className="text-[12px] font-mono text-[var(--color-muted)]">Loading audit trail...</p>
         </div>
       ) : fetchError ? (
@@ -220,7 +224,7 @@ export const AuditLog = ({ onBack, user }: { onBack: () => void; user?: User }) 
       ) : (
         <div className="space-y-2">
           {filtered.map(log => (
-            <div key={log.id} onClick={() => setSelectedEntry(log)} className="p-3 ehi-card cursor-pointer hover:border-[rgba(255,255,255,0.15)] transition-colors">
+            <div key={log.id} onClick={() => setSelectedEntry(log)} className="p-3 ehi-card cursor-pointer hover:border-[var(--color-border-strong)] transition-colors">
               <div className="flex justify-between items-start gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -247,8 +251,11 @@ export const AuditLog = ({ onBack, user }: { onBack: () => void; user?: User }) 
       )}
 
       {selectedEntry && createPortal(
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="ehi-card max-w-sm w-full">
+        <div
+          className="fixed inset-0 ehi-scrim flex items-center justify-center p-4 z-50"
+          onClick={(e) => { if (e.target === e.currentTarget) setSelectedEntry(null); }}
+        >
+          <div className="ehi-card max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
             <div className="p-4 border-b border-[var(--color-border)] flex justify-between items-center">
               <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded font-mono ${actionColor(selectedEntry.action)}`}>{selectedEntry.action}</span>
               <button onClick={() => setSelectedEntry(null)} aria-label="Close" className="text-[var(--color-muted)] font-mono">✕</button>

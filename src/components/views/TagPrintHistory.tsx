@@ -4,6 +4,7 @@ import { User } from '../../lib/types';
 import { useToast } from '../../lib/ToastContext';
 import { RefreshCw, Search, Printer, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { EmptyState } from './EmptyState';
+import { Badge } from '../ui';
 
 interface PrintLog {
   id: string;
@@ -115,7 +116,7 @@ export default function TagPrintHistory({ user }: { user: User }) {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg overflow-hidden">
         <div className="flex-1 overflow-auto">
           <table className="w-full min-w-[760px] text-left border-collapse">
             <thead>
@@ -168,12 +169,14 @@ export default function TagPrintHistory({ user }: { user: User }) {
                     </td>
                     <td className="px-4 py-3">
                       {log.departed ? (
-                        <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-[rgba(16,185,129,0.1)] text-[var(--color-success)] text-[12px] font-sans font-medium rounded">
-                          <CheckCircle2 size={14} /> Departed
-                        </span>
+                        <Badge tone="success">
+                          <CheckCircle2 size={12} /> Departed
+                        </Badge>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-[rgba(239,68,68,0.1)] text-[var(--color-error)] text-[12px] font-sans font-medium rounded" title="Printed but not yet departed. Potential fraud risk.">
-                          <AlertTriangle size={14} /> Unscanned
+                        <span title="Printed but not yet departed. Potential fraud risk.">
+                          <Badge tone="error">
+                            <AlertTriangle size={12} /> Unscanned
+                          </Badge>
                         </span>
                       )}
                     </td>
