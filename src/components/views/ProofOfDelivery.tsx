@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { Camera, RefreshCw, X, ShieldCheck } from 'lucide-react';
+import { Button } from '../ui';
 import { db } from '../../lib/db';
 import { syncProofOfDelivery } from '../../lib/sync';
 import { User, ProofOfDelivery } from '../../lib/types';
@@ -169,11 +170,11 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
   const isFormValid = receiverName.trim() !== '' && hasSignature;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-start overflow-y-auto w-full p-4 md:p-8 select-none">
-      <div className="w-full max-w-lg bg-[var(--color-surface-1)] rounded-xl border border-[var(--color-border-strong)] overflow-hidden flex flex-col shadow-2xl relative mb-12">
-        
+    <div className="fixed inset-0 z-50 ehi-scrim flex flex-col items-center justify-start overflow-y-auto w-full p-4 md:p-8 select-none">
+      <div className="w-full max-w-lg bg-[var(--color-surface-1)] rounded-xl border border-[var(--color-border-strong)] overflow-hidden flex flex-col shadow-[var(--shadow-modal)] relative mb-12">
+
         {/* Header */}
-        <div className="p-4 border-b border-[var(--color-border)] bg-[rgba(0,0,0,0.3)] flex justify-between items-center sticky top-0 z-10 backdrop-blur-md">
+        <div className="p-4 border-b border-[var(--color-border)] bg-[var(--color-surface-2)] flex justify-between items-center sticky top-0 z-10 backdrop-blur-md">
           <div className="flex items-center gap-2">
             <ShieldCheck size={20} className="text-[var(--color-success)]" />
             <h2 className="text-[14px] font-bold text-[var(--color-foreground)] uppercase tracking-wider font-mono">Proof of Delivery</h2>
@@ -195,7 +196,7 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
           {/* Section 1 - Recipient Details */}
           <div className="space-y-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] text-[var(--color-muted)] font-mono uppercase">Receiver's Full Name <span className="text-red-500">*</span></label>
+              <label className="text-[10px] text-[var(--color-muted)] font-mono uppercase">Receiver's Full Name <span className="text-[var(--color-error-fg)]">*</span></label>
               <input 
                 type="text" 
                 value={receiverName} 
@@ -247,8 +248,8 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
           {/* Section 2 - Signature Pad */}
           <div className="flex flex-col gap-2 relative">
             <div className="flex justify-between items-end">
-              <label className="text-[10px] text-[var(--color-muted)] font-mono uppercase">Sign here to confirm receipt <span className="text-red-500">*</span></label>
-              <button onClick={clearSignature} className="text-[10px] font-mono text-[var(--color-accent-amber)] hover:text-amber-400 bg-transparent border-none cursor-pointer">Clear</button>
+              <label className="text-[10px] text-[var(--color-muted)] font-mono uppercase">Sign here to confirm receipt <span className="text-[var(--color-error-fg)]">*</span></label>
+              <button onClick={clearSignature} className="text-[10px] font-mono text-[var(--color-accent-amber)] hover:text-[var(--color-accent-amber-hover)] bg-transparent border-none cursor-pointer">Clear</button>
             </div>
             <div className="w-full h-[200px] bg-white rounded border-2 border-dashed border-[var(--color-accent-amber)] overflow-hidden">
               <SignatureCanvas
@@ -264,9 +265,9 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
           <div className="flex flex-col gap-2">
             <label className="text-[10px] text-[var(--color-muted)] font-mono uppercase">Photo Evidence (Optional)</label>
             {!isPhotoActive && !capturedPhoto && (
-              <button 
-                onClick={() => setIsPhotoActive(true)} 
-                className="w-full h-12 border border-[var(--color-surface-2)] bg-[var(--color-surface-2)] text-[var(--color-foreground)] hover:bg-[var(--color-border)] rounded flex items-center justify-center gap-2 cursor-pointer transition-colors"
+              <button
+                onClick={() => setIsPhotoActive(true)}
+                className="w-full h-12 border border-[var(--color-border)] bg-[var(--color-surface-2)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-hover)] rounded flex items-center justify-center gap-2 cursor-pointer transition-colors"
               >
                 <Camera size={16} /> <span className="text-[13px] font-bold">Capture Photo</span>
               </button>
@@ -293,7 +294,7 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
                 <div className="w-full aspect-video bg-black rounded overflow-hidden relative border border-[var(--color-border)]">
                   <img src={capturedPhoto} alt="Captured delivery proof" className="w-full h-full object-cover" />
                 </div>
-                <button onClick={() => { setCapturedPhoto(null); setIsPhotoActive(true); }} className="h-10 border border-[var(--color-surface-2)] bg-[var(--color-surface-2)] text-[var(--color-foreground)] hover:bg-[var(--color-border)] rounded flex items-center justify-center gap-2 cursor-pointer transition-colors">
+                <button onClick={() => { setCapturedPhoto(null); setIsPhotoActive(true); }} className="h-10 border border-[var(--color-border)] bg-[var(--color-surface-2)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-hover)] rounded flex items-center justify-center gap-2 cursor-pointer transition-colors">
                   <RefreshCw size={14} /> <span className="text-[12px] font-bold">Retake Photo</span>
                 </button>
               </div>
@@ -314,22 +315,26 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
         </div>
 
         {/* Section 5 - Confirmation Footer */}
-        <div className="p-4 border-t border-[var(--color-border)] bg-[rgba(0,0,0,0.4)] flex gap-3 sticky bottom-0">
-          <button 
-            onClick={onCancel} 
-            className="flex-1 h-12 bg-transparent text-[var(--color-foreground)] font-bold uppercase tracking-wider rounded border border-[var(--color-border)] hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer"
+        <div className="p-4 border-t border-[var(--color-border)] bg-[var(--color-surface-2)] flex gap-3 sticky bottom-0">
+          <Button
+            variant="secondary"
+            size="lg"
+            className="flex-1"
+            onClick={onCancel}
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="success"
+            size="lg"
+            className="flex-[2]"
             onClick={handleConfirm}
-            disabled={!isFormValid || submitting}
-            className={`flex-[2] h-12 font-bold uppercase tracking-widest rounded border-none transition-colors flex items-center justify-center gap-2 ${
-              isFormValid && !submitting ? 'bg-[var(--color-success)] text-[var(--color-on-accent)] cursor-pointer hover:bg-emerald-500' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)] cursor-not-allowed opacity-50'
-            }`}
+            disabled={!isFormValid}
+            loading={submitting}
+            loadingLabel="Saving…"
           >
-            {submitting ? 'Saving...' : 'Confirm Delivery'}
-          </button>
+            Confirm Delivery
+          </Button>
         </div>
       </div>
     </div>

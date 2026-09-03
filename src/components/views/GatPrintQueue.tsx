@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Printer, Loader, CheckCircle2, RefreshCw, Package, Boxes } from 'lucide-react';
+import { CheckCircle2, RefreshCw, Package, Boxes } from 'lucide-react';
 import { User } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
-import { BackButton } from '../BackButton';
+import { PageHeader, Spinner } from '../ui';
 import { useToast } from '../../lib/ToastContext';
 import { fmt, tnow, formatPaymentModeDisplay } from '../../lib/helpers';
 
@@ -261,20 +261,15 @@ export const GatPrintQueue = ({ user, onBack }: { user: User; onBack: () => void
   const packageCount = useMemo(() => rows.filter(r => r.stream === 'package').length, [rows]);
 
   return (
-    <main className="flex-1 flex flex-col h-full bg-[var(--color-bg)] overflow-y-auto">
-      <div className="bg-[var(--color-surface-card)] border-b border-[var(--color-border)] p-4">
-        <BackButton onClick={onBack} label="Back to Menu" className="mb-3" />
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="p-2 bg-[rgba(59,130,246,0.1)] rounded-lg"><Printer size={20} className="text-[var(--color-accent-cobalt)]" /></div>
-            <div className="min-w-0">
-              <h1 className="text-[16px] font-bold text-[var(--color-foreground)] tracking-tight">GAT Print Queue</h1>
-              <p className="text-[11px] font-mono text-[var(--color-muted)] mt-0.5">Batch-print tags &amp; receipts for GAT sales -- GAT has no printers</p>
-            </div>
-          </div>
-          <button onClick={load} className="h-9 w-9 flex items-center justify-center rounded-lg bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-accent-cobalt)]" title="Refresh"><RefreshCw size={14} /></button>
-        </div>
-      </div>
+    <main className="flex-1 flex flex-col h-full bg-[var(--color-canvas)] overflow-y-auto">
+      <PageHeader
+        title="GAT Print Queue"
+        subtitle="Batch-print tags & receipts for GAT sales — GAT has no printers"
+        onBack={onBack}
+        actions={
+          <button onClick={load} className="h-9 w-9 flex items-center justify-center rounded-lg bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-accent-cobalt)]" title="Refresh" aria-label="Refresh"><RefreshCw size={14} /></button>
+        }
+      />
 
       <div className="p-4 space-y-4">
         {/* Date range */}
@@ -288,7 +283,7 @@ export const GatPrintQueue = ({ user, onBack }: { user: User; onBack: () => void
           {/* Doc type */}
           <div className="flex items-center gap-1 h-9 px-1 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg">
             {(['tags', 'receipts'] as const).map(t => (
-              <button key={t} onClick={() => setDocType(t)} className={`h-7 px-3 rounded text-[11px] font-bold font-mono capitalize transition-all ${docType === t ? 'bg-[var(--color-accent-cobalt)] text-white' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}>{t}</button>
+              <button key={t} onClick={() => setDocType(t)} className={`h-7 px-3 rounded text-[11px] font-bold font-mono capitalize transition-all ${docType === t ? 'bg-[var(--color-accent-cobalt)] text-[var(--color-on-accent-inverse)]' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}>{t}</button>
             ))}
           </div>
 
@@ -307,7 +302,7 @@ export const GatPrintQueue = ({ user, onBack }: { user: User; onBack: () => void
         </div>
 
         {loading ? (
-          <div className="flex items-center gap-2 text-[12px] font-mono text-[var(--color-muted)] py-10 justify-center"><Loader size={16} className="animate-spin" /> Loading GAT entries…</div>
+          <div className="flex items-center gap-2 text-[12px] font-mono text-[var(--color-muted)] py-10 justify-center"><Spinner size="sm" tone="muted" /> Loading GAT entries…</div>
         ) : rows.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-12 text-center">
             <CheckCircle2 size={28} className="text-[var(--color-success)]" />
@@ -353,9 +348,9 @@ export const GatPrintQueue = ({ user, onBack }: { user: User; onBack: () => void
             <button
               onClick={handlePrint}
               disabled={printing || selectedCount === 0}
-              className="w-full h-11 rounded-lg bg-[var(--color-accent-cobalt)] text-white text-[12px] font-bold font-mono disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full h-11 rounded-lg bg-[var(--color-accent-cobalt)] text-[var(--color-on-accent-inverse)] text-[12px] font-bold font-mono disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {printing ? <><Loader size={14} className="animate-spin" /> {progressText || 'Printing…'}</> : `${reprintMode ? 'Reprint' : 'Print'} ${selectedCount} selected ${docType}`}
+              {printing ? <><Spinner size="sm" tone="current" /> {progressText || 'Printing…'}</> : `${reprintMode ? 'Reprint' : 'Print'} ${selectedCount} selected ${docType}`}
             </button>
           </>
         )}
