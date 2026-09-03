@@ -239,6 +239,7 @@ export const ExcessBaggageForm = ({
         cargoRef: resolvedTag,
         description: `Excess Baggage ${resolvedTag}`,
         loggedBy: user.name,
+        department: 'baggage',
       });
       if (!charge.ok) {
         showToast({ message: `Wallet deduction failed: ${charge.error}. Entry was not logged.`, type: 'error' });

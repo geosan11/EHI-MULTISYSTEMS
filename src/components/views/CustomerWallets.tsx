@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { User } from '../../lib/types';
 import { fmt, tnow } from '../../lib/helpers';
 import { supabase, writeAuditLog, fetchRowsCapped } from '../../lib/supabase';
-import { applyWalletTransaction, requestWalletCashPayout, approveWalletCashPayout, rejectWalletCashPayout, requestWalletTopUp, approveWalletTopUp, rejectWalletTopUp, approveRetrievalRefund, rejectRetrievalRefund, RetrievalEntryType } from '../../lib/wallet';
+import { applyWalletTransaction, requestWalletCashPayout, approveWalletCashPayout, rejectWalletCashPayout, requestWalletTopUp, approveWalletTopUp, rejectWalletTopUp, approveRetrievalRefund, rejectRetrievalRefund, reverseWalletDeduction, RetrievalEntryType } from '../../lib/wallet';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
 import { BackButton } from '../BackButton';
@@ -17,6 +17,7 @@ import {
   ArrowDownLeft,
   Printer,
   Trash2,
+  Undo2,
   X,
   Loader2,
   AlertCircle,
@@ -51,11 +52,12 @@ export interface WalletTransaction {
   id: string;
   wallet_id: string;
   hub_id?: string;
-  type: 'top_up' | 'deduction' | 'refund' | 'adjustment' | 'cash_payout' | 'retrieval_refund';
+  type: 'top_up' | 'deduction' | 'refund' | 'adjustment' | 'cash_payout' | 'retrieval_refund' | 'reversal';
   amount: number;
   balance_before: number;
   balance_after: number;
   cargo_ref?: string;
+  cargo_entry_id?: string;
   description?: string;
   logged_by: string;
   created_at: string;
@@ -68,6 +70,12 @@ export interface WalletTransaction {
   approved_by?: string;
   approved_at?: string;
   rejection_reason?: string;
+  // Set on a 'deduction' row once it has been undone (reverse_wallet_
+  // deduction, or Reopen Debt on a wallet-settled debt).
+  reversed_at?: string;
+  reversed_by?: string;
+  // Set on the compensating 'reversal' row -- the deduction it undid.
+  reversal_of?: string;
 }
 
 export const CustomerWallets = ({
@@ -128,6 +136,10 @@ export const CustomerWallets = ({
   // named set of roles rather than reusing canApprovePayouts.
   const canForceDelete = ['super_admin', 'accountant', 'admin', 'office_work'].includes(user.role);
   const [forceDeletingId, setForceDeletingId] = useState<string | null>(null);
+  // Undoing a wallet deduction hands money back to a customer -- gated to
+  // the same finance roles as cash-payout approval (canApprovePayouts). The
+  // RPC re-checks this server-side.
+  const [reversingTxId, setReversingTxId] = useState<string | null>(null);
   // Every role can open the Top-Up form now -- canDirectTopUp (matching
   // apply_wallet_transaction's server-side gate for top_up/adjustment,
   // 20260903_security_and_bugfix_pass.sql) decides whether handleSaveTopUp
@@ -352,6 +364,49 @@ export const CustomerWallets = ({
       showToast({ message: 'Failed to load wallet history: ' + err.message, type: 'error' });
     } finally {
       setHistoryLoading(false);
+    }
+  };
+
+  // Undo a single wallet deduction (an intake wallet sale): refunds the
+  // wallet and puts the linked shipment back to owing (unpaid Debt) for the
+  // reverted amount. reverse_wallet_deduction() refuses -- and its error
+  // names the right button -- for a retrieval clawback (use Unretrieve on
+  // the shipment) or a wallet-settled debt (use Reopen Debt), and for a
+  // shipment that has since been retrieved.
+  const handleReverseDeduction = async (tx: WalletTransaction) => {
+    if (reversingTxId || !selectedWallet) return;
+    const ok = await confirm({
+      title: 'Undo this deduction?',
+      message: `Refunds ₦${fmt(tx.amount)} to ${selectedWallet.customer_name}'s wallet and puts ${tx.cargo_ref || 'the linked shipment'} back to owing (unpaid Debt). Use Unretrieve / Reopen Debt on the shipment instead if this deduction was a retrieval or a debt payment.`,
+      confirmLabel: 'Undo Deduction',
+      tone: 'danger',
+    });
+    if (!ok) return;
+
+    setReversingTxId(tx.id);
+    try {
+      const result = await reverseWalletDeduction({
+        transactionId: tx.id,
+        loggedBy: user.name || 'Unknown',
+      });
+      if (!result.ok) {
+        showToast({ message: result.error || 'Failed to undo this deduction.', type: 'error' });
+        return;
+      }
+      writeAuditLog({
+        user_id: user.id, user_name: user.name || 'Unknown', action: 'WALLET_DEDUCTION_REVERSED',
+        table_name: 'wallet_transactions', record_id: tx.id,
+        description: `₦${fmt(tx.amount)} deduction undone for ${selectedWallet.customer_name}'s wallet (${tx.cargo_ref || 'no ref'}) -- refunded, shipment back to Debt`,
+        hub: undefined, hub_id: tx.hub_id,
+        old_values: { amount: tx.amount, reversed_at: null },
+        new_values: { reversed_at: tnow(), reversal_txn_id: result.reversalTxnId ?? null },
+      }).catch(() => {});
+      showToast({ message: `₦${fmt(tx.amount)} refunded to ${selectedWallet.customer_name}'s wallet`, type: 'success' });
+      await handleOpenHistory(selectedWallet);
+      fetchWallets();
+      fetchTotalLiability();
+    } finally {
+      setReversingTxId(null);
     }
   };
 
@@ -1265,7 +1320,21 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
                   No transaction log entries found.
                 </div>
               ) : (
-                walletHistory.map((tx) => (
+                walletHistory.map((tx) => {
+                  // top_up / refund / adjustment / retrieval_refund / reversal
+                  // all move the balance UP; deduction / cash_payout move it
+                  // down. (Previously plain 'refund'/'adjustment' credits
+                  // rendered as red '-₦…' -- fixed here alongside 'reversal'.)
+                  const isCredit = tx.type === 'top_up' || tx.type === 'refund' || tx.type === 'adjustment' || tx.type === 'retrieval_refund' || tx.type === 'reversal';
+                  // A retrieval clawback or a wallet-settled debt is undone
+                  // from the shipment (Unretrieve / Reopen Debt), not here --
+                  // reverse_wallet_deduction() refuses them, so don't offer
+                  // the button.
+                  const canUndo = tx.type === 'deduction' && !tx.reversed_at && tx.status === 'completed' && canApprovePayouts
+                    && !tx.cargo_entry_id
+                    && !(tx.description || '').startsWith('Retrieval reversal')
+                    && tx.description !== 'Debt settled from wallet';
+                  return (
                   <div
                     key={tx.id}
                     className="p-3 bg-[var(--color-surface-2)] rounded-xl border border-[var(--color-border)] flex items-center justify-between gap-3 text-[11px]"
@@ -1277,8 +1346,8 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
                             <ArrowDownLeft size={12} /> TOP-UP{tx.status === 'pending' ? ' (PENDING)' : tx.status === 'rejected' ? ' (REJECTED)' : ''}
                           </span>
                         ) : tx.type === 'deduction' ? (
-                          <span className="text-[var(--color-error)] flex items-center gap-1">
-                            <ArrowUpRight size={12} /> DEDUCTION
+                          <span className={`flex items-center gap-1 ${tx.reversed_at ? 'text-[var(--color-muted)] line-through' : 'text-[var(--color-error)]'}`}>
+                            <ArrowUpRight size={12} /> DEDUCTION{tx.reversed_at ? ' (REVERSED)' : ''}
                           </span>
                         ) : tx.type === 'cash_payout' ? (
                           <span className={`flex items-center gap-1 ${tx.status === 'rejected' ? 'text-[var(--color-muted)] line-through' : tx.status === 'pending' ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-error)]'}`}>
@@ -1287,6 +1356,10 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
                         ) : tx.type === 'retrieval_refund' ? (
                           <span className={`flex items-center gap-1 ${tx.status === 'rejected' ? 'text-[var(--color-muted)] line-through' : tx.status === 'pending' ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-success)]'}`}>
                             <ArrowDownLeft size={12} /> RETRIEVAL REFUND{tx.status === 'pending' ? ' (PENDING)' : tx.status === 'rejected' ? ' (REJECTED)' : ''}
+                          </span>
+                        ) : tx.type === 'reversal' ? (
+                          <span className="flex items-center gap-1 text-[var(--color-success)]">
+                            <Undo2 size={12} /> REVERSAL
                           </span>
                         ) : (
                           <span className="text-[var(--color-accent-cobalt)]">{tx.type.toUpperCase()}</span>
@@ -1306,25 +1379,43 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
                           </span>
                         )}
                       </div>
+                      {tx.type === 'deduction' && tx.reversed_at && (
+                        <div className="text-[9px] font-mono text-[var(--color-muted)]">
+                          Reversed {new Date(tx.reversed_at).toLocaleDateString('en-GB')}{tx.reversed_by ? ` · ${tx.reversed_by}` : ''}
+                        </div>
+                      )}
+                      {canUndo && (
+                        <button
+                          onClick={() => handleReverseDeduction(tx)}
+                          disabled={reversingTxId === tx.id}
+                          className="mt-1 py-1 px-2 inline-flex items-center justify-center gap-1 bg-[rgba(239,68,68,0.08)] hover:bg-[var(--color-error)] hover:text-white text-[var(--color-error)] rounded-lg transition-colors border border-[rgba(239,68,68,0.25)] text-[10px] font-mono font-bold disabled:opacity-50"
+                          title="Refund this deduction and put the shipment back to owing (unpaid Debt)"
+                        >
+                          {reversingTxId === tx.id ? <Loader2 size={11} className="animate-spin" /> : <Undo2 size={11} />} Undo
+                        </button>
+                      )}
                     </div>
 
                     <div className="text-right shrink-0 space-y-0.5">
                       <div
                         className={`font-mono font-bold text-[12px] ${
-                          (tx.type === 'top_up' || tx.type === 'retrieval_refund') && tx.status !== 'completed' ? 'text-[var(--color-muted)]'
-                            : (tx.type === 'top_up' || tx.type === 'retrieval_refund') ? 'text-[var(--color-success)]'
-                            : tx.type === 'cash_payout' && tx.status !== 'completed' ? 'text-[var(--color-muted)]'
+                          ((tx.type === 'top_up' || tx.type === 'retrieval_refund') && tx.status !== 'completed')
+                            || (tx.type === 'cash_payout' && tx.status !== 'completed')
+                            || tx.reversed_at
+                            ? 'text-[var(--color-muted)] line-through'
+                            : isCredit ? 'text-[var(--color-success)]'
                             : 'text-[var(--color-error)]'
                         }`}
                       >
-                        {tx.type === 'top_up' || tx.type === 'retrieval_refund' ? '+' : '-'}₦{fmt(tx.amount)}
+                        {isCredit ? '+' : '-'}₦{fmt(tx.amount)}
                       </div>
                       <div className="text-[9px] font-mono text-[var(--color-muted)]">
                         {tx.status === 'pending' ? 'Balance not yet affected' : `Bal after: ₦${fmt(tx.balance_after)}`}
                       </div>
                     </div>
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

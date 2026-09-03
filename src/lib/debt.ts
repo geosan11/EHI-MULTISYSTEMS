@@ -18,6 +18,12 @@ export interface ClearDebtResult {
   newAmountPaid?: number;
   remainingBalance?: number;
   fullyPaid?: boolean;
+  // Set only when this clearance was settled from a wallet (walletId passed):
+  // the id of the deduction row the RPC wrote. The caller tags it onto the
+  // payment_history element it appends optimistically so a later Reopen Debt
+  // can still match + refund the wallet after the client's own redundant
+  // write of payment_history.
+  walletTxnId?: string;
   error?: string;
 }
 
@@ -54,6 +60,16 @@ export async function clearDebt(params: {
   // double-click/retry could each independently pass the "doesn't exceed
   // remaining" check and silently double-pay a debt.
   expectedRemaining?: number;
+  // When set, this payment is settled from the customer's wallet: the RPC
+  // debits the wallet and writes the deduction row itself (linked to the
+  // entry, and tagged onto the payment_history element it appends), all in
+  // one transaction -- so "pay this debt from wallet" always lands in
+  // payment_history the same as any other cleared debt, never as a silent
+  // second charge on an already-settled entry. paymentMode should be
+  // 'Wallet' in this case. reopen_*_debt refunds the wallet if this
+  // payment is later reversed. See
+  // supabase/migrations/20260946_wallet_debt_settlement_and_reversal.sql.
+  walletId?: string;
 }): Promise<ClearDebtResult> {
   const rpc = RPC_BY_TYPE[params.type];
   if (!rpc) {
@@ -67,6 +83,7 @@ export async function clearDebt(params: {
     p_bank: params.bank ?? null,
     p_logged_by: params.loggedBy,
     p_expected_remaining: params.expectedRemaining ?? null,
+    p_wallet_id: params.walletId ?? null,
   });
 
   if (error) {
@@ -81,6 +98,7 @@ export async function clearDebt(params: {
     newAmountPaid: Number(row?.new_amount_paid ?? row?.new_debt_amount_paid ?? 0),
     remainingBalance: Number(row?.remaining_balance ?? 0),
     fullyPaid: !!row?.fully_paid,
+    walletTxnId: row?.wallet_txn_id ?? undefined,
   };
 }
 

@@ -246,7 +246,11 @@ export interface Transaction {
   debtPaidAt?: string;
   // Partial debt repayment tracking (cargo/VJ/marketing debts)
   amountPaid?: number;
-  paymentHistory?: { amount: number; mode: 'Cash' | 'Transfer' | 'POS'; by: string; at: string }[];
+  // 'Wallet' entries are written by clear_*_debt when a debt is settled from
+  // a customer wallet; wallet_txn_id links that element to its deduction row
+  // so Reopen Debt can refund the wallet. See
+  // 20260946_wallet_debt_settlement_and_reversal.sql.
+  paymentHistory?: { amount: number; mode: 'Cash' | 'Transfer' | 'POS' | 'Wallet'; by: string; at: string; wallet_txn_id?: string }[];
   clientType?: 'Corporate' | 'Individual' | 'Office Work';
   raw?: any;
   // Retail cargo debtor contact, for following up on an individual (not
@@ -534,7 +538,7 @@ export interface WalletTransaction {
   id: string;
   wallet_id: string;
   hub_id?: string;
-  type: 'top_up' | 'deduction' | 'refund' | 'adjustment';
+  type: 'top_up' | 'deduction' | 'refund' | 'adjustment' | 'cash_payout' | 'retrieval_refund' | 'reversal';
   amount: number;               // always positive
   balance_before: number;       // snapshot before this transaction
   balance_after: number;        // snapshot after this transaction
@@ -542,7 +546,17 @@ export interface WalletTransaction {
   cargo_entry_id?: string;
   description?: string;
   logged_by: string;
+  department?: 'cargo' | 'baggage' | 'marketing' | 'package';
+  status?: 'completed' | 'pending' | 'rejected';
   created_at: string;
+  // Set on a 'deduction' row once it has been undone via
+  // reverse_wallet_deduction() (or Reopen Debt on a wallet-settled debt).
+  reversed_at?: string;
+  reversed_by?: string;
+  reversed_by_user_id?: string;
+  // Set on the compensating 'reversal' row -- points back at the deduction
+  // it undid.
+  reversal_of?: string;
 }
 
 // One shift lifecycle per hub PER DEPARTMENT -- Cargo, Package, Marketing,

@@ -25,13 +25,19 @@ export async function applyWalletTransaction(params: {
   cargoEntryId?: string;
   description?: string;
   loggedBy: string;
+  // Which department the deduction belongs to. Only passed through when
+  // given -- omitting it keeps the RPC's own 'cargo' default, matching every
+  // pre-existing caller. Threaded from chargeWalletForSale so the wallet
+  // History modal's per-row department badge (and reverse_wallet_deduction's
+  // shipment lookup) stop assuming every intake deduction is cargo.
+  department?: 'cargo' | 'baggage' | 'marketing' | 'package';
   // How a 'top_up' was physically collected -- meaningful for top_up only,
   // ignored server-side for every other type. Lets EODReconciliation.tsx
   // fold real cash/transfer/POS top-ups into its expected-cash math instead
   // of that cash being invisible to the day's reconciliation.
   paymentMode?: 'Cash' | 'Transfer' | 'POS';
 }): Promise<WalletTxnResult> {
-  const { data, error } = await supabase.rpc('apply_wallet_transaction', {
+  const rpcArgs: Record<string, unknown> = {
     p_wallet_id: params.walletId,
     p_type: params.type,
     p_amount: params.amount,
@@ -40,13 +46,45 @@ export async function applyWalletTransaction(params: {
     p_description: params.description ?? null,
     p_logged_by: params.loggedBy,
     p_payment_mode: params.paymentMode ?? null,
-  });
+  };
+  if (params.department) rpcArgs.p_department = params.department;
+  const { data, error } = await supabase.rpc('apply_wallet_transaction', rpcArgs);
 
   if (error) {
     return { ok: false, error: error.message };
   }
   const row = Array.isArray(data) ? data[0] : data;
   return { ok: true, newBalance: Number(row?.new_balance), transactionId: row?.transaction_id };
+}
+
+export interface ReverseDeductionResult {
+  ok: boolean;
+  newBalance?: number;
+  reversalTxnId?: string;
+  error?: string;
+}
+
+// Undoes an ordinary wallet deduction (an intake wallet sale): refunds the
+// wallet, marks the deduction REVERSED, and puts the linked shipment back to
+// owing (unpaid Debt) for the reverted amount -- all atomically in
+// reverse_wallet_deduction() (see 20260946_wallet_debt_settlement_and_
+// reversal.sql). Deliberately DISJOINT from unretrieveEntry (retrieval
+// clawbacks) and reopenDebt (wallet-settled debts): the RPC refuses those
+// and its error names the right button to use instead. Role-gated
+// server-side to accountant/admin/super_admin.
+export async function reverseWalletDeduction(params: {
+  transactionId: string;
+  loggedBy: string;
+}): Promise<ReverseDeductionResult> {
+  const { data, error } = await supabase.rpc('reverse_wallet_deduction', {
+    p_transaction_id: params.transactionId,
+    p_logged_by: params.loggedBy,
+  });
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  return { ok: true, newBalance: Number(row?.new_balance), reversalTxnId: row?.reversal_txn_id };
 }
 
 export interface RetrievalResult {

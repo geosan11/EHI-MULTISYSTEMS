@@ -1625,6 +1625,7 @@ export const CargoForm = ({
         cargoRef: resolvedAwb,
         description: `Cargo Consignment ${resolvedAwb}`,
         loggedBy: user.name,
+        department: 'cargo',
       });
       if (!charge.ok) {
         showToast({ message: `Wallet deduction failed: ${charge.error}. Entry was not logged.`, type: "error" });

@@ -18,6 +18,10 @@ export async function chargeWalletForSale(params: {
   cargoRef: string;
   description: string;
   loggedBy: string;
+  // Department of the sale being paid for -- passed straight to
+  // apply_wallet_transaction so the deduction row carries the real
+  // department instead of the RPC's blanket 'cargo' default.
+  department?: 'cargo' | 'baggage' | 'marketing' | 'package';
 }): Promise<WalletChargeResult> {
   const deduct = Math.min(params.amount, params.wallet.balance);
   const remainder = Math.max(0, params.amount - deduct);
@@ -31,6 +35,7 @@ export async function chargeWalletForSale(params: {
     cargoRef: params.cargoRef,
     description: params.description,
     loggedBy: params.loggedBy,
+    department: params.department,
   });
   if (!res.ok) return { ok: false, walletDeduction: 0, remainder, error: res.error };
   return { ok: true, walletDeduction: deduct, remainder, newBalance: res.newBalance };

@@ -504,6 +504,7 @@ export const MarketingWorkspace = ({
         cargoRef: awb,
         description: `Marketing Consignment ${awb}`,
         loggedBy: user.name,
+        department: 'marketing',
       });
       if (!charge.ok) {
         showToast({ message: `Wallet deduction failed: ${charge.error}. Entry was not logged.`, type: 'error' });

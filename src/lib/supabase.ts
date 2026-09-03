@@ -206,7 +206,7 @@ export async function fetchRowsCapped<T>(
 export async function writeAuditLog(entry: {
   user_id?: string;
   user_name: string;
-  action: 'LOGIN' | 'LOGOUT' | 'CREATE' | 'UPDATE' | 'DELETE' | 'EOD_LOCK' | 'SETTINGS_CHANGE' | 'PAYMENT_CONFIRM' | 'RETRIEVAL' | 'UNRETRIEVE' | 'RETRIEVAL_APPROVE' | 'DEBT_COLLECTION' | 'DEBT_REOPENED';
+  action: 'LOGIN' | 'LOGOUT' | 'CREATE' | 'UPDATE' | 'DELETE' | 'EOD_LOCK' | 'SETTINGS_CHANGE' | 'PAYMENT_CONFIRM' | 'RETRIEVAL' | 'UNRETRIEVE' | 'RETRIEVAL_APPROVE' | 'DEBT_COLLECTION' | 'DEBT_REOPENED' | 'WALLET_DEDUCTION_REVERSED';
   table_name?: string;
   record_id?: string;
   description: string;
