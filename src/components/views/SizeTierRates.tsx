@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Loader, PackageSearch } from 'lucide-react';
+import { PackageSearch } from 'lucide-react';
 import { User } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
-import { BackButton } from '../BackButton';
+import { PageHeader, Spinner } from '../ui';
 import { useToast } from '../../lib/ToastContext';
 import { KgTierEditor, KgTier } from '../KgTierEditor';
 import { useAirlines } from '../../lib/airlines';
@@ -112,17 +112,10 @@ export const SizeTierRates = ({ user, onBack }: { user: User; onBack: () => void
   const selCls = "w-full h-10 px-2 text-[12px] font-mono rounded-lg bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-foreground)]";
 
   return (
-    <main className="flex flex-col h-full bg-[var(--color-obsidian)] overflow-y-auto">
-      <div className="ehi-view-header">
-        <BackButton onClick={onBack} />
-        <div className="text-center">
-          <div className="text-[12px] font-bold text-[var(--color-foreground)]">Size Tier Rates</div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">Flat price per screen-size bracket (e.g. Plasma TV)</div>
-        </div>
-        <div className="w-8" />
-      </div>
+    <main className="flex flex-col h-full bg-[var(--color-canvas)] overflow-y-auto">
+      <PageHeader title="Size Tier Rates" subtitle="Flat price per screen-size bracket" onBack={onBack} />
       <div className="ehi-page-body px-4 pt-4 pb-6 space-y-3">
-        <div className="bg-[rgba(59,130,246,0.08)] border border-[rgba(59,130,246,0.2)] rounded-xl p-3">
+        <div className="bg-[var(--color-info-bg)] border border-[var(--color-info-border)] rounded-xl p-3">
           <p className="text-[11px] text-[var(--color-accent-cobalt)] leading-relaxed">
             Flat screen-size-bracket pricing for content types flagged "size tier" in Content Types. The matching
             bracket's amount is the whole price — it overrides the per-kg route rate and any minimum charge.
@@ -130,7 +123,7 @@ export const SizeTierRates = ({ user, onBack }: { user: User; onBack: () => void
           </p>
         </div>
         {loading ? (
-          <div className="flex justify-center py-12"><Loader size={20} className="animate-spin text-[var(--color-accent-amber)]" /></div>
+          <div className="flex justify-center py-12"><Spinner size="lg" /></div>
         ) : contentTypes.length === 0 ? (
           <div className="ehi-card p-6 text-center space-y-2">
             <PackageSearch size={24} className="mx-auto text-[var(--color-muted)]" />
@@ -153,7 +146,7 @@ export const SizeTierRates = ({ user, onBack }: { user: User; onBack: () => void
               </select>
             </div>
             {rowsLoading ? (
-              <div className="flex justify-center py-8"><Loader size={16} className="animate-spin text-[var(--color-muted)]" /></div>
+              <div className="flex justify-center py-8"><Spinner size="md" tone="muted" /></div>
             ) : (
               <KgTierEditor tiers={tiers} priceLabel="Flat Amount" priceUnit="₦" itemLabel="bracket" unitLabel="IN"
                 onAdd={handleAdd} onUpdateField={handleUpdateField} onDelete={handleDelete} />

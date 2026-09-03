@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Loader } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { PageHeader, Spinner } from '../ui';
 import { KgTierEditor, KgTier } from '../KgTierEditor';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../lib/ToastContext';
@@ -98,18 +97,11 @@ export const MinimumCharges = ({ onBack }: { onBack: () => void }) => {
   const tiers: KgTier[] = rows.map(r => ({ id: r.id, min_kg: r.min_kg, max_kg: r.max_kg, price: r.minimum_amount }));
 
   return (
-    <main className="flex flex-col h-full bg-[var(--color-obsidian)] overflow-y-auto">
-      <div className="ehi-view-header">
-        <BackButton onClick={onBack} />
-        <div className="text-center">
-          <div className="text-[12px] font-bold text-[var(--color-foreground)]">Minimum Charges</div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">Synced across all devices</div>
-        </div>
-        <div className="w-8" />
-      </div>
+    <main className="flex flex-col h-full bg-[var(--color-canvas)] overflow-y-auto">
+      <PageHeader title="Minimum Charges" subtitle="Synced across all devices" onBack={onBack} />
 
       <div className="ehi-page-body px-4 pt-4 pb-6 space-y-3">
-        <div className="bg-[rgba(59,130,246,0.08)] border border-[rgba(59,130,246,0.2)] rounded-xl p-3">
+        <div className="bg-[var(--color-info-bg)] border border-[var(--color-info-border)] rounded-xl p-3">
           <p className="text-[11px] text-[var(--color-accent-cobalt)] font-sans leading-relaxed">
             Set a flat minimum charge per airline + route for a weight bracket (e.g. 1-13kg = ₦8,000). If the
             normal computed price for a matching weight comes out below this, the minimum is charged instead.
@@ -143,7 +135,7 @@ export const MinimumCharges = ({ onBack }: { onBack: () => void }) => {
 
         {rowsLoading ? (
           <div className="flex justify-center py-8">
-            <Loader size={18} className="animate-spin text-[var(--color-accent-amber)]" />
+            <Spinner size="lg" />
           </div>
         ) : (
           <KgTierEditor
