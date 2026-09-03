@@ -9,7 +9,7 @@ import {
   DollarSign,
   Eye, EyeOff, Wifi, WifiOff, Phone, Mail, Building2, Key, Printer
 } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { PageHeader } from '../ui';
 import { reinitSupabase, getConnectionMode, testSupabaseConnection, supabase, writeAuditLog } from '../../lib/supabase';
 import { getConfiguredPrinter, setConfiguredPrinter, listPrinters } from '../../lib/qzPrint';
 import { useToast } from '../../lib/ToastContext';
@@ -372,13 +372,8 @@ export const Settings = ({
   };
 
   return (
-    <div className="flex flex-col min-h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] p-4 space-y-6 select-none font-sans">
-      
-      {/* Header back navigation */}
-      <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2">
-        <BackButton onClick={onBack} label="Back" />
-        <span className="text-[10px] font-mono text-[var(--color-accent-amber)] tracking-widest font-bold">● SYSTEM ADMIN CONSOLE</span>
-      </div>
+    <div className="flex flex-col min-h-full bg-[var(--color-canvas)] text-[var(--color-foreground)] p-4 space-y-6 select-none font-sans">
+      <PageHeader title="System Admin Console" onBack={onBack} sticky={false} />
 
       {user.role === 'super_admin' && (
         <div className="ehi-card overflow-hidden">
@@ -580,17 +575,17 @@ export const Settings = ({
             {/* DATABASE TAB */}
             {configTab === 'DATABASE' && (
               <div className="space-y-4">
-                <div className="p-4 rounded border border-red-500 bg-red-500/10">
-                  <h4 className="text-[12px] font-bold text-red-500 mb-2 uppercase">Fix Historical Data Visibility</h4>
+                <div className="p-4 rounded border border-[var(--color-error)] bg-[var(--color-error-bg)]">
+                  <h4 className="text-[12px] font-bold text-[var(--color-error-fg)] mb-2 uppercase">Fix Historical Data Visibility</h4>
                   <p className="text-[11px] text-[var(--color-muted)] mb-4">
-                    Before Hub Isolation was introduced, some transactions were recorded without a specific Hub ID. 
+                    Before Hub Isolation was introduced, some transactions were recorded without a specific Hub ID.
                     This causes them to be invisible to agents (e.g. Lagos agents) and missing from Sales Analysis.
                     Click below to safely assign all past orphan transactions to "Lagos".
                   </p>
                   <button
                     onClick={handleMigrateOrphans}
                     disabled={migrating}
-                    className="w-full py-2.5 bg-red-500 hover:bg-red-600 text-white text-[12px] font-bold rounded flex justify-center items-center gap-2 cursor-pointer transition-colors"
+                    className="w-full py-2.5 bg-[var(--color-error)] hover:opacity-90 text-[var(--color-on-accent-inverse)] text-[12px] font-bold rounded flex justify-center items-center gap-2 cursor-pointer transition-opacity"
                   >
                     {migrating ? 'MIGRATING...' : 'MIGRATE ORPHAN TRANSACTIONS TO LAGOS'}
                   </button>
