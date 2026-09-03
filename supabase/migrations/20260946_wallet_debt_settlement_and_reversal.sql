@@ -49,15 +49,21 @@ ALTER TABLE public.wallet_transactions ADD CONSTRAINT wallet_transactions_type_c
 
 
 -- ─── 1. clear_<type>_debt gains an optional wallet leg ───────────────────
--- Each existing 6-arg signature is dropped first (the new p_wallet_id 7th
--- arg would otherwise create an ambiguous overload -- same reason
--- 20260903 dropped the 5-arg version before adding p_expected_remaining).
+-- Both the existing 6-arg signature AND the new 7-arg one are dropped first:
+--   * the 6-arg drop is what lets the p_wallet_id 7th arg be added without
+--     an ambiguous overload (same reason 20260903 dropped the 5-arg version
+--     before adding p_expected_remaining);
+--   * the 7-arg drop makes this migration re-runnable -- CREATE OR REPLACE
+--     cannot change a function's RETURNS TABLE shape, so once a prior run
+--     has created the 7-arg version, re-running would fail 42P13 without an
+--     explicit DROP (this migration adds `wallet_txn_id` to the return).
 -- Everything the function already did is unchanged; the wallet block runs
 -- AFTER the remaining-balance guard so a short wallet aborts before any
 -- entry mutation.
 
 -- CARGO
 DROP FUNCTION IF EXISTS public.clear_cargo_debt(text, numeric, text, text, text, numeric);
+DROP FUNCTION IF EXISTS public.clear_cargo_debt(text, numeric, text, text, text, numeric, uuid);
 
 CREATE OR REPLACE FUNCTION public.clear_cargo_debt(
   p_entry_ref          text,
@@ -186,6 +192,7 @@ GRANT EXECUTE ON FUNCTION public.clear_cargo_debt(text, numeric, text, text, tex
 
 -- BAGGAGE
 DROP FUNCTION IF EXISTS public.clear_baggage_debt(text, numeric, text, text, text, numeric);
+DROP FUNCTION IF EXISTS public.clear_baggage_debt(text, numeric, text, text, text, numeric, uuid);
 
 CREATE OR REPLACE FUNCTION public.clear_baggage_debt(
   p_transaction_id     text,
@@ -305,6 +312,7 @@ GRANT EXECUTE ON FUNCTION public.clear_baggage_debt(text, numeric, text, text, t
 -- MARKETING (inverted naming: amount_paid holds the sale total, debt
 -- repayment tracking lives in debt_amount_paid)
 DROP FUNCTION IF EXISTS public.clear_marketing_debt(text, numeric, text, text, text, numeric);
+DROP FUNCTION IF EXISTS public.clear_marketing_debt(text, numeric, text, text, text, numeric, uuid);
 
 CREATE OR REPLACE FUNCTION public.clear_marketing_debt(
   p_entry_ref          text,
@@ -423,6 +431,7 @@ GRANT EXECUTE ON FUNCTION public.clear_marketing_debt(text, numeric, text, text,
 
 -- PACKAGE
 DROP FUNCTION IF EXISTS public.clear_package_debt(text, numeric, text, text, text, numeric);
+DROP FUNCTION IF EXISTS public.clear_package_debt(text, numeric, text, text, text, numeric, uuid);
 
 CREATE OR REPLACE FUNCTION public.clear_package_debt(
   p_entry_ref          text,
