@@ -2,8 +2,8 @@ import { useState, useMemo, useEffect } from 'react';
 import { User, Transaction } from '../../lib/types';
 import { fmt, sanitizeSpreadsheetAoA, normalizeAirlineName } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
-import { Calendar, FileText, Download, Printer, ChevronRight, Filter, Loader2 } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { Calendar, FileText, Download, Printer, ChevronRight, Filter } from 'lucide-react';
+import { PageHeader, Spinner } from '../ui';
 import { DepartmentSalesAnalysisView } from '../DepartmentSalesAnalysis';
 import { DepartmentSalesAnalysis, computeDepartmentSalesAnalysis, computeReportDateRange } from '../../lib/salesAnalysis';
 import { fetchAllDebtAndRetrievalEntries, buildShadowRowExclusionCounts, extractPaymentHistoryEvents, sumPaymentHistoryByMode } from '../../lib/debt';
@@ -674,13 +674,7 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
   return (
     <div>
       <div className="ehi-page-body px-4 pt-4 space-y-4">
-      <div className="flex items-center gap-3 border-b border-[var(--color-border)] pb-2">
-        {onBack && <BackButton onClick={onBack} />}
-        <div>
-          <div className="text-[9px] font-mono text-[var(--color-muted)] tracking-[0.12em] uppercase">▸ REPORTS CENTRE</div>
-          <div className="text-[11px] font-mono text-[var(--color-accent-amber)] mt-0.5">{user.hub}</div>
-        </div>
-      </div>
+      <PageHeader title="Reports Centre" subtitle={user.hub} onBack={onBack} sticky={false} />
 
       {!selectedReport ? (
         // ── Report selection grid ──
@@ -693,7 +687,7 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
               onClick={() => setSelectedReport(r.id)}
               className="ehi-card text-left p-4 flex items-start gap-3 bg-[var(--color-surface-card)] hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer"
             >
-              <div className="w-9 h-9 rounded-[var(--radius-sm)] bg-[rgba(245,158,11,0.12)] flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-[var(--radius-sm)] bg-[var(--color-amber-bg)] flex items-center justify-center shrink-0">
                 <FileText size={16} className="text-[var(--color-accent-amber)]" />
               </div>
               <div className="flex-1">
@@ -751,7 +745,7 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
 
             {isLoadingTx ? (
               <div className="flex justify-center py-12">
-                <Loader2 size={24} className="animate-spin text-[var(--color-accent-amber)]" />
+                <Spinner size="lg" />
               </div>
             ) : (
               <>
@@ -884,7 +878,7 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
           <div className="flex gap-2">
             <button 
               onClick={handleDownloadExcel}
-              className="flex-1 p-3 bg-transparent border border-[var(--color-success)] text-[var(--color-success)] rounded-[var(--radius-md)] font-bold text-[12px] cursor-pointer flex items-center justify-center gap-1.5 hover:bg-[rgba(16,185,129,0.1)] transition-colors"
+              className="flex-1 p-3 bg-transparent border border-[var(--color-success)] text-[var(--color-success)] rounded-[var(--radius-md)] font-bold text-[12px] cursor-pointer flex items-center justify-center gap-1.5 hover:bg-[var(--color-success-bg)] transition-colors"
             >
               <Download size={14} /> EXCEL
             </button>
@@ -897,7 +891,7 @@ export const Reports = ({ user, transactions, onBack }: { user: User; transactio
                 color: '#0D1117', border: 'none',
               }}
             >
-              {generating ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+              {generating ? <Spinner size="sm" tone="current" /> : <FileText size={14} />}
               {generating ? 'GENERATING...' : 'DOWNLOAD PDF'}
             </button>
           </div>
