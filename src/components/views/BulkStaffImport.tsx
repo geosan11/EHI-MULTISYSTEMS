@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Papa from 'papaparse';
-import { X, Upload, Download, CheckCircle2, XCircle, Loader, AlertTriangle } from 'lucide-react';
+import { X, Upload, Download, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import { Button, Spinner } from '../ui';
 import { createStaffAccountsBulk, BulkStaffRow, BulkStaffResult } from '../../lib/auth';
 
 const VALID_ROLES = ['admin', 'cargo_agent', 'baggage_agent', 'marketing_agent', 'driver', 'accountant', 'auditor'];
@@ -111,7 +112,7 @@ export const BulkStaffImport = ({ hubCodes, onClose, onImported }: Props) => {
   const failedResults = results.filter(r => !r.success);
 
   return createPortal(
-    <div className="fixed inset-0 z-50 bg-[rgba(0,0,0,0.6)] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 ehi-scrim flex items-center justify-center p-4">
       <div className="ehi-card w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-lg">
         <div className="flex items-center justify-between p-5 border-b border-[var(--color-border)]">
           <h2 className="text-[15px] font-sans font-bold text-[var(--color-foreground)]">Bulk Staff Import</h2>
@@ -157,7 +158,7 @@ export const BulkStaffImport = ({ hubCodes, onClose, onImported }: Props) => {
                 onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
               />
               {fileError && (
-                <div className="flex items-center gap-2 text-[12px] font-sans text-[var(--color-error)]">
+                <div className="flex items-center gap-2 text-[12px] font-sans text-[var(--color-error-fg)]">
                   <AlertTriangle size={14} /> {fileError}
                 </div>
               )}
@@ -167,9 +168,9 @@ export const BulkStaffImport = ({ hubCodes, onClose, onImported }: Props) => {
           {stage === 'preview' && (
             <div className="space-y-4">
               <div className="flex items-center gap-4 text-[13px] font-sans">
-                <span className="text-[var(--color-success)] font-semibold">{validRows.length} ready to import</span>
+                <span className="text-[var(--color-success-fg)] font-semibold">{validRows.length} ready to import</span>
                 {invalidRows.length > 0 && (
-                  <span className="text-[var(--color-error)] font-semibold">{invalidRows.length} will be skipped</span>
+                  <span className="text-[var(--color-error-fg)] font-semibold">{invalidRows.length} will be skipped</span>
                 )}
               </div>
 
@@ -191,15 +192,15 @@ export const BulkStaffImport = ({ hubCodes, onClose, onImported }: Props) => {
                       <tr key={r.row} className="border-t border-[var(--color-border)]">
                         <td className="py-2 px-2">
                           {r.clientError
-                            ? <XCircle size={14} className="text-[var(--color-error)]" />
-                            : <CheckCircle2 size={14} className="text-[var(--color-success)]" />}
+                            ? <XCircle size={14} className="text-[var(--color-error-fg)]" />
+                            : <CheckCircle2 size={14} className="text-[var(--color-success-fg)]" />}
                         </td>
                         <td className="py-2 px-2 text-[var(--color-muted)]">{r.row}</td>
                         <td className="py-2 px-2 text-[var(--color-foreground)]">{r.name || '—'}</td>
                         <td className="py-2 px-2 text-[var(--color-foreground)]">{r.email || '—'}</td>
                         <td className="py-2 px-2 text-[var(--color-foreground)]">{r.role || '—'}</td>
                         <td className="py-2 px-2 text-[var(--color-foreground)]">{r.hub_code || '—'}</td>
-                        <td className="py-2 px-2 text-[var(--color-error)]">{r.clientError || ''}</td>
+                        <td className="py-2 px-2 text-[var(--color-error-fg)]">{r.clientError || ''}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -207,26 +208,25 @@ export const BulkStaffImport = ({ hubCodes, onClose, onImported }: Props) => {
               </div>
 
               <div className="flex gap-3">
-                <button
-                  onClick={() => setStage('upload')}
-                  className="flex-1 py-2.5 rounded-lg border border-[var(--color-border)] text-[13px] font-sans font-medium text-[var(--color-muted)]"
-                >
+                <Button variant="secondary" size="md" className="flex-1" onClick={() => setStage('upload')}>
                   Back
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="primary"
+                  size="md"
+                  className="flex-1"
                   onClick={runImport}
                   disabled={validRows.length === 0}
-                  className="flex-1 py-2.5 rounded-lg bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[13px] font-sans font-bold disabled:opacity-40"
                 >
                   Import {validRows.length} staff account{validRows.length === 1 ? '' : 's'}
-                </button>
+                </Button>
               </div>
             </div>
           )}
 
           {stage === 'importing' && (
             <div className="py-8 text-center space-y-4">
-              <Loader size={28} className="mx-auto animate-spin text-[var(--color-accent-amber)]" />
+              <Spinner size={28} className="mx-auto" />
               <p className="text-[13px] font-sans text-[var(--color-muted)]">
                 Creating account {progress.completed} of {progress.total}…
               </p>
@@ -242,9 +242,9 @@ export const BulkStaffImport = ({ hubCodes, onClose, onImported }: Props) => {
           {stage === 'done' && (
             <div className="space-y-4">
               <div className="flex items-center gap-4 text-[13px] font-sans">
-                <span className="text-[var(--color-success)] font-semibold">{successResults.length} created</span>
+                <span className="text-[var(--color-success-fg)] font-semibold">{successResults.length} created</span>
                 {failedResults.length > 0 && (
-                  <span className="text-[var(--color-error)] font-semibold">{failedResults.length} failed</span>
+                  <span className="text-[var(--color-error-fg)] font-semibold">{failedResults.length} failed</span>
                 )}
               </div>
 
@@ -277,7 +277,7 @@ export const BulkStaffImport = ({ hubCodes, onClose, onImported }: Props) => {
                         <tr key={r.row} className="border-t border-[var(--color-border)]">
                           <td className="py-2 px-2 text-[var(--color-muted)]">{r.row}</td>
                           <td className="py-2 px-2 text-[var(--color-foreground)]">{r.email}</td>
-                          <td className="py-2 px-2 text-[var(--color-error)]">{r.error}</td>
+                          <td className="py-2 px-2 text-[var(--color-error-fg)]">{r.error}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -285,12 +285,9 @@ export const BulkStaffImport = ({ hubCodes, onClose, onImported }: Props) => {
                 </div>
               )}
 
-              <button
-                onClick={onClose}
-                className="w-full py-2.5 rounded-lg bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[13px] font-sans font-bold"
-              >
+              <Button variant="primary" size="md" fullWidth onClick={onClose}>
                 Done
-              </button>
+              </Button>
             </div>
           )}
         </div>

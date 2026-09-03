@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { Upload, Download, CheckCircle, AlertTriangle, FileText, X, RefreshCw, Table } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { Button, PageHeader } from '../ui';
 import { supabase } from '../../lib/supabase';
 import { uid } from '../../lib/helpers';
 import { User } from '../../lib/types';
@@ -256,12 +256,8 @@ export const DataImport = ({ user, onBack }: { user: User; onBack: () => void })
   };
 
   return (
-    <div className="flex flex-col h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] animate-in slide-in-from-right overflow-hidden">
-      <div className="ehi-view-header">
-        <BackButton onClick={onBack} label="Back" />
-        <span className="text-[10px] font-mono text-[var(--color-accent-amber)] tracking-widest font-bold">● DATA IMPORT</span>
-        <div className="w-12" />
-      </div>
+    <div className="flex flex-col h-full bg-[var(--color-canvas)] text-[var(--color-foreground)] animate-in slide-in-from-right overflow-hidden">
+      <PageHeader title="Data Import" onBack={onBack} />
 
       <div className="flex-1 overflow-y-auto">
         <div className="ehi-page-body px-4 py-4 max-w-2xl mx-auto space-y-5">
@@ -327,7 +323,7 @@ export const DataImport = ({ user, onBack }: { user: User; onBack: () => void })
                 onClick={() => fileInputRef.current?.click()}
                 className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${
                   dragOver
-                    ? 'border-[var(--color-success)] bg-[rgba(34,197,94,0.05)]'
+                    ? 'border-[var(--color-success)] bg-[var(--color-success-bg)]'
                     : 'border-[var(--color-border)] hover:border-[var(--color-muted)]'
                 }`}
               >
@@ -346,7 +342,7 @@ export const DataImport = ({ user, onBack }: { user: User; onBack: () => void })
               />
 
               {fileError && (
-                <div className="flex items-start gap-2 p-3 rounded-lg bg-[rgba(239,68,68,0.08)] border border-[var(--color-error)] text-[var(--color-error)] text-[12px] font-sans">
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-[var(--color-error-bg)] border border-[var(--color-error-border)] text-[var(--color-error-fg)] text-[12px] font-sans">
                   <AlertTriangle size={14} className="mt-0.5 shrink-0" />
                   <span>{fileError}</span>
                 </div>
@@ -357,12 +353,12 @@ export const DataImport = ({ user, onBack }: { user: User; onBack: () => void })
           {stage === 'preview' && (
             <div className="space-y-4">
               <div className="flex items-center gap-4 flex-wrap">
-                <div className="flex items-center gap-1.5 text-[13px] font-sans font-semibold text-[var(--color-success)]">
+                <div className="flex items-center gap-1.5 text-[13px] font-sans font-semibold text-[var(--color-success-fg)]">
                   <FileText size={14} />
                   {rows.length} row{rows.length !== 1 ? 's' : ''} parsed
                 </div>
                 {errors.length > 0 && (
-                  <div className="flex items-center gap-1.5 text-[13px] font-sans font-semibold text-[var(--color-error)]">
+                  <div className="flex items-center gap-1.5 text-[13px] font-sans font-semibold text-[var(--color-error-fg)]">
                     <AlertTriangle size={14} />
                     {errorRowIndices.size} row{errorRowIndices.size !== 1 ? 's' : ''} will be skipped
                   </div>
@@ -370,12 +366,12 @@ export const DataImport = ({ user, onBack }: { user: User; onBack: () => void })
               </div>
 
               {errors.length > 0 && (
-                <div className="bg-[var(--color-surface-1)] border border-[var(--color-error)] rounded-xl p-3 space-y-1.5">
-                  <div className="text-[11px] font-sans font-semibold text-[var(--color-error)] uppercase tracking-wider mb-2">
+                <div className="bg-[var(--color-surface-1)] border border-[var(--color-error-border)] rounded-xl p-3 space-y-1.5">
+                  <div className="text-[11px] font-sans font-semibold text-[var(--color-error-fg)] uppercase tracking-wider mb-2">
                     Validation Errors
                   </div>
                   {errors.slice(0, 10).map((e, i) => (
-                    <div key={i} className="flex items-start gap-2 text-[11px] font-mono text-[var(--color-error)]">
+                    <div key={i} className="flex items-start gap-2 text-[11px] font-mono text-[var(--color-error-fg)]">
                       <X size={11} className="mt-0.5 shrink-0" />
                       {e.message}
                     </div>
@@ -413,7 +409,7 @@ export const DataImport = ({ user, onBack }: { user: User; onBack: () => void })
                       {rows.slice(0, 10).map((r, i) => (
                         <tr
                           key={i}
-                          className={`border-t border-[var(--color-border)] ${errorRowIndices.has(i) ? 'bg-[rgba(239,68,68,0.05)]' : 'hover:bg-[var(--color-surface-hover)]'}`}
+                          className={`border-t border-[var(--color-border)] ${errorRowIndices.has(i) ? 'bg-[var(--color-error-bg)]' : 'hover:bg-[var(--color-surface-hover)]'}`}
                         >
                           {columns.map(col => (
                             <td key={col} className="py-1.5 px-2.5 whitespace-nowrap max-w-[140px] truncate">
@@ -431,19 +427,18 @@ export const DataImport = ({ user, onBack }: { user: User; onBack: () => void })
               </div>
 
               <div className="flex gap-3">
-                <button
-                  onClick={resetWorkflow}
-                  className="flex-1 py-2.5 rounded-lg border border-[var(--color-border)] text-[13px] font-sans font-medium text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
-                >
+                <Button variant="secondary" size="md" className="flex-1" onClick={resetWorkflow}>
                   Back
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="success"
+                  size="md"
+                  className="flex-1"
                   onClick={runImport}
                   disabled={validRows.length === 0}
-                  className="flex-1 py-2.5 rounded-lg bg-[var(--color-success)] text-white text-[13px] font-sans font-bold disabled:opacity-40 hover:opacity-90 transition-opacity"
                 >
                   Import {validRows.length} row{validRows.length !== 1 ? 's' : ''}
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -474,7 +469,7 @@ export const DataImport = ({ user, onBack }: { user: User; onBack: () => void })
               <div className="space-y-1.5">
                 <p className="text-[15px] font-sans font-bold text-[var(--color-foreground)]">Import Complete</p>
                 <p className="text-[13px] font-sans">
-                  <span className="text-[var(--color-success)] font-semibold">
+                  <span className="text-[var(--color-success-fg)] font-semibold">
                     {result.imported} row{result.imported !== 1 ? 's' : ''} imported
                   </span>
                   {result.skipped > 0 && (

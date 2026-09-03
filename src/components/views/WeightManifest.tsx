@@ -7,7 +7,7 @@ import { listAirlineLogos } from '../../lib/airlineLogos';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
 import { EmptyState } from './EmptyState';
-import { BackButton } from '../BackButton';
+import { Button, PageHeader, Spinner } from '../ui';
 import {
   CheckCircle,
   Circle,
@@ -259,49 +259,55 @@ export const WeightManifest = ({ user, onBack }: { user: User; onBack: () => voi
         </div>
       </div>
 
-      <button
+      <Button
+        variant="primary"
+        size="sm"
+        fullWidth
+        iconLeft={Plus}
+        loading={submitting}
+        loadingLabel="Saving…"
         onClick={handleSubmit}
-        disabled={submitting}
-        className="w-full h-9 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg text-[11px] font-bold uppercase tracking-wider disabled:opacity-40 flex items-center justify-center gap-1.5 transition-opacity"
+        className="uppercase tracking-wider"
       >
-        {submitting ? <RefreshCw size={12} className="animate-spin" /> : <Plus size={12} />}
-        {submitting ? 'Saving…' : 'Add to Manifest'}
-      </button>
+        Add to Manifest
+      </Button>
     </div>
   );
 
   return (
-    <div className="flex flex-col h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] overflow-hidden">
-      <div className="ehi-view-header">
-        <BackButton onClick={onBack} label="Back" />
-        <span className="text-[10px] font-mono text-[var(--color-accent-amber)] tracking-widest font-bold">● WEIGHT MANIFEST</span>
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={e => setSelectedDate(e.target.value)}
-            className="h-7 px-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded text-[11px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
-          />
-          <button
-            onClick={() => {
-              import('./WeightManifestPDF').then(({ downloadWeightManifestPDF }) => {
-                downloadWeightManifestPDF({
-                  hubName: user.hub || 'EHI Hub',
-                  date: selectedDate,
-                  generatedBy: user.name,
-                  entries,
-                  totalPieces,
-                  totalKg,
-                  verifiedCount,
+    <div className="flex flex-col h-full bg-[var(--color-canvas)] text-[var(--color-foreground)] overflow-hidden">
+      <PageHeader
+        title="Weight Manifest"
+        onBack={onBack}
+        actions={
+          <>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={e => setSelectedDate(e.target.value)}
+              className="h-8 px-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded text-[11px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
+            />
+            <button
+              onClick={() => {
+                import('./WeightManifestPDF').then(({ downloadWeightManifestPDF }) => {
+                  downloadWeightManifestPDF({
+                    hubName: user.hub || 'EHI Hub',
+                    date: selectedDate,
+                    generatedBy: user.name,
+                    entries,
+                    totalPieces,
+                    totalKg,
+                    verifiedCount,
+                  });
                 });
-              });
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 border border-[var(--color-border)] rounded-lg text-[11px] font-mono text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] transition-colors cursor-pointer"
-          >
-            <Printer size={14} /> <span>Daily PDF</span>
-          </button>
-        </div>
-      </div>
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-[var(--color-border)] rounded-lg text-[11px] font-mono text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] transition-colors cursor-pointer"
+            >
+              <Printer size={14} /> <span>Daily PDF</span>
+            </button>
+          </>
+        }
+      />
 
       <div className="px-4 pt-3 pb-2 grid grid-cols-2 md:grid-cols-4 gap-2 flex-shrink-0">
         <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg px-3 py-2">
@@ -355,8 +361,8 @@ export const WeightManifest = ({ user, onBack }: { user: User; onBack: () => voi
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center py-16 text-[var(--color-muted)]">
-              <RefreshCw size={18} className="animate-spin" />
+            <div className="flex items-center justify-center py-16">
+              <Spinner size="lg" tone="muted" />
             </div>
           ) : entries.length === 0 ? (
             <EmptyState icon={<Plane size={36} strokeWidth={1.5} />} message={`No dispatches recorded for ${selectedDate}`} />
@@ -420,7 +426,7 @@ export const WeightManifest = ({ user, onBack }: { user: User; onBack: () => voi
                             className="flex items-center gap-1 px-2 py-1 rounded border border-[var(--color-border)] hover:border-[var(--color-success)] hover:text-[var(--color-success)] text-[var(--color-muted)] transition-colors bg-transparent cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {actioningId === entry.id ? (
-                              <RefreshCw size={11} className="animate-spin" />
+                              <Spinner size={11} tone="current" />
                             ) : (
                               <Circle size={11} />
                             )}
@@ -434,9 +440,9 @@ export const WeightManifest = ({ user, onBack }: { user: User; onBack: () => voi
                             onClick={() => handleDelete(entry)}
                             disabled={actioningId === entry.id}
                             aria-label={`Delete ${entry.airline} ${entry.flight_number}`}
-                            className="p-1 rounded hover:bg-[rgba(239,68,68,0.1)] text-[var(--color-muted)] hover:text-[var(--color-error)] transition-colors border-none bg-transparent cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="p-1 rounded hover:bg-[var(--color-error-bg)] text-[var(--color-muted)] hover:text-[var(--color-error-fg)] transition-colors border-none bg-transparent cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            {actioningId === entry.id ? <RefreshCw size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                            {actioningId === entry.id ? <Spinner size={13} tone="current" /> : <Trash2 size={13} />}
                           </button>
                         )}
                       </td>
@@ -549,14 +555,18 @@ export const WeightManifest = ({ user, onBack }: { user: User; onBack: () => voi
               </div>
             </div>
 
-            <button
+            <Button
+              variant="primary"
+              size="md"
+              fullWidth
+              iconLeft={Plus}
+              loading={submitting}
+              loadingLabel="Saving…"
               onClick={handleSubmit}
-              disabled={submitting}
-              className="w-full h-10 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg text-[12px] font-bold uppercase tracking-wider disabled:opacity-40 flex items-center justify-center gap-2 transition-opacity"
+              className="uppercase tracking-wider"
             >
-              {submitting ? <RefreshCw size={13} className="animate-spin" /> : <Plus size={13} />}
-              {submitting ? 'Saving…' : 'Add to Manifest'}
-            </button>
+              Add to Manifest
+            </Button>
           </div>
         ) : (
           <div className="border-t border-[var(--color-border)] px-4 py-3">
