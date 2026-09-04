@@ -91,7 +91,8 @@ import {
   HandCoinsIcon,
   AirTrafficControlIcon,
 } from '@phosphor-icons/react';
-import { ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
+import { Spinner } from '../ui';
 
 const StaffManagement = lazy(() => import('./StaffManagement').then(m => ({ default: m.StaffManagement })));
 
@@ -237,8 +238,8 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         // "Back" (closeSub, same as the ledger's own Back button) or "Try
         // Again" (remounts just the ledger) instead.
         <ErrorBoundary fallback={(error, reset) => (
-          <div className="flex flex-col items-center justify-center h-full gap-3 p-8 text-center bg-[var(--color-obsidian)]">
-            <div className="text-[var(--color-error)] font-bold text-[14px]">The ledger hit a snag.</div>
+          <div className="flex flex-col items-center justify-center h-full gap-3 p-8 text-center bg-[var(--color-canvas)]">
+            <div className="text-[var(--color-error-fg)] font-bold text-[14px]">The ledger hit a snag.</div>
             <div className="text-[var(--color-muted)] font-mono text-[11px] max-w-md break-words">
               {error.message || 'An unexpected error occurred.'}
             </div>
@@ -474,7 +475,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
           {activeView ? (
             <Suspense fallback={(
               <div className="flex items-center justify-center h-full py-20">
-                <Loader2 className="animate-spin text-[var(--color-muted)]" size={24} />
+                <Spinner size="lg" tone="muted" />
               </div>
             )}>
               {activeView.element}

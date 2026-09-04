@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Brain, Calendar, ShieldCheck, AlertTriangle, TrendingUp, Sparkles, RefreshCw } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { Brain, Calendar, ShieldCheck, AlertTriangle, TrendingUp, Sparkles } from 'lucide-react';
+import { PageHeader, Spinner } from '../ui';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, AreaChart, Area } from 'recharts';
 import { fmt } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
@@ -153,13 +153,9 @@ export const Forecasting = ({
   };
 
   return (
-    <div className="flex flex-col min-h-full bg-[var(--color-obsidian)] font-sans">
+    <div className="flex flex-col min-h-full bg-[var(--color-canvas)] font-sans">
       <div className="ehi-page-body px-4 pt-4 text-[var(--color-foreground)]">
-      {/* Header back navigation */}
-      <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2 mb-4">
-        <BackButton onClick={onBack} label="Back" />
-        <span className="text-[10px] font-mono text-[var(--color-accent-amber)] tracking-widest font-bold">● COGNITIVE LOGISTICS ENGINE</span>
-      </div>
+      <PageHeader title="Cognitive Logistics Engine" onBack={onBack} sticky={false} />
 
       <div className="flex justify-between items-center flex-col sm:flex-row gap-4 mb-6">
         <div className="space-y-0.5">
@@ -170,11 +166,11 @@ export const Forecasting = ({
         <button 
           onClick={handleGenerateForecast}
           disabled={loading}
-          className="bg-[var(--color-accent-amber)] hover:bg-amber-600 disabled:opacity-50 text-[var(--color-on-accent)] font-mono text-[11px] uppercase font-black px-4 py-2 rounded-lg flex items-center space-x-1.5 cursor-pointer shadow-lg shadow-amber-500/10"
+          className="bg-[var(--color-accent-amber)] hover:opacity-90 disabled:opacity-50 text-[var(--color-on-accent)] font-mono text-[11px] uppercase font-black px-4 py-2 rounded-lg flex items-center space-x-1.5 cursor-pointer shadow-[var(--shadow-amber)]"
         >
           {loading ? (
             <>
-              <RefreshCw size={13} className="animate-spin" />
+              <Spinner size="sm" tone="current" />
               <span>Analyzing historical aggregates...</span>
             </>
           ) : (
@@ -317,7 +313,7 @@ export const Forecasting = ({
               </thead>
               <tbody className="divide-y divide-[var(--color-border)]">
                 {routesHeatmap.map((heatmap, idx) => (
-                  <tr key={idx} className="hover:bg-black/10">
+                  <tr key={idx} className="hover:bg-[var(--color-surface-hover)]">
                     <td className="py-3 font-semibold text-[var(--color-foreground)] uppercase truncate max-w-[200px]">{heatmap.route}</td>
                     <td className="py-3 px-2">
                       <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold block text-center max-w-[50px] ${
