@@ -24,6 +24,15 @@
   --card-grid: 1fr 1fr;
   --overlay-blur: 8px;
 
+  /* Terminal / log console — deliberately always-dark in both themes
+     (a light-mode terminal reads wrong). Consumed via `.ehi-terminal`
+     + `text-[var(--terminal-*)]` on the inner spans. Log-level colours
+     (amber/red/cyan) stay as their raw ANSI-ish palette values. */
+  --terminal-bg: #0b0e14;
+  --terminal-fg: #d4d8e0;
+  --terminal-muted: #7d8590;
+  --terminal-border: rgba(255, 255, 255, 0.08);
+
   --radius-xs: 4px;
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -541,6 +550,16 @@ html {
     background: var(--color-overlay);
     backdrop-filter: blur(var(--overlay-blur));
     -webkit-backdrop-filter: blur(var(--overlay-blur));
+  }
+
+  /* Always-dark log/terminal surface (ITDashboard console). Pins its own
+     dark ground + ink in BOTH themes so a light-mode terminal doesn't
+     read as a broken panel. */
+  .ehi-terminal {
+    background: var(--terminal-bg);
+    color: var(--terminal-fg);
+    border: 1px solid var(--terminal-border);
+    box-shadow: var(--shadow-modal);
   }
 
   .ehi-card {

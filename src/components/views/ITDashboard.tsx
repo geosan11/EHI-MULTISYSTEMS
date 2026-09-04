@@ -826,25 +826,25 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
               >
                 {sentryTestState === 'sent' ? '✓ SENT — CHECK SENTRY' : sentryTestState === 'sending' ? 'SENDING...' : 'TEST SENTRY'}
               </button>
-              <button 
+              <button
                 onClick={() => setLogs([])}
-                className="text-[10px] font-mono text-[var(--color-error)] hover:bg-red-500/10 border border-red-500/10 px-2 py-1 rounded"
+                className="text-[10px] font-mono text-[var(--color-error-fg)] hover:bg-[var(--color-error-bg)] border border-[var(--color-error-border)] px-2 py-1 rounded"
               >
                 CLEAR TERMINAL
               </button>
             </div>
           </div>
 
-          {/* Interactive Shell terminal window */}
-          <div className="bg-black/95 border border-[var(--color-border)] rounded p-4 font-mono select-text min-h-[380px] max-h-[500px] overflow-y-auto space-y-1 text-xs shadow-2xl">
-            <div className="text-[var(--color-muted)] text-[10px] border-b border-gray-900 pb-2 mb-3">
+          {/* Interactive Shell terminal window — pinned dark in both themes */}
+          <div className="ehi-terminal rounded p-4 font-mono select-text min-h-[380px] max-h-[500px] overflow-y-auto space-y-1 text-xs">
+            <div className="text-[var(--terminal-muted)] text-[10px] border-b border-[var(--terminal-border)] pb-2 mb-3">
               === LOGS STREAM RECEIVED AT TERMINAL CONSOLE ===
               <br />
               Use this console to inspect background activities, SQLite/Dexie operations, and real-time socket listeners.
             </div>
 
             {logs.length === 0 ? (
-              <div className="text-stone-600 italic py-8 text-center">[logs cleared. waiting for events...]</div>
+              <div className="text-[var(--terminal-muted)] italic py-8 text-center">[logs cleared. waiting for events...]</div>
             ) : (
               logs.map((log, index) => {
                 let color = 'text-gray-400';
@@ -854,11 +854,11 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
                 if (log.level === 'DEBUG') color = 'text-cyan-500';
 
                 return (
-                  <div key={index} className="hover:bg-[rgba(255,255,255,0.01)] py-0.5 leading-relaxed">
-                    <span className="text-stone-500">[{log.time}]</span>{' '}
+                  <div key={index} className="hover:bg-[rgba(255,255,255,0.04)] py-0.5 leading-relaxed">
+                    <span className="text-[var(--terminal-muted)]">[{log.time}]</span>{' '}
                     <span className={`font-bold ${color}`}>[{log.level}]</span>{' '}
                     <span className="text-purple-400 font-bold">[{log.source}]</span>{' '}
-                    <span className="text-[var(--color-foreground)]">{log.text}</span>
+                    <span className="text-[var(--terminal-fg)]">{log.text}</span>
                   </div>
                 );
               })
