@@ -7,7 +7,7 @@ import {
   RefreshCw,
   FileSpreadsheet,
 } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { PageHeader, Spinner } from '../ui';
 import { supabase, fetchAllRows } from '../../lib/supabase';
 import { User } from '../../lib/types';
 import { fmt } from '../../lib/helpers';
@@ -221,60 +221,58 @@ export const AirlineLedger = ({ user, onBack }: { user: User; onBack: () => void
   };
 
   return (
-    <div className="flex flex-col h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] overflow-hidden">
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--color-border)] shrink-0">
-        <BackButton onClick={onBack} />
-        <div className="flex-1 min-w-0">
-          <div className="text-[12px] font-bold text-[var(--color-foreground)] truncate">
-            Airline Balance Ledger
-          </div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">
-            {selectedAirline}
-          </div>
-        </div>
-        <button
-          onClick={() => {
-            import('./AirlineLedgerPDF').then(({ downloadAirlineLedgerPDF }) => {
-              downloadAirlineLedgerPDF({
-                airlineName: selectedAirline,
-                hubName: user.hub || 'EHI Hub',
-                generatedBy: user.name,
-                generatedAt: new Date().toLocaleString('en-GB'),
-                rows: rows.map(r => ({
-                  entry_date: r.entry_date,
-                  reference: r.reference,
-                  description: r.description,
-                  entry_type: r.entry_type,
-                  amount: r.amount,
-                  runningBalance: r.runningBalance,
-                })),
-                summary,
-              });
-            });
-          }}
-          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[var(--color-surface-2)] transition-colors group shrink-0"
-          title="Download PDF"
-          aria-label="Download PDF"
-        >
-          <FileSpreadsheet
-            size={14}
-            strokeWidth={1.5}
-            className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors"
-          />
-        </button>
-        <button
-          onClick={() => loadEntries(selectedAirline)}
-          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[var(--color-surface-2)] transition-colors group shrink-0"
-          title="Refresh"
-          aria-label="Refresh"
-        >
-          <RefreshCw
-            size={14}
-            strokeWidth={1.5}
-            className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors"
-          />
-        </button>
-      </div>
+    <div className="flex flex-col h-full bg-[var(--color-canvas)] text-[var(--color-foreground)] overflow-hidden">
+      <PageHeader
+        title="Airline Balance Ledger"
+        subtitle={selectedAirline}
+        onBack={onBack}
+        actions={
+          <>
+            <button
+              onClick={() => {
+                import('./AirlineLedgerPDF').then(({ downloadAirlineLedgerPDF }) => {
+                  downloadAirlineLedgerPDF({
+                    airlineName: selectedAirline,
+                    hubName: user.hub || 'EHI Hub',
+                    generatedBy: user.name,
+                    generatedAt: new Date().toLocaleString('en-GB'),
+                    rows: rows.map(r => ({
+                      entry_date: r.entry_date,
+                      reference: r.reference,
+                      description: r.description,
+                      entry_type: r.entry_type,
+                      amount: r.amount,
+                      runningBalance: r.runningBalance,
+                    })),
+                    summary,
+                  });
+                });
+              }}
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[var(--color-surface-2)] transition-colors group shrink-0"
+              title="Download PDF"
+              aria-label="Download PDF"
+            >
+              <FileSpreadsheet
+                size={14}
+                strokeWidth={1.5}
+                className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors"
+              />
+            </button>
+            <button
+              onClick={() => loadEntries(selectedAirline)}
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[var(--color-surface-2)] transition-colors group shrink-0"
+              title="Refresh"
+              aria-label="Refresh"
+            >
+              <RefreshCw
+                size={14}
+                strokeWidth={1.5}
+                className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors"
+              />
+            </button>
+          </>
+        }
+      />
 
       <div className="ehi-mobile-only-flex items-center gap-2 px-3 py-2 border-b border-[var(--color-border)] overflow-x-auto no-scrollbar shrink-0">
         {airlines.map((airline) => {
@@ -400,10 +398,7 @@ export const AirlineLedger = ({ user, onBack }: { user: User; onBack: () => void
           <div className="flex-1 overflow-auto">
             {loading ? (
               <div className="flex items-center justify-center py-16">
-                <RefreshCw
-                  size={20}
-                  className="animate-spin text-[var(--color-accent-amber)]"
-                />
+                <Spinner size={20} />
               </div>
             ) : rows.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-[var(--color-muted)]">
@@ -444,7 +439,7 @@ export const AirlineLedger = ({ user, onBack }: { user: User; onBack: () => void
                           key={row.id}
                           className={`border-b border-[var(--color-border)] transition-colors ${
                             isEven
-                              ? 'bg-[var(--color-obsidian)]'
+                              ? 'bg-[var(--color-canvas)]'
                               : 'bg-[var(--color-surface-1)]'
                           } hover:bg-[var(--color-surface-2)]`}
                         >

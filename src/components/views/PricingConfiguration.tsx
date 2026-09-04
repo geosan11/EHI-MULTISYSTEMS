@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, DollarSign, Trash2 } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { PageHeader } from '../ui';
 import { User } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../lib/ToastContext';
@@ -362,13 +362,12 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center space-x-4 mb-4">
-        <BackButton onClick={onBack} />
-        <div>
-          <h2 className="text-[20px] font-sans font-bold text-[var(--color-foreground)] tracking-tight">Pricing Configuration</h2>
-          <p className="text-[12px] font-mono text-[var(--color-muted)]">Manage standard retail rates and B2B negotiated tariffs</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Pricing Configuration"
+        subtitle="Manage standard retail rates and B2B negotiated tariffs"
+        onBack={onBack}
+        sticky={false}
+      />
 
       <div className="ehi-card p-4 space-y-4 mb-6">
         <div className="flex justify-between items-center">
@@ -399,7 +398,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                     defaultValue={r.bb}
                     key={`bb-${r.id}-${r.bb}`}
                     onBlur={(e) => e.target.value && handlePriceUpdate(r.id, 'bb', e.target.value)}
-                    className="w-full bg-[var(--color-surface-1)] border border-[var(--color-surface-2)] rounded px-2 py-1 text-[11px] font-mono text-[var(--color-foreground)] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
+                    className="w-full bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded px-2 py-1 text-[11px] font-mono text-[var(--color-foreground)] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
                   />
                 </div>
                 <div>
@@ -410,7 +409,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                     defaultValue={r.mb}
                     key={`mb-${r.id}-${r.mb}`}
                     onBlur={(e) => e.target.value && handlePriceUpdate(r.id, 'mb', e.target.value)}
-                    className="w-full bg-[var(--color-surface-1)] border border-[var(--color-surface-2)] rounded px-2 py-1 text-[11px] font-mono text-[var(--color-foreground)] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
+                    className="w-full bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded px-2 py-1 text-[11px] font-mono text-[var(--color-foreground)] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
                   />
                 </div>
                 <div>
@@ -421,7 +420,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                     defaultValue={r.sb}
                     key={`sb-${r.id}-${r.sb}`}
                     onBlur={(e) => e.target.value && handlePriceUpdate(r.id, 'sb', e.target.value)}
-                    className="w-full bg-[var(--color-surface-1)] border border-[var(--color-surface-2)] rounded px-2 py-1 text-[11px] font-mono text-[var(--color-foreground)] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
+                    className="w-full bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded px-2 py-1 text-[11px] font-mono text-[var(--color-foreground)] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
                   />
                 </div>
               </div>
@@ -464,21 +463,21 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                 placeholder="BB ₦"
                 value={newRouteBb}
                 onChange={(e) => setNewRouteBb(e.target.value)}
-                className="w-full bg-[var(--color-surface-1)] border border-[var(--color-surface-2)] rounded px-2 py-1 text-[11px] font-mono text-[var(--color-foreground)] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
+                className="w-full bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded px-2 py-1 text-[11px] font-mono text-[var(--color-foreground)] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
               />
               <input
                 type="number"
                 placeholder="MB ₦"
                 value={newRouteMb}
                 onChange={(e) => setNewRouteMb(e.target.value)}
-                className="w-full bg-[var(--color-surface-1)] border border-[var(--color-surface-2)] rounded px-2 py-1 text-[11px] font-mono text-[var(--color-foreground)] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
+                className="w-full bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded px-2 py-1 text-[11px] font-mono text-[var(--color-foreground)] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
               />
               <input
                 type="number"
                 placeholder="SB ₦"
                 value={newRouteSb}
                 onChange={(e) => setNewRouteSb(e.target.value)}
-                className="w-full bg-[var(--color-surface-1)] border border-[var(--color-surface-2)] rounded px-2 py-1 text-[11px] font-mono text-[var(--color-foreground)] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
+                className="w-full bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded px-2 py-1 text-[11px] font-mono text-[var(--color-foreground)] text-center focus:outline-none focus:border-[var(--color-accent-amber)]"
               />
             </div>
             <button
@@ -511,7 +510,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                     key={`standard-rate-${r}-${standardRates[r] ?? 'empty'}`}
                     placeholder="Not configured"
                     onBlur={(e) => e.target.value && handleUpdateStandardRate(r, e.target.value)}
-                    className="w-24 bg-[var(--color-bg)] border border-[var(--color-surface-2)] rounded px-2 py-1 text-[12px] font-mono text-[var(--color-foreground)] text-right focus:outline-none focus:border-[var(--color-accent-amber)]"
+                    className="w-24 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded px-2 py-1 text-[12px] font-mono text-[var(--color-foreground)] text-right focus:outline-none focus:border-[var(--color-accent-amber)]"
                   />
                   <span className="text-[10px] text-[var(--color-muted)]">/KG</span>
                 </div>
@@ -529,7 +528,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
               placeholder="Company Name"
               value={newClientName}
               onChange={(e) => setNewClientName(e.target.value)}
-              className="flex-1 bg-[var(--color-bg)] border border-[var(--color-surface-2)] rounded px-3 py-2 text-[12px] focus:border-[var(--color-accent-amber)] outline-none"
+              className="flex-1 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded px-3 py-2 text-[12px] focus:border-[var(--color-accent-amber)] outline-none"
             />
             <button 
               onClick={handleCreateCorpClient}
@@ -548,12 +547,12 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                 <div
                   key={c.id}
                   onClick={() => setSelectedRateClient(c)}
-                  className={`p-3 rounded border cursor-pointer transition-colors ${c.active === false ? 'opacity-50' : ''} ${selectedRateClient?.id === c.id ? 'bg-[rgba(251,191,36,0.1)] border-[var(--color-accent-amber)]' : 'bg-[var(--color-bg)] border-[var(--color-border)] hover:border-[var(--color-muted)]'}`}
+                  className={`p-3 rounded border cursor-pointer transition-colors ${c.active === false ? 'opacity-50' : ''} ${selectedRateClient?.id === c.id ? 'bg-[var(--color-amber-bg)] border-[var(--color-accent-amber)]' : 'bg-[var(--color-surface-1)] border-[var(--color-border)] hover:border-[var(--color-muted)]'}`}
                 >
                   <div className="flex items-center gap-1.5">
                     <div className="font-bold text-[12px] text-[var(--color-foreground)]">{c.company_name}</div>
                     {c.active === false && (
-                      <span className="text-[8px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[rgba(239,68,68,0.15)] text-[var(--color-error)] border border-[var(--color-error)]">Inactive</span>
+                      <span className="text-[8px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[var(--color-error-bg)] text-[var(--color-error-fg)] border border-[var(--color-error)]">Inactive</span>
                     )}
                   </div>
                   <div className="flex items-center justify-between mt-1">
@@ -574,7 +573,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                     <div className="text-[14px] font-bold text-[var(--color-accent-amber)]">{selectedRateClient.company_name}</div>
                     <button
                       onClick={() => handleToggleClientActive(selectedRateClient)}
-                      className={`text-[10px] font-mono px-2 py-0.5 rounded transition-colors ${selectedRateClient.active === false ? 'bg-[rgba(16,185,129,0.15)] text-[var(--color-success)] hover:bg-[var(--color-success)] hover:text-[var(--color-on-accent)]' : 'bg-[rgba(239,68,68,0.15)] text-[var(--color-error)] hover:bg-[var(--color-error)] hover:text-white'}`}
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded transition-colors ${selectedRateClient.active === false ? 'bg-[var(--color-success-bg)] text-[var(--color-success-fg)] hover:bg-[var(--color-success)] hover:text-[var(--color-on-accent)]' : 'bg-[var(--color-error-bg)] text-[var(--color-error-fg)] hover:bg-[var(--color-error)] hover:text-[var(--color-on-accent-inverse)]'}`}
                     >
                       {selectedRateClient.active === false ? 'Reactivate' : 'Deactivate'}
                     </button>
@@ -588,7 +587,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                           id="corp-dept"
                           value={rateDept}
                           onChange={(e) => setRateDept(e.target.value as 'cargo' | 'marketing')}
-                          className="w-full bg-[var(--color-bg)] border border-[var(--color-surface-2)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
+                          className="w-full bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
                         >
                           <option value="cargo">Cargo / Package / Excess Baggage</option>
                           <option value="marketing">Marketing</option>
@@ -601,7 +600,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                             id="corp-route"
                             value={rateRoute}
                             onChange={(e) => setRateRoute(e.target.value)}
-                            className="w-full bg-[var(--color-bg)] border border-[var(--color-surface-2)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
+                            className="w-full bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
                           >
                             {routes.map(r => <option key={r} value={r}>{r}</option>)}
                           </select>
@@ -619,14 +618,14 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                             <select
                               value={rateRouteOrigin}
                               onChange={(e) => setRateRouteOrigin(e.target.value)}
-                              className="w-full bg-[var(--color-bg)] border border-[var(--color-surface-2)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
+                              className="w-full bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
                             >
                               {nonOtherRoutes.map(r => <option key={r} value={r}>{r}</option>)}
                             </select>
                             <select
                               value={rateRouteDest}
                               onChange={(e) => setRateRouteDest(e.target.value)}
-                              className="w-full bg-[var(--color-bg)] border border-[var(--color-surface-2)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
+                              className="w-full bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
                             >
                               {nonOtherRoutes.map(r => <option key={r} value={r}>{r}</option>)}
                             </select>
@@ -644,7 +643,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                           value={ratePrice}
                           onChange={(e) => setRatePrice(e.target.value)}
                           placeholder="e.g. 450"
-                          className="w-full bg-[var(--color-bg)] border border-[var(--color-surface-2)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
+                          className="w-full bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
                         />
                       </div>
                       <div>
@@ -655,7 +654,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                           value={rateMinCharge}
                           onChange={(e) => setRateMinCharge(e.target.value)}
                           placeholder="e.g. 15000"
-                          className="w-full bg-[var(--color-bg)] border border-[var(--color-surface-2)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
+                          className="w-full bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)] transition-colors"
                         />
                       </div>
                       <button
@@ -672,7 +671,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                     <div className="text-[11px] text-[var(--color-muted)] uppercase tracking-wider font-semibold mb-3">Configured Routes</div>
                     <div className="space-y-2">
                       {corpRates.filter(r => r.corporate_client_id === selectedRateClient.id).map(r => (
-                        <div key={r.id} className="flex justify-between items-center bg-[var(--color-bg)] border border-[var(--color-border)] px-3 py-2.5 rounded-md">
+                        <div key={r.id} className="flex justify-between items-center bg-[var(--color-surface-1)] border border-[var(--color-border)] px-3 py-2.5 rounded-md">
                           <span className="text-[12px] text-[var(--color-light-muted)] font-medium">{r.route_name}</span>
                           <div className="flex items-center gap-2">
                             <div className="text-right">
@@ -692,7 +691,7 @@ export const PricingConfiguration = ({ user, onBack }: { user: User; onBack: () 
                         </div>
                       ))}
                       {corpRates.filter(r => r.corporate_client_id === selectedRateClient.id).length === 0 && (
-                        <div className="text-[12px] text-[var(--color-muted)] italic text-center py-6 bg-[var(--color-surface-2)] rounded-md border border-[rgba(255,255,255,0.02)]">
+                        <div className="text-[12px] text-[var(--color-muted)] italic text-center py-6 bg-[var(--color-surface-2)] rounded-md border border-[var(--color-border-subtle)]">
                           No custom rates set.<br/>Baseline standard rate will apply.
                         </div>
                       )}
