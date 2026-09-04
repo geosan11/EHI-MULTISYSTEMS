@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Upload, CheckCircle2, AlertCircle, RefreshCw, Layers, DollarSign, FileSpreadsheet, Loader2, AlertTriangle, Download } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { Upload, CheckCircle2, AlertCircle, RefreshCw, Layers, DollarSign, FileSpreadsheet, AlertTriangle, Download } from 'lucide-react';
+import { PageHeader, Spinner } from '../ui';
 import { fmt, sanitizeSpreadsheetAoA } from '../../lib/helpers';
 import { Transaction, User } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
@@ -313,8 +313,8 @@ export const BankReconciliation = ({
 
   if (showSuccess) {
     return (
-      <div className="flex flex-col items-center justify-center h-full bg-[var(--color-obsidian)] p-8 text-center animate-in zoom-in-95">
-         <div className="w-16 h-16 rounded-full bg-[rgba(16,185,129,0.1)] flex items-center justify-center border border-[rgba(16,185,129,0.2)] mb-4">
+      <div className="flex flex-col items-center justify-center h-full bg-[var(--color-canvas)] p-8 text-center animate-in zoom-in-95">
+         <div className="w-16 h-16 rounded-full bg-[var(--color-success-bg)] flex items-center justify-center border border-[var(--color-success-border)] mb-4">
            <CheckCircle2 size={32} className="text-[var(--color-success)]" />
          </div>
          <h2 className="text-[20px] font-sans font-bold text-[var(--color-foreground)] mb-2">Reconciliation confirmed</h2>
@@ -325,7 +325,7 @@ export const BankReconciliation = ({
            <button onClick={downloadReport} className="flex items-center space-x-2 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] font-sans text-[13px] font-medium px-5 py-2.5 rounded-lg transition-colors">
              <Download size={16} /> <span>Download Report</span>
            </button>
-           <button onClick={onBack} className="flex items-center space-x-2 bg-[var(--color-accent-cobalt)] hover:opacity-90 text-white font-sans text-[13px] font-bold px-5 py-2.5 rounded-lg transition-colors">
+           <button onClick={onBack} className="flex items-center space-x-2 bg-[var(--color-accent-cobalt)] hover:opacity-90 text-[var(--color-on-accent-inverse)] font-sans text-[13px] font-bold px-5 py-2.5 rounded-lg transition-opacity">
              <span>Return</span>
            </button>
          </div>
@@ -334,15 +334,13 @@ export const BankReconciliation = ({
   }
 
   return (
-    <div className="flex flex-col min-h-full bg-[var(--color-obsidian)] p-4 text-[var(--color-foreground)]">
-      <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-4 mb-4">
-        <BackButton onClick={onBack} label="Back" />
-      </div>
-
-      <div className="mb-6">
-        <h1 className="text-[18px] font-sans font-bold text-[var(--color-foreground)] leading-tight">Bank Reconciliation</h1>
-        <div className="text-[13px] font-sans text-[var(--color-muted)]">Match bank deposits with your system records</div>
-      </div>
+    <div className="flex flex-col min-h-full bg-[var(--color-canvas)] p-4 text-[var(--color-foreground)]">
+      <PageHeader
+        title="Bank Reconciliation"
+        subtitle="Match bank deposits with your system records"
+        onBack={onBack}
+        sticky={false}
+      />
 
       {!fileImported ? (
         <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-5 space-y-4">
@@ -369,11 +367,11 @@ export const BankReconciliation = ({
             onDragLeave={() => setDragOver(false)}
             onDrop={handleFileUpload}
             className={`border-2 border-dashed rounded-xl p-8 py-12 text-center flex flex-col items-center justify-center space-y-3 transition-colors ${
-              dragOver ? 'border-[var(--color-accent-cobalt)] bg-blue-500/5' : 'border-[var(--color-surface-2)] bg-[var(--color-surface-1)]'
+              dragOver ? 'border-[var(--color-accent-cobalt)] bg-[var(--color-info-bg)]' : 'border-[var(--color-border)] bg-[var(--color-surface-1)]'
             }`}
           >
             {loadingPdf ? (
-               <Loader2 size={32} className="text-[var(--color-accent-cobalt)] animate-spin" />
+               <Spinner size={32} tone="current" className="text-[var(--color-accent-cobalt)]" />
             ) : (
                <Upload size={32} className={`${dragOver ? 'text-[var(--color-accent-cobalt)]' : 'text-[var(--color-muted)]'}`} />
             )}
@@ -445,7 +443,7 @@ export const BankReconciliation = ({
               <button 
                 onClick={handleAutoMatch}
                 disabled={matchingInProgress || unmatchedBtxCount === 0}
-                className="bg-[var(--color-accent-cobalt)] hover:bg-blue-600 disabled:opacity-50 text-white font-sans text-[13px] font-bold px-4 py-2.5 rounded-lg flex items-center space-x-2 cursor-pointer transition-colors"
+                className="bg-[var(--color-accent-cobalt)] hover:opacity-90 disabled:opacity-50 text-[var(--color-on-accent-inverse)] font-sans text-[13px] font-bold px-4 py-2.5 rounded-lg flex items-center space-x-2 cursor-pointer transition-opacity"
               >
                 <Layers size={16} className={matchingInProgress ? 'animate-spin' : ''} />
                 <span>{matchingInProgress ? 'Matching...' : 'Auto-Match Engine'}</span>
@@ -468,7 +466,7 @@ export const BankReconciliation = ({
           )}
 
           <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl overflow-hidden">
-            <div className="p-4 border-b border-[var(--color-border)] bg-[rgba(255,255,255,0.01)] flex justify-between items-center">
+            <div className="p-4 border-b border-[var(--color-border)] bg-[var(--color-surface-2)] flex justify-between items-center">
               <span className="text-[12px] font-sans font-bold text-[var(--color-muted)] uppercase tracking-wider">Statement Ledger vs. System Log</span>
             </div>
 
@@ -480,7 +478,7 @@ export const BankReconciliation = ({
                     <div className="md:col-span-5 space-y-1.5">
                       <div className="flex items-center space-x-2">
                         <span className="text-[11px] font-sans text-[var(--color-muted)]">{btx.date}</span>
-                        <span className="text-[10px] font-mono bg-[rgba(255,255,255,0.06)] text-[var(--color-muted)] px-1.5 py-0.5 rounded uppercase">{btx.reference}</span>
+                        <span className="text-[10px] font-mono bg-[var(--color-surface-3)] text-[var(--color-muted)] px-1.5 py-0.5 rounded uppercase">{btx.reference}</span>
                         {btx.suspicious && (
                            <span className="text-[10px] font-sans font-bold bg-[rgba(239,68,68,0.1)] text-[var(--color-error)] px-1.5 py-0.5 rounded flex items-center space-x-1" title="Review this transaction manually">
                              <AlertTriangle size={10} /> <span>Suspicious</span>
@@ -495,7 +493,7 @@ export const BankReconciliation = ({
                       <span className="text-[10px] font-sans text-[var(--color-muted)] mt-0.5">Deposit</span>
                     </div>
 
-                    <div className="md:col-span-5 flex items-center justify-between md:justify-end space-x-3 rounded-xl p-3 md:p-0 bg-[rgba(0,0,0,0.2)] md:bg-transparent">
+                    <div className="md:col-span-5 flex items-center justify-between md:justify-end space-x-3 rounded-xl p-3 md:p-0 bg-[var(--color-surface-2)] md:bg-transparent">
                       {(btx.status === 'Unmatched' || btx.status === 'Near-Match') ? (
                         <>
                           <div className="text-left md:text-right">
@@ -556,7 +554,7 @@ export const BankReconciliation = ({
               })}
             </div>
 
-            <div className="p-5 border-t border-[var(--color-border)] bg-[rgba(255,255,255,0.01)] flex justify-between items-center flex-col sm:flex-row gap-4">
+            <div className="p-5 border-t border-[var(--color-border)] bg-[var(--color-surface-2)] flex justify-between items-center flex-col sm:flex-row gap-4">
               <div className="flex items-center space-x-2">
                 <AlertCircle size={16} className="text-[var(--color-muted)]" />
                 <span className="text-[12px] font-sans text-[var(--color-muted)]">Reconciliation locks automated ledger accounting updates.</span>

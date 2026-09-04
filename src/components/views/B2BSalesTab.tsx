@@ -291,7 +291,7 @@ export const B2BSalesTab = ({ transactions, user }: B2BSalesTabProps) => {
       </div>
 
       {/* FILTER CONTROLS BAR */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-[var(--color-bg)] p-3 rounded-lg border border-[var(--color-border)]">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-[var(--color-surface-2)] p-3 rounded-lg border border-[var(--color-border)]">
         <div className="flex-1 flex flex-col md:flex-row gap-2.5">
           <div className="relative flex-1">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" />
@@ -332,7 +332,7 @@ export const B2BSalesTab = ({ transactions, user }: B2BSalesTabProps) => {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-[var(--color-bg)] border-b border-[var(--color-border)]">
+              <tr className="bg-[var(--color-surface-2)] border-b border-[var(--color-border)]">
                 <th className="p-3 text-[10px] uppercase font-semibold text-[var(--color-muted)] tracking-wider">AWB / Tag</th>
                 <th className="p-3 text-[10px] uppercase font-semibold text-[var(--color-muted)] tracking-wider">Date</th>
                 <th className="p-3 text-[10px] uppercase font-semibold text-[var(--color-muted)] tracking-wider">Client Name</th>
