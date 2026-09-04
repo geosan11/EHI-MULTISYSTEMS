@@ -1095,7 +1095,7 @@ export const Scanner = ({
 
   if (activePodCapture) {
     return createPortal(
-      <div className="fixed inset-0 z-[150] bg-[var(--color-bg)] flex flex-col">
+      <div className="fixed inset-0 z-[150] bg-[var(--color-canvas)] flex flex-col">
         <ProofOfDeliveryForm
           awbNumber={activePodCapture.ref}
           consigneeName={activePodCapture.name}
@@ -1614,7 +1614,7 @@ export const Scanner = ({
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           padding: 16
         }}>
-          <div className="bg-[var(--color-surface-card)] rounded-[var(--radius-lg)] border border-[var(--color-border)] p-6 w-full max-w-[320px] shadow-2xl animate-in fade-in zoom-in duration-200">
+          <div className="bg-[var(--color-surface-card)] rounded-[var(--radius-lg)] border border-[var(--color-border)] p-6 w-full max-w-[320px] shadow-[var(--shadow-modal)] animate-in fade-in zoom-in duration-200">
             <div className="flex flex-col items-center mb-5">
               <div className="w-12 h-12 bg-[rgba(168,85,247,0.1)] rounded-full flex items-center justify-center mb-3">
                 <CheckCircle size={24} color="var(--color-purple)" />
@@ -1652,7 +1652,7 @@ export const Scanner = ({
               <button
                 onClick={handleCommitDelivery}
                 disabled={!pinInput.trim()}
-                className="flex-1 py-3 bg-[var(--color-purple)] text-white text-[12px] font-mono font-bold rounded-[var(--radius-md)] cursor-pointer hover:opacity-90 transition-colors disabled:opacity-50"
+                className="flex-1 py-3 bg-[var(--color-purple)] text-[var(--color-on-accent-inverse)] text-[12px] font-mono font-bold rounded-[var(--radius-md)] cursor-pointer hover:opacity-90 transition-colors disabled:opacity-50"
               >
                 CONFIRM
               </button>
