@@ -437,7 +437,7 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
   const totalActive = bugs.filter(b => b.status !== 'Resolved').length;
 
   return (
-    <div className="flex flex-col min-h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] p-4 md:p-6 select-none">
+    <div className="flex flex-col min-h-full bg-[var(--color-canvas)] text-[var(--color-foreground)] p-4 md:p-6 select-none">
       
       {onBack && <BackButton onClick={onBack} label="Back to Menu" className="mb-4" />}
 
@@ -458,12 +458,12 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
 
         <div className="flex flex-wrap gap-2 items-center">
           <div className="ehi-card px-3 py-1.5 flex items-center space-x-2">
-            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-            <span className="text-[10px] font-mono text-emerald-400 font-bold uppercase">Node Online</span>
+            <div className="h-2 w-2 rounded-full bg-[var(--color-success)] animate-ping" />
+            <span className="text-[10px] font-mono text-[var(--color-success-fg)] font-bold uppercase">Node Online</span>
           </div>
-          <button 
+          <button
             onClick={downloadBugsReport}
-            className="bg-[var(--color-surface-2)] hover:bg-[var(--color-border)] transition-colors border border-[rgba(255,255,255,0.08)] text-[var(--color-light-muted)] hover:text-[var(--color-foreground)] px-3 py-1.5 rounded text-[10px] font-mono font-bold flex items-center space-x-1.5"
+            className="bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-hover)] transition-colors border border-[var(--color-border)] text-[var(--color-light-muted)] hover:text-[var(--color-foreground)] px-3 py-1.5 rounded text-[10px] font-mono font-bold flex items-center space-x-1.5"
           >
             <Download size={12} />
             <span>EXPORT BUGS</span>
@@ -741,14 +741,14 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
                   <div key={b.id} className="bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-border-strong)] transition-colors rounded p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="space-y-1.5 flex-1 select-text">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] font-mono text-[var(--color-muted)] bg-[var(--color-surface-2)] px-2 py-0.5 rounded border border-[rgba(255,255,255,0.06)] font-bold">{b.id}</span>
+                        <span className="text-[10px] font-mono text-[var(--color-muted)] bg-[var(--color-surface-2)] px-2 py-0.5 rounded border border-[var(--color-border-subtle)] font-bold">{b.id}</span>
                         <span className={`text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${badgeColor}`}>{b.severity}</span>
                         <span className="text-[10px] font-mono text-[var(--color-muted)] bg-[var(--color-surface-2)] px-2 py-0.5 rounded border border-[var(--color-border)] font-bold uppercase">{b.component}</span>
                         <span className="text-[10px] font-mono text-cyan-400 font-bold ml-auto md:ml-0 bg-cyan-900/10 px-2 py-0.5 rounded border border-cyan-800/10">OCCURRED: {b.occurrences}x</span>
                       </div>
                       
                       <h4 className="text-[13px] font-sans font-bold text-[var(--color-foreground)] tracking-wide">{b.title}</h4>
-                      <p className="text-[11px] text-[var(--color-muted)] font-mono leading-relaxed bg-[var(--color-surface-2)]/40 p-2.5 rounded border border-[rgba(255,255,255,0.02)]">{b.description}</p>
+                      <p className="text-[11px] text-[var(--color-muted)] font-mono leading-relaxed bg-[var(--color-surface-2)]/40 p-2.5 rounded border border-[var(--color-border-subtle)]">{b.description}</p>
                       
                       <div className="text-[10px] font-mono text-[var(--color-light-muted)]">
                         DETECTED AT: {new Date(b.timestamp).toLocaleString()}
@@ -1139,7 +1139,7 @@ export const ITDashboard = ({ user, onBack }: { user: User, onBack?: () => void 
                 <div key={p.id} className="bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-border-strong)] transition-all rounded p-4 flex justify-between gap-4 items-center">
                   <div className="space-y-1 flex-1 select-text">
                     <div className="flex items-center space-x-2">
-                      <span className="text-[10px] font-mono text-[var(--color-muted)] bg-[var(--color-surface-2)] px-2 py-0.5 rounded border border-[rgba(255,255,255,0.06)] font-bold">{p.id}</span>
+                      <span className="text-[10px] font-mono text-[var(--color-muted)] bg-[var(--color-surface-2)] px-2 py-0.5 rounded border border-[var(--color-border-subtle)] font-bold">{p.id}</span>
                       <span className={`text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 border rounded ${priorityColor}`}>{p.priority}</span>
                     </div>
 
