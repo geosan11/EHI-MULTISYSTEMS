@@ -1073,7 +1073,7 @@ BEGIN
   -- to exactly the wallet amount being clawed back.
   IF v_table = 'cargo' THEN
     SELECT amount, amount_paid, wallet_deduction_amount, retrieved_amount,
-           receipt_mode, created_at, entered_by, corporate_client_id
+           receipt_mode, created_at, corporate_client_id
     INTO v_entry
     FROM public.cargo_entries WHERE entry_ref = v_row.cargo_ref FOR UPDATE;
 
@@ -1092,7 +1092,7 @@ BEGIN
         WHEN v_non_wallet > 0 AND COALESCE(v_entry.receipt_mode, 'Debt') <> 'Wallet'
         THEN COALESCE(payment_history, '[]'::jsonb) || jsonb_build_object(
           'amount', v_non_wallet, 'mode', v_entry.receipt_mode,
-          'by', COALESCE(v_entry.entered_by, v_row.logged_by, 'system'),
+          'by', COALESCE(v_row.logged_by, 'system'),
           'at', v_entry.created_at)
         ELSE payment_history
       END,
@@ -1109,7 +1109,7 @@ BEGIN
 
   ELSIF v_table = 'baggage' THEN
     SELECT amount, amount_paid, wallet_deduction_amount, retrieved_amount,
-           payment_mode, created_at, entered_by
+           payment_mode, created_at
     INTO v_entry
     FROM public.manifests WHERE transaction_id = v_row.cargo_ref FOR UPDATE;
 
@@ -1128,7 +1128,7 @@ BEGIN
         WHEN v_non_wallet > 0 AND COALESCE(v_entry.payment_mode, 'Debt') <> 'Wallet'
         THEN COALESCE(payment_history, '[]'::jsonb) || jsonb_build_object(
           'amount', v_non_wallet, 'mode', v_entry.payment_mode,
-          'by', COALESCE(v_entry.entered_by, v_row.logged_by, 'system'),
+          'by', COALESCE(v_row.logged_by, 'system'),
           'at', v_entry.created_at)
         ELSE payment_history
       END,
@@ -1140,7 +1140,7 @@ BEGIN
   ELSIF v_table = 'marketing' THEN
     -- inverted: amount_paid holds the sale total, debt_amount_paid the repayment
     SELECT amount_paid AS sale_amount, debt_amount_paid, wallet_deduction_amount,
-           retrieved_amount, payment_mode, created_at, entered_by
+           retrieved_amount, payment_mode, created_at
     INTO v_entry
     FROM public.marketing_entries WHERE entry_ref = v_row.cargo_ref FOR UPDATE;
 
@@ -1159,7 +1159,7 @@ BEGIN
         WHEN v_non_wallet > 0 AND COALESCE(v_entry.payment_mode, 'Debt') <> 'Wallet'
         THEN COALESCE(payment_history, '[]'::jsonb) || jsonb_build_object(
           'amount', v_non_wallet, 'mode', v_entry.payment_mode,
-          'by', COALESCE(v_entry.entered_by, v_row.logged_by, 'system'),
+          'by', COALESCE(v_row.logged_by, 'system'),
           'at', v_entry.created_at)
         ELSE payment_history
       END,
@@ -1170,7 +1170,7 @@ BEGIN
 
   ELSE  -- package
     SELECT amount, amount_paid, wallet_deduction_amount, retrieved_amount,
-           payment_mode, created_at, entered_by
+           payment_mode, created_at
     INTO v_entry
     FROM public.package_entries WHERE entry_ref = v_row.cargo_ref FOR UPDATE;
 
@@ -1189,7 +1189,7 @@ BEGIN
         WHEN v_non_wallet > 0 AND COALESCE(v_entry.payment_mode, 'Debt') <> 'Wallet'
         THEN COALESCE(payment_history, '[]'::jsonb) || jsonb_build_object(
           'amount', v_non_wallet, 'mode', v_entry.payment_mode,
-          'by', COALESCE(v_entry.entered_by, v_row.logged_by, 'system'),
+          'by', COALESCE(v_row.logged_by, 'system'),
           'at', v_entry.created_at)
         ELSE payment_history
       END,
