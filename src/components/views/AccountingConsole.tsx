@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { User, Transaction, Expense } from '../../lib/types';
 import { fmt, parseLocalDateBoundary } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
-import { Box, Plane, TrendingUp, Package, Lock, Unlock, AlertCircle, FileDown, Loader2 } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { Box, Plane, TrendingUp, Package, Lock, Unlock, AlertCircle, FileDown } from 'lucide-react';
+import { PageHeader, Spinner } from '../ui';
 const DebtorsTab = lazy(() => import('./DebtorsTab').then(m => ({ default: m.DebtorsTab })));
 const ExpensesTab = lazy(() => import('./ExpensesTab').then(m => ({ default: m.ExpensesTab })));
 const BankReconciliation = lazy(() => import('./BankReconciliation').then(m => ({ default: m.BankReconciliation })));
@@ -393,11 +393,9 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
   const variance = physicalCount !== null ? physicalCount - expectedClosing : 0;
 
   return (
-    <div className="flex flex-col h-full bg-[var(--color-obsidian)] overflow-y-auto animate-in slide-in-from-right">
+    <div className="flex flex-col h-full bg-[var(--color-canvas)] overflow-y-auto animate-in slide-in-from-right">
       <div className="ehi-page-body px-4 pt-4 relative text-[var(--color-foreground)]">
-      <div className="flex items-center justify-between mb-4">
-        <BackButton onClick={onBack} label="Accounting" />
-      </div>
+      <PageHeader title="Accounting Console" onBack={onBack} sticky={false} />
 
       {/* TABS HEADER */}
       <div className="relative mb-4">
@@ -406,7 +404,7 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
           <button
             key={t}
             onClick={() => setActiveTab(t as any)}
-            className={`px-4 py-2 text-[13px] font-sans font-medium rounded-full whitespace-nowrap transition-colors focus:outline-none flex items-center ${activeTab === t ? 'bg-[var(--color-accent-cobalt)] text-white' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
+            className={`px-4 py-2 text-[13px] font-sans font-medium rounded-full whitespace-nowrap transition-colors focus:outline-none flex items-center ${activeTab === t ? 'bg-[var(--color-accent-cobalt)] text-[var(--color-on-accent-inverse)]' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
           >
             {t}
             {t === 'Payment Validation' && unconfirmedCount > 0 && (
@@ -423,7 +421,7 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
           Bank Reconciliation
         </button>
       </div>
-      <div className="pointer-events-none absolute top-0 right-0 bottom-2 w-10 bg-gradient-to-l from-[var(--color-obsidian)] to-transparent" />
+      <div className="pointer-events-none absolute top-0 right-0 bottom-2 w-10 bg-gradient-to-l from-[var(--color-canvas)] to-transparent" />
       </div>
 
       {activeTab === 'Summary' && (
@@ -624,7 +622,7 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
                />
                <button 
                  onClick={handleSetOpening}
-                 className="w-full h-12 bg-[var(--color-accent-cobalt)] hover:opacity-90 text-white text-[14px] font-sans font-bold rounded-xl transition-all"
+                 className="w-full h-12 bg-[var(--color-accent-cobalt)] hover:opacity-90 text-[var(--color-on-accent-inverse)] text-[14px] font-sans font-bold rounded-xl transition-all"
                >
                  Confirm Opening Balance
                </button>
@@ -716,7 +714,7 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
                        <button 
                          onClick={handleLockRegister}
                          disabled={!physicalInput}
-                         className="w-full h-12 bg-[var(--color-accent-cobalt)] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-sans font-bold rounded-xl transition-all flex items-center justify-center space-x-2"
+                         className="w-full h-12 bg-[var(--color-accent-cobalt)] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-[var(--color-on-accent-inverse)] text-[14px] font-sans font-bold rounded-xl transition-all flex items-center justify-center space-x-2"
                        >
                          <Lock size={16} />
                          <span>Lock Day</span>
@@ -732,7 +730,7 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
 
       <Suspense fallback={(
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="animate-spin text-[var(--color-muted)]" size={24} />
+          <Spinner size="lg" tone="muted" />
         </div>
       )}>
       {activeTab === 'Credit Sales' && (

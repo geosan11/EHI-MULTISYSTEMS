@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Building2, Loader, CheckCircle2, RefreshCw } from 'lucide-react';
+import { CheckCircle2, RefreshCw } from 'lucide-react';
+import { PageHeader, Spinner } from '../ui';
 import { User } from '../../lib/types';
 import { supabase, fetchAllRows } from '../../lib/supabase';
-import { BackButton } from '../BackButton';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
 import { fmt } from '../../lib/helpers';
@@ -232,20 +232,15 @@ export const OfficeWorkReconciliation = ({ user, onBack }: { user: User; onBack:
   };
 
   return (
-    <main className="flex-1 flex flex-col h-full bg-[var(--color-bg)] overflow-y-auto">
-      <div className="bg-[var(--color-surface-card)] border-b border-[var(--color-border)] p-4">
-        <BackButton onClick={onBack} label="Back to Menu" className="mb-3" />
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="p-2 bg-[rgba(245,158,11,0.1)] rounded-lg"><Building2 size={20} className="text-[var(--color-accent-amber)]" /></div>
-            <div className="min-w-0">
-              <h1 className="text-[16px] font-bold text-[var(--color-foreground)] tracking-tight">Office Work Reconciliation</h1>
-              <p className="text-[11px] font-mono text-[var(--color-muted)] mt-0.5">Unlinked cargo/package/baggage/marketing entries whose customer matches a corporate client</p>
-            </div>
-          </div>
-          <button onClick={load} className="h-9 w-9 flex items-center justify-center rounded-lg bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-accent-amber)]" title="Refresh"><RefreshCw size={14} /></button>
-        </div>
-      </div>
+    <main className="flex-1 flex flex-col h-full bg-[var(--color-canvas)] overflow-y-auto">
+      <PageHeader
+        title="Office Work Reconciliation"
+        subtitle="Unlinked cargo/package/baggage/marketing entries whose customer matches a corporate client"
+        onBack={onBack}
+        actions={
+          <button onClick={load} aria-label="Refresh" className="h-9 w-9 flex items-center justify-center rounded-lg bg-[var(--color-surface-1)] border border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-accent-amber)]" title="Refresh"><RefreshCw size={14} /></button>
+        }
+      />
 
       <div className="p-4 space-y-4">
         <div className="flex items-center gap-2">
@@ -254,7 +249,7 @@ export const OfficeWorkReconciliation = ({ user, onBack }: { user: User; onBack:
         </div>
 
         {loading ? (
-          <div className="flex items-center gap-2 text-[12px] font-mono text-[var(--color-muted)] py-10 justify-center"><Loader size={16} className="animate-spin" /> Scanning entries…</div>
+          <div className="flex items-center gap-2 text-[12px] font-mono text-[var(--color-muted)] py-10 justify-center"><Spinner size="sm" tone="muted" /> Scanning entries…</div>
         ) : candidates.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-12 text-center">
             <CheckCircle2 size={28} className="text-[var(--color-success)]" />
@@ -314,7 +309,7 @@ export const OfficeWorkReconciliation = ({ user, onBack }: { user: User; onBack:
               disabled={applying || selected.size === 0}
               className="w-full h-11 rounded-lg bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] text-[12px] font-bold font-mono disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {applying ? <><Loader size={14} className="animate-spin" /> Reconciling…</> : `Reconcile ${selected.size} selected`}
+              {applying ? <><Spinner size="sm" tone="current" /> Reconciling…</> : `Reconcile ${selected.size} selected`}
             </button>
           </>
         )}

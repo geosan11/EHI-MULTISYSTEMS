@@ -7,10 +7,10 @@ import {
   StyleSheet,
   pdf,
 } from '@react-pdf/renderer';
-import { Building2, Calendar, FileDown, Loader, Receipt } from 'lucide-react';
+import { Building2, Calendar, FileDown } from 'lucide-react';
+import { PageHeader, Spinner } from '../ui';
 import { User } from '../../lib/types';
 import { supabase, fetchAllRows } from '../../lib/supabase';
-import { BackButton } from '../BackButton';
 import { EHILogoPDF } from '../EHILogoPDF';
 import { useToast } from '../../lib/ToastContext';
 
@@ -311,19 +311,12 @@ export const CorporateBilling = ({ user, onBack }: { user: User; onBack: () => v
   };
 
   return (
-    <main className="flex-1 flex flex-col h-full bg-[var(--color-bg)] overflow-y-auto">
-      <div className="bg-[var(--color-surface-card)] border-b border-[var(--color-border)] p-4">
-        <BackButton onClick={onBack} label="Back to Menu" className="mb-3" />
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-[rgba(245,158,11,0.1)] rounded-lg">
-            <Receipt size={20} strokeWidth={1.5} className="text-[var(--color-accent-amber)]" />
-          </div>
-          <div>
-            <h1 className="text-[16px] font-bold font-sans text-[var(--color-foreground)] tracking-tight">Corporate Client Billing</h1>
-            <p className="text-[11px] font-mono text-[var(--color-muted)] mt-0.5">Generate a shipment statement for a corporate account</p>
-          </div>
-        </div>
-      </div>
+    <main className="flex-1 flex flex-col h-full bg-[var(--color-canvas)] overflow-y-auto">
+      <PageHeader
+        title="Corporate Client Billing"
+        subtitle="Generate a shipment statement for a corporate account"
+        onBack={onBack}
+      />
 
       <div className="p-4 space-y-4 max-w-2xl">
         <div className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl p-4 space-y-3">
@@ -342,7 +335,7 @@ export const CorporateBilling = ({ user, onBack }: { user: User; onBack: () => v
 
           <div>
             <span className="text-[11px] font-mono text-[var(--color-muted)] uppercase tracking-wider mb-1 flex items-center gap-1.5"><Calendar size={12} /> Billing Period</span>
-            <div className="flex bg-[var(--color-obsidian)] border border-[var(--color-border)] p-1 rounded-lg mt-1 mb-2">
+            <div className="flex bg-[var(--color-surface-sunken)] border border-[var(--color-border)] p-1 rounded-lg mt-1 mb-2">
               <button
                 onClick={() => { setRangeMode('month'); setEntries(null); }}
                 className={`flex-1 py-2 text-[11px] font-bold font-mono uppercase tracking-wider rounded transition-all ${rangeMode === 'month' ? 'bg-[var(--color-surface-2)] text-[var(--color-accent-amber)]' : 'text-[var(--color-muted)]'}`}
@@ -386,7 +379,7 @@ export const CorporateBilling = ({ user, onBack }: { user: User; onBack: () => v
             disabled={!selectedClientId || generating}
             className="w-full h-11 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded-lg text-[12px] font-bold font-mono disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {generating ? <><Loader size={14} className="animate-spin" /> Generating...</> : 'Generate Bill'}
+            {generating ? <><Spinner size="sm" tone="current" /> Generating...</> : 'Generate Bill'}
           </button>
         </div>
 
