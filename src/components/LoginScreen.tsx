@@ -171,8 +171,8 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
                   border: `1px solid ${notice.type === 'offline' ? 'rgba(148,163,184,0.3)' : 'rgba(245,158,11,0.3)'}`,
                 }}
               >
-                <AlertCircle size={15} className="shrink-0" style={{ color: notice.type === 'offline' ? '#94a3b8' : '#fbbf24' }} />
-                <p className="text-[12px] font-sans leading-snug font-medium" style={{ color: notice.type === 'offline' ? '#cbd5e1' : '#fde68a' }}>{notice.message}</p>
+                <AlertCircle size={15} className="shrink-0" style={{ color: notice.type === 'offline' ? 'var(--color-muted)' : 'var(--color-accent-amber)' }} />
+                <p className="text-[12px] font-sans leading-snug font-medium" style={{ color: notice.type === 'offline' ? 'var(--color-text-secondary)' : 'var(--color-amber-fg)' }}>{notice.message}</p>
               </div>
             )}
 
@@ -323,15 +323,15 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
 
               {/* Error Message Alert */}
               {error && (
-                <div className="flex items-center gap-2.5 bg-red-500/10 border border-red-500/25 backdrop-blur-md rounded-xl px-3.5 py-2.5 animate-in fade-in">
-                  <AlertCircle size={15} className="text-red-400 shrink-0" />
-                  <p className="text-[12px] font-sans text-red-200 leading-snug font-medium">{error}</p>
+                <div className="flex items-center gap-2.5 bg-[var(--color-error-bg)] border border-[var(--color-error-border)] backdrop-blur-md rounded-xl px-3.5 py-2.5 animate-in fade-in">
+                  <AlertCircle size={15} className="text-[var(--color-error-fg)] shrink-0" />
+                  <p className="text-[12px] font-sans text-[var(--color-error-fg)] leading-snug font-medium">{error}</p>
                 </div>
               )}
 
               {connStatus === 'unconfigured' && (
-                <div className="bg-amber-500/20 border border-amber-500/40 backdrop-blur-md rounded-xl px-3.5 py-2.5">
-                  <p className="text-[11px] font-mono text-amber-200">
+                <div className="bg-[var(--color-amber-bg)] border border-[var(--color-amber-border)] backdrop-blur-md rounded-xl px-3.5 py-2.5">
+                  <p className="text-[11px] font-mono text-[var(--color-amber-fg)]">
                     VITE_SUPABASE_URL not configured. Add it to Vercel environment variables.
                   </p>
                 </div>
@@ -476,7 +476,7 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
                     onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.boxShadow = 'none'; }}
                   />
                   {resetError && (
-                    <p className="text-[12px] text-red-500 font-sans font-medium">{resetError}</p>
+                    <p className="text-[12px] text-[var(--color-error-fg)] font-sans font-medium">{resetError}</p>
                   )}
                   <div className="flex gap-3">
                     <button

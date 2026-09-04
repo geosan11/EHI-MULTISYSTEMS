@@ -121,7 +121,7 @@ export const ResetPasswordScreen = ({ onDone }: { onDone: () => void }) => {
               />
 
               {error && (
-                <div className="text-[12px] text-[var(--color-error)] mb-4">{error}</div>
+                <div className="text-[12px] text-[var(--color-error-fg)] mb-4">{error}</div>
               )}
 
               <button
