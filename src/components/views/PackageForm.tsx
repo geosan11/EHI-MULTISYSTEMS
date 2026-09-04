@@ -13,7 +13,8 @@ import { useExpenseCategories } from "../../lib/expenseCategories";
 import { useBanks } from "../../lib/banks";
 import {  MIN_PACKAGE_AMOUNT , CARGO_ROUTES } from "../../lib/constants";
 import { getNextTag } from "../../lib/tagPool";
-import { Plus, CheckCircle, Loader2, ClipboardList, BarChart2, Printer, MessageSquare, Bluetooth, Copy, AlertTriangle, User as UserIcon, Banknote, CreditCard, Landmark, MapPin, Layers, Hash, Package as PackageIcon } from "lucide-react";
+import { Plus, CheckCircle, ClipboardList, BarChart2, Printer, MessageSquare, Bluetooth, Copy, AlertTriangle, User as UserIcon, Banknote, CreditCard, Landmark, MapPin, Layers, Hash, Package as PackageIcon } from "lucide-react";
+import { Spinner } from "../ui";
 import { supabase, writeAuditLog } from "../../lib/supabase";
 import { clearDebt, DEBT_TABLE_NAME } from "../../lib/debt";
 import { sendReceiptWhatsApp, buildPackageWhatsApp } from "../../lib/notifications";
@@ -600,7 +601,7 @@ export const PackageForm = ({
              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
              Admin: Global Hub Context
            </label>
-           <select value={adminSelectedHubId} onChange={(e) => setAdminSelectedHubId(e.target.value)} className="w-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] font-bold text-[13px] p-2 rounded border border-[var(--color-border)] focus:border-[var(--color-accent-amber)] focus:outline-none cursor-pointer">
+           <select value={adminSelectedHubId} onChange={(e) => setAdminSelectedHubId(e.target.value)} className="w-full bg-[var(--color-surface-1)] text-[var(--color-foreground)] font-bold text-[13px] p-2 rounded border border-[var(--color-border)] focus:border-[var(--color-accent-amber)] focus:outline-none cursor-pointer">
              {hubList.map(h => <option key={h.id} value={h.id}>{h.code}/{h.name}</option>)}
            </select>
         </div>
@@ -663,7 +664,7 @@ export const PackageForm = ({
                           navigator.clipboard.writeText((successTx as any).pickupPin);
                           showToast({ message: "Pickup PIN copied!", type: "success" });
                         }}
-                        className="text-[var(--color-accent-amber)] hover:text-white transition-colors cursor-pointer p-0.5"
+                        className="text-[var(--color-accent-amber)] hover:text-[var(--color-foreground)] transition-colors cursor-pointer p-0.5"
                         title="Copy PIN"
                       >
                         <Copy size={12} />
@@ -769,7 +770,7 @@ export const PackageForm = ({
                       showToast({ message: err?.message || 'Bluetooth print failed. Ensure the printer is paired and powered on.', type: 'error' });
                     });
                   }}
-                  className="py-2.5 bg-[var(--color-accent-cobalt)] text-white text-[11px] font-bold font-mono rounded-xl cursor-pointer flex items-center justify-center gap-1.5 hover:opacity-90 border-none shadow-sm"
+                  className="py-2.5 bg-[var(--color-accent-cobalt)] text-[var(--color-on-accent-inverse)] text-[11px] font-bold font-mono rounded-xl cursor-pointer flex items-center justify-center gap-1.5 hover:opacity-90 border-none shadow-sm"
                 >
                   <Bluetooth size={14} />
                   <span>POS (80mm)</span>
@@ -869,7 +870,7 @@ export const PackageForm = ({
               </div>
             </div>
           ) : (
-            <div className="space-y-4 bg-[rgba(255,255,255,0.02)] p-4 md:mx-0 md:rounded-xl md:border border-y border-[var(--color-border)]">
+            <div className="space-y-4 bg-[var(--color-surface-2)] p-4 md:mx-0 md:rounded-xl md:border border-y border-[var(--color-border)]">
               <div className="border-b border-[var(--color-border)] pb-1 mb-2">
                 <span style={{ fontFamily: "JetBrains Mono", fontSize: 10, color: "var(--color-accent-cobalt)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
                   ▸ NEW PACKAGE / PARCEL ENTRY
@@ -1212,12 +1213,12 @@ export const PackageForm = ({
                   onClick={() => setShowPackageReview(true)}
                   disabled={!isValid || submitting}
                   className={`w-full py-4 rounded-[var(--radius-sm)] font-bold font-mono text-[16px] flex items-center justify-center gap-2 transition-all focus:outline-none ${
-                    submitting ? "opacity-80 cursor-wait bg-[var(--color-accent-cobalt)] text-white"
+                    submitting ? "opacity-80 cursor-wait bg-[var(--color-accent-cobalt)] text-[var(--color-on-accent-inverse)]"
                     : !isValid ? "bg-[var(--color-surface-2)] text-[var(--color-muted)] cursor-not-allowed"
-                    : "bg-[var(--color-accent-cobalt)] text-white cursor-pointer hover:opacity-90"
+                    : "bg-[var(--color-accent-cobalt)] text-[var(--color-on-accent-inverse)] cursor-pointer hover:opacity-90"
                   }`}
                 >
-                  {submitting && <Loader2 size={16} className="animate-spin" />}
+                  {submitting && <Spinner size="sm" tone="current" />}
                   {submitting ? "ADDING ENTRY..." : (<><Plus size={16} /> ADD ENTRY</>)}
                 </button>
                 {showPackageReview && (
@@ -1373,8 +1374,8 @@ export const PackageForm = ({
       </div>
 
       {showCloseModal && createPortal(
-        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 16 }}>
-          <div style={{ background: "var(--color-obsidian)", width: "100%", maxWidth: 480, maxHeight: "90vh", borderRadius: 16, border: "1px solid var(--color-surface-2)", padding: "24px 24px 0 24px", position: "relative", display: "flex", flexDirection: "column" }}>
+        <div style={{ position: "fixed", inset: 0, backgroundColor: "var(--color-overlay)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 16 }}>
+          <div style={{ background: "var(--color-surface-card)", width: "100%", maxWidth: 480, maxHeight: "90vh", borderRadius: 16, border: "1px solid var(--color-border)", padding: "24px 24px 0 24px", position: "relative", display: "flex", flexDirection: "column" }}>
             <button onClick={() => setShowCloseModal(false)} aria-label="Close" style={{ position: "absolute", top: 16, right: 16, color: "var(--color-muted)" }}>×</button>
             {/* Scrollable body -- same fix as TransactionLedger/MarketingWorkspace's
                 close-day modal: keeps CONFIRM & CLOSE DAY reachable even if this

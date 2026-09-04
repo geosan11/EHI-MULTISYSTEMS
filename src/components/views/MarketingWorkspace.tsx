@@ -14,7 +14,8 @@ import { matchWallet } from "../../lib/customerIdentity";
 import { WalletRemainderSelector } from "../WalletRemainderSelector";
 import { getNextTag } from "../../lib/tagPool";
 import { DepartmentSalesAnalysisModal } from "../DepartmentSalesAnalysis";
-import { Plus, CheckCircle, Loader2, ClipboardList, MessageSquare, Printer, Minus, TrendingDown, BarChart2, Bluetooth, Copy, AlertTriangle } from "lucide-react";
+import { Plus, CheckCircle, ClipboardList, MessageSquare, Printer, Minus, TrendingDown, BarChart2, Bluetooth, Copy, AlertTriangle } from "lucide-react";
+import { Spinner } from "../ui";
 import { motion } from "motion/react";
 import { supabase } from "../../lib/supabase";
 
@@ -698,7 +699,7 @@ export const MarketingWorkspace = ({
                           navigator.clipboard.writeText((successTx as any).pickupPin);
                           showToast({ message: "Pickup PIN copied!", type: "success" });
                         }}
-                        className="text-[var(--color-accent-amber)] hover:text-white transition-colors cursor-pointer p-0.5"
+                        className="text-[var(--color-accent-amber)] hover:text-[var(--color-foreground)] transition-colors cursor-pointer p-0.5"
                         title="Copy PIN"
                       >
                         <Copy size={12} />
@@ -913,7 +914,7 @@ export const MarketingWorkspace = ({
               )}
             </div>
           ) : (
-            <div className="space-y-4 bg-[rgba(255,255,255,0.02)] p-4 md:mx-0 md:rounded-xl md:border border-y border-[var(--color-border)]">
+            <div className="space-y-4 bg-[var(--color-surface-2)] p-4 md:mx-0 md:rounded-xl md:border border-y border-[var(--color-border)]">
               <div className="border-b border-[var(--color-border)] pb-1 mb-2">
                 <span
                   style={{
@@ -1210,7 +1211,7 @@ export const MarketingWorkspace = ({
                         : "bg-[var(--color-success)] text-[var(--color-on-accent)] cursor-pointer hover:opacity-90"
                   }`}
                 >
-                  {submitting && <Loader2 size={16} className="animate-spin" />}
+                  {submitting && <Spinner size="sm" tone="current" />}
                   {submitting ? "ADDING ENTRY..." : (
                     <>
                       <Plus size={16} /> ADD ENTRY
@@ -1471,7 +1472,7 @@ export const MarketingWorkspace = ({
           style={{
             position: "fixed",
             inset: 0,
-            backgroundColor: "rgba(0,0,0,0.85)",
+            backgroundColor: "var(--color-overlay)",
             backdropFilter: "blur(4px)",
             display: "flex",
             alignItems: "center",
@@ -1482,12 +1483,12 @@ export const MarketingWorkspace = ({
         >
           <div
             style={{
-              background: "var(--color-obsidian)",
+              background: "var(--color-surface-card)",
               width: "100%",
               maxWidth: 480,
               maxHeight: "90vh",
               borderRadius: 16,
-              border: "1px solid var(--color-surface-2)",
+              border: "1px solid var(--color-border)",
               padding: "24px 24px 0 24px",
               position: "relative",
               display: "flex",

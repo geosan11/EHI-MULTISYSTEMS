@@ -7,7 +7,8 @@ import { matchOfficeClient, useCorporateClients, useCorporateRouteRates, useOffi
 import { matchWallet } from '../../lib/customerIdentity';
 import { WalletRemainderSelector } from '../WalletRemainderSelector';
 import { getNextTag } from '../../lib/tagPool';
-import { CheckCircle, Loader2, ClipboardList, MessageSquare, Plus, Printer, Bluetooth, BarChart2, Copy, AlertTriangle } from 'lucide-react';
+import { CheckCircle, ClipboardList, MessageSquare, Plus, Printer, Bluetooth, BarChart2, Copy, AlertTriangle } from 'lucide-react';
+import { Spinner } from '../ui';
 import { QRCode } from '../QRCode';
 import { sendReceiptWhatsApp, buildExcessBaggageWhatsApp } from '../../lib/notifications';
 import { PaymentNarrationBox } from '../PaymentNarrationBox';
@@ -430,7 +431,7 @@ export const ExcessBaggageForm = ({
                     navigator.clipboard.writeText((s.tx as any).pickupPin);
                     showToast({ message: "Pickup PIN copied!", type: "success" });
                   }}
-                  className="text-[var(--color-accent-amber)] hover:text-white transition-colors cursor-pointer p-0.5"
+                  className="text-[var(--color-accent-amber)] hover:text-[var(--color-foreground)] transition-colors cursor-pointer p-0.5"
                   title="Copy PIN"
                 >
                   <Copy size={12} />
@@ -533,7 +534,7 @@ export const ExcessBaggageForm = ({
                   showToast({ message: err?.message || 'Bluetooth print failed. Ensure the printer is paired and powered on.', type: 'error' });
                 });
               }}
-              className="py-2.5 bg-[var(--color-accent-cobalt)] text-white text-[11px] font-bold font-mono rounded cursor-pointer flex flex-col justify-center items-center leading-none hover:opacity-90 border-none"
+              className="py-2.5 bg-[var(--color-accent-cobalt)] text-[var(--color-on-accent-inverse)] text-[11px] font-bold font-mono rounded cursor-pointer flex flex-col justify-center items-center leading-none hover:opacity-90 border-none"
             >
               <Bluetooth size={14} className="mb-0.5" />
               <span>PRINT POS (80mm)</span>
@@ -570,7 +571,7 @@ export const ExcessBaggageForm = ({
                   showToast({ message: err?.message || 'Bluetooth print failed. Ensure the printer is paired and powered on.', type: 'error' });
                 });
               }}
-              className="py-2.5 bg-[var(--color-accent-cobalt)] opacity-80 text-white text-[11px] font-bold font-mono rounded cursor-pointer flex flex-col justify-center items-center leading-none hover:opacity-90 border-none"
+              className="py-2.5 bg-[var(--color-accent-cobalt)] opacity-80 text-[var(--color-on-accent-inverse)] text-[11px] font-bold font-mono rounded cursor-pointer flex flex-col justify-center items-center leading-none hover:opacity-90 border-none"
             >
               <Bluetooth size={14} className="mb-0.5" />
               <span>PRINT POS (58mm)</span>
@@ -948,12 +949,12 @@ export const ExcessBaggageForm = ({
               onClick={() => setShowBaggageReview(true)}
               disabled={!isValid || submitting}
               className={`w-full py-4 rounded-[var(--radius-sm)] font-sans font-bold text-[16px] flex items-center justify-center gap-2 transition-all focus:outline-none ${
-                submitting ? 'opacity-80 cursor-wait bg-[var(--color-accent-cobalt)] text-white' :
+                submitting ? 'opacity-80 cursor-wait bg-[var(--color-accent-cobalt)] text-[var(--color-on-accent-inverse)]' :
                 !isValid ? 'bg-[var(--color-surface-3)] text-[var(--color-muted)] cursor-not-allowed border border-[var(--color-border)]' :
-                'bg-[var(--color-accent-cobalt)] text-white cursor-pointer hover:opacity-90'
+                'bg-[var(--color-accent-cobalt)] text-[var(--color-on-accent-inverse)] cursor-pointer hover:opacity-90'
               }`}
             >
-              {submitting && <Loader2 size={18} className="animate-spin" />}
+              {submitting && <Spinner size="sm" tone="current" />}
               {submitting ? 'COMMITTING...' : 'COMMIT TRANSACTION'}
             </button>
             {showBaggageReview && (
