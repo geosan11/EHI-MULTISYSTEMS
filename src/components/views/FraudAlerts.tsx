@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ShieldAlert, CheckCircle, RefreshCcw, Eye, AlertOctagon, Loader } from 'lucide-react';
-import { BackButton } from '../BackButton';
+import { ShieldAlert, CheckCircle, RefreshCcw, Eye, AlertOctagon } from 'lucide-react';
+import { PageHeader, Spinner } from '../ui';
 import { fmt } from '../../lib/helpers';
 import { supabase, writeAuditLog } from '../../lib/supabase';
 import { applyWalletTransaction } from '../../lib/wallet';
@@ -423,13 +423,9 @@ export const FraudAlerts = ({
   const reviewedAlerts = alerts.filter(a => a.reviewed);
 
   return (
-    <div className="flex flex-col min-h-full bg-[var(--color-obsidian)] font-sans">
+    <div className="flex flex-col min-h-full bg-[var(--color-canvas)] font-sans">
       <div className="ehi-page-body px-4 pt-4 text-[var(--color-foreground)]">
-      {/* Header back navigation */}
-      <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2 mb-4">
-        <BackButton onClick={onBack} label="Back" />
-        <span className="text-[10px] font-mono text-[var(--color-error)] tracking-widest font-bold">● COGNITIVE AUDIT COCKPIT</span>
-      </div>
+      <PageHeader title="Cognitive Audit Cockpit" onBack={onBack} sticky={false} />
 
       <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
         <div className="space-y-0.5">
@@ -457,7 +453,7 @@ export const FraudAlerts = ({
           </div>
         </div>
 
-        <div className="bg-[var(--color-surface-1)] border border-[rgba(16,185,129,0.1)] p-3 rounded-lg flex items-center space-x-3">
+        <div className="bg-[var(--color-surface-1)] border border-[var(--color-success-border)] p-3 rounded-lg flex items-center space-x-3">
           <CheckCircle size={18} className="text-[var(--color-success)]" />
           <div>
             <span className="text-[8px] font-mono text-slate-400 uppercase block">Reviewed Today</span>
@@ -501,11 +497,11 @@ export const FraudAlerts = ({
       <div className="space-y-3">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <Loader size={24} className="animate-spin text-[var(--color-error)]" />
+            <Spinner size="lg" tone="current" className="text-[var(--color-error)]" />
             <p className="text-[12px] font-mono text-[var(--color-muted)]">Running 4 live detection rules...</p>
           </div>
         ) : (activeTab === 'pending' ? pendingAlerts : reviewedAlerts).length === 0 ? (
-          <div className="py-12 text-center border-2 border-dashed border-[var(--color-border)] rounded-xl bg-black/10">
+          <div className="py-12 text-center border-2 border-dashed border-[var(--color-border)] rounded-xl bg-[var(--color-surface-2)]">
             <span className="text-2xl block">🛡️</span>
             <span className="text-xs font-mono text-slate-400 mt-2 block">No matching security entries found</span>
           </div>
@@ -513,7 +509,7 @@ export const FraudAlerts = ({
           (activeTab === 'pending' ? pendingAlerts : reviewedAlerts).map((alert) => (
             <div 
               key={alert.id}
-              className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 transition-all hover:bg-black/10 ${
+              className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 transition-all hover:bg-[var(--color-surface-hover)] ${
                 alert.severity === 'critical' ? 'bg-[rgba(239,68,68,0.02)] border-red-500/20' :
                 alert.severity === 'high' ? 'bg-[rgba(245,158,11,0.02)] border-amber-500/20' :
                 'bg-[var(--color-surface-1)] border-[var(--color-border)]'
@@ -537,7 +533,7 @@ export const FraudAlerts = ({
                 </div>
 
                 {alert.reviewed && alert.resolution && (
-                  <div className="p-2.5 bg-black/30 rounded border border-[rgba(16,185,129,0.1)] text-[10px] text-[var(--color-success)] font-mono mt-2">
+                  <div className="p-2.5 bg-[var(--color-surface-2)] rounded border border-[var(--color-success-border)] text-[10px] text-[var(--color-success)] font-mono mt-2">
                     <span className="font-bold uppercase text-[9px] block mb-0.5">AUDITED RESOLUTION CHECK:</span>
                     {alert.resolution}
                   </div>
@@ -576,8 +572,8 @@ export const FraudAlerts = ({
 
       {/* Evaluation Log Modals */}
       {selectedAlert && createPortal(
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]">
-          <div className="ehi-card max-w-sm w-full overflow-hidden shadow-2xl">
+        <div className="fixed inset-0 ehi-scrim flex items-center justify-center p-4 z-[9999]">
+          <div className="ehi-card max-w-sm w-full overflow-hidden shadow-[var(--shadow-modal)]">
             <div className="p-4 border-b border-[var(--color-border)] flex justify-between items-center bg-[var(--color-surface-2)]">
               <span className="text-[9px] font-mono text-[var(--color-error)] uppercase font-bold tracking-wider">SECURE SECURITY ANOMALY EVALUATION</span>
               <button onClick={() => setSelectedAlert(null)} aria-label="Close" className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] font-mono text-xs cursor-pointer">✕</button>
