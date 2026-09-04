@@ -1,19 +1,19 @@
 import { useState, useEffect } from "react";
 import ehiLogo from '../assets/branding/ehi-logo.png';
 import {
-  HouseIcon,
-  PackageIcon,
-  TrendUpIcon,
-  AirplaneIcon,
-  QrCodeIcon,
-  ArrowLineDownIcon,
-  ArrowLineUpIcon,
-  DotsThreeIcon,
-  TruckIcon,
-  SignOutIcon,
-  SunIcon,
-  MoonIcon,
-} from "@phosphor-icons/react";
+  Home,
+  Package,
+  TrendingUp,
+  Plane,
+  QrCode,
+  ArrowDownToLine,
+  ArrowUpToLine,
+  MoreHorizontal,
+  Truck,
+  LogOut,
+  Sun,
+  Moon,
+} from "lucide-react";
 import { User, TabView, ExcessBaggageAirline } from "../lib/types";
 import { Theme } from "../lib/useTheme";
 import { getAllowedTabs } from "../lib/permissions";
@@ -22,15 +22,15 @@ import { getAllowedTabs } from "../lib/permissions";
 // is the single source of truth for WHICH ids a user can see (role default
 // or their super-admin-set override); this is purely presentational.
 const VIEW_ICON: Record<string, any> = {
-  Tower: HouseIcon,
-  Cargo: PackageIcon,
-  Marketing: TrendUpIcon,
-  Packages: TruckIcon,
-  Scan: QrCodeIcon,
-  Incoming: ArrowLineDownIcon,
-  OutboundArrivals: ArrowLineUpIcon,
-  MyTrips: TruckIcon,
-  More: DotsThreeIcon,
+  Tower: Home,
+  Cargo: Package,
+  Marketing: TrendingUp,
+  Packages: Truck,
+  Scan: QrCode,
+  Incoming: ArrowDownToLine,
+  OutboundArrivals: ArrowUpToLine,
+  MyTrips: Truck,
+  More: MoreHorizontal,
 };
 const VIEW_LABEL: Record<string, string> = {
   Tower: "Dashboard",
@@ -101,7 +101,7 @@ export const SideNav = ({
       const airlineName = id.slice("Baggage:".length);
       return {
         id,
-        icon: AirplaneIcon,
+        icon: Plane,
         label: user.role === "baggage_agent" ? airlineName : `${airlineName} POS`,
       };
     });
@@ -304,7 +304,7 @@ export const SideNav = ({
               >
                 <Icon
                   size={16}
-                  weight={isActive ? "fill" : "regular"}
+                  strokeWidth={isActive ? 2.5 : 2}
                   style={{ flexShrink: 0, transition: "all 0.15s ease" }}
                   className={
                     isActive
@@ -367,15 +367,13 @@ export const SideNav = ({
           }}
         >
           {theme === "dark" ? (
-            <SunIcon
+            <Sun
               size={16}
-              weight="regular"
               className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-transform duration-300 group-hover:rotate-45 active:scale-90"
             />
           ) : (
-            <MoonIcon
+            <Moon
               size={16}
-              weight="regular"
               className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-transform duration-300 group-hover:-rotate-12 active:scale-90"
             />
           )}
@@ -416,9 +414,8 @@ export const SideNav = ({
             borderRadius: "var(--radius-md)",
           }}
         >
-          <SignOutIcon
+          <LogOut
             size={16}
-            weight="regular"
             className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors"
           />
           <div

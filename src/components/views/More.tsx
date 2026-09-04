@@ -57,41 +57,41 @@ import { User, TabView, Transaction, Expense, ExcessBaggageAirline, HubShift, Cu
 import { fmt } from '../../lib/helpers';
 import { canAccessTab } from '../../lib/permissions';
 import {
-  FileTextIcon,
-  PulseIcon,
-  DatabaseIcon,
-  ShieldIcon,
-  GearIcon,
-  SignOutIcon,
-  ChartBarIcon,
-  StackIcon,
-  TruckIcon,
-  BrainIcon,
-  ShieldWarningIcon,
-  CurrencyDollarIcon,
-  ClockCounterClockwiseIcon,
-  MapPinIcon,
-  PercentIcon,
-  UsersIcon,
-  AirplaneIcon,
-  CreditCardIcon,
-  TerminalIcon,
-  SealCheckIcon,
-  CheckCircleIcon,
-  UploadSimpleIcon,
-  BookOpenIcon,
-  ClipboardTextIcon,
-  ReceiptIcon,
-  TagIcon,
-  BankIcon,
-  ListBulletsIcon,
-  SparkleIcon,
-  ScalesIcon,
-  PrinterIcon,
-  HandCoinsIcon,
-  AirTrafficControlIcon,
-} from '@phosphor-icons/react';
-import { ChevronRight } from 'lucide-react';
+  FileText as FileTextIcon,
+  Activity as PulseIcon,
+  Database as DatabaseIcon,
+  Shield as ShieldIcon,
+  Settings as GearIcon,
+  LogOut as SignOutIcon,
+  BarChart3 as ChartBarIcon,
+  Layers as StackIcon,
+  Truck as TruckIcon,
+  Brain as BrainIcon,
+  ShieldAlert as ShieldWarningIcon,
+  DollarSign as CurrencyDollarIcon,
+  History as ClockCounterClockwiseIcon,
+  MapPin as MapPinIcon,
+  Percent as PercentIcon,
+  Users as UsersIcon,
+  Plane as AirplaneIcon,
+  CreditCard as CreditCardIcon,
+  Terminal as TerminalIcon,
+  BadgeCheck as SealCheckIcon,
+  CheckCircle as CheckCircleIcon,
+  Upload as UploadSimpleIcon,
+  BookOpen as BookOpenIcon,
+  ClipboardList as ClipboardTextIcon,
+  Receipt as ReceiptIcon,
+  Tag as TagIcon,
+  Landmark as BankIcon,
+  List as ListBulletsIcon,
+  Sparkles as SparkleIcon,
+  Scale as ScalesIcon,
+  Printer as PrinterIcon,
+  HandCoins as HandCoinsIcon,
+  TowerControl as AirTrafficControlIcon,
+  ChevronRight,
+} from 'lucide-react';
 import { Spinner } from '../ui';
 
 const StaffManagement = lazy(() => import('./StaffManagement').then(m => ({ default: m.StaffManagement })));
@@ -422,7 +422,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
           : 'hover:bg-[var(--color-surface-1)] cursor-pointer group'
       }`}
     >
-      <Icon size={18} weight="regular" className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors shrink-0" />
+      <Icon size={18} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors shrink-0" />
       <div className="text-left flex-1 min-w-0">
         <div className="text-[13px] font-bold font-sans text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)] transition-colors flex items-center gap-1.5">
           {title}
@@ -853,7 +853,7 @@ export const More = ({ user, transactions, expenses, onLogout, onEOD, onAddTx, o
         onClick={onLogout}
         className="ehi-card w-full mt-3 flex items-center gap-3 py-3.5 px-3.5 cursor-pointer group text-left hover:bg-[var(--color-surface-1)] transition-colors"
       >
-        <SignOutIcon size={18} weight="regular" className="text-[var(--color-error)] shrink-0" />
+        <SignOutIcon size={18} className="text-[var(--color-error)] shrink-0" />
         <div className="text-left flex-1">
           <div className="text-[13px] font-bold font-sans text-[var(--color-error)]">Sign Out</div>
           <div className="text-[10px] font-mono text-[var(--color-muted)] opacity-80">{user.name} &middot; {user.hub}</div>

@@ -1,11 +1,11 @@
 import { User, TabView } from '../lib/types';
 import { getHubCode } from '../lib/helpers';
-import { HouseIcon, PackageIcon, TrendUpIcon, AirplaneIcon, QrCodeIcon, DotsThreeIcon, TruckIcon, BuildingIcon } from '@phosphor-icons/react';
+import { Home, Package, TrendingUp, Plane, QrCode, MoreHorizontal, Truck, Building } from 'lucide-react';
 
 const VIEW_ICON: Record<string, any> = {
-  Tower: HouseIcon, Cargo: PackageIcon, Marketing: TrendUpIcon, Packages: PackageIcon,
-  Scan: QrCodeIcon, Incoming: PackageIcon, OutboundArrivals: PackageIcon, MyTrips: TruckIcon, More: DotsThreeIcon,
-  GAT: BuildingIcon,
+  Tower: Home, Cargo: Package, Marketing: TrendingUp, Packages: Package,
+  Scan: QrCode, Incoming: Package, OutboundArrivals: Package, MyTrips: Truck, More: MoreHorizontal,
+  GAT: Building,
 };
 const VIEW_TITLE: Record<string, string> = {
   Tower: 'Dashboard', Cargo: 'Cargo', Marketing: 'Marketing', Packages: 'Packages',
@@ -35,7 +35,7 @@ export const BottomNav = ({ user, currentTab, onChangeTab }: {
         return {
           id: id as TabView,
           title: isBaggage ? id.slice('Baggage:'.length) : (VIEW_TITLE[id] || id),
-          icon: isBaggage ? AirplaneIcon : (VIEW_ICON[id] || DotsThreeIcon),
+          icon: isBaggage ? Plane : (VIEW_ICON[id] || MoreHorizontal),
         };
       });
     return <BottomNavTabs tabs={overrideTabs} currentTab={currentTab} onChangeTab={onChangeTab} />;
@@ -43,14 +43,14 @@ export const BottomNav = ({ user, currentTab, onChangeTab }: {
 
   // Role-specific tab sets — max 5 items per role
   const getTabsForRole = (role: string) => {
-    const home   = { id: 'Tower' as TabView, title: 'Dashboard', icon: HouseIcon };
-    const cargo  = { id: 'Cargo' as TabView, title: 'Cargo', icon: PackageIcon };
-    const gat    = { id: 'GAT' as TabView, title: 'GAT', icon: BuildingIcon };
-    const mkt    = { id: 'Marketing' as TabView, title: 'Marketing', icon: TrendUpIcon };
-    const baggage = { id: `Baggage:${user.assigned_airline || ''}` as TabView, title: user.assigned_airline || 'Baggage', icon: AirplaneIcon };
-    const scan   = { id: 'Scan' as TabView, title: 'Scanner', icon: QrCodeIcon };
-    const trips  = { id: 'MyTrips' as TabView, title: 'My Trips', icon: TruckIcon };
-    const more   = { id: 'More' as TabView, title: 'More', icon: DotsThreeIcon };
+    const home   = { id: 'Tower' as TabView, title: 'Dashboard', icon: Home };
+    const cargo  = { id: 'Cargo' as TabView, title: 'Cargo', icon: Package };
+    const gat    = { id: 'GAT' as TabView, title: 'GAT', icon: Building };
+    const mkt    = { id: 'Marketing' as TabView, title: 'Marketing', icon: TrendingUp };
+    const baggage = { id: `Baggage:${user.assigned_airline || ''}` as TabView, title: user.assigned_airline || 'Baggage', icon: Plane };
+    const scan   = { id: 'Scan' as TabView, title: 'Scanner', icon: QrCode };
+    const trips  = { id: 'MyTrips' as TabView, title: 'My Trips', icon: Truck };
+    const more   = { id: 'More' as TabView, title: 'More', icon: MoreHorizontal };
 
     switch (role) {
       case 'super_admin':
@@ -129,7 +129,7 @@ const BottomNavTabs = ({ tabs, currentTab, onChangeTab }: {
         {(() => {
           const ActiveIcon = tabs[activeIndex]?.icon;
           return ActiveIcon ? (
-            <ActiveIcon size={15} weight="duotone" color="#111827" />
+            <ActiveIcon size={15} strokeWidth={2.25} color="var(--color-on-accent)" />
           ) : null;
         })()}
       </button>
@@ -167,7 +167,6 @@ const BottomNavTabs = ({ tabs, currentTab, onChangeTab }: {
               <div style={{ height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Icon
                   size={14}
-                  weight="regular"
                   className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors"
                 />
               </div>
