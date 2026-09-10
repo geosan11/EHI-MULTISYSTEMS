@@ -65,6 +65,7 @@ import { LiveCreditFeed } from "../LiveCreditFeed";
 import { PartialRetrievalModal } from "./PartialRetrievalModal";
 import { CustomerWallet } from "../../lib/types";
 import { CustomerWalletPicker } from "../CustomerWalletPicker";
+import { WalletRemainderSelector } from "../WalletRemainderSelector";
 import { fetchLedgerPage, fetchLedgerTotals, fetchProfileLookup, LedgerSearchParams, LedgerCursor, LedgerEntryType, LedgerTotals } from "../../lib/ledgerSearch";
 
 type Entry = {
@@ -126,6 +127,25 @@ const dateInputValue = (d: Date): string => {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+};
+
+// One-line breakdown of how a debt was collected, from its payment_history
+// array -- e.g. "₦9,000 Wallet + ₦6,000 Cash". Used on the original debt row
+// and its detail modal so a settled/part-settled debt reads its own state
+// without having to cross-reference the separate DC- collection rows.
+const summarisePaymentHistory = (
+  history?: { amount: number; mode: string }[] | null,
+): string => {
+  if (!Array.isArray(history) || history.length === 0) return '';
+  const byMode = new Map<string, number>();
+  for (const h of history) {
+    if (!h || typeof h.amount !== 'number') continue;
+    byMode.set(h.mode || 'Other', roundMoney((byMode.get(h.mode || 'Other') || 0) + h.amount));
+  }
+  return [...byMode.entries()]
+    .filter(([, amt]) => amt > 0)
+    .map(([mode, amt]) => `₦${fmt(amt)} ${mode}`)
+    .join(' + ');
 };
 
 export const TransactionLedger = ({
@@ -264,8 +284,13 @@ export const TransactionLedger = ({
   // how the money actually came in. clearDebtEntry holds the pending entry
   // while the mode/bank picker is open; null means the picker is closed.
   const [clearDebtEntry, setClearDebtEntry] = useState<Entry | null>(null);
-  const [clearDebtMode, setClearDebtMode] = useState<'Cash' | 'Transfer' | 'POS'>('Cash');
+  // 'Wallet' = settle from the customer's wallet; the remainder (if the
+  // wallet can't cover it) is collected via clearDebtRemainderMode in the
+  // SAME confirm, so a Clear Debt always fully clears the balance.
+  const [clearDebtMode, setClearDebtMode] = useState<'Cash' | 'Transfer' | 'POS' | 'Wallet'>('Cash');
   const [clearDebtBank, setClearDebtBank] = useState('');
+  const [clearDebtWallet, setClearDebtWallet] = useState<CustomerWallet | null>(null);
+  const [clearDebtRemainderMode, setClearDebtRemainderMode] = useState<'Cash' | 'Transfer' | 'POS'>('Cash');
   const [clearingDebt, setClearingDebt] = useState(false);
   const [reopeningDebt, setReopeningDebt] = useState(false);
   const [deletingTx, setDeletingTx] = useState(false);
@@ -1306,63 +1331,149 @@ export const TransactionLedger = ({
           showToast({ message: `${editWallet.customer_name}'s wallet has no balance to apply.`, type: 'warning' });
           return;
         }
-        const settle = await clearDebt({
+        // Whatever the wallet can't cover MUST be collected now by a second
+        // tender -- a wallet settlement always fully clears the debt (no more
+        // "the rest stays on this debt" stub that needs a callback to finish).
+        // WalletRemainderSelector in the modal + the Save button's own guard
+        // already force a bank for Transfer/POS; this is the last-line check.
+        const remainder = roundMoney(Math.max(0, debtRemaining - walletPay));
+        if (
+          remainder > 0 &&
+          (editWalletRemainderMode === 'Transfer' || editWalletRemainderMode === 'POS') &&
+          !editWalletRemainderBank.trim()
+        ) {
+          showToast({ message: `Enter the bank/terminal for the ₦${fmt(remainder)} ${editWalletRemainderMode} remainder.`, type: 'warning' });
+          return;
+        }
+        const settleLoggedBy = user.name || 'Unknown';
+
+        // Leg 1 -- the wallet. clear_*_debt(p_wallet_id) debits the wallet,
+        // writes the linked deduction row + wallet_txn_id tag, and bumps
+        // amount_paid, all in one DB transaction.
+        const s1 = await clearDebt({
           type: editingTx.type as DebtEntryType,
           id: editingTx.id,
           paymentAmount: walletPay,
           paymentMode: 'Wallet',
           walletId: editWallet.id,
-          loggedBy: user.name || 'Unknown',
+          loggedBy: settleLoggedBy,
           expectedRemaining: debtRemaining,
         });
-        if (!settle.ok) {
-          showToast({ message: settle.error || 'Failed to settle this debt from the wallet. Nothing was charged.', type: 'error' });
+        if (!s1.ok) {
+          showToast({ message: s1.error || 'Failed to settle this debt from the wallet. Nothing was charged.', type: 'error' });
           return;
         }
-        const stillOwed = settle.remainingBalance ?? 0;
-        const fullyPaid = settle.fullyPaid ?? (stillOwed <= 0);
-        // wallet_txn_id must ride along -- handleUpdateTx writes this
-        // optimistic payment_history back over the server's, and
-        // reopen_*_debt needs the tag to find + refund the wallet later.
-        const historyEntry = {
-          amount: walletPay, mode: 'Wallet' as const, by: user.name || 'Unknown', at: new Date().toISOString(),
-          ...(settle.walletTxnId ? { wallet_txn_id: settle.walletTxnId } : {}),
+
+        // wallet_txn_id must ride along -- onUpdateTx writes this optimistic
+        // payment_history back over the server's, and reopen_*_debt needs the
+        // tag to find + refund the wallet later.
+        const walletHist = {
+          amount: walletPay, mode: 'Wallet' as const, by: settleLoggedBy, at: new Date().toISOString(),
+          ...(s1.walletTxnId ? { wallet_txn_id: s1.walletTxnId } : {}),
         };
+
+        // Leg 2 -- the remainder, by the chosen Cash/Transfer/POS method.
+        // NOT atomic with leg 1: if it fails, the wallet leg still stands
+        // (the customer really did pay that part) and the entry is left as a
+        // normal partial debt for the remainder -- recoverable by clearing it
+        // again from the ledger, never a double charge.
+        let s2: Awaited<ReturnType<typeof clearDebt>> | null = null;
+        if (remainder > 0) {
+          s2 = await clearDebt({
+            type: editingTx.type as DebtEntryType,
+            id: editingTx.id,
+            paymentAmount: remainder,
+            paymentMode: editWalletRemainderMode,
+            bank: editWalletRemainderMode !== 'Cash' ? editWalletRemainderBank.trim() : undefined,
+            loggedBy: settleLoggedBy,
+            expectedRemaining: s1.remainingBalance,
+          });
+        }
+
+        const resetEditWalletState = () => {
+          setEditingTx(null);
+          setEditWallet(null);
+          setEditOriginalMode(null);
+          setEditOriginalWalletDeduction(0);
+          setEditWalletRemainderMode('Cash');
+          setEditWalletRemainderBank('');
+        };
+
+        if (remainder > 0 && (!s2 || !s2.ok)) {
+          // Wallet leg recorded, remainder leg didn't -- reflect the wallet
+          // leg optimistically, leave the debt open for the remainder, and
+          // tell the user the exact amount still to collect.
+          const partial: Transaction = {
+            ...editingTx,
+            amountPaid: s1.newAmountPaid ?? ((editingTx.amountPaid || 0) + walletPay),
+            paymentHistory: [...(editingTx.paymentHistory || []), walletHist],
+            mode: 'Debt',
+          };
+          onUpdateTx(partial);
+          writeAuditLog({
+            user_id: user.id, user_name: settleLoggedBy, action: 'DEBT_COLLECTION',
+            table_name: RETRIEVAL_TABLE_NAME[editingTx.type as RetrievalEntryType], record_id: editingTx.id,
+            description: `₦${fmt(walletPay)} collected against ${editingTx.name}'s debt via Customer Wallet (₦${fmt(remainder)} ${editWalletRemainderMode} remainder did NOT record)`,
+            hub: hubNames[editingTx.hub_id || ''] || editingTx.hub, hub_id: editingTx.hub_id,
+            old_values: { amount_paid: editingTx.amountPaid || 0 },
+            new_values: { amount_paid: s1.newAmountPaid, mode: 'Wallet', amount: walletPay },
+          }).catch(() => {});
+          refetchCustomerWallets?.();
+          showToast({
+            message: `₦${fmt(walletPay)} taken from ${editWallet.customer_name}'s wallet, but the ₦${fmt(remainder)} ${editWalletRemainderMode} leg didn't record${s2?.error ? ` (${s2.error})` : ''} -- clear the remaining ₦${fmt(remainder)} again from the ledger.`,
+            type: 'error',
+          });
+          if (viewingDetail && viewingDetail.id === editingTx.id) {
+            setViewingDetail({ ...viewingDetail, mode: 'Debt', raw: partial });
+          }
+          resetEditWalletState();
+          return;
+        }
+
+        // Both legs done (or the wallet covered it all) -- the debt is settled.
+        const finalRes = s2 && s2.ok ? s2 : s1;
+        const totalCollected = walletPay + remainder;
+        const stillOwed = finalRes.remainingBalance ?? 0;
+        const fullyPaid = finalRes.fullyPaid ?? (stillOwed <= 0);
+        const history = [
+          ...(editingTx.paymentHistory || []),
+          walletHist,
+          ...(remainder > 0
+            ? [{ amount: remainder, mode: editWalletRemainderMode, by: settleLoggedBy, at: new Date().toISOString() }]
+            : []),
+        ];
         const settled: Transaction = {
           ...editingTx,
-          amountPaid: settle.newAmountPaid ?? ((editingTx.amountPaid || 0) + walletPay),
-          paymentHistory: [...(editingTx.paymentHistory || []), historyEntry],
+          amountPaid: finalRes.newAmountPaid ?? ((editingTx.amountPaid || 0) + totalCollected),
+          paymentHistory: history,
           mode: fullyPaid ? 'Debt Paid' : 'Debt',
           paymentConfirmed: fullyPaid,
-          confirmedBy: fullyPaid ? (user.name || 'Unknown') : editingTx.confirmedBy,
+          confirmedBy: fullyPaid ? settleLoggedBy : editingTx.confirmedBy,
           confirmedAt: fullyPaid ? new Date().toISOString() : editingTx.confirmedAt,
           ...(editingTx.type === 'package' && fullyPaid ? { debtPaid: true, debtPaidAt: new Date().toISOString() } : {}),
         };
         onUpdateTx(settled);
         writeAuditLog({
-          user_id: user.id, user_name: user.name || 'Unknown', action: 'DEBT_COLLECTION',
+          user_id: user.id, user_name: settleLoggedBy, action: 'DEBT_COLLECTION',
           table_name: RETRIEVAL_TABLE_NAME[editingTx.type as RetrievalEntryType], record_id: editingTx.id,
-          description: `₦${fmt(walletPay)} collected against ${editingTx.name}'s debt via Customer Wallet${stillOwed > 0 ? ` (₦${fmt(stillOwed)} still owed)` : ' (fully cleared)'}`,
+          description: `₦${fmt(totalCollected)} collected against ${editingTx.name}'s debt — ₦${fmt(walletPay)} Customer Wallet${remainder > 0 ? ` + ₦${fmt(remainder)} ${editWalletRemainderMode}` : ''}${stillOwed > 0 ? ` (₦${fmt(stillOwed)} still owed)` : ' (fully cleared)'}`,
           hub: hubNames[editingTx.hub_id || ''] || editingTx.hub, hub_id: editingTx.hub_id,
           old_values: { amount_paid: editingTx.amountPaid || 0 },
-          new_values: { amount_paid: settle.newAmountPaid, mode: 'Wallet', amount: walletPay },
+          new_values: { amount_paid: finalRes.newAmountPaid, mode: remainder > 0 ? `Wallet+${editWalletRemainderMode}` : 'Wallet', amount: totalCollected },
         }).catch(() => {});
         refetchCustomerWallets?.();
         showToast({
           message: fullyPaid
-            ? `Debt cleared from ${editWallet.customer_name}'s wallet`
-            : `₦${fmt(walletPay)} applied from ${editWallet.customer_name}'s wallet -- ₦${fmt(stillOwed)} still owed`,
+            ? (remainder > 0
+                ? `Debt cleared — ₦${fmt(walletPay)} from ${editWallet.customer_name}'s wallet + ₦${fmt(remainder)} ${editWalletRemainderMode}`
+                : `Debt cleared from ${editWallet.customer_name}'s wallet`)
+            : `₦${fmt(totalCollected)} applied -- ₦${fmt(stillOwed)} still owed`,
           type: fullyPaid ? 'success' : 'warning',
         });
         if (viewingDetail && viewingDetail.id === editingTx.id) {
           setViewingDetail({ ...viewingDetail, mode: fullyPaid ? 'Debt Paid' : 'Debt', raw: settled });
         }
-        setEditingTx(null);
-        setEditWallet(null);
-        setEditOriginalMode(null);
-        setEditOriginalWalletDeduction(0);
-        setEditWalletRemainderMode('Cash');
-        setEditWalletRemainderBank('');
+        resetEditWalletState();
         return;
       }
       const walletId = editingTx.wallet_id;
@@ -2046,6 +2157,33 @@ export const TransactionLedger = ({
     }
   };
 
+  // Secondary line under a debt row's amount so the ORIGINAL entry shows its
+  // own settlement state without cross-referencing the separate DC-
+  // collection rows: "₦9,000 paid · ₦6,000 owed" while still owing, or
+  // "Cleared · ₦9,000 Wallet + ₦6,000 Cash" once fully settled. Returns null
+  // for anything that isn't a part/fully-settled debt (incl. DC- rows).
+  const renderDebtSettleLine = (e: Entry) => {
+    if (e.source !== 'transaction' || (e.raw as any)?.is_debt_clearance) return null;
+    if (e.mode !== 'Debt' && e.mode !== 'Debt Paid') return null;
+    const paid = roundMoney(e.raw?.amountPaid || 0);
+    if (paid <= 0) return null;
+    const owed = Math.max(0, roundMoney((e.amount || 0) - paid - ((e.raw as any)?.raw?.retrieved_amount || 0)));
+    const parts = summarisePaymentHistory(e.raw?.paymentHistory);
+    const n = (e.raw?.paymentHistory || []).length;
+    const tip = n > 0
+      ? `${n} collection${n === 1 ? '' : 's'} on this debt — open the row for the full breakdown; each also shows as a COLLECTION row.`
+      : undefined;
+    return owed > 0 ? (
+      <div className="text-[9px] font-mono text-[var(--color-accent-amber)]" title={tip}>
+        ₦{fmt(paid)} paid · ₦{fmt(owed)} owed{n > 0 ? ` · ↳${n}` : ''}
+      </div>
+    ) : (
+      <div className="text-[9px] font-mono text-[var(--color-success)]" title={tip}>
+        Cleared{parts ? ` · ${parts}` : ''}
+      </div>
+    );
+  };
+
   // Opens the mode/bank picker instead of clearing immediately -- previously
   // this went straight to a generic yes/no confirm() and hardcoded
   // paymentMode: 'Cash', so the resulting DC- collection entry always
@@ -2058,6 +2196,9 @@ export const TransactionLedger = ({
     if (remaining <= 0) return;
     setClearDebtMode('Cash');
     setClearDebtBank('');
+    setClearDebtWallet(null);
+    setClearDebtRemainderMode('Cash');
+    refetchCustomerWallets?.();
     setClearDebtEntry(e);
   };
 
@@ -2069,15 +2210,144 @@ export const TransactionLedger = ({
     // smaller true remaining balance than amount - amountPaid alone, and
     // clear_cargo_debt's own guard rejects a payment larger than that --
     // computing it the same way here keeps the two in agreement.
-    const remaining = tx.amount - (tx.amountPaid || 0) - ((tx.raw as any)?.retrieved_amount || 0);
+    const remaining = roundMoney(tx.amount - (tx.amountPaid || 0) - ((tx.raw as any)?.retrieved_amount || 0));
     if (remaining <= 0) { setClearDebtEntry(null); return; }
     if (clearDebtMode === 'Transfer' && !clearDebtBank) {
       showToast({ message: 'Select a bank before clearing via Transfer.', type: 'warning' });
       return;
     }
+    if (clearDebtMode === 'Wallet') {
+      if (!clearDebtWallet) {
+        showToast({ message: 'Select a customer wallet to charge.', type: 'warning' });
+        return;
+      }
+      const wp = Math.min(remaining, clearDebtWallet.balance);
+      if (wp <= 0) {
+        showToast({ message: `${clearDebtWallet.customer_name}'s wallet has no balance to apply.`, type: 'warning' });
+        return;
+      }
+      const rem = roundMoney(remaining - wp);
+      if (rem > 0 && (clearDebtRemainderMode === 'Transfer' || clearDebtRemainderMode === 'POS') && !clearDebtBank.trim()) {
+        showToast({ message: `Enter the bank/terminal for the ₦${fmt(rem)} ${clearDebtRemainderMode} remainder.`, type: 'warning' });
+        return;
+      }
+    }
 
     setClearingDebt(true);
     try {
+      const loggedBy = user.name || 'Unknown';
+
+      // Settle from wallet: leg 1 debits the wallet via clear_*_debt(p_wallet_id),
+      // leg 2 collects whatever the wallet couldn't cover by the chosen
+      // Cash/Transfer/POS method. Two guarded calls, not atomic -- a failed
+      // leg 2 leaves a normal partial debt for the remainder to retry, never
+      // a double charge.
+      if (clearDebtMode === 'Wallet' && clearDebtWallet) {
+        const walletPay = Math.min(remaining, clearDebtWallet.balance);
+        const rem = roundMoney(remaining - walletPay);
+
+        const l1 = await clearDebt({
+          type: tx.type as DebtEntryType,
+          id: tx.id,
+          paymentAmount: walletPay,
+          paymentMode: 'Wallet',
+          walletId: clearDebtWallet.id,
+          loggedBy,
+          expectedRemaining: remaining,
+        });
+        if (!l1.ok) {
+          showToast({ message: l1.error || 'Failed to settle this debt from the wallet. Nothing was charged.', type: 'error' });
+          return;
+        }
+        const walletHist = {
+          amount: walletPay, mode: 'Wallet' as const, by: loggedBy, at: new Date().toISOString(),
+          ...(l1.walletTxnId ? { wallet_txn_id: l1.walletTxnId } : {}),
+        };
+
+        let l2: Awaited<ReturnType<typeof clearDebt>> | null = null;
+        if (rem > 0) {
+          l2 = await clearDebt({
+            type: tx.type as DebtEntryType,
+            id: tx.id,
+            paymentAmount: rem,
+            paymentMode: clearDebtRemainderMode,
+            bank: clearDebtRemainderMode !== 'Cash' ? clearDebtBank.trim() : undefined,
+            loggedBy,
+            expectedRemaining: l1.remainingBalance,
+          });
+        }
+
+        if (rem > 0 && (!l2 || !l2.ok)) {
+          const partial: Transaction = {
+            ...tx,
+            amountPaid: l1.newAmountPaid ?? ((tx.amountPaid || 0) + walletPay),
+            paymentHistory: [...(tx.paymentHistory || []), walletHist],
+            mode: 'Debt',
+          };
+          onUpdateTx(partial);
+          writeAuditLog({
+            user_id: user.id, user_name: loggedBy, action: 'DEBT_COLLECTION',
+            table_name: RETRIEVAL_TABLE_NAME[tx.type as RetrievalEntryType], record_id: tx.id,
+            description: `₦${fmt(walletPay)} collected against ${tx.name}'s debt via Customer Wallet (₦${fmt(rem)} ${clearDebtRemainderMode} remainder did NOT record)`,
+            hub: hubNames[tx.hub_id || ''] || tx.hub, hub_id: tx.hub_id,
+            old_values: { amount_paid: tx.amountPaid || 0 },
+            new_values: { amount_paid: l1.newAmountPaid, mode: 'Wallet', amount: walletPay },
+          }).catch(() => {});
+          refetchCustomerWallets?.();
+          showToast({
+            message: `₦${fmt(walletPay)} taken from ${clearDebtWallet.customer_name}'s wallet, but the ₦${fmt(rem)} ${clearDebtRemainderMode} leg didn't record${l2?.error ? ` (${l2.error})` : ''} -- clear the remaining ₦${fmt(rem)} again from the ledger.`,
+            type: 'error',
+          });
+          if (viewingDetail && viewingDetail.id === tx.id) {
+            setViewingDetail({ ...viewingDetail, mode: 'Debt', raw: partial });
+          }
+          setClearDebtEntry(null);
+          return;
+        }
+
+        const finalRes = l2 && l2.ok ? l2 : l1;
+        const totalCollected = walletPay + rem;
+        const stillOwed = finalRes.remainingBalance ?? 0;
+        const fullyPaid = finalRes.fullyPaid ?? (stillOwed <= 0);
+        const updated: Transaction = {
+          ...tx,
+          amountPaid: finalRes.newAmountPaid ?? ((tx.amountPaid || 0) + totalCollected),
+          paymentHistory: [
+            ...(tx.paymentHistory || []),
+            walletHist,
+            ...(rem > 0 ? [{ amount: rem, mode: clearDebtRemainderMode, by: loggedBy, at: new Date().toISOString() }] : []),
+          ],
+          mode: fullyPaid ? 'Debt Paid' : 'Debt',
+          paymentConfirmed: fullyPaid,
+          confirmedBy: fullyPaid ? loggedBy : tx.confirmedBy,
+          confirmedAt: fullyPaid ? new Date().toISOString() : tx.confirmedAt,
+          ...(tx.type === 'package' && fullyPaid ? { debtPaid: true, debtPaidAt: new Date().toISOString() } : {}),
+        };
+        onUpdateTx(updated);
+        writeAuditLog({
+          user_id: user.id, user_name: loggedBy, action: 'DEBT_COLLECTION',
+          table_name: RETRIEVAL_TABLE_NAME[tx.type as RetrievalEntryType], record_id: tx.id,
+          description: `₦${fmt(totalCollected)} collected against ${tx.name}'s debt — ₦${fmt(walletPay)} Customer Wallet${rem > 0 ? ` + ₦${fmt(rem)} ${clearDebtRemainderMode}` : ''}${stillOwed > 0 ? ` (₦${fmt(stillOwed)} still owed)` : ' (fully cleared)'}`,
+          hub: hubNames[tx.hub_id || ''] || tx.hub, hub_id: tx.hub_id,
+          old_values: { amount_paid: tx.amountPaid || 0 },
+          new_values: { amount_paid: finalRes.newAmountPaid, mode: rem > 0 ? `Wallet+${clearDebtRemainderMode}` : 'Wallet', amount: totalCollected },
+        }).catch(() => {});
+        refetchCustomerWallets?.();
+        showToast({
+          message: fullyPaid
+            ? (rem > 0
+                ? `Debt cleared — ₦${fmt(walletPay)} from ${clearDebtWallet.customer_name}'s wallet + ₦${fmt(rem)} ${clearDebtRemainderMode}`
+                : `Debt cleared from ${clearDebtWallet.customer_name}'s wallet`)
+            : `₦${fmt(totalCollected)} applied -- ₦${fmt(stillOwed)} still owed`,
+          type: fullyPaid ? 'success' : 'warning',
+        });
+        if (viewingDetail && viewingDetail.id === tx.id) {
+          setViewingDetail({ ...viewingDetail, mode: fullyPaid ? 'Debt Paid' : 'Debt', raw: updated });
+        }
+        setClearDebtEntry(null);
+        return;
+      }
+
       const result = await clearDebt({
         type: tx.type as DebtEntryType,
         id: tx.id,
@@ -3850,7 +4120,7 @@ export const TransactionLedger = ({
                               PARTIAL: ₦{fmt((e.raw as any).raw.retrieved_amount)}
                             </span>
                           )}
-                          {e.raw?.wallet_id && (
+                          {(e.raw?.wallet_id || (!(e.raw as any)?.is_debt_clearance && (e.raw?.paymentHistory || []).some((p: any) => p?.mode === 'Wallet'))) && (
                             <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(245,158,11,0.12)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.25)]">
                               WALLET
                             </span>
@@ -3926,6 +4196,7 @@ export const TransactionLedger = ({
                                   ₦{fmt(e.amount)}
                                 </div>
                               )}
+                              {renderDebtSettleLine(e)}
                             </div>
                           </div>
                         </div>
@@ -4203,6 +4474,7 @@ export const TransactionLedger = ({
                           ₦{fmt(Math.max(0, e.amount - e.raw.wallet_deduction_amount))} {e.mode} · ₦{fmt(e.raw.wallet_deduction_amount)} Wallet
                         </div>
                       )}
+                      {renderDebtSettleLine(e)}
                     </td>
                     {/* Mode */}
                     <td className="py-2.5 px-2 text-center" onClick={(evt) => evt.stopPropagation()}>
@@ -4436,14 +4708,26 @@ export const TransactionLedger = ({
 
                   <div className="mt-2 pt-3 border-t border-[var(--color-border)]">
                     {viewingDetail.mode === 'Debt' ? (
-                      <div className="text-[11px] text-[var(--color-error)] flex items-center gap-1.5 font-sans">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-error)]" />
-                        Outstanding — not yet paid
-                      </div>
+                      (() => {
+                        const paid = roundMoney(viewingDetail.raw?.amountPaid || 0);
+                        const owed = Math.max(0, roundMoney((viewingDetail.amount || 0) - paid - ((viewingDetail.raw as any)?.raw?.retrieved_amount || 0)));
+                        return paid > 0 ? (
+                          <div className="text-[11px] text-[var(--color-accent-amber)] flex items-center gap-1.5 font-sans">
+                            <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent-amber)]" />
+                            ₦{fmt(paid)} paid · ₦{fmt(owed)} still outstanding
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-[var(--color-error)] flex items-center gap-1.5 font-sans">
+                            <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-error)]" />
+                            Outstanding — not yet paid
+                          </div>
+                        );
+                      })()
                     ) : viewingDetail.mode === 'Debt Paid' ? (
                       <div className="text-[11px] text-[var(--color-success)] flex items-center gap-1.5 font-medium font-sans">
                         <Check size={14} />
                         Debt Cleared by {viewingDetail.raw.confirmedBy || (viewingDetail.raw.paymentHistory && viewingDetail.raw.paymentHistory[viewingDetail.raw.paymentHistory.length - 1]?.by) || 'System'}
+                        {summarisePaymentHistory(viewingDetail.raw?.paymentHistory) ? ` · ${summarisePaymentHistory(viewingDetail.raw?.paymentHistory)}` : ''}
                       </div>
                     ) : viewingDetail.raw.paymentConfirmed ? (
                       <div className="text-[11px] text-[var(--color-success)] flex items-center gap-1.5 font-medium font-sans">
@@ -4463,6 +4747,24 @@ export const TransactionLedger = ({
                       </div>
                     )}
                   </div>
+
+                  {/* Debt-collection timeline -- each element is also shown as
+                      its own DC- COLLECTION row in the ledger; this is the
+                      per-debt roll-up so one entry tells its whole story. */}
+                  {Array.isArray(viewingDetail.raw?.paymentHistory) && viewingDetail.raw.paymentHistory.length > 0 && (
+                    <div className="mt-2 pt-3 border-t border-[var(--color-border)] space-y-1">
+                      <div className="text-[10px] font-mono text-[var(--color-muted)] uppercase">Payments</div>
+                      {viewingDetail.raw.paymentHistory.map((p: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between text-[11px] font-mono gap-2">
+                          <span className="text-[var(--color-muted)] truncate">
+                            {p?.at ? new Date(p.at).toLocaleDateString('en-GB') : '—'} · {p?.mode || '—'}{p?.wallet_txn_id ? ' (wallet)' : ''}
+                          </span>
+                          <span className="text-[var(--color-foreground)] whitespace-nowrap">₦{fmt(p?.amount || 0)}{p?.by ? ` · ${p.by}` : ''}</span>
+                        </div>
+                      ))}
+                      <div className="text-[9px] font-sans text-[var(--color-muted)] italic pt-0.5">Each also appears as a COLLECTION row in the ledger.</div>
+                    </div>
+                  )}
                 </div>
               </section>
 
@@ -5294,16 +5596,25 @@ export const TransactionLedger = ({
               </div>
 
               {editingTx.mode === 'Wallet' && editOriginalMode !== 'Wallet' && !editFullySettled && (() => {
-                const editAmt = parseFloat(amountInput) || 0;
+                // Uses the entry's true current amount, NOT amountInput -- the
+                // wallet-settle branch of handleSaveEdit returns before any
+                // edited amount/pieces/kg are persisted, so previewing off a
+                // typed-but-unsaved amount would mislead. Editing figures and
+                // settling from wallet are effectively separate saves.
                 const debtRemaining = roundMoney(
-                  editAmt - (editingTx.amountPaid || 0) - ((editingTx.raw as any)?.retrieved_amount || 0)
+                  (editingTx.amount || 0) - (editingTx.amountPaid || 0) - ((editingTx.raw as any)?.retrieved_amount || 0)
                 );
                 const walletPay = editWallet ? Math.min(debtRemaining, editWallet.balance) : 0;
-                const leftOnDebt = roundMoney(Math.max(0, debtRemaining - walletPay));
+                const remainder = roundMoney(Math.max(0, debtRemaining - walletPay));
                 return (
                   <div className="space-y-1">
                     <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
-                      Settle debt from wallet {editWallet ? `(deducts ₦${fmt(walletPay)} on save)` : ''}
+                      Settle debt from wallet{' '}
+                      {editWallet
+                        ? remainder > 0
+                          ? `(₦${fmt(walletPay)} wallet + ₦${fmt(remainder)} ${editWalletRemainderMode} on save)`
+                          : `(deducts ₦${fmt(walletPay)} on save)`
+                        : ''}
                     </label>
                     <CustomerWalletPicker
                       wallets={customerWallets}
@@ -5311,10 +5622,17 @@ export const TransactionLedger = ({
                       onSelectWallet={setEditWallet}
                       currentCustomerName={editingTx.name}
                     />
-                    {editWallet && leftOnDebt > 0 && (
-                      <p className="text-[10px] font-sans text-[var(--color-muted)] mt-1">
-                        {editWallet.customer_name}’s wallet covers ₦{fmt(walletPay)}; the remaining ₦{fmt(leftOnDebt)} stays on this debt.
-                      </p>
+                    {editWallet && remainder > 0 && (
+                      <WalletRemainderSelector
+                        walletName={editWallet.customer_name}
+                        coverage={walletPay}
+                        remainder={remainder}
+                        mode={editWalletRemainderMode}
+                        bank={editWalletRemainderBank}
+                        onModeChange={setEditWalletRemainderMode}
+                        onBankChange={setEditWalletRemainderBank}
+                        banks={banks}
+                      />
                     )}
                   </div>
                 );
@@ -5373,6 +5691,18 @@ export const TransactionLedger = ({
                 onClick={handleSaveEdit}
                 loading={savingEdit}
                 loadingLabel="Saving…"
+                disabled={(() => {
+                  // A wallet settle that can't fully cover the debt must have a
+                  // bank/terminal for its Transfer/POS remainder before it can save.
+                  if (editingTx.mode !== 'Wallet' || editOriginalMode === 'Wallet' || editFullySettled || !editWallet) return false;
+                  const debtRemaining = roundMoney(
+                    (editingTx.amount || 0) - (editingTx.amountPaid || 0) - ((editingTx.raw as any)?.retrieved_amount || 0)
+                  );
+                  const remainder = roundMoney(Math.max(0, debtRemaining - Math.min(debtRemaining, editWallet.balance)));
+                  return remainder > 0
+                    && (editWalletRemainderMode === 'Transfer' || editWalletRemainderMode === 'POS')
+                    && !editWalletRemainderBank.trim();
+                })()}
               >
                 Save Changes
               </Button>
@@ -5397,7 +5727,17 @@ export const TransactionLedger = ({
           debt was actually paid. */}
       {clearDebtEntry && (() => {
         const tx = clearDebtEntry.raw as Transaction;
-        const remaining = tx.amount - (tx.amountPaid || 0) - ((tx.raw as any)?.retrieved_amount || 0);
+        const remaining = roundMoney(tx.amount - (tx.amountPaid || 0) - ((tx.raw as any)?.retrieved_amount || 0));
+        const walletPay = clearDebtWallet ? Math.min(remaining, clearDebtWallet.balance) : 0;
+        const walletRem = roundMoney(Math.max(0, remaining - walletPay));
+        const walletShort = clearDebtMode === 'Wallet' && !!clearDebtWallet && walletRem > 0;
+        const confirmDisabled =
+          clearingDebt ||
+          (clearDebtMode === 'Transfer' && !clearDebtBank) ||
+          (clearDebtMode === 'Wallet' && (
+            !clearDebtWallet ||
+            (walletShort && (clearDebtRemainderMode === 'Transfer' || clearDebtRemainderMode === 'POS') && !clearDebtBank.trim())
+          ));
         return createPortal(
           <div className="fixed inset-0 z-[70] ehi-scrim flex items-center justify-center p-4" onClick={() => !clearingDebt && setClearDebtEntry(null)}>
             <div className="bg-[var(--color-obsidian)] border border-[var(--color-border)] rounded-xl w-full max-w-sm shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -5414,12 +5754,17 @@ export const TransactionLedger = ({
                   <select
                     disabled={clearingDebt}
                     value={clearDebtMode}
-                    onChange={(e) => setClearDebtMode(e.target.value as 'Cash' | 'Transfer' | 'POS')}
+                    onChange={(e) => {
+                      const m = e.target.value as 'Cash' | 'Transfer' | 'POS' | 'Wallet';
+                      setClearDebtMode(m);
+                      if (m !== 'Wallet') { setClearDebtWallet(null); setClearDebtRemainderMode('Cash'); }
+                    }}
                     className="w-full h-10 px-3 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg text-[var(--color-foreground)] font-sans text-[14px] focus:outline-none focus:border-[var(--color-accent-amber)] disabled:opacity-60"
                   >
                     <option value="Cash">Cash</option>
                     <option value="Transfer">Bank Transfer</option>
                     <option value="POS">POS / Card</option>
+                    <option value="Wallet">Customer Wallet</option>
                   </select>
                 </div>
                 {clearDebtMode === 'Transfer' && (
@@ -5436,6 +5781,36 @@ export const TransactionLedger = ({
                     </select>
                   </div>
                 )}
+                {clearDebtMode === 'Wallet' && (
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-sans font-medium text-[var(--color-muted)]">
+                      Customer Wallet{' '}
+                      {clearDebtWallet
+                        ? walletRem > 0
+                          ? `(₦${fmt(walletPay)} wallet + ₦${fmt(walletRem)} ${clearDebtRemainderMode})`
+                          : `(deducts ₦${fmt(walletPay)})`
+                        : ''}
+                    </label>
+                    <CustomerWalletPicker
+                      wallets={customerWallets}
+                      selectedWallet={clearDebtWallet}
+                      onSelectWallet={setClearDebtWallet}
+                      currentCustomerName={tx.name}
+                    />
+                    {clearDebtWallet && walletRem > 0 && (
+                      <WalletRemainderSelector
+                        walletName={clearDebtWallet.customer_name}
+                        coverage={walletPay}
+                        remainder={walletRem}
+                        mode={clearDebtRemainderMode}
+                        bank={clearDebtBank}
+                        onModeChange={setClearDebtRemainderMode}
+                        onBankChange={setClearDebtBank}
+                        banks={banks}
+                      />
+                    )}
+                  </div>
+                )}
               </div>
               <div className="p-4 border-t border-[var(--color-border)] bg-[var(--color-surface-card)] flex gap-2">
                 <button
@@ -5447,7 +5822,7 @@ export const TransactionLedger = ({
                 </button>
                 <button
                   onClick={confirmClearDebt}
-                  disabled={clearingDebt || (clearDebtMode === 'Transfer' && !clearDebtBank)}
+                  disabled={confirmDisabled}
                   className="flex-1 h-10 flex items-center justify-center gap-2 rounded-lg bg-[var(--color-success)] text-[var(--color-on-accent)] text-[13px] font-bold disabled:opacity-50"
                 >
                   {clearingDebt ? <Loader2 size={14} className="animate-spin" /> : <CheckSquare size={14} />}
