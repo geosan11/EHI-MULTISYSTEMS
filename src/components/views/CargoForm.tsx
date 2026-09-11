@@ -576,6 +576,14 @@ export const CargoForm = ({
 
   const [successTx, setSuccessTx] = useState<Transaction | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Same-customer batch: items already saved to cargo_entries (each its own
+  // individual entry_ref/AWB, exactly like a normal single entry) while the
+  // agent keeps adding more pieces for the same consignee, held here only so
+  // they can be printed together at the end instead of one dialog per item.
+  const [batchItems, setBatchItems] = useState<Transaction[]>([]);
+  const [showBatchSummary, setShowBatchSummary] = useState(false);
+  const [batchPrinting, setBatchPrinting] = useState(false);
+  const [batchPrintProgress, setBatchPrintProgress] = useState('');
   const successRef = useRef<HTMLDivElement>(null);
   const formRootRef = useRef<HTMLDivElement>(null);
   useEnterToNextField(formRootRef);
@@ -1620,6 +1628,10 @@ export const CargoForm = ({
       hub: user.hub,
       hub_id: user.hub_id,
     } as Transaction;
+    // Stamped so a later batch reprint (handlePrintAllBatch, well after
+    // `serialNumber` state has moved on to the next item) still prints the
+    // serial that was actually current when THIS item was entered.
+    (tx as any).serialAtSubmit = nextSerial;
 
     // Wallet payment — AUTO-SPLIT. Wallet covers what it can; any remainder is
     // collected by the chosen Cash/Transfer/POS method and recorded as the
@@ -1723,9 +1735,18 @@ export const CargoForm = ({
     }
   };
 
-  const handleReset = () => {
-    setConsignee("");
-    setCustomConsignee("");
+  // keepCustomer=true is the "Add Another Item (Same Customer)" path -- it
+  // clears every per-shipment field (airline, route, weight, amount, payment
+  // mode...) but leaves consignee/phone untouched so the next item in the
+  // batch doesn't require re-typing the customer's details.
+  const handleReset = (keepCustomer = false) => {
+    if (!keepCustomer) {
+      setConsignee("");
+      setCustomConsignee("");
+      setSenderPhone("");
+      setConsigneePhone("");
+      setBatchItems([]);
+    }
     setAirline(availableAirlines[0] || "Other");
     setCustomAirline("");
     setFlightNumber("");
@@ -1746,8 +1767,6 @@ export const CargoForm = ({
     setMode("Cash");
     setBank(banks[0] as string);
     setRemark("");
-    setSenderPhone("");
-    setConsigneePhone("");
     setSuccessTx(null);
     // Wallet override/remainder-payment state otherwise survives into the
     // next customer's sale -- if Wallet mode is used again without
@@ -1760,6 +1779,118 @@ export const CargoForm = ({
     // printed on two different customers' Transfer receipts, breaking bank
     // reconciliation (which relies on it being unique per transaction).
     setNarrationCode("");
+  };
+
+  // Queues the just-completed entry and returns to a blank item form for
+  // the SAME consignee -- the entry itself was already saved to
+  // cargo_entries by handleRetailSubmit above, this only affects what gets
+  // offered for printing together at the end.
+  const handleAddAnotherForBatch = () => {
+    if (successTx) setBatchItems(prev => [...prev, successTx]);
+    handleReset(true);
+  };
+
+  const buildBatchReceiptData = (tx: Transaction) => ({
+    entryRef: tx.id,
+    serialNumber: (tx as any).serialAtSubmit ?? (serialNumber - 1),
+    date: `${new Date().toLocaleDateString("en-GB")} ${tnow()}`,
+    hubName: user?.hub || "EHI Cargo Station",
+    agentName: user?.name || "EHI Agent",
+    airline: (() => {
+      const txAir = tx.airline || airline;
+      return txAir === "Green Africa"
+        ? "Green Africa Airways"
+        : txAir === "United Nigeria"
+          ? "United Nigeria Airlines"
+          : txAir;
+    })(),
+    consignee: tx.name,
+    awbTagNumber: tx.awb_tag_number || tx.id,
+    pieces: tx.pieces || 1,
+    kg: tx.kg || 0,
+    route: tx.detail.split(" · ")[3] || route,
+    contentType: tx.detail.split(" · ")[4] || contentType,
+    amount: tx.amount,
+    paymentMode: formatPaymentModeDisplay(tx.mode, tx.wallet_deduction_amount, tx.amount),
+    paymentNarration: tx.paymentNarration,
+    bankName: tx.bank || undefined,
+    remark: tx.remarks || undefined,
+    pickupPin: (tx as any).pickupPin || undefined,
+  });
+
+  // One item's worth of either PDF print path -- same underlying calls the
+  // per-item success screen buttons already use, just parameterized by tx
+  // so handlePrintAllBatch can loop them.
+  const printOneBatchItem = async (tx: Transaction, docType: 'receipt-pdf' | 'tag-pdf') => {
+    if (docType === 'receipt-pdf') {
+      const { printCargoReceipt } = await import("./CargoReceipt");
+      await printCargoReceipt(buildBatchReceiptData(tx));
+    } else {
+      const { printCargoTagPDF } = await import("./CargoTagPDF");
+      await printCargoTagPDF({
+        id: tx.awb_tag_number || tx.id,
+        name: tx.name,
+        route: tx.detail.split(" · ")[3] || route,
+        pieces: tx.pieces || 1,
+        weight: tx.kg || 0,
+        airline: tx.airline || airline,
+        hubName: user?.hub || "EHI Cargo Station",
+        date: `${new Date().toLocaleDateString("en-GB")} ${tnow()}`,
+        contentType: tx.detail?.split(" · ")[4] || contentType,
+        agentName: tx.enteredByName,
+        phone: tx.consigneePhone,
+      });
+    }
+  };
+
+  const handlePrintAllBatch = async (docType: 'receipt-pdf' | 'tag-pdf' | 'pos80' | 'pos58') => {
+    if (batchItems.length === 0 || batchPrinting) return;
+    setBatchPrinting(true);
+
+    if (docType === 'pos80' || docType === 'pos58') {
+      // One Bluetooth connection for the whole batch -- see
+      // printBatchViaBluetooth's own comment for why this can't just loop
+      // printViaBluetooth per item (that would re-prompt the device picker
+      // once per item).
+      try {
+        const { printBatchViaBluetooth } = await import('../../lib/escpos');
+        const { compileCargoReceiptStream } = await import('../../lib/escposCargoReceiptPrinting');
+        const width = docType === 'pos80' ? '80mm' : '58mm';
+        const { done, failed } = await printBatchViaBluetooth(
+          batchItems.map((tx) => async () => compileCargoReceiptStream(
+            { ...buildBatchReceiptData(tx), trackingUrl: `https://app.ehimultisystems.com/track/${tx.id}` },
+            width,
+          )),
+          (i, total) => setBatchPrintProgress(`Printing ${i + 1} of ${total}…`),
+        );
+        showToast({ message: `${done} printed${failed ? `, ${failed} failed` : ''}.`, type: failed ? 'warning' : 'success' });
+      } catch (err: any) {
+        console.error('Bluetooth batch print failed:', err);
+        showToast({ message: err?.message || 'Bluetooth print failed. Ensure the printer is paired and powered on.', type: 'error' });
+      }
+      setBatchPrinting(false);
+      setBatchPrintProgress('');
+      return;
+    }
+
+    // PDF paths -- sequential, not Promise.all, mirrors GatPrintQueue.
+    // handlePrint, which hit the same "don't fire N PDF windows at once"
+    // constraint first. One item failing (offline, transient render error)
+    // doesn't stop the rest of the batch from printing.
+    let done = 0, failed = 0;
+    for (let i = 0; i < batchItems.length; i++) {
+      setBatchPrintProgress(`Printing ${i + 1} of ${batchItems.length}…`);
+      try {
+        await printOneBatchItem(batchItems[i], docType);
+        done++;
+      } catch (err) {
+        failed++;
+        console.error(`Batch print failed for ${batchItems[i].id}`, err);
+      }
+    }
+    setBatchPrinting(false);
+    setBatchPrintProgress('');
+    showToast({ message: `${done} printed${failed ? `, ${failed} failed` : ''}.`, type: failed ? 'warning' : 'success' });
   };
 
   const handlePrintReceipt = async () => {
@@ -2090,14 +2221,117 @@ export const CargoForm = ({
           </div>
         </div>
 
-        {/* New Entry Button */}
+        {/* Same-customer batch controls -- retail/individual only. Corporate
+            office-work clients already have their own bulk intake/weighing
+            queue, so batching here would just duplicate that flow. */}
+        {successTx.clientType !== "Corporate" && (
+          <>
+            <button
+              onClick={handleAddAnotherForBatch}
+              className="w-full h-11 bg-[var(--color-accent-amber)] hover:opacity-90 text-[var(--color-on-accent)] text-[13px] font-bold font-sans rounded-lg shadow-sm transition-opacity cursor-pointer focus:outline-none border-none flex items-center justify-center gap-1.5"
+            >
+              <Layers size={14} />
+              <span>Add Another Item for {successTx.name}</span>
+            </button>
+
+            {batchItems.length > 0 && (
+              <div className="rounded-lg border border-[var(--color-accent-amber)] border-opacity-40 bg-[rgba(245,158,11,0.05)] px-3 py-2 space-y-2">
+                <div className="text-[11px] font-mono text-[var(--color-muted)]">
+                  Batch so far: <span className="font-bold text-[var(--color-foreground)]">{batchItems.length + 1} items</span> · ₦{fmt(batchItems.reduce((s, t) => s + t.amount, 0) + successTx.amount)} for {successTx.name}
+                </div>
+                <button
+                  onClick={() => { setBatchItems(prev => [...prev, successTx]); setSuccessTx(null); setShowBatchSummary(true); }}
+                  className="w-full h-9 bg-[var(--color-foreground)] text-[var(--color-background)] text-[12px] font-bold font-sans rounded-lg transition-opacity hover:opacity-90 cursor-pointer focus:outline-none"
+                >
+                  Finish &amp; Print Batch ({batchItems.length + 1} items)
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* New Entry Button -- starts a fresh customer; already-saved batch
+            items stay saved, only the "print together" grouping is dropped. */}
         <button
-          onClick={handleReset}
+          onClick={() => handleReset()}
           className="w-full h-10 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] text-[13px] font-sans font-bold rounded-lg border border-[var(--color-border)] transition-colors cursor-pointer focus:outline-none mt-1"
         >
-          New Entry
+          {batchItems.length > 0 ? "New Entry (Different Customer)" : "New Entry"}
         </button>
 
+      </div>
+    );
+  }
+
+  if (showBatchSummary) {
+    const batchTotal = batchItems.reduce((s, t) => s + t.amount, 0);
+    const batchConsignee = batchItems[0]?.name || "Customer";
+    return (
+      <div className="p-3 space-y-3 max-w-md mx-auto w-full">
+        <div className="bg-[rgba(16,185,129,0.05)] border border-[var(--color-success)] rounded-xl px-3 py-2.5">
+          <div className="text-[13px] font-bold text-[var(--color-success)]">Batch Complete — {batchConsignee}</div>
+          <div className="text-[11px] font-mono text-[var(--color-muted)] mt-0.5">
+            {batchItems.length} item(s) · ₦{fmt(batchTotal)} total
+          </div>
+        </div>
+
+        <div className="space-y-1.5 max-h-[40vh] overflow-y-auto">
+          {batchItems.map((tx) => (
+            <div key={tx.id} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-1)] px-3 py-2 flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-[11px] font-bold font-mono text-[var(--color-accent-amber)] truncate">{tx.awb_tag_number || tx.id}</div>
+                <div className="text-[10px] font-mono text-[var(--color-muted)] truncate">
+                  {tx.detail.split(" · ")[3] || ""} · {tx.pieces || 1}pcs · {tx.kg || 0}kg
+                </div>
+              </div>
+              <div className="text-[11px] font-mono font-bold text-[var(--color-foreground)] shrink-0">₦{fmt(tx.amount)}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => handlePrintAllBatch('receipt-pdf')}
+            disabled={batchPrinting}
+            className="w-full h-9 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] text-[11px] font-sans font-bold rounded-lg border border-[var(--color-border)] transition-colors cursor-pointer focus:outline-none disabled:opacity-50"
+          >
+            All PDF Receipts
+          </button>
+          <button
+            onClick={() => handlePrintAllBatch('tag-pdf')}
+            disabled={batchPrinting}
+            className="w-full h-9 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] text-[11px] font-sans font-bold rounded-lg border border-[var(--color-border)] transition-colors cursor-pointer focus:outline-none disabled:opacity-50"
+          >
+            All Tag PDFs (100×80)
+          </button>
+          <button
+            onClick={() => handlePrintAllBatch('pos80')}
+            disabled={batchPrinting}
+            className="w-full h-9 bg-[var(--color-accent-amber)] hover:opacity-90 text-[var(--color-on-accent)] text-[11px] font-bold font-sans rounded-lg shadow-sm transition-opacity cursor-pointer focus:outline-none border-none flex items-center justify-center gap-1 disabled:opacity-50"
+          >
+            <Bluetooth size={12} /><span>POS Print All (80mm)</span>
+          </button>
+          <button
+            onClick={() => handlePrintAllBatch('pos58')}
+            disabled={batchPrinting}
+            className="w-full h-9 bg-[var(--color-accent-amber)] hover:opacity-90 text-[var(--color-on-accent)] text-[11px] font-bold font-sans rounded-lg shadow-sm transition-opacity cursor-pointer focus:outline-none border-none flex items-center justify-center gap-1 disabled:opacity-50"
+          >
+            <Bluetooth size={12} /><span>POS Print All (58mm)</span>
+          </button>
+        </div>
+
+        {batchPrinting && (
+          <div className="flex items-center gap-2 text-[11px] font-mono text-[var(--color-muted)] justify-center py-1">
+            <Loader2 size={12} className="animate-spin" /> {batchPrintProgress}
+          </div>
+        )}
+
+        <button
+          onClick={() => { setShowBatchSummary(false); handleReset(); }}
+          className="w-full h-10 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] text-[13px] font-sans font-bold rounded-lg border border-[var(--color-border)] transition-colors cursor-pointer focus:outline-none mt-1"
+        >
+          Start New Customer
+        </button>
       </div>
     );
   }
@@ -2196,6 +2430,22 @@ export const CargoForm = ({
                 <Radar size={14} /> <span>Flight Radar</span>
               </button>
             </div>
+
+            {batchItems.length > 0 && (
+              <div className="mb-4 rounded-lg border border-[var(--color-accent-amber)] border-opacity-40 bg-[rgba(245,158,11,0.05)] px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 text-[11px] font-mono text-[var(--color-muted)]">
+                  <Layers size={13} className="text-[var(--color-accent-amber)]" />
+                  Batch for <span className="font-bold text-[var(--color-foreground)]">{batchItems[0]?.name}</span>: {batchItems.length} item(s) · ₦{fmt(batchItems.reduce((s, t) => s + t.amount, 0))} logged so far
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowBatchSummary(true)}
+                  className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)] hover:underline"
+                >
+                  Finish &amp; Print Batch
+                </button>
+              </div>
+            )}
 
             <div className="space-y-4">
               <div>
