@@ -191,3 +191,43 @@ export const printViaBluetooth = async (compileBytes: () => Promise<Uint8Array>)
     printInProgress = false;
   }
 };
+
+// Batch variant of printViaBluetooth -- connects ONCE for the whole batch
+// instead of once per item. requestDevice() in connectBluetoothPrinter()
+// pops the OS/browser "choose a device" picker every time it's called, so
+// calling printViaBluetooth in a per-item loop would surface that picker
+// once per item in the batch -- exactly the extra printer-choice friction
+// batch printing exists to remove. One connection, kept open across every
+// compileBytes() call, then torn down once at the end.
+export const printBatchViaBluetooth = async (
+  items: Array<() => Promise<Uint8Array>>,
+  onProgress?: (index: number, total: number) => void,
+): Promise<{ done: number; failed: number }> => {
+  if (printInProgress) {
+    throw new Error("A print job is already in progress. Please wait for it to finish.");
+  }
+  printInProgress = true;
+  let done = 0, failed = 0;
+  try {
+    const { device, writeCharacteristic } = await connectBluetoothPrinter();
+    for (let i = 0; i < items.length; i++) {
+      onProgress?.(i, items.length);
+      try {
+        const data = await items[i]();
+        await sendToBluetoothPrinter(writeCharacteristic, data);
+        done++;
+      } catch (error) {
+        failed++;
+        console.error(`Bluetooth batch print failed for item ${i}:`, error);
+      }
+    }
+    setTimeout(() => {
+      if (device.gatt?.connected) {
+        device.gatt.disconnect();
+      }
+    }, 2000);
+  } finally {
+    printInProgress = false;
+  }
+  return { done, failed };
+};
