@@ -24,7 +24,9 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
   onOpenWalletsView,
   onFilterByCustomer,
 }) => {
-  const [collapsed, setCollapsed] = useState(false);
+  // Starts collapsed -- most agents working the ledger don't need this
+  // panel open by default; it's a click away (ChevronLeft) for whoever does.
+  const [collapsed, setCollapsed] = useState(true);
   const [activeTab, setActiveTab] = useState<'wallets' | 'activity'>('wallets');
   const [drawerWallet, setDrawerWallet] = useState<CustomerWallet | null>(null);
 
