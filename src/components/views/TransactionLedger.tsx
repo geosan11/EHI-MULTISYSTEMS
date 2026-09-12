@@ -3322,9 +3322,10 @@ export const TransactionLedger = ({
                   });
                 }
               }}
-              className="h-8 w-8 flex items-center justify-center bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl text-[var(--color-muted)] hover:text-[var(--color-success)] hover:border-[var(--color-success)] transition-colors"
+              className="relative overflow-hidden h-8 w-8 flex items-center justify-center bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl text-[var(--color-muted)] backdrop-blur-md hover:text-[var(--color-success)] hover:border-[var(--color-success)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-success)] active:translate-y-0 active:scale-95 transition-all"
             >
-              <Download size={13} />
+              <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+              <Download size={13} className="relative" />
             </button>
 
             {/* Gated the same way More.tsx's own menu entry is -- every role
@@ -3338,20 +3339,22 @@ export const TransactionLedger = ({
               <button
                 title="Every debt payment and cargo retrieval, one line each"
                 onClick={() => { onBack(); navigate('/more/debt-collection-log'); }}
-                className="h-8 px-2 flex items-center gap-1.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] font-mono text-[10px] font-bold transition-colors cursor-pointer"
+                className="relative overflow-hidden h-8 px-2 flex items-center gap-1.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl text-[var(--color-muted)] backdrop-blur-md hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-amber)] active:translate-y-0 active:scale-95 font-mono text-[10px] font-bold transition-all cursor-pointer"
               >
-                <HandCoins size={13} />
-                <span>Debt &amp; Retrievals</span>
+                <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+                <HandCoins size={13} className="relative" />
+                <span className="relative">Debt &amp; Retrievals</span>
               </button>
             )}
 
             <button
               title="Print Compact 80mm Ledger Summary"
               onClick={handlePrint80mmLedger}
-              className="h-8 px-2 flex items-center gap-1.5 bg-[rgba(245,158,11,0.12)] border border-[rgba(245,158,11,0.3)] rounded-xl text-[var(--color-accent-amber)] hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] font-mono text-[10px] font-bold transition-colors cursor-pointer"
+              className="relative overflow-hidden h-8 px-2 flex items-center gap-1.5 bg-[rgba(245,158,11,0.12)] border border-[rgba(245,158,11,0.3)] rounded-xl text-[var(--color-accent-amber)] backdrop-blur-md hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-amber)] active:translate-y-0 active:scale-95 font-mono text-[10px] font-bold transition-all cursor-pointer"
             >
-              <Printer size={13} />
-              <span>80mm</span>
+              <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/15 to-transparent pointer-events-none" />
+              <Printer size={13} className="relative" />
+              <span className="relative">80mm</span>
             </button>
 
             {airlineManifestSummary.length > 0 && (
@@ -3365,10 +3368,11 @@ export const TransactionLedger = ({
                     await downloadAirlineManifestExcel(txs, user.hub || 'EHI Hub');
                   });
                 }}
-                className="h-8 px-2 flex items-center gap-1.5 bg-[rgba(59,130,246,0.12)] border border-[rgba(59,130,246,0.3)] rounded-xl text-[var(--color-accent-cobalt)] hover:bg-[var(--color-accent-cobalt)] hover:text-white font-mono text-[10px] font-bold transition-colors cursor-pointer"
+                className="relative overflow-hidden h-8 px-2 flex items-center gap-1.5 bg-[rgba(59,130,246,0.12)] border border-[rgba(59,130,246,0.3)] rounded-xl text-[var(--color-accent-cobalt)] backdrop-blur-md hover:bg-[var(--color-accent-cobalt)] hover:text-white hover:-translate-y-0.5 hover:shadow-[var(--shadow-cobalt)] active:translate-y-0 active:scale-95 font-mono text-[10px] font-bold transition-all cursor-pointer"
               >
-                <Plane size={13} />
-                <span>Airline Excel</span>
+                <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/15 to-transparent pointer-events-none" />
+                <Plane size={13} className="relative" />
+                <span className="relative">Airline Excel</span>
               </button>
             )}
 
@@ -3376,13 +3380,14 @@ export const TransactionLedger = ({
               <button
                 title={showPrintHistory ? 'Close Print Logs' : 'Print Logs'}
                 onClick={() => setShowPrintHistory(!showPrintHistory)}
-                className={`h-8 w-8 flex items-center justify-center border rounded-xl transition-colors ${
+                className={`relative overflow-hidden h-8 w-8 flex items-center justify-center border rounded-xl backdrop-blur-md hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all ${
                   showPrintHistory
-                    ? 'bg-[var(--color-accent-amber)] border-[var(--color-accent-amber)] text-[var(--color-on-accent)]'
-                    : 'bg-[var(--color-surface-1)] border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)]'
+                    ? 'bg-[var(--color-accent-amber)] border-[var(--color-accent-amber)] text-[var(--color-on-accent)] hover:shadow-[var(--shadow-amber)]'
+                    : 'bg-[var(--color-surface-1)] border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] hover:shadow-[var(--shadow-amber)]'
                 }`}
               >
-                <Printer size={13} />
+                <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+                <Printer size={13} className="relative" />
               </button>
             )}
           </div>
@@ -3713,7 +3718,7 @@ export const TransactionLedger = ({
                   )}
                 </div>
                 {/* Shift scope pills */}
-                <div className="flex items-center gap-1 p-0.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl shrink-0 w-full sm:w-auto">
+                <div className="flex items-center gap-1 p-0.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full shrink-0 w-full sm:w-auto">
                   {(['current', 'all'] as const).map((scope) => (
                     <button
                       key={scope}
@@ -3748,7 +3753,7 @@ export const TransactionLedger = ({
                           fetchAllTimeFirstPage();
                         }
                       }}
-                      className={`h-7 px-3.5 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer flex-1 sm:flex-initial text-center inline-flex items-center justify-center gap-1.5 ${
+                      className={`h-7 px-3.5 rounded-full text-[10px] font-mono font-bold transition-all cursor-pointer flex-1 sm:flex-initial text-center inline-flex items-center justify-center gap-1.5 ${
                         shiftFilter === scope
                           ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-md'
                           : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-hover)]'
@@ -3883,12 +3888,12 @@ export const TransactionLedger = ({
 
                 {/* Terminal filter */}
                 {(userHubCode === 'LOS' || hasGat) && (
-                  <div className="flex items-center gap-1.5 h-8 p-1 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl font-mono text-[10px]">
+                  <div className="flex items-center gap-1.5 h-8 p-1 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full font-mono text-[10px]">
                     {(['All', 'MMA2', 'GAT'] as const).map((t) => (
                       <button
                         key={t}
                         onClick={() => setTerminalFilter(t)}
-                        className={`h-6 px-3 rounded-md text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                        className={`h-6 px-3 rounded-full text-[10px] font-mono font-bold transition-all cursor-pointer ${
                           terminalFilter === t
                             ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-sm'
                             : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-hover)]'

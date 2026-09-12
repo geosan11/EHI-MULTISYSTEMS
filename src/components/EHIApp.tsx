@@ -2674,6 +2674,29 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         // overflow-auto, used to scroll; the header/KPI/filter chrome above
         // it did not).
         <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto overflow-x-hidden bg-[var(--color-obsidian)]">
+            {/* This overlay covers the real app shell (SideNav + Header)
+                entirely -- fixed inset-0 z-50 paints over them -- which used
+                to leave History with no profile/theme-toggle/sign-out access
+                at all until Back was clicked. Mounting the same Header
+                instance used everywhere else (same props as the main one
+                below) gives it that access back via the one real, already-
+                correct implementation instead of a page-local substitute. */}
+            <Header
+              user={user}
+              isOffline={isOffline}
+              pendingCount={pendingSyncCount}
+              onToggleWifi={handleToggleWifi}
+              onLogout={onLogout}
+              theme={theme}
+              onToggleTheme={toggle}
+              onManualSync={handleForceSync}
+              stateWideView={stateWideView}
+              onToggleStateWideView={
+                hasSiblingHubs && !['super_admin', 'admin', 'accountant', 'auditor'].includes(user.role)
+                  ? () => setStateWideView(v => !v)
+                  : undefined
+              }
+            />
           <div className="flex-1 flex flex-col">
             {/* This overlay is portaled to document.body as a SIBLING of the
                 <ErrorBoundary> above (in the React tree, not just the DOM) --
