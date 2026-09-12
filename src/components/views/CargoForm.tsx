@@ -22,6 +22,7 @@ import { getNextTag } from "../../lib/tagPool";
 import { CustomerWalletPicker } from "../CustomerWalletPicker";
 import { TerminalSwitch, usePersistedTerminal } from "../TerminalSwitch";
 import { DepartmentSalesAnalysisModal } from "../DepartmentSalesAnalysis";
+import { PrintRangeModal } from "../PrintRangeModal";
 import {
   CheckCircle,
   Loader2,
@@ -584,6 +585,12 @@ export const CargoForm = ({
   const [showBatchSummary, setShowBatchSummary] = useState(false);
   const [batchPrinting, setBatchPrinting] = useState(false);
   const [batchPrintProgress, setBatchPrintProgress] = useState('');
+  // null = print every batchItem. Sized to whatever batchItems.length was
+  // when the range was picked -- reset to null wherever a fresh batch
+  // starts so a leftover range from a differently-sized batch can't
+  // silently apply to this one.
+  const [printRange, setPrintRange] = useState<{ from: number; to: number } | null>(null);
+  const [showRangeModal, setShowRangeModal] = useState(false);
   const successRef = useRef<HTMLDivElement>(null);
   const formRootRef = useRef<HTMLDivElement>(null);
   useEnterToNextField(formRootRef);
@@ -1845,6 +1852,10 @@ export const CargoForm = ({
 
   const handlePrintAllBatch = async (docType: 'receipt-pdf' | 'tag-pdf' | 'pos80' | 'pos58') => {
     if (batchItems.length === 0 || batchPrinting) return;
+    // printRange is 1-indexed/inclusive (as picked in PrintRangeModal);
+    // null means the whole batch. slice() takes it back to 0-indexed.
+    const itemsToPrint = printRange ? batchItems.slice(printRange.from - 1, printRange.to) : batchItems;
+    if (itemsToPrint.length === 0) return;
     setBatchPrinting(true);
 
     if (docType === 'pos80' || docType === 'pos58') {
@@ -1857,7 +1868,7 @@ export const CargoForm = ({
         const { compileCargoReceiptStream } = await import('../../lib/escposCargoReceiptPrinting');
         const width = docType === 'pos80' ? '80mm' : '58mm';
         const { done, failed } = await printBatchViaBluetooth(
-          batchItems.map((tx) => async () => compileCargoReceiptStream(
+          itemsToPrint.map((tx) => async () => compileCargoReceiptStream(
             { ...buildBatchReceiptData(tx), trackingUrl: `https://app.ehimultisystems.com/track/${tx.id}` },
             width,
           )),
@@ -1878,14 +1889,14 @@ export const CargoForm = ({
     // constraint first. One item failing (offline, transient render error)
     // doesn't stop the rest of the batch from printing.
     let done = 0, failed = 0;
-    for (let i = 0; i < batchItems.length; i++) {
-      setBatchPrintProgress(`Printing ${i + 1} of ${batchItems.length}…`);
+    for (let i = 0; i < itemsToPrint.length; i++) {
+      setBatchPrintProgress(`Printing ${i + 1} of ${itemsToPrint.length}…`);
       try {
-        await printOneBatchItem(batchItems[i], docType);
+        await printOneBatchItem(itemsToPrint[i], docType);
         done++;
       } catch (err) {
         failed++;
-        console.error(`Batch print failed for ${batchItems[i].id}`, err);
+        console.error(`Batch print failed for ${itemsToPrint[i].id}`, err);
       }
     }
     setBatchPrinting(false);
@@ -2240,7 +2251,7 @@ export const CargoForm = ({
                   Batch so far: <span className="font-bold text-[var(--color-foreground)]">{batchItems.length + 1} items</span> · ₦{fmt(batchItems.reduce((s, t) => s + t.amount, 0) + successTx.amount)} for {successTx.name}
                 </div>
                 <button
-                  onClick={() => { setBatchItems(prev => [...prev, successTx]); setSuccessTx(null); setShowBatchSummary(true); }}
+                  onClick={() => { setBatchItems(prev => [...prev, successTx]); setSuccessTx(null); setPrintRange(null); setShowBatchSummary(true); }}
                   className="w-full h-9 bg-[var(--color-foreground)] text-[var(--color-background)] text-[12px] font-bold font-sans rounded-lg transition-opacity hover:opacity-90 cursor-pointer focus:outline-none"
                 >
                   Finish &amp; Print Batch ({batchItems.length + 1} items)
@@ -2289,6 +2300,21 @@ export const CargoForm = ({
           ))}
         </div>
 
+        <div className="flex items-center justify-between text-[11px] font-mono text-[var(--color-muted)] px-1">
+          <span>
+            {printRange
+              ? `Printing: items ${printRange.from}–${printRange.to} (${printRange.to - printRange.from + 1} of ${batchItems.length})`
+              : `Printing: all ${batchItems.length} item(s)`}
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowRangeModal(true)}
+            className="font-bold text-[var(--color-accent-cobalt)] hover:underline"
+          >
+            Change
+          </button>
+        </div>
+
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => handlePrintAllBatch('receipt-pdf')}
@@ -2332,6 +2358,20 @@ export const CargoForm = ({
         >
           Start New Customer
         </button>
+
+        {showRangeModal && (
+          <PrintRangeModal
+            totalCount={batchItems.length}
+            itemLabel="items"
+            initialFrom={printRange?.from}
+            initialTo={printRange?.to}
+            onConfirm={(range) => {
+              setPrintRange(range.from === 1 && range.to === batchItems.length ? null : range);
+              setShowRangeModal(false);
+            }}
+            onCancel={() => setShowRangeModal(false)}
+          />
+        )}
       </div>
     );
   }
@@ -2439,7 +2479,7 @@ export const CargoForm = ({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setShowBatchSummary(true)}
+                  onClick={() => { setPrintRange(null); setShowBatchSummary(true); }}
                   className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)] hover:underline"
                 >
                   Finish &amp; Print Batch

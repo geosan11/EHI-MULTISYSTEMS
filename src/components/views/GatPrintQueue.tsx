@@ -3,6 +3,7 @@ import { CheckCircle2, RefreshCw, Package, Boxes } from 'lucide-react';
 import { User } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
 import { PageHeader, Spinner } from '../ui';
+import { PrintRangeModal } from '../PrintRangeModal';
 import { useToast } from '../../lib/ToastContext';
 import { fmt, tnow, formatPaymentModeDisplay } from '../../lib/helpers';
 
@@ -55,6 +56,7 @@ export const GatPrintQueue = ({ user, onBack }: { user: User; onBack: () => void
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Row[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showRangeModal, setShowRangeModal] = useState(false);
   const [printing, setPrinting] = useState(false);
   const [progressText, setProgressText] = useState('');
 
@@ -312,14 +314,34 @@ export const GatPrintQueue = ({ user, onBack }: { user: User; onBack: () => void
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg px-3 py-2">
+            <div className="flex items-center justify-between bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg px-3 py-2 flex-wrap gap-2">
               <label className="flex items-center gap-2 text-[11px] font-mono text-[var(--color-muted)] cursor-pointer">
                 <input type="checkbox" checked={allSelected} onChange={toggleAll} /> Select all ({rows.length})
               </label>
+              <button
+                type="button"
+                onClick={() => setShowRangeModal(true)}
+                disabled={rows.length === 0}
+                className="text-[11px] font-mono font-bold text-[var(--color-accent-cobalt)] hover:underline disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Select Range…
+              </button>
               <div className="text-[11px] font-mono text-[var(--color-muted)]">
                 {cargoCount} cargo &middot; {packageCount} package
               </div>
             </div>
+
+            {showRangeModal && (
+              <PrintRangeModal
+                totalCount={rows.length}
+                itemLabel="entries"
+                onConfirm={(range) => {
+                  setSelected(new Set(rows.slice(range.from - 1, range.to).map(rowKey)));
+                  setShowRangeModal(false);
+                }}
+                onCancel={() => setShowRangeModal(false)}
+              />
+            )}
 
             <div className="space-y-2">
               {rows.map(r => {
