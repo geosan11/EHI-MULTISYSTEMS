@@ -3264,7 +3264,7 @@ export const TransactionLedger = ({
                 <select
                   value={vjFlightFilter}
                   onChange={e => setVjFlightFilter(e.target.value)}
-                  className="h-8 px-2 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg text-[10px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                  className="h-8 px-2 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full text-[10px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
                 >
                   <option value="All">All Flights</option>
                   {vjFlights.map(f => <option key={f} value={f}>{f}</option>)}
@@ -3272,7 +3272,7 @@ export const TransactionLedger = ({
                 <select
                   value={vjDestFilter}
                   onChange={e => setVjDestFilter(e.target.value)}
-                  className="h-8 px-2 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg text-[10px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                  className="h-8 px-2 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full text-[10px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
                 >
                   <option value="All">All Dests</option>
                   {vjDests.map(d => <option key={d} value={d}>{d}</option>)}
@@ -3287,7 +3287,7 @@ export const TransactionLedger = ({
               value={destFilter}
               onChange={e => setDestFilter(e.target.value)}
               title="Filter by destination"
-              className="h-8 px-2 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg text-[10px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
+              className="h-8 px-2 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full text-[10px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
             >
               <option value="All">All Destinations</option>
               {allDests.map(r => <option key={r} value={r}>{r}</option>)}
@@ -3322,7 +3322,7 @@ export const TransactionLedger = ({
                   });
                 }
               }}
-              className="relative overflow-hidden h-8 w-8 flex items-center justify-center bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl text-[var(--color-muted)] backdrop-blur-md hover:text-[var(--color-success)] hover:border-[var(--color-success)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-success)] active:translate-y-0 active:scale-95 transition-all"
+              className="relative overflow-hidden h-8 w-8 flex items-center justify-center bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full text-[var(--color-muted)] backdrop-blur-md hover:text-[var(--color-success)] hover:border-[var(--color-success)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-success)] active:translate-y-0 active:scale-95 transition-all"
             >
               <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
               <Download size={13} className="relative" />
@@ -3339,7 +3339,7 @@ export const TransactionLedger = ({
               <button
                 title="Every debt payment and cargo retrieval, one line each"
                 onClick={() => { onBack(); navigate('/more/debt-collection-log'); }}
-                className="relative overflow-hidden h-8 px-2 flex items-center gap-1.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-xl text-[var(--color-muted)] backdrop-blur-md hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-amber)] active:translate-y-0 active:scale-95 font-mono text-[10px] font-bold transition-all cursor-pointer"
+                className="relative overflow-hidden h-8 px-2 flex items-center gap-1.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full text-[var(--color-muted)] backdrop-blur-md hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-amber)] active:translate-y-0 active:scale-95 font-mono text-[10px] font-bold transition-all cursor-pointer"
               >
                 <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
                 <HandCoins size={13} className="relative" />
@@ -3350,7 +3350,7 @@ export const TransactionLedger = ({
             <button
               title="Print Compact 80mm Ledger Summary"
               onClick={handlePrint80mmLedger}
-              className="relative overflow-hidden h-8 px-2 flex items-center gap-1.5 bg-[rgba(245,158,11,0.12)] border border-[rgba(245,158,11,0.3)] rounded-xl text-[var(--color-accent-amber)] backdrop-blur-md hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-amber)] active:translate-y-0 active:scale-95 font-mono text-[10px] font-bold transition-all cursor-pointer"
+              className="relative overflow-hidden h-8 px-2 flex items-center gap-1.5 bg-[rgba(245,158,11,0.12)] border border-[rgba(245,158,11,0.3)] rounded-full text-[var(--color-accent-amber)] backdrop-blur-md hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-amber)] active:translate-y-0 active:scale-95 font-mono text-[10px] font-bold transition-all cursor-pointer"
             >
               <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/15 to-transparent pointer-events-none" />
               <Printer size={13} className="relative" />
@@ -3368,7 +3368,7 @@ export const TransactionLedger = ({
                     await downloadAirlineManifestExcel(txs, user.hub || 'EHI Hub');
                   });
                 }}
-                className="relative overflow-hidden h-8 px-2 flex items-center gap-1.5 bg-[rgba(59,130,246,0.12)] border border-[rgba(59,130,246,0.3)] rounded-xl text-[var(--color-accent-cobalt)] backdrop-blur-md hover:bg-[var(--color-accent-cobalt)] hover:text-white hover:-translate-y-0.5 hover:shadow-[var(--shadow-cobalt)] active:translate-y-0 active:scale-95 font-mono text-[10px] font-bold transition-all cursor-pointer"
+                className="relative overflow-hidden h-8 px-2 flex items-center gap-1.5 bg-[rgba(59,130,246,0.12)] border border-[rgba(59,130,246,0.3)] rounded-full text-[var(--color-accent-cobalt)] backdrop-blur-md hover:bg-[var(--color-accent-cobalt)] hover:text-white hover:-translate-y-0.5 hover:shadow-[var(--shadow-cobalt)] active:translate-y-0 active:scale-95 font-mono text-[10px] font-bold transition-all cursor-pointer"
               >
                 <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/15 to-transparent pointer-events-none" />
                 <Plane size={13} className="relative" />
@@ -3380,7 +3380,7 @@ export const TransactionLedger = ({
               <button
                 title={showPrintHistory ? 'Close Print Logs' : 'Print Logs'}
                 onClick={() => setShowPrintHistory(!showPrintHistory)}
-                className={`relative overflow-hidden h-8 w-8 flex items-center justify-center border rounded-xl backdrop-blur-md hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all ${
+                className={`relative overflow-hidden h-8 w-8 flex items-center justify-center border rounded-full backdrop-blur-md hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all ${
                   showPrintHistory
                     ? 'bg-[var(--color-accent-amber)] border-[var(--color-accent-amber)] text-[var(--color-on-accent)] hover:shadow-[var(--shadow-amber)]'
                     : 'bg-[var(--color-surface-1)] border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] hover:shadow-[var(--shadow-amber)]'
@@ -3437,7 +3437,11 @@ export const TransactionLedger = ({
                   className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all cursor-pointer ${
                     modeFilter === 'All'
                       ? 'bg-[rgba(251,191,36,0.06)] border-[var(--color-accent-amber)] shadow-[var(--shadow-amber)]'
-                      : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-accent-amber)] shadow-[var(--shadow-sm)]'
+                      // Hero tile -- carries a soft amber corona at rest (not
+                      // just on selection), so Total reads as the standout
+                      // tile the way it does in the reference design, without
+                      // competing with the stronger shadow-amber glow above.
+                      : 'bg-[var(--color-surface-card)] border-[rgba(245,158,11,0.35)] hover:border-[var(--color-accent-amber)] shadow-[var(--shadow-sm),0_0_18px_-6px_rgba(245,158,11,0.35)]'
                   }`}
                 >
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'All' ? 'bg-[rgba(251,191,36,0.22)]' : 'bg-[rgba(251,191,36,0.12)]'}`}>
@@ -3703,7 +3707,7 @@ export const TransactionLedger = ({
                     value={searchInput}
                     onChange={(e) => handleSearchInputChange(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') commitSearch(searchInput); }}
-                    className="w-full h-9 pl-9 pr-8 bg-[var(--color-surface-1)] border border-[var(--color-border)] focus:border-[var(--color-accent-amber)] rounded-xl text-[11px] font-sans text-[var(--color-foreground)] focus:outline-none focus:shadow-[0_0_12px_rgba(240,178,48,0.15)] transition-all placeholder-[var(--color-muted)] font-medium"
+                    className="w-full h-9 pl-9 pr-8 bg-[var(--color-surface-1)] border border-[var(--color-border)] focus:border-[var(--color-accent-amber)] rounded-full text-[11px] font-sans text-[var(--color-foreground)] focus:outline-none focus:shadow-[0_0_12px_rgba(240,178,48,0.15)] transition-all placeholder-[var(--color-muted)] font-medium"
                   />
                   {searchInput && (
                     <button
@@ -3796,7 +3800,7 @@ export const TransactionLedger = ({
                 {/* Date range */}
                 {dateRange && onDateRangeChange && (
                   <div
-                    className="flex items-center gap-2 h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-xl font-mono text-[10px] text-[var(--color-foreground)] transition-colors group"
+                    className="flex items-center gap-2 h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-full font-mono text-[10px] text-[var(--color-foreground)] transition-colors group"
                     title={`This picker loads up to ${LEDGER_DATE_RANGE_MAX_DAYS} days at a time -- switch to "All Time" for a longer lookback.`}
                   >
                     <Calendar size={11} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
@@ -3845,7 +3849,7 @@ export const TransactionLedger = ({
                 )}
 
                 {/* Type filter */}
-                <div className="relative flex items-center h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-xl font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
+                <div className="relative flex items-center h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-full font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
                   <Filter size={10} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] mr-2 shrink-0 transition-colors" />
                   <select
                     value={typeFilter}
@@ -3864,7 +3868,7 @@ export const TransactionLedger = ({
                 </div>
 
                 {/* Mode filter */}
-                <div className="relative flex items-center h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-xl font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
+                <div className="relative flex items-center h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-full font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
                   <HandCoins size={10} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] mr-2 shrink-0 transition-colors" />
                   <select
                     value={modeFilter}
@@ -3906,7 +3910,7 @@ export const TransactionLedger = ({
                 )}
 
                 {/* Time filter */}
-                <div className="relative flex items-center h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-xl font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
+                <div className="relative flex items-center h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-full font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
                   <Clock size={10} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] mr-2 shrink-0 transition-colors" />
                   <select
                     value={timeFilter}
@@ -3924,7 +3928,7 @@ export const TransactionLedger = ({
 
                 {/* Custom Time range */}
                 {timeFilter === "Custom" && (
-                  <div className="flex items-center gap-1.5 h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-xl font-mono text-[10px] text-[var(--color-foreground)] transition-colors">
+                  <div className="flex items-center gap-1.5 h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-full font-mono text-[10px] text-[var(--color-foreground)] transition-colors">
                     <input
                       id="ledger-time-start"
                       name="time-start"
@@ -4336,7 +4340,7 @@ export const TransactionLedger = ({
                       </td>
                     )}
                     {canSeePin && (
-                      <td className="py-2.5 px-3 font-mono text-[11px] text-[var(--color-accent-amber)]">
+                      <td className="py-2.5 px-3 font-mono font-bold text-[13px] text-[var(--color-accent-amber)]">
                         {e.raw.pickupPin || '—'}
                       </td>
                     )}
@@ -4455,7 +4459,7 @@ export const TransactionLedger = ({
                     </td>
                     {/* Status */}
                     <td className="py-2.5 px-2 text-center">
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold font-mono whitespace-nowrap ${
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-[8px] font-bold font-mono whitespace-nowrap ${
                         (e.raw?.is_debt_clearance || e.id?.startsWith('DC-'))
                           ? 'text-[var(--color-accent-cobalt)] bg-[rgba(59,130,246,0.15)] border border-[rgba(59,130,246,0.3)]'
                           : statusColor
