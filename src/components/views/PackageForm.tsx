@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useEnterToNextField } from "../../lib/useEnterToNextField";
-import { User, Transaction, Expense } from "../../lib/types";
+import { User, Transaction, Expense, HubShift } from "../../lib/types";
 import { fmt, uid, tnow, generatePaymentNarration, getHubCode, upperOnChange, isStandalonePWA, generatePickupPin, formatPaymentModeDisplay } from "../../lib/helpers";
 import { chargeWalletForSale } from "../../lib/walletPayment";
 import { matchOfficeClient, useCorporateClients, useCorporateRouteRates, useOfficeWorkAutoPrice } from "../../lib/officeWork";
@@ -39,6 +39,7 @@ export const PackageForm = ({
   customerWallets = [],
   setCustomerWallets,
   forcedTerminal,
+  activeShift,
 }: {
   user: User;
   transactions: Transaction[];
@@ -52,6 +53,10 @@ export const PackageForm = ({
   // Set by GatWorkspace.tsx to pin this form's terminal to 'GAT' for as
   // long as it's mounted there -- see CargoForm.tsx's identical prop.
   forcedTerminal?: 'MMA2' | 'GAT';
+  // Whichever hub_shifts row is currently open for this hub's 'package'
+  // department -- see CargoForm.tsx's identical prop for why (same-shift
+  // debt reclassification, 20260947_same_shift_debt_reclassification.sql).
+  activeShift?: HubShift | null;
 }) => {
   const isAdmin = ['super_admin', 'admin', 'accountant'].includes(propUser.role);
   // See CargoForm.tsx's identical fix for the full explanation: this used
@@ -331,6 +336,7 @@ export const PackageForm = ({
       corporate_client_id: linkedAsOfficeWork && detectedOfficeClient ? detectedOfficeClient.id : undefined,
       applied_rate_per_kg: linkedAsOfficeWork && officeWorkRate ? officeWorkRate.rate_per_kg : undefined,
       clientType: linkedAsOfficeWork ? "Corporate" : "Individual",
+      created_shift_id: activeShift?.id,
       // Was captured into local form state only and never attached to the
       // Transaction itself -- package_entries had nowhere to store it, so
       // it was silently lost the moment this session ended, and any later

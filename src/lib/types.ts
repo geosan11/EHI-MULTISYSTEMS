@@ -250,8 +250,14 @@ export interface Transaction {
   // a customer wallet; wallet_txn_id links that element to its deduction row
   // so Reopen Debt can refund the wallet. See
   // 20260946_wallet_debt_settlement_and_reversal.sql.
-  paymentHistory?: { amount: number; mode: 'Cash' | 'Transfer' | 'POS' | 'Wallet'; by: string; at: string; wallet_txn_id?: string }[];
+  paymentHistory?: { amount: number; mode: 'Cash' | 'Transfer' | 'POS' | 'Wallet'; by: string; at: string; wallet_txn_id?: string; reclassified?: boolean }[];
   clientType?: 'Corporate' | 'Individual' | 'Office Work';
+  // Whichever hub_shifts row (this hub+department) was open at intake --
+  // used by clear_*_debt to detect an Individual debt fully cleared before
+  // that same shift ever closed, so it reclassifies as a normal sale
+  // instead of staying 'Debt' forever. See
+  // 20260947_same_shift_debt_reclassification.sql.
+  created_shift_id?: string;
   raw?: any;
   // Retail cargo debtor contact, for following up on an individual (not
   // corporate-monthly) debt -- captured at entry, optional.

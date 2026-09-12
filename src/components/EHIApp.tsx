@@ -1844,6 +1844,10 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         // were silently discarded, leaving the row permanently unattributed
         // and stuck showing as "unlinked" in OfficeWorkReconciliation.tsx.
         client_type: tx.clientType || null,
+        // Which hub_shifts row (this hub+department) was open at intake --
+        // see the cargo branch's identical comment below on why this
+        // exists (clear_*_debt's same-shift reclassification check).
+        created_shift_id: tx.created_shift_id || null,
         corporate_client_id: (tx as any).corporate_client_id || null,
         applied_rate_per_kg: tx.applied_rate_per_kg ?? null,
         linked_as_office_work: (tx as any).linked_as_office_work ?? false,
@@ -1900,6 +1904,12 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         pickup_pin: (tx as any).pickupPin || null,
         consignee_phone: tx.consigneePhone || null,
         client_type: tx.clientType || null,
+        // Which hub_shifts row (this hub+department) was open at intake --
+        // read back by clear_cargo_debt (20260947_same_shift_debt_
+        // reclassification.sql) to detect an Individual debt fully cleared
+        // before that same shift ever closed, in which case it reclassifies
+        // as a normal sale instead of staying 'Debt' forever.
+        created_shift_id: tx.created_shift_id || null,
         corporate_client_id: (tx as any).corporate_client_id || null,
         applied_rate_per_kg: tx.applied_rate_per_kg ?? null,
         linked_as_office_work: (tx as any).linked_as_office_work ?? false,
@@ -1946,6 +1956,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         hub_id: hubId,
         // See the marketing branch's comment above -- same gap, same fix.
         client_type: tx.clientType || null,
+        // See the cargo branch's comment above -- same gap, same fix.
+        created_shift_id: tx.created_shift_id || null,
         corporate_client_id: (tx as any).corporate_client_id || null,
         applied_rate_per_kg: tx.applied_rate_per_kg ?? null,
         linked_as_office_work: (tx as any).linked_as_office_work ?? false,
@@ -1981,6 +1993,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         payment_history: tx.paymentHistory,
         // See the marketing branch's comment above -- same gap, same fix.
         client_type: tx.clientType || null,
+        // See the cargo branch's comment above -- same gap, same fix.
+        created_shift_id: tx.created_shift_id || null,
         corporate_client_id: (tx as any).corporate_client_id || null,
         applied_rate_per_kg: tx.applied_rate_per_kg ?? null,
         linked_as_office_work: (tx as any).linked_as_office_work ?? false,
@@ -2522,6 +2536,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                   onShowHistory={handleShowCargoHistory}
                   customerWallets={customerWallets}
                   setCustomerWallets={setCustomerWallets}
+                  activeShift={activeShiftsByDept['cargo'] || null}
                 />
               )}
               {currentTab === 'Marketing' && (
@@ -2534,6 +2549,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                   onShowHistory={handleShowMarketingHistory}
                   customerWallets={customerWallets}
                   setCustomerWallets={setCustomerWallets}
+                  activeShift={activeShiftsByDept['marketing'] || null}
                 />
               )}
               {currentTab.startsWith('Baggage:') && (
@@ -2556,6 +2572,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                       transactions={transactions}
                       customerWallets={customerWallets}
                       setCustomerWallets={setCustomerWallets}
+                      activeShift={activeShiftsByDept['baggage'] || null}
                     />
                   );
                 })()
@@ -2571,6 +2588,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                   onShowHistory={handleShowPackageHistory}
                   customerWallets={customerWallets}
                   setCustomerWallets={setCustomerWallets}
+                  activeShift={activeShiftsByDept['package'] || null}
                 />
               )}
               {currentTab === 'GAT' && (

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useEnterToNextField } from '../../lib/useEnterToNextField';
-import { PaymentMode, Transaction, User, ExcessBaggageAirline } from '../../lib/types';
+import { PaymentMode, Transaction, User, ExcessBaggageAirline, HubShift } from '../../lib/types';
 import { fmt, roundMoney, tnow, getHubCode, upperOnChange, generatePickupPin, formatPaymentModeDisplay } from '../../lib/helpers';
 import { chargeWalletForSale } from '../../lib/walletPayment';
 import { matchOfficeClient, useCorporateClients, useCorporateRouteRates, useOfficeWorkAutoPrice } from '../../lib/officeWork';
@@ -30,6 +30,7 @@ export const ExcessBaggageForm = ({
   transactions = [],
   customerWallets = [],
   setCustomerWallets,
+  activeShift,
 }: {
   airline: ExcessBaggageAirline;
   onAddTx: (tx: Transaction) => void;
@@ -38,6 +39,10 @@ export const ExcessBaggageForm = ({
   transactions?: Transaction[];
   customerWallets?: CustomerWallet[];
   setCustomerWallets?: React.Dispatch<React.SetStateAction<CustomerWallet[]>>;
+  // Whichever hub_shifts row is currently open for this hub's 'baggage'
+  // department -- see CargoForm.tsx's identical prop for why (same-shift
+  // debt reclassification, 20260947_same_shift_debt_reclassification.sql).
+  activeShift?: HubShift | null;
 }) => {
   const [name, setName] = useState('');
   const [pnr, setPnr]   = useState('');
@@ -212,6 +217,7 @@ export const ExcessBaggageForm = ({
       corporate_client_id: linkedAsOfficeWork && detectedOfficeClient ? detectedOfficeClient.id : undefined,
       applied_rate_per_kg: linkedAsOfficeWork && officeWorkRate ? officeWorkRate.rate_per_kg : undefined,
       clientType: linkedAsOfficeWork ? "Corporate" : "Individual",
+      created_shift_id: activeShift?.id,
     } as any;
     // Attach phone for EHIApp to write to passenger_phone column
     (tx as any).phone = phone.trim() || undefined;

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useEnterToNextField } from "../../lib/useEnterToNextField";
-import { User, Transaction, Expense } from "../../lib/types";
+import { User, Transaction, Expense, HubShift } from "../../lib/types";
 import {  PRICING , CARGO_ROUTES } from "../../lib/constants";
 import { useAirlines } from "../../lib/airlines";
 import { useHubs } from "../../lib/hubRoutes";
@@ -41,6 +41,7 @@ export const MarketingWorkspace = ({
   onShowHistory,
   customerWallets = [],
   setCustomerWallets,
+  activeShift,
 }: {
   user: User;
   transactions: Transaction[];
@@ -50,6 +51,10 @@ export const MarketingWorkspace = ({
   onShowHistory?: () => void;
   customerWallets?: CustomerWallet[];
   setCustomerWallets?: React.Dispatch<React.SetStateAction<CustomerWallet[]>>;
+  // Whichever hub_shifts row is currently open for this hub's 'marketing'
+  // department -- see CargoForm.tsx's identical prop for why (same-shift
+  // debt reclassification, 20260947_same_shift_debt_reclassification.sql).
+  activeShift?: HubShift | null;
 }) => {
   const isAdmin = ['super_admin', 'admin', 'accountant'].includes(propUser.role);
   // See CargoForm.tsx's identical fix for the full explanation: this used
@@ -471,6 +476,7 @@ export const MarketingWorkspace = ({
       corporate_client_id: linkedAsOfficeWork && detectedOfficeClient ? detectedOfficeClient.id : undefined,
       applied_rate_per_kg: linkedAsOfficeWork && officeWorkRate ? officeWorkRate.rate_per_kg : undefined,
       clientType: linkedAsOfficeWork ? "Corporate" : "Individual",
+      created_shift_id: activeShift?.id,
       // Explicit fields so EHIApp doesn't need to parse the detail string
       ...(bb > 0 || mb > 0 || sb > 0 ? { _bb: bb, _mb: mb, _sb: sb } as any : {}),
       ...(totalKg > 0 ? { _bbKg: parseFloat(bbKg) || 0, _mbKg: parseFloat(mbKg) || 0, _sbKg: parseFloat(sbKg) || 0 } as any : {}),

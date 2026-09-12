@@ -2,7 +2,7 @@ import { CARGO_ROUTES } from "../../lib/constants";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Button } from "../ui";
 import { createPortal } from "react-dom";
-import { Transaction, User, Expense, CustomerWallet } from "../../lib/types";
+import { Transaction, User, Expense, CustomerWallet, HubShift } from "../../lib/types";
 import { fmt, roundMoney, tnow, generatePickupPin, normalizeAirlineName, airlineNamesLooselyMatch, getHubCode, upperOnChange, isStandalonePWA, formatPaymentModeDisplay, lagosBusinessDate } from "../../lib/helpers";
 import { chargeWalletForSale } from "../../lib/walletPayment";
 import { matchWallet } from "../../lib/customerIdentity";
@@ -145,6 +145,7 @@ export const CargoForm = ({
   customerWallets: passedWallets,
   setCustomerWallets: passedSetWallets,
   forcedTerminal,
+  activeShift,
 }: {
   onAddTx: (tx: Transaction) => void;
   user: User;
@@ -156,6 +157,12 @@ export const CargoForm = ({
   // long as it's mounted there -- being in the GAT tab IS the switch, so
   // no override control is shown (see the TerminalSwitch render below).
   forcedTerminal?: 'MMA2' | 'GAT';
+  // Whichever hub_shifts row is currently open for this hub's 'cargo'
+  // department (EHIApp.tsx's activeShiftsByDept['cargo']) -- stamped onto
+  // every new entry as created_shift_id so clear_cargo_debt can later tell
+  // whether an Individual debt was fully cleared before this same shift
+  // ever closed. null when no cargo shift is open right now.
+  activeShift?: HubShift | null;
 }) => {
   const isAdmin = ['super_admin', 'admin', 'accountant'].includes(propUser.role);
   // The "Global Hub Context" dropdown used to be sourced from CARGO_ROUTES
@@ -1639,6 +1646,10 @@ export const CargoForm = ({
     // `serialNumber` state has moved on to the next item) still prints the
     // serial that was actually current when THIS item was entered.
     (tx as any).serialAtSubmit = nextSerial;
+    // Lets clear_cargo_debt later tell whether a Debt-mode sale is fully
+    // cleared before this same shift ever closes -- see created_shift_id's
+    // own comment on the CargoForm props type above.
+    tx.created_shift_id = activeShift?.id;
 
     // Wallet payment — AUTO-SPLIT. Wallet covers what it can; any remainder is
     // collected by the chosen Cash/Transfer/POS method and recorded as the
