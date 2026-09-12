@@ -197,8 +197,19 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     | { streams: ('cargo' | 'baggage' | 'marketing' | 'package')[]; terminal?: 'MMA2' | 'GAT' }
     | null;
   const [streamLedger, setStreamLedger] = useState<StreamLedgerScope>(null);
+  // Yesterday + today, not a longer lookback -- fetchInitial's own window
+  // was costing real Supabase egress pulling ~14 days of rows into memory
+  // on every refresh/poll when TransactionLedger.tsx's "Current Shift"
+  // view (its default) only ever displays a shift-boundary slice of it, and
+  // every other screen that needs more (All Time, Analytics' 7-day/month
+  // buttons, AccountingConsole, the Ledger's own manual date picker) already
+  // widens this on demand via its own refetch. Two days, not one, so an
+  // overnight shift that started yesterday (or EODReconciliation's/
+  // Analytics' fixed rolling 18:00-to-18:00 boundary, which can reach back
+  // into yesterday) is still fully covered without a silent gap -- only a
+  // shift left open 48h+ without being closed would need All Time instead.
   const [globalDateRange, setGlobalDateRange] = useState({
-    start: new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0],
+    start: new Date(Date.now() - 1 * 86400000).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0]
   });
   // Grows via the Ledger's "Load More" button (below) when fetchInitial's
