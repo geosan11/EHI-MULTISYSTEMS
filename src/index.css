@@ -760,6 +760,33 @@ html {
     box-shadow: 0 0 0 5px rgba(16, 185, 129, 0);
   }
 }
+/* Decorative radar sweep + orbit pulse -- login screen hero panel only. */
+@keyframes ehiRadarSweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.animate-ehi-radar-sweep {
+  animation: ehiRadarSweep 9s linear infinite;
+  transform-origin: center center;
+}
+@keyframes ehiPulseOrbit {
+  0%,
+  100% {
+    transform: scale(0.95);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.25;
+  }
+}
+.animate-ehi-pulse-orbit {
+  animation: ehiPulseOrbit 4s ease-in-out infinite;
+}
 @keyframes ehiSplashBreathe {
   0%,
   100% {

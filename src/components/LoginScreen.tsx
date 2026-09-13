@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { UserProfile, signIn } from '../lib/auth';
 import ehiLogo from '../assets/branding/ehi-logo.png';
 import { getConnectionMode, testSupabaseConnection, supabase } from '../lib/supabase';
-import { User, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
+import { User, Eye, EyeOff, Loader2, AlertCircle, Clock, Radar } from 'lucide-react';
 
 type ConnStatus = 'checking' | 'live' | 'offline' | 'unconfigured';
 
@@ -66,6 +66,16 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
     }).catch(() => setConnStatus('offline'));
   }, []);
 
+  // Real wall-clock UTC display for the top utility bar -- purely
+  // informational (pre-login, there's no hub/shift context yet), so this
+  // is the only thing in that bar that's safe to show without a session.
+  const [utcTime, setUtcTime] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setUtcTime(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const utcLabel = utcTime.toISOString().slice(11, 19);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password.trim()) {
@@ -104,7 +114,7 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
 
   return (
     <div
-      className="relative flex flex-col items-center justify-center min-h-[100dvh] w-full overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-10 select-none animate-in fade-in duration-300"
+      className="relative flex flex-col min-h-[100dvh] w-full overflow-y-auto overflow-x-hidden select-none animate-in fade-in duration-300"
       style={{ background: 'var(--color-background)' }}
     >
       {/* Soft blue/purple ambient wash, in place of a photo backdrop */}
@@ -117,6 +127,26 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
         style={{ background: 'var(--color-purple)', opacity: 0.16, filter: 'blur(120px)' }}
       />
 
+      {/* Minimal top utility bar -- the connection-status pill moved up here
+          from inside the card (it was shown twice otherwise). No hub/shift
+          identity shown here on purpose: that's only known after signing in. */}
+      <header className="relative z-10 w-full px-4 sm:px-6 lg:px-10 py-3 flex items-center justify-between border-b" style={{ borderColor: 'var(--color-border)' }}>
+        <div
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border backdrop-blur-md"
+          style={{ background: `${status.dot}18`, borderColor: `${status.dot}40` }}
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${status.pulse ? 'animate-pulse' : ''}`} style={{ background: status.dot }} />
+          <span className="text-[10px] font-mono font-bold uppercase tracking-wider" style={{ color: status.color }}>
+            {status.label}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 text-[11px] font-mono" style={{ color: 'var(--color-muted)' }}>
+          <Clock size={12} />
+          <span>UTC <span style={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>{utcLabel}</span></span>
+        </div>
+      </header>
+
+      <main className="relative z-10 flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-10">
       {/* Main Container: Sleek desktop split card styled like the mockup */}
       <div
         className="relative z-10 w-full max-w-[380px] lg:max-w-3xl backdrop-blur-2xl p-4 lg:p-5"
@@ -144,20 +174,6 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
 
               <h1 className="text-2xl sm:text-[28px] font-extrabold font-sans tracking-tight" style={{ color: 'var(--color-foreground)' }}>Sign in</h1>
               <p className="text-[12px] font-sans mt-1" style={{ color: 'var(--color-muted)' }}>Enter your credentials to access your portal</p>
-
-              {/* Connection Status Badge */}
-              <div
-                className="mt-2.5 inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full border backdrop-blur-md transition-all"
-                style={{ background: `${status.dot}20`, borderColor: `${status.dot}40` }}
-              >
-                <div
-                  className={`w-1.5 h-1.5 rounded-full ${status.pulse ? 'animate-pulse' : ''}`}
-                  style={{ background: status.dot }}
-                />
-                <span className="text-[9px] font-mono font-bold uppercase tracking-wider" style={{ color: status.color }}>
-                  {status.label}
-                </span>
-              </div>
             </div>
 
             {/* Why-am-I-here notice -- distinguishes a genuinely expired
@@ -407,6 +423,24 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
               style={{ background: 'rgba(255,255,255,0.18)', filter: 'blur(70px)' }}
             />
 
+            {/* Decorative radar rings + sweep + flight-route lines, echoing
+                the mockup's telemetry graphic -- kept purely atmospheric
+                (no invented node names/latencies/security claims, since
+                nothing here is backed by a real monitoring feed pre-login). */}
+            <div aria-hidden="true" className="absolute inset-0 pointer-events-none overflow-hidden">
+              <div className="absolute -right-16 -top-16 w-72 h-72 rounded-full border border-white/15 animate-ehi-pulse-orbit" />
+              <div className="absolute -right-8 -top-8 w-56 h-56 rounded-full border border-white/10" />
+              <div className="absolute -right-16 -top-16 w-72 h-72 animate-ehi-radar-sweep">
+                <div className="w-1/2 h-1/2 origin-bottom-right" style={{ background: 'conic-gradient(from 0deg, rgba(255,255,255,0.22) 0deg, rgba(255,255,255,0.04) 45deg, transparent 60deg)' }} />
+              </div>
+              <svg className="w-full h-full opacity-20" fill="none" viewBox="0 0 400 600" xmlns="http://www.w3.org/2000/svg">
+                <path d="M-40 180 C 130 110, 240 320, 420 220" stroke="#FFFFFF" strokeWidth="1.5" strokeDasharray="5 5" />
+                <path d="M10 400 C 140 290, 290 520, 430 380" stroke="#FFFFFF" strokeWidth="1.5" strokeDasharray="3 3" />
+                <circle cx="270" cy="460" r="3" fill="#FFFFFF" />
+                <circle cx="180" cy="220" r="3" fill="#FFFFFF" />
+              </svg>
+            </div>
+
             {/* Small logo mark, top-left like the mockup's asterisk */}
             <div className="relative z-10 w-11 h-11 rounded-xl bg-white/95 flex items-center justify-center shadow-lg p-1.5">
               <img src={ehiLogo} alt="EHI Multisystems" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
@@ -414,6 +448,10 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
 
             {/* Bottom-left marketing copy, mockup-style */}
             <div className="relative z-10">
+              <div className="flex items-center gap-1.5 mb-2 text-white/70">
+                <Radar size={13} />
+                <span className="text-[10px] font-mono uppercase tracking-widest font-semibold">Operations Control</span>
+              </div>
               <p className="text-[13px] font-sans text-white/80 mb-1.5">You can easily</p>
               <h2 className="text-[22px] leading-snug font-extrabold font-sans">
                 Track, move and reconcile cargo — all from one hub.
@@ -423,6 +461,7 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
 
         </div>
       </div>
+      </main>
 
       {/* Forgot Password Modal */}
       {showForgotPassword && createPortal(
