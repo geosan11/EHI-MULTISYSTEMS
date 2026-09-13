@@ -2673,14 +2673,29 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         // TransactionLedger's own inner row-list region, which has its own
         // overflow-auto, used to scroll; the header/KPI/filter chrome above
         // it did not).
-        <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto overflow-x-hidden bg-[var(--color-obsidian)]">
-            {/* This overlay covers the real app shell (SideNav + Header)
-                entirely -- fixed inset-0 z-50 paints over them -- which used
-                to leave History with no profile/theme-toggle/sign-out access
-                at all until Back was clicked. Mounting the same Header
-                instance used everywhere else (same props as the main one
-                below) gives it that access back via the one real, already-
-                correct implementation instead of a page-local substitute. */}
+        <div className="fixed inset-0 z-50 flex flex-row bg-[var(--color-obsidian)]">
+            {/* This overlay used to cover the real app shell (SideNav +
+                Header) entirely -- fixed inset-0 z-50 paints over them, and
+                the floating SideNav being position:fixed meant it just
+                disappeared underneath rather than getting pushed anywhere.
+                Docked here as an in-flow flex sibling instead: no floating
+                gap, so it can't hide ledger content behind it, and nav
+                access isn't lost while the ledger is open. Mounting the
+                same Header instance used everywhere else (same props as the
+                main one below) gives that same access back via the one
+                real, already-correct implementation instead of a
+                page-local substitute. */}
+            <SideNav
+              user={user}
+              currentTab={currentTab}
+              onChangeTab={(t) => { handleCloseLedger(); setCurrentTab(t); }}
+              onLogout={onLogout}
+              theme={theme}
+              onToggleTheme={toggle}
+              excessBaggageAirlines={excessBaggageAirlines}
+              docked
+            />
+          <div className="flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden">
             <Header
               user={user}
               isOffline={isOffline}
@@ -2753,6 +2768,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               />
               </Suspense>
             </ErrorBoundary>
+          </div>
           </div>
         </div>,
         document.body

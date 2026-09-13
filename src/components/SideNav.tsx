@@ -51,6 +51,7 @@ export const SideNav = ({
   theme,
   onToggleTheme,
   excessBaggageAirlines,
+  docked = false,
 }: {
   user: User;
   currentTab: TabView;
@@ -59,10 +60,22 @@ export const SideNav = ({
   theme: Theme;
   onToggleTheme: () => void;
   excessBaggageAirlines: ExcessBaggageAirline[];
+  // Full-screen overlays (the Master Ledger's stream view) portal to
+  // document.body with their own fixed inset-0 z-50 layer, which paints
+  // over the real floating SideNav entirely -- it never disappears, it's
+  // just hidden underneath. `docked` renders a second, in-flow instance
+  // inside that overlay instead: no fixed positioning, no floating gap,
+  // flush against the left edge like a normal flex sibling, so the
+  // overlay's own content can never render underneath it and nav access
+  // isn't lost while the ledger is open. Icon-only, no expand/collapse --
+  // that's the floating nav's own affordance and doesn't apply here.
+  docked?: boolean;
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
+  const effectiveExpanded = docked ? false : isExpanded;
 
   useEffect(() => {
+    if (docked) return;
     // Check local storage or window size for initial state
     const saved = localStorage.getItem("ehi_sidebar_expanded");
     if (saved !== null) {
@@ -70,9 +83,10 @@ export const SideNav = ({
     } else {
       setIsExpanded(window.innerWidth >= 1200);
     }
-  }, []);
+  }, [docked]);
 
   const handleToggleExpand = () => {
+    if (docked) return;
     const nextState = !isExpanded;
     setIsExpanded(nextState);
     localStorage.setItem("ehi_sidebar_expanded", String(nextState));
@@ -82,11 +96,14 @@ export const SideNav = ({
   // normal flex flow), so .ehi-main-content can no longer rely on flexbox
   // to make room for it -- it reads this CSS var (set on the root so no
   // prop-drilling into EHIApp is needed) to reserve matching space, kept in
-  // sync with the same width this component renders at.
+  // sync with the same width this component renders at. The docked
+  // instance sits in normal flow already, so it must never touch this --
+  // doing so would fight the real floating instance for the same var.
   useEffect(() => {
+    if (docked) return;
     const width = isExpanded ? 220 : 72;
     document.documentElement.style.setProperty("--sidenav-offset", `${width + 20}px`);
-  }, [isExpanded]);
+  }, [isExpanded, docked]);
 
   // getAllowedTabs is the single source of truth for which ids this user
   // can see -- their super-admin-set view_overrides if present, else the
@@ -120,41 +137,42 @@ export const SideNav = ({
 
   return (
     <aside
-      className={`ehi-sidenav ${isExpanded ? "expanded" : "collapsed"}`}
+      className={`ehi-sidenav ${effectiveExpanded ? "expanded" : "collapsed"} ${docked ? "docked" : ""}`}
       style={{
         display: "flex",
         flexDirection: "column",
-        width: isExpanded ? 220 : 72,
-        position: "fixed",
-        top: 10,
-        left: 10,
-        zIndex: 30,
+        width: docked ? 72 : (effectiveExpanded ? 220 : 72),
+        position: docked ? "relative" : "fixed",
+        top: docked ? undefined : 10,
+        left: docked ? undefined : 10,
+        zIndex: docked ? undefined : 30,
         background: "var(--color-surface-card)",
-        border: "1px solid var(--color-border)",
-        borderRadius: "var(--radius-2xl)",
-        boxShadow: "var(--shadow-dropdown)",
+        border: docked ? "none" : "1px solid var(--color-border)",
+        borderRight: docked ? "1px solid var(--color-border)" : undefined,
+        borderRadius: docked ? 0 : "var(--radius-2xl)",
+        boxShadow: docked ? "none" : "var(--shadow-dropdown)",
         flexShrink: 0,
-        height: "calc(var(--app-height) - 20px)",
+        height: docked ? "100%" : "calc(var(--app-height) - 20px)",
         overflowY: "auto",
         overflowX: "hidden",
-        transition: "width 0.3s cubic-bezier(0.2, 0, 0, 1)",
+        transition: docked ? undefined : "width 0.3s cubic-bezier(0.2, 0, 0, 1)",
       }}
     >
       {/* Brand */}
       <div
         style={{
-          padding: isExpanded ? "12px 12px 8px" : "12px 0 8px",
+          padding: effectiveExpanded ? "12px 12px 8px" : "12px 0 8px",
           display: "flex",
           flexDirection: "column",
-          alignItems: isExpanded ? "flex-start" : "center",
+          alignItems: effectiveExpanded ? "flex-start" : "center",
           transition: "all 0.3s cubic-bezier(0.2, 0, 0, 1)",
           flexShrink: 0,
         }}
       >
         <div
-          className={`flex items-center cursor-pointer hover:opacity-80 transition-opacity ${isExpanded ? "gap-2.5" : "justify-center w-full"}`}
+          className={`flex items-center transition-opacity ${docked ? "" : "cursor-pointer hover:opacity-80"} ${effectiveExpanded ? "gap-2.5" : "justify-center w-full"}`}
           style={{ minHeight: 36 }}
-          onClick={handleToggleExpand}
+          onClick={docked ? undefined : handleToggleExpand}
         >
           <div
             style={{
@@ -189,8 +207,8 @@ export const SideNav = ({
           <div
             className="ehi-sidebar-brand"
             style={{
-              opacity: isExpanded ? 1 : 0,
-              width: isExpanded ? "auto" : 0,
+              opacity: effectiveExpanded ? 1 : 0,
+              width: effectiveExpanded ? "auto" : 0,
               overflow: "hidden",
               transition:
                 "opacity 0.2s ease, width 0.3s cubic-bezier(0.2, 0, 0, 1)",
@@ -229,8 +247,8 @@ export const SideNav = ({
           className="ehi-sidebar-brand"
           style={{
             marginTop: 6,
-            opacity: isExpanded ? 1 : 0,
-            height: isExpanded ? "auto" : 0,
+            opacity: effectiveExpanded ? 1 : 0,
+            height: effectiveExpanded ? "auto" : 0,
             overflow: "hidden",
             transition:
               "opacity 0.2s ease, height 0.3s cubic-bezier(0.2, 0, 0, 1)",
@@ -275,9 +293,9 @@ export const SideNav = ({
                 width: "100%",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: isExpanded ? "flex-start" : "center",
-                gap: isExpanded ? 10 : 0,
-                padding: isExpanded ? "5px 8px" : "5px",
+                justifyContent: effectiveExpanded ? "flex-start" : "center",
+                gap: effectiveExpanded ? 10 : 0,
+                padding: effectiveExpanded ? "5px 8px" : "5px",
                 background: isActive ? "transparent" : "transparent",
                 border: "none",
                 borderRadius: "var(--radius-md)",
@@ -315,8 +333,8 @@ export const SideNav = ({
               </div>
               <div
                 style={{
-                  opacity: isExpanded ? 1 : 0,
-                  width: isExpanded ? "auto" : 0,
+                  opacity: effectiveExpanded ? 1 : 0,
+                  width: effectiveExpanded ? "auto" : 0,
                   overflow: "hidden",
                   transition:
                     "opacity 0.2s ease, width 0.3s cubic-bezier(0.2, 0, 0, 1)",
@@ -355,13 +373,13 @@ export const SideNav = ({
           className="group hover:bg-[var(--color-surface-2)] transition-colors"
           style={{
             width: "100%",
-            padding: isExpanded ? "6px 8px" : "6px",
-            justifyContent: isExpanded ? "flex-start" : "center",
+            padding: effectiveExpanded ? "6px 8px" : "6px",
+            justifyContent: effectiveExpanded ? "flex-start" : "center",
             background: "transparent",
             border: "none",
             display: "flex",
             alignItems: "center",
-            gap: isExpanded ? 10 : 0,
+            gap: effectiveExpanded ? 10 : 0,
             cursor: "pointer",
             borderRadius: "var(--radius-md)",
           }}
@@ -379,8 +397,8 @@ export const SideNav = ({
           )}
           <div
             style={{
-              opacity: isExpanded ? 1 : 0,
-              width: isExpanded ? "auto" : 0,
+              opacity: effectiveExpanded ? 1 : 0,
+              width: effectiveExpanded ? "auto" : 0,
               overflow: "hidden",
               transition:
                 "opacity 0.2s ease, width 0.3s cubic-bezier(0.2, 0, 0, 1)",
@@ -403,13 +421,13 @@ export const SideNav = ({
           className="group hover:bg-[var(--color-surface-2)] transition-colors"
           style={{
             width: "100%",
-            padding: isExpanded ? "6px 8px" : "6px",
-            justifyContent: isExpanded ? "flex-start" : "center",
+            padding: effectiveExpanded ? "6px 8px" : "6px",
+            justifyContent: effectiveExpanded ? "flex-start" : "center",
             background: "transparent",
             border: "none",
             display: "flex",
             alignItems: "center",
-            gap: isExpanded ? 10 : 0,
+            gap: effectiveExpanded ? 10 : 0,
             cursor: "pointer",
             borderRadius: "var(--radius-md)",
           }}
@@ -420,8 +438,8 @@ export const SideNav = ({
           />
           <div
             style={{
-              opacity: isExpanded ? 1 : 0,
-              width: isExpanded ? "auto" : 0,
+              opacity: effectiveExpanded ? 1 : 0,
+              width: effectiveExpanded ? "auto" : 0,
               overflow: "hidden",
               transition:
                 "opacity 0.2s ease, width 0.3s cubic-bezier(0.2, 0, 0, 1)",
