@@ -2711,6 +2711,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                   ? () => setStateWideView(v => !v)
                   : undefined
               }
+              docked
             />
           <div className="flex-1 flex flex-col">
             {/* This overlay is portaled to document.body as a SIBLING of the

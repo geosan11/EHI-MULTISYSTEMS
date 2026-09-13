@@ -146,6 +146,9 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
             {status.label}
           </span>
         </div>
+        <span className="absolute left-1/2 -translate-x-1/2 hidden sm:inline text-[10px] font-mono font-semibold uppercase tracking-widest text-slate-500">
+          Created by Geosan Production
+        </span>
         <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-400">
           <Clock size={12} />
           <span>UTC <span className="text-slate-200 font-semibold">{utcLabel}</span></span>
@@ -318,7 +321,7 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
 
             <div className="pt-2.5 mt-2.5 border-t border-white/[0.06] flex items-center justify-between text-[11px] font-mono text-slate-500">
               <span>EHI Multisystems • Operational Hub</span>
-              <span className="hidden sm:inline text-slate-600">Created by EHI Multisystems Nigeria Ltd</span>
+              <span className="hidden sm:inline text-slate-600">Created by Geosan Production</span>
             </div>
           </section>
 

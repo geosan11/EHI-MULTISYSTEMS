@@ -58,34 +58,41 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
     .slice(0, 25);
 
   if (collapsed) {
+    // Floating rounded pill (matches SideNav's own floating-card recipe --
+    // shadow-dropdown + radius-2xl -- plus the amber glow already used for
+    // this ledger's "Total" KPI tile) instead of a flush full-height strip,
+    // so it reads as a self-contained tab rather than a permanent divider.
+    // `self-center` keeps it from stretching to the row's full height.
     return (
-      <div className="ehi-credit-feed w-10 overflow-hidden bg-[var(--color-surface-1)] border-l border-[var(--color-border)] flex flex-col items-center py-4 space-y-4 shrink-0 transition-all z-20 select-none">
-        <button
-          type="button"
-          onClick={() => setCollapsed(false)}
-          className="p-2 text-[var(--color-accent-amber)] hover:bg-[var(--color-surface-2)] rounded-lg transition-colors cursor-pointer"
-          title="Expand Live Customer Credit Feed"
-        >
-          <ChevronLeft size={18} />
-        </button>
-        <div className="flex flex-col items-center gap-2 max-h-[calc(100vh-140px)] overflow-hidden">
-          <span className="w-2 h-2 rounded-full bg-[var(--color-accent-amber)] animate-pulse shrink-0" />
-          {/* `writing-mode-vertical` was a made-up class -- it doesn't exist
-              in Tailwind or anywhere in this codebase's CSS, so this label
-              was never actually vertical: it laid out as one long
-              whitespace-nowrap line inside a 40px-wide box, got hard-clipped
-              by `truncate`, and the surviving fragment was flipped upside
-              down by rotate-180, producing garbled text. Real vertical
-              typesetting needs the actual `writing-mode` CSS property
-              (no Tailwind utility for it), applied here via inline style;
-              `truncate` is dropped since it's a horizontal-line clip that
-              fights vertical text, not a fix for it. */}
-          <span
-            className="text-[10px] font-mono font-bold tracking-widest text-[var(--color-accent-amber)] uppercase whitespace-nowrap"
-            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+      <div className="ehi-credit-feed self-center shrink-0 my-4 mr-3 z-20 select-none">
+        <div className="w-11 rounded-2xl bg-[var(--color-surface-card)] border border-[rgba(245,158,11,0.35)] shadow-[var(--shadow-dropdown),0_0_18px_-6px_rgba(245,158,11,0.35)] flex flex-col items-center py-3 gap-3 transition-all">
+          <button
+            type="button"
+            onClick={() => setCollapsed(false)}
+            className="p-1.5 text-[var(--color-accent-amber)] hover:bg-[var(--color-surface-2)] rounded-lg transition-colors cursor-pointer"
+            title="Expand Live Customer Credit Feed"
           >
-            Prepaid Credit Feed (₦{fmt(totalLiability)})
-          </span>
+            <ChevronLeft size={16} />
+          </button>
+          <div className="flex flex-col items-center gap-2 max-h-[calc(100vh-220px)] overflow-hidden">
+            <span className="w-2 h-2 rounded-full bg-[var(--color-accent-amber)] animate-pulse shrink-0" />
+            {/* `writing-mode-vertical` was a made-up class -- it doesn't exist
+                in Tailwind or anywhere in this codebase's CSS, so this label
+                was never actually vertical: it laid out as one long
+                whitespace-nowrap line inside a 40px-wide box, got hard-clipped
+                by `truncate`, and the surviving fragment was flipped upside
+                down by rotate-180, producing garbled text. Real vertical
+                typesetting needs the actual `writing-mode` CSS property
+                (no Tailwind utility for it), applied here via inline style;
+                `truncate` is dropped since it's a horizontal-line clip that
+                fights vertical text, not a fix for it. */}
+            <span
+              className="text-[10px] font-mono font-bold tracking-widest text-[var(--color-accent-amber)] uppercase whitespace-nowrap"
+              style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+            >
+              Prepaid Credit Feed (₦{fmt(totalLiability)})
+            </span>
+          </div>
         </div>
       </div>
     );

@@ -83,6 +83,31 @@ type Entry = {
   posApprovalCode?: string;
 };
 
+// Deterministic per-airline badge color, purely for visual scanning of the
+// row list -- same airline always lands on the same color (hashed off
+// normalizeAirlineName's output, not the raw string, so casing/spacing
+// variants of the same airline never split across two colors), no meaning
+// attached to which color a given airline gets.
+const AIRLINE_BADGE_PALETTE: { bg: string; text: string; border: string }[] = [
+  { bg: 'rgba(59,130,246,0.15)', text: '#60a5fa', border: 'rgba(59,130,246,0.35)' },   // blue
+  { bg: 'rgba(16,185,129,0.15)', text: '#34d399', border: 'rgba(16,185,129,0.35)' },   // emerald
+  { bg: 'rgba(168,85,247,0.15)', text: '#c084fc', border: 'rgba(168,85,247,0.35)' },   // purple
+  { bg: 'rgba(236,72,153,0.15)', text: '#f472b6', border: 'rgba(236,72,153,0.35)' },   // pink
+  { bg: 'rgba(34,211,238,0.15)', text: '#22d3ee', border: 'rgba(34,211,238,0.35)' },   // cyan
+  { bg: 'rgba(163,230,53,0.15)', text: '#a3e635', border: 'rgba(163,230,53,0.35)' },   // lime
+];
+
+function hashStringToIndex(s: string, mod: number): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h) % mod;
+}
+
+function airlineBadgeColors(airlineName: string) {
+  const key = normalizeAirlineName(airlineName) || airlineName;
+  return AIRLINE_BADGE_PALETTE[hashStringToIndex(key, AIRLINE_BADGE_PALETTE.length)];
+}
+
 // Maps a transaction type to its real DB table -- needed anywhere a
 // retrieval/approval action writes an audit_log row, since audit_log's
 // table_name should point at the actual table (cargo_entries/manifests/
@@ -4106,6 +4131,26 @@ export const TransactionLedger = ({
 
                         {/* Badges */}
                         <div className="flex flex-wrap gap-1">
+                          {(e.raw as any)?.airline && (() => {
+                            const c = airlineBadgeColors((e.raw as any).airline);
+                            return (
+                              <span
+                                className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono uppercase tracking-wider border"
+                                style={{ background: c.bg, color: c.text, borderColor: c.border }}
+                              >
+                                {(e.raw as any).airline}
+                              </span>
+                            );
+                          })()}
+                          {(() => {
+                            const raw = e.raw as any;
+                            const dest = raw ? ((e.type === 'cargo' || e.type === 'marketing') ? raw.route : raw.destination) : null;
+                            return dest ? (
+                              <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono uppercase tracking-wider bg-[rgba(245,158,11,0.12)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.3)]">
+                                {dest}
+                              </span>
+                            ) : null;
+                          })()}
                           {e.raw?.is_debt_clearance && (
                             // Plain label, not a button -- the whole row's
                             // onClick already jumps to the original debt
@@ -4374,6 +4419,26 @@ export const TransactionLedger = ({
                     <td className="py-2.5 px-2">
                       {/* Row-level badges for special transaction types */}
                       <div className="flex flex-wrap gap-1 mb-0.5">
+                        {(e.raw as any)?.airline && (() => {
+                          const c = airlineBadgeColors((e.raw as any).airline);
+                          return (
+                            <span
+                              className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono uppercase tracking-wider border"
+                              style={{ background: c.bg, color: c.text, borderColor: c.border }}
+                            >
+                              {(e.raw as any).airline}
+                            </span>
+                          );
+                        })()}
+                        {(() => {
+                          const raw = e.raw as any;
+                          const dest = raw ? ((e.type === 'cargo' || e.type === 'marketing') ? raw.route : raw.destination) : null;
+                          return dest ? (
+                            <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono uppercase tracking-wider bg-[rgba(245,158,11,0.12)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.3)]">
+                              {dest}
+                            </span>
+                          ) : null;
+                        })()}
                         {e.raw?.is_debt_clearance && (
                           // Plain label, not a button -- see the mobile
                           // card's matching comment above.

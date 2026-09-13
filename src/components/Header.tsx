@@ -19,6 +19,7 @@ export const Header = ({
   onManualSync,
   stateWideView,
   onToggleStateWideView,
+  docked = false,
 }: {
   user: User;
   isOffline: boolean;
@@ -34,6 +35,17 @@ export const Header = ({
   // offer either way, so it's left out of the menu entirely.
   stateWideView?: boolean;
   onToggleStateWideView?: () => void;
+  // .ehi-header-controls is position:fixed on desktop (see index.css) so it
+  // floats above whatever's scrolling underneath -- fine for the normal app
+  // shell, but the Master Ledger's own full-screen overlay has real chrome
+  // (top bar, manifest ribbon) in that same top-right corner, which the
+  // fixed pill then paints over. `docked` renders the identical pill inline
+  // instead, so it takes its place in that overlay's own header row rather
+  // than floating over it. The plain CSS class can't just be
+  // conditionally-overridden with more classes here -- it's defined later
+  // in index.css than Tailwind's own utilities, so it would still win the
+  // cascade -- hence the inline-style twin below instead.
+  docked?: boolean;
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -70,7 +82,13 @@ export const Header = ({
       className="flex flex-col w-full shrink-0 z-40 relative"
     >
       <div
-        className="ehi-header-row flex items-center justify-between px-4 py-3 min-h-[60px]"
+        // .ehi-header-row collapses to zero height/padding on desktop
+        // (index.css) since both its children normally leave flow entirely
+        // (brand hidden, controls floated) -- docked keeps the controls IN
+        // flow, so that collapse rule would squash them flush against the
+        // row's edges instead. Dropping the class here (docked only) lets
+        // the Tailwind padding/min-height below actually apply.
+        className={docked ? 'flex items-center justify-between px-4 py-3 min-h-[60px]' : 'ehi-header-row flex items-center justify-between px-4 py-3 min-h-[60px]'}
         style={{
           background: 'var(--color-nav-bg)',
           borderBottom: '1px solid var(--color-border)',
@@ -102,8 +120,19 @@ export const Header = ({
 
         {/* Right controls -- ehi-header-controls floats this cluster as a
             fixed overlay on desktop (see index.css), matching SideNav's
-            floating treatment instead of sitting in the header's flow. */}
-        <div className="ehi-header-controls flex items-center gap-1.5 ml-auto">
+            floating treatment instead of sitting in the header's flow.
+            docked (see prop comment above) renders the same pill in-flow
+            instead, used only inside the Master Ledger's overlay. */}
+        <div
+          className={docked ? 'flex items-center gap-1.5 ml-auto' : 'ehi-header-controls flex items-center gap-1.5 ml-auto'}
+          style={docked ? {
+            background: 'var(--color-surface-card)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-full)',
+            boxShadow: 'var(--shadow-dropdown)',
+            padding: '4px 8px',
+          } : undefined}
+        >
 
           {/* User info */}
           <div className="text-right mr-0.5 hidden sm:block">
