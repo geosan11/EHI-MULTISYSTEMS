@@ -131,7 +131,7 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
       />
 
       {/* Top utility bar */}
-      <header className="relative z-10 w-full px-4 sm:px-6 lg:px-10 py-3 flex items-center justify-between border-b border-white/[0.06] bg-slate-950/40 backdrop-blur-md">
+      <header className="relative z-10 w-full px-4 sm:px-6 lg:px-10 py-2 flex items-center justify-between border-b border-white/[0.06] bg-slate-950/40 backdrop-blur-md">
         <div
           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border backdrop-blur-md"
           style={{ background: `${status.dot}18`, borderColor: `${status.dot}40` }}
@@ -152,9 +152,9 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
         </div>
       </header>
 
-      <main className="relative z-10 flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-10">
+      <main className="relative z-10 flex-1 flex items-center justify-center p-3 sm:p-4 lg:p-6 overflow-hidden">
         <div
-          className="w-full max-w-[380px] lg:max-w-3xl rounded-3xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 border border-white/10 shadow-2xl"
+          className="w-full max-w-[380px] lg:max-w-2xl rounded-3xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 border border-white/10 shadow-2xl"
           style={{
             background: 'rgba(14,19,30,0.85)',
             backdropFilter: 'blur(28px)',
@@ -163,23 +163,23 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
           }}
         >
           {/* Left column: credentials */}
-          <section className="lg:col-span-7 p-7 sm:p-10 lg:p-12 flex flex-col justify-between">
+          <section className="lg:col-span-7 p-5 sm:p-6 lg:p-8 flex flex-col justify-between">
             {/* Mobile logo */}
-            <div className="mb-6 flex items-center justify-center lg:hidden">
-              <div className="p-2 rounded-xl bg-white/[0.04] border border-white/10">
-                <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 130, height: 'auto', objectFit: 'contain' }} />
+            <div className="mb-3 flex items-center justify-center lg:hidden">
+              <div className="p-1.5 rounded-xl bg-white/[0.04] border border-white/10">
+                <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 100, height: 'auto', objectFit: 'contain' }} />
               </div>
             </div>
 
             <div className="my-auto w-full max-w-md mx-auto">
-              <div className="mb-8 text-left">
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white mb-2">Operator Access</h1>
-                <p className="text-sm text-slate-400 leading-relaxed">Enter your credentials to access the dispatch console.</p>
+              <div className="mb-4 text-left">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white mb-1">Operator Access</h1>
+                <p className="text-xs text-slate-400 leading-relaxed">Enter your credentials to access the dispatch console.</p>
               </div>
 
               {notice && (
                 <div
-                  className="w-full flex items-center gap-2.5 backdrop-blur-md rounded-xl px-3.5 py-2.5 mb-5 animate-in fade-in"
+                  className="w-full flex items-center gap-2.5 backdrop-blur-md rounded-xl px-3.5 py-2 mb-3 animate-in fade-in"
                   style={{
                     background: notice.type === 'offline' ? 'rgba(148,163,184,0.12)' : 'rgba(245,158,11,0.12)',
                     border: `1px solid ${notice.type === 'offline' ? 'rgba(148,163,184,0.3)' : 'rgba(245,158,11,0.3)'}`,
@@ -190,10 +190,10 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} className="space-y-3">
                 {/* Email */}
                 <div>
-                  <label htmlFor="login-email" className="block text-xs font-medium text-slate-300 mb-2">
+                  <label htmlFor="login-email" className="block text-xs font-medium text-slate-300 mb-1">
                     Email
                   </label>
                   <div className="relative rounded-xl group transition-all duration-200">
@@ -209,14 +209,14 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
                       placeholder="name@ehimultisystems.com"
                       autoComplete="email"
                       required
-                      className="w-full bg-[#111724]/80 hover:bg-[#111724] text-slate-100 placeholder-slate-500 text-sm rounded-xl border border-white/10 hover:border-white/20 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 pl-10 pr-4 py-3 transition-all duration-200 outline-none"
+                      className="w-full bg-[#111724]/80 hover:bg-[#111724] text-slate-100 placeholder-slate-500 text-sm rounded-xl border border-white/10 hover:border-white/20 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 pl-10 pr-4 py-2.5 transition-all duration-200 outline-none"
                     />
                   </div>
                 </div>
 
                 {/* Password */}
                 <div>
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mb-1">
                     <label htmlFor="login-password" className="block text-xs font-medium text-slate-300">
                       Password
                     </label>
@@ -241,7 +241,7 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
                       placeholder="••••••••••••"
                       autoComplete="current-password"
                       required
-                      className="w-full bg-[#111724]/80 hover:bg-[#111724] text-slate-100 placeholder-slate-500 text-sm rounded-xl border border-white/10 hover:border-white/20 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 pl-10 pr-11 py-3 transition-all duration-200 outline-none"
+                      className="w-full bg-[#111724]/80 hover:bg-[#111724] text-slate-100 placeholder-slate-500 text-sm rounded-xl border border-white/10 hover:border-white/20 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 pl-10 pr-11 py-2.5 transition-all duration-200 outline-none"
                     />
                     <button
                       type="button"
@@ -275,14 +275,14 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
                 </div>
 
                 {error && (
-                  <div className="flex items-center gap-2.5 bg-red-500/10 border border-red-500/25 backdrop-blur-md rounded-xl px-3.5 py-2.5 animate-in fade-in">
+                  <div className="flex items-center gap-2.5 bg-red-500/10 border border-red-500/25 backdrop-blur-md rounded-xl px-3.5 py-2 animate-in fade-in">
                     <AlertCircle size={15} className="text-red-400 shrink-0" />
                     <p className="text-[12px] text-red-300 leading-snug font-medium">{error}</p>
                   </div>
                 )}
 
                 {connStatus === 'unconfigured' && (
-                  <div className="bg-amber-500/10 border border-amber-400/25 backdrop-blur-md rounded-xl px-3.5 py-2.5">
+                  <div className="bg-amber-500/10 border border-amber-400/25 backdrop-blur-md rounded-xl px-3.5 py-2">
                     <p className="text-[11px] font-mono text-amber-300">
                       VITE_SUPABASE_URL not configured. Add it to Vercel environment variables.
                     </p>
@@ -290,11 +290,11 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
                 )}
 
                 {/* Primary CTA */}
-                <div className="pt-1">
+                <div>
                   <button
                     type="submit"
                     disabled={isLoading || connStatus === 'unconfigured'}
-                    className="relative w-full text-white font-semibold py-3 px-6 rounded-xl flex items-center justify-center gap-2 text-sm tracking-wide border border-white/20 shadow-lg group overflow-hidden transition-all duration-200 disabled:opacity-50"
+                    className="relative w-full text-white font-semibold py-2.5 px-6 rounded-xl flex items-center justify-center gap-2 text-sm tracking-wide border border-white/20 shadow-lg group overflow-hidden transition-all duration-200 disabled:opacity-50"
                     style={{
                       background: 'linear-gradient(135deg, #3b82f6 0%, #4f46e5 52%, #7c3aed 100%)',
                       boxShadow: '0 10px 28px -4px rgba(79,70,229,0.5), 0 0 18px 2px rgba(99,102,241,0.25), inset 0 1px 1px rgba(255,255,255,0.3)',
@@ -316,7 +316,7 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
               </form>
             </div>
 
-            <div className="pt-5 mt-5 border-t border-white/[0.06] flex items-center justify-between text-[11px] font-mono text-slate-500">
+            <div className="pt-2.5 mt-2.5 border-t border-white/[0.06] flex items-center justify-between text-[11px] font-mono text-slate-500">
               <span>EHI Multisystems • Operational Hub</span>
               <span className="hidden sm:inline text-slate-600">Created by EHI Multisystems Nigeria Ltd</span>
             </div>
@@ -324,7 +324,7 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
 
           {/* Right column: brand / telemetry panel */}
           <section
-            className="hidden lg:flex lg:col-span-5 m-3 lg:m-3.5 rounded-2xl p-6 sm:p-8 flex-col justify-between overflow-hidden shadow-2xl relative border border-white/15"
+            className="hidden lg:flex lg:col-span-5 m-2 lg:m-2.5 rounded-2xl p-4 sm:p-5 flex-col justify-between overflow-hidden shadow-2xl relative border border-white/15"
             style={{
               background: 'linear-gradient(155deg, rgba(30,58,138,0.85) 0%, rgba(49,46,129,0.9) 35%, rgba(76,29,149,0.85) 75%, rgba(26,16,60,0.95) 100%)',
               boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.2), 0 25px 50px -12px rgba(10,14,26,0.85)',
@@ -365,14 +365,14 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
               </div>
             </div>
 
-            <div className="relative z-10 my-auto py-5 space-y-3">
-              <div className="bg-slate-950/50 backdrop-blur-lg rounded-xl p-3.5 border border-white/15 shadow-xl">
-                <div className="flex items-center justify-between mb-2">
+            <div className="relative z-10 my-auto py-3 space-y-2.5">
+              <div className="bg-slate-950/50 backdrop-blur-lg rounded-xl p-3 border border-white/15 shadow-xl">
+                <div className="flex items-center justify-between mb-1.5">
                   <span className="text-[11px] font-mono text-blue-200/90 flex items-center gap-1.5 font-medium">
                     <Radar size={14} className="text-emerald-300" />Network Overview
                   </span>
                 </div>
-                <div className="h-16 w-full rounded-lg bg-black/40 border border-white/10 relative overflow-hidden flex items-center justify-center">
+                <div className="h-12 w-full rounded-lg bg-black/40 border border-white/10 relative overflow-hidden flex items-center justify-center">
                   <svg className="w-full h-full p-2" fill="none" viewBox="0 0 320 80" xmlns="http://www.w3.org/2000/svg">
                     <path d="M20 40 Q 90 10, 160 40 T 300 40" stroke="rgba(99,102,241,0.4)" strokeDasharray="4 4" strokeWidth="1.5" />
                     <path d="M20 40 Q 90 70, 160 40 T 300 40" stroke="rgba(245,158,11,0.4)" strokeDasharray="3 3" strokeWidth="1.5" />
@@ -383,21 +383,21 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-pulse pointer-events-none" />
                 </div>
               </div>
-              <div className="px-3 py-2.5 rounded-lg bg-amber-500/10 border border-amber-400/20 text-[11px] text-amber-200/90 flex items-center gap-2">
+              <div className="px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-400/20 text-[11px] text-amber-200/90 flex items-center gap-2">
                 <Lock size={14} className="text-amber-400 flex-shrink-0" />
                 <span className="leading-tight">Active waybills, manifest payloads, and hub routes are restricted to authenticated operators.</span>
               </div>
             </div>
 
             <div className="relative z-10 pt-2 border-t border-white/10">
-              <div className="flex items-center gap-2 mb-1.5">
+              <div className="flex items-center gap-2 mb-1">
                 <Radar size={15} className="text-amber-400" />
                 <p className="text-blue-200 text-[11px] font-mono uppercase tracking-widest font-semibold">Operations Control</p>
               </div>
-              <h2 className="text-xl sm:text-2xl font-bold text-white leading-tight tracking-tight">
+              <h2 className="text-lg sm:text-xl font-bold text-white leading-tight tracking-tight">
                 Track, dispatch, and reconcile cargo in real time.
               </h2>
-              <p className="text-[11px] text-white/70 mt-2 font-normal leading-relaxed">
+              <p className="text-[11px] text-white/70 mt-1.5 font-normal leading-relaxed">
                 Integrated electronic manifests, instant waybill status sync, and automated custody handover receipts.
               </p>
             </div>
