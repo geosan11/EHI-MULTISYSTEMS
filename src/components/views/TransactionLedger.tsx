@@ -1495,7 +1495,12 @@ export const TransactionLedger = ({
           ...editingTx,
           amountPaid: finalRes.newAmountPaid ?? ((editingTx.amountPaid || 0) + totalCollected),
           paymentHistory: history,
-          mode: fullyPaid ? 'Debt Paid' : 'Debt',
+          // finalRes.newMode is the RPC's own real final value -- trust it
+          // over an assumed 'Debt Paid' the same way amountPaid just above
+          // trusts newAmountPaid, so this object's redundant onUpdateTx
+          // write below can't overwrite a same-shift reclassification back
+          // to plain 'Debt' a moment after the RPC set it correctly.
+          mode: fullyPaid ? (finalRes.newMode || 'Debt Paid') : 'Debt',
           paymentConfirmed: fullyPaid,
           confirmedBy: fullyPaid ? settleLoggedBy : editingTx.confirmedBy,
           confirmedAt: fullyPaid ? new Date().toISOString() : editingTx.confirmedAt,
@@ -2366,7 +2371,8 @@ export const TransactionLedger = ({
             walletHist,
             ...(rem > 0 ? [{ amount: rem, mode: clearDebtRemainderMode, by: loggedBy, at: new Date().toISOString() }] : []),
           ],
-          mode: fullyPaid ? 'Debt Paid' : 'Debt',
+          // See the editingTx wallet-settle flow's identical comment above.
+          mode: fullyPaid ? (finalRes.newMode || 'Debt Paid') : 'Debt',
           paymentConfirmed: fullyPaid,
           confirmedBy: fullyPaid ? loggedBy : tx.confirmedBy,
           confirmedAt: fullyPaid ? new Date().toISOString() : tx.confirmedAt,
@@ -2446,7 +2452,15 @@ export const TransactionLedger = ({
         // computation for any entry that had been partially retrieved.
         amountPaid: result.newAmountPaid ?? tx.amount,
         paymentHistory: [...(tx.paymentHistory || []), historyEntry],
-        mode: fullyPaid ? 'Debt Paid' : 'Debt',
+        // Same idempotency fix as amountPaid just above, for mode: trust
+        // the RPC's own returned final mode (result.newMode) instead of
+        // assuming 'Debt Paid'. Without this, onUpdateTx's redundant write
+        // right after this RPC call overwrote a same-shift Individual
+        // reclassification (receipt_mode/payment_mode rewritten to the real
+        // payment mode, e.g. 'Transfer') back to plain 'Debt' a moment
+        // after 20260947's clear_*_debt set it correctly -- see
+        // 20260948_clear_debt_return_final_mode.sql.
+        mode: fullyPaid ? (result.newMode || 'Debt Paid') : 'Debt',
         paymentConfirmed: fullyPaid,
         confirmedBy: fullyPaid ? (user.name || 'Unknown') : tx.confirmedBy,
         confirmedAt: fullyPaid ? new Date().toISOString() : tx.confirmedAt,

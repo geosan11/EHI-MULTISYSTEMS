@@ -225,7 +225,14 @@ export const DebtorsTab = ({
         ...debt,
         amountPaid: result.newAmountPaid ?? ((debt.amountPaid || 0) + cappedPaid),
         paymentHistory: [...(debt.paymentHistory || []), historyEntry],
-        mode: fullyPaid ? 'Debt Paid' : 'Debt',
+        // result.newMode is clear_*_debt's own real final value -- trust it
+        // over an assumed 'Debt Paid' the same way newAmountPaid just above
+        // trusts the RPC's own total. Without this, onUpdateTx's redundant
+        // write right after this call overwrote a same-shift Individual
+        // reclassification (receipt_mode/payment_mode rewritten to the real
+        // payment mode) back to plain 'Debt' a moment after the RPC set it
+        // correctly -- see 20260948_clear_debt_return_final_mode.sql.
+        mode: fullyPaid ? (result.newMode || 'Debt Paid') : 'Debt',
         paymentConfirmed: fullyPaid,
         confirmedBy: fullyPaid ? (user?.name || 'Unknown') : debt.confirmedBy,
         confirmedAt: fullyPaid ? new Date().toISOString() : debt.confirmedAt,

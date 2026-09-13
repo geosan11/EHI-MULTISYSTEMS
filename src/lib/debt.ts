@@ -24,6 +24,18 @@ export interface ClearDebtResult {
   // can still match + refund the wallet after the client's own redundant
   // write of payment_history.
   walletTxnId?: string;
+  // The mode column's real, final value after this call (receipt_mode for
+  // cargo, payment_mode for the rest) -- ordinarily still 'Debt' (fully-paid
+  // Debt entries have always displayed as "Debt Paid"/"Debt Cleared" purely
+  // client-side, from mode==='Debt'+fully-paid, never a literal DB value),
+  // but the real payment mode (e.g. 'Transfer') when 20260947's same-shift
+  // Individual reclassification fired. Callers MUST use this instead of
+  // assuming 'Debt Paid' on full clearance -- see
+  // 20260948_clear_debt_return_final_mode.sql's header comment for the bug
+  // this fixes: without it, the app's own redundant onUpdateTx write right
+  // after this call was overwriting a real reclassification back to 'Debt'
+  // a moment after the RPC set it correctly.
+  newMode?: string;
   error?: string;
 }
 
@@ -99,6 +111,7 @@ export async function clearDebt(params: {
     remainingBalance: Number(row?.remaining_balance ?? 0),
     fullyPaid: !!row?.fully_paid,
     walletTxnId: row?.wallet_txn_id ?? undefined,
+    newMode: row?.new_mode ?? undefined,
   };
 }
 
