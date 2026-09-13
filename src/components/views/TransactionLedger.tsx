@@ -4121,36 +4121,41 @@ export const TransactionLedger = ({
 
                         {/* Customer & Detail */}
                         <div>
-                          <div className={`font-sans font-bold text-[13px] ${e.raw?.is_debt_clearance ? 'italic' : ''} ${e.source === "expense" ? "text-[var(--color-error)]" : "text-[var(--color-foreground)]"}`}>
-                            {e.name}
+                          <div className="flex items-center flex-wrap gap-1.5">
+                            <span className={`font-sans font-bold text-[13px] ${e.raw?.is_debt_clearance ? 'italic' : ''} ${e.source === "expense" ? "text-[var(--color-error)]" : "text-[var(--color-foreground)]"}`}>
+                              {e.name}
+                            </span>
+                            {(e.raw as any)?.airline && (() => {
+                              const c = airlineBadgeColors((e.raw as any).airline);
+                              return (
+                                <span
+                                  className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono uppercase tracking-wider border"
+                                  style={{ background: c.bg, color: c.text, borderColor: c.border }}
+                                >
+                                  {(e.raw as any).airline}
+                                </span>
+                              );
+                            })()}
+                            {(() => {
+                              const raw = e.raw as any;
+                              const dest = raw ? ((e.type === 'cargo' || e.type === 'marketing') ? raw.route : raw.destination) : null;
+                              return dest ? (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono uppercase tracking-wider bg-[rgba(245,158,11,0.12)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.3)]">
+                                  {dest}
+                                </span>
+                              ) : null;
+                            })()}
                           </div>
                           <div className={`text-[10px] text-[var(--color-muted)] line-clamp-2 mt-0.5 font-sans ${e.raw?.is_debt_clearance ? 'italic' : ''}`}>
                             {e.detail}
                           </div>
                         </div>
 
-                        {/* Badges */}
+                        {/* Badges -- airline/destination sit beside the name
+                            above instead: they're already spelled out in the
+                            detail line right under it, so a separate badge
+                            for them here would just repeat the same facts. */}
                         <div className="flex flex-wrap gap-1">
-                          {(e.raw as any)?.airline && (() => {
-                            const c = airlineBadgeColors((e.raw as any).airline);
-                            return (
-                              <span
-                                className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono uppercase tracking-wider border"
-                                style={{ background: c.bg, color: c.text, borderColor: c.border }}
-                              >
-                                {(e.raw as any).airline}
-                              </span>
-                            );
-                          })()}
-                          {(() => {
-                            const raw = e.raw as any;
-                            const dest = raw ? ((e.type === 'cargo' || e.type === 'marketing') ? raw.route : raw.destination) : null;
-                            return dest ? (
-                              <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono uppercase tracking-wider bg-[rgba(245,158,11,0.12)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.3)]">
-                                {dest}
-                              </span>
-                            ) : null;
-                          })()}
                           {e.raw?.is_debt_clearance && (
                             // Plain label, not a button -- the whole row's
                             // onClick already jumps to the original debt
@@ -4417,28 +4422,13 @@ export const TransactionLedger = ({
                     </td>
                     {/* Customer + Detail */}
                     <td className="py-2.5 px-2">
-                      {/* Row-level badges for special transaction types */}
+                      {/* Row-level badges for special transaction types --
+                          airline/destination sit beside the name instead
+                          (below): they're already spelled out in the detail
+                          line right under it, so a whole separate badge row
+                          for them up here would just repeat the same two
+                          facts a second time. */}
                       <div className="flex flex-wrap gap-1 mb-0.5">
-                        {(e.raw as any)?.airline && (() => {
-                          const c = airlineBadgeColors((e.raw as any).airline);
-                          return (
-                            <span
-                              className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono uppercase tracking-wider border"
-                              style={{ background: c.bg, color: c.text, borderColor: c.border }}
-                            >
-                              {(e.raw as any).airline}
-                            </span>
-                          );
-                        })()}
-                        {(() => {
-                          const raw = e.raw as any;
-                          const dest = raw ? ((e.type === 'cargo' || e.type === 'marketing') ? raw.route : raw.destination) : null;
-                          return dest ? (
-                            <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono uppercase tracking-wider bg-[rgba(245,158,11,0.12)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.3)]">
-                              {dest}
-                            </span>
-                          ) : null;
-                        })()}
                         {e.raw?.is_debt_clearance && (
                           // Plain label, not a button -- see the mobile
                           // card's matching comment above.
@@ -4484,8 +4474,30 @@ export const TransactionLedger = ({
                           <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[var(--color-accent-cobalt)]">GAT</span>
                         )}
                       </div>
-                      <div className={`font-sans font-bold text-[12px] leading-snug ${e.raw?.is_debt_clearance ? 'italic' : ''} ${e.source === "expense" ? "text-[var(--color-error)]" : "text-[var(--color-foreground)]"}`}>
-                        {e.name}
+                      <div className="flex items-center flex-wrap gap-1.5">
+                        <span className={`font-sans font-bold text-[12px] leading-snug ${e.raw?.is_debt_clearance ? 'italic' : ''} ${e.source === "expense" ? "text-[var(--color-error)]" : "text-[var(--color-foreground)]"}`}>
+                          {e.name}
+                        </span>
+                        {(e.raw as any)?.airline && (() => {
+                          const c = airlineBadgeColors((e.raw as any).airline);
+                          return (
+                            <span
+                              className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono uppercase tracking-wider border"
+                              style={{ background: c.bg, color: c.text, borderColor: c.border }}
+                            >
+                              {(e.raw as any).airline}
+                            </span>
+                          );
+                        })()}
+                        {(() => {
+                          const raw = e.raw as any;
+                          const dest = raw ? ((e.type === 'cargo' || e.type === 'marketing') ? raw.route : raw.destination) : null;
+                          return dest ? (
+                            <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono uppercase tracking-wider bg-[rgba(245,158,11,0.12)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.3)]">
+                              {dest}
+                            </span>
+                          ) : null;
+                        })()}
                       </div>
                       <div className={`text-[9px] text-[var(--color-muted)] mt-0.5 leading-snug line-clamp-2 ${e.raw?.is_debt_clearance ? 'italic' : ''}`}>
                         {e.detail}
@@ -4950,12 +4962,12 @@ export const TransactionLedger = ({
                   {/* Primary Operations Row */}
                   <div className="space-y-1.5">
                     <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Operations</div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      <button 
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                      <button
                         onClick={() => setViewingQrTx(viewingDetail)}
-                        className="py-2.5 px-3 flex items-center justify-center gap-1.5 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] rounded-lg transition-colors border border-[var(--color-border)] text-[11px] font-medium"
+                        className="py-1.5 px-2.5 flex items-center justify-center gap-1 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] rounded-lg transition-colors border border-[var(--color-border)] text-[10px] font-medium"
                       >
-                        <QrCode size={13} /> Scan QR
+                        <QrCode size={11} /> Scan QR
                       </button>
 
                       {/* Deliberately open to ANY staff, not gated to
@@ -4968,9 +4980,9 @@ export const TransactionLedger = ({
                       {viewingDetail.mode === 'Debt' && (
                         <button
                           onClick={(evt) => openClearDebt(viewingDetail, evt)}
-                          className="py-2.5 px-3 flex items-center justify-center gap-1.5 bg-[rgba(16,185,129,0.15)] hover:bg-[rgba(16,185,129,0.25)] text-[var(--color-success)] rounded-lg transition-colors border border-[rgba(16,185,129,0.3)] text-[11px] font-bold"
+                          className="py-1.5 px-2.5 flex items-center justify-center gap-1 bg-[rgba(16,185,129,0.15)] hover:bg-[rgba(16,185,129,0.25)] text-[var(--color-success)] rounded-lg transition-colors border border-[rgba(16,185,129,0.3)] text-[10px] font-bold"
                         >
-                          <CheckSquare size={13} /> Clear Debt
+                          <CheckSquare size={11} /> Clear Debt
                         </button>
                       )}
 
@@ -4981,10 +4993,10 @@ export const TransactionLedger = ({
                         <button
                           onClick={() => confirmReopenDebt(viewingDetail)}
                           disabled={reopeningDebt}
-                          className="py-2.5 px-3 flex items-center justify-center gap-1.5 bg-[rgba(239,68,68,0.08)] hover:bg-[var(--color-error)] hover:text-white text-[var(--color-error)] rounded-lg transition-colors border border-[rgba(239,68,68,0.25)] text-[11px] font-mono font-bold disabled:opacity-50"
+                          className="py-1.5 px-2.5 flex items-center justify-center gap-1 bg-[rgba(239,68,68,0.08)] hover:bg-[var(--color-error)] hover:text-white text-[var(--color-error)] rounded-lg transition-colors border border-[rgba(239,68,68,0.25)] text-[10px] font-mono font-bold disabled:opacity-50"
                           title="Undo the most recent debt-clearing payment on this entry"
                         >
-                          <Undo2 size={13} /> Reopen Debt
+                          <Undo2 size={11} /> Reopen Debt
                         </button>
                       )}
 
@@ -4992,9 +5004,9 @@ export const TransactionLedger = ({
                         <button
                           disabled={confirmingIds.has(viewingDetail.id)}
                           onClick={(evt) => toggleConfirm(viewingDetail, evt)}
-                          className="py-2.5 px-3 flex items-center justify-center gap-1.5 bg-[rgba(16,185,129,0.15)] hover:bg-[rgba(16,185,129,0.25)] text-[var(--color-success)] rounded-lg transition-colors border border-[rgba(16,185,129,0.3)] text-[11px] font-bold disabled:opacity-50"
+                          className="py-1.5 px-2.5 flex items-center justify-center gap-1 bg-[rgba(16,185,129,0.15)] hover:bg-[rgba(16,185,129,0.25)] text-[var(--color-success)] rounded-lg transition-colors border border-[rgba(16,185,129,0.3)] text-[10px] font-bold disabled:opacity-50"
                         >
-                          <CheckSquare size={13} /> Confirm Payment
+                          <CheckSquare size={11} /> Confirm Payment
                         </button>
                       )}
 
@@ -5012,39 +5024,39 @@ export const TransactionLedger = ({
                       {(['cargo', 'baggage', 'marketing', 'package'] as const).includes(viewingDetail.type as RetrievalEntryType) && !viewingDetail.raw?.retrieved && (
                         <button
                           onClick={() => handleMarkRetrievedAndDeposit(viewingDetail)}
-                          className="py-2.5 px-3 flex items-center justify-center gap-1 bg-[rgba(245,158,11,0.12)] hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] text-[var(--color-accent-amber)] rounded-lg transition-colors border border-[rgba(245,158,11,0.3)] text-[10px] font-mono font-bold"
+                          className="py-1.5 px-2.5 flex items-center justify-center gap-1 bg-[rgba(245,158,11,0.12)] hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] text-[var(--color-accent-amber)] rounded-lg transition-colors border border-[rgba(245,158,11,0.3)] text-[9px] font-mono font-bold"
                           title="Deposit retrieved refund directly into customer credit wallet"
                         >
-                          <HandCoins size={13} /> 💰 Refund to Wallet
+                          <HandCoins size={11} /> 💰 Refund to Wallet
                         </button>
                       )}
 
                       {((viewingDetail.raw as any)?.raw?.retrieved_amount || 0) > 0 && (
                         <button
                           onClick={handleUnretrieve}
-                          className="py-2.5 px-3 flex items-center justify-center gap-1.5 bg-[rgba(239,68,68,0.08)] hover:bg-[var(--color-error)] hover:text-white text-[var(--color-error)] rounded-lg transition-colors border border-[rgba(239,68,68,0.25)] text-[11px] font-mono font-bold"
+                          className="py-1.5 px-2.5 flex items-center justify-center gap-1 bg-[rgba(239,68,68,0.08)] hover:bg-[var(--color-error)] hover:text-white text-[var(--color-error)] rounded-lg transition-colors border border-[rgba(239,68,68,0.25)] text-[10px] font-mono font-bold"
                           title="Undo this entry's retrieval record"
                         >
-                          <Undo2 size={13} /> Unretrieve
+                          <Undo2 size={11} /> Unretrieve
                         </button>
                       )}
 
                       {canApproveRetrievals && ((viewingDetail.raw as any)?.raw?.retrieved_amount || 0) > 0 && !(viewingDetail.raw as any)?.raw?.retrieval_approved && (
                         <button
                           onClick={handleApproveRetrieval}
-                          className="py-2.5 px-3 flex items-center justify-center gap-1.5 bg-[rgba(16,185,129,0.1)] hover:bg-[var(--color-success)] hover:text-white text-[var(--color-success)] rounded-lg transition-colors border border-[rgba(16,185,129,0.2)] text-[11px] font-mono font-bold"
+                          className="py-1.5 px-2.5 flex items-center justify-center gap-1 bg-[rgba(16,185,129,0.1)] hover:bg-[var(--color-success)] hover:text-white text-[var(--color-success)] rounded-lg transition-colors border border-[rgba(16,185,129,0.2)] text-[10px] font-mono font-bold"
                           title="Mark this retrieval as reviewed and approved"
                         >
-                          <ShieldCheck size={13} /> Approve
+                          <ShieldCheck size={11} /> Approve
                         </button>
                       )}
 
                       {(canEdit || canEditRemarks) && !viewingDetail.raw?.is_debt_clearance && (
                         <button
                           onClick={(evt) => handleEditClick(viewingDetail, evt)}
-                          className="py-2.5 px-3 flex items-center justify-center gap-1.5 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] rounded-lg transition-colors border border-[var(--color-border)] text-[11px] font-medium"
+                          className="py-1.5 px-2.5 flex items-center justify-center gap-1 bg-[var(--color-surface-2)] hover:bg-[var(--color-surface-3)] text-[var(--color-foreground)] rounded-lg transition-colors border border-[var(--color-border)] text-[10px] font-medium"
                         >
-                          <Edit2 size={13} /> Edit
+                          <Edit2 size={11} /> Edit
                         </button>
                       )}
 
@@ -5056,9 +5068,9 @@ export const TransactionLedger = ({
                         <button
                           onClick={() => confirmDeleteTransaction(viewingDetail)}
                           disabled={deletingTx}
-                          className="py-2.5 px-3 flex items-center justify-center gap-1.5 bg-[var(--color-error)] hover:brightness-110 text-white rounded-lg transition-colors border border-[var(--color-error)] text-[11px] font-bold disabled:opacity-50"
+                          className="py-1.5 px-2.5 flex items-center justify-center gap-1 bg-[var(--color-error)] hover:brightness-110 text-white rounded-lg transition-colors border border-[var(--color-error)] text-[10px] font-bold disabled:opacity-50"
                         >
-                          <Trash2 size={13} /> Delete Transaction
+                          <Trash2 size={11} /> Delete Transaction
                         </button>
                       )}
                     </div>
@@ -5068,34 +5080,34 @@ export const TransactionLedger = ({
                   {(user.can_print_ledger || user.role === 'super_admin') && (
                     <div className="space-y-1.5 pt-2 border-t border-[var(--color-border)]">
                       <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Printing &amp; Documents</div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                         <button
                           onClick={() => handleReprintReceipt('80mm')}
-                          className="py-2 px-2 flex items-center justify-center gap-1.5 bg-[var(--color-accent-amber)] hover:opacity-90 text-[var(--color-on-accent)] rounded-lg transition-colors border-none text-[11px] font-bold shadow-[var(--shadow-button)]"
+                          className="py-1.5 px-2 flex items-center justify-center gap-1 bg-[var(--color-accent-amber)] hover:opacity-90 text-[var(--color-on-accent)] rounded-lg transition-colors border-none text-[10px] font-bold shadow-[var(--shadow-button)]"
                         >
-                          <Printer size={13} /> Receipt (80)
+                          <Printer size={11} /> Receipt (80)
                         </button>
                         <button
                           onClick={() => handleReprintReceipt('58mm')}
-                          className="py-2 px-2 flex items-center justify-center gap-1.5 bg-[var(--color-accent-amber)] hover:opacity-90 text-[var(--color-on-accent)] rounded-lg transition-colors border-none text-[11px] font-bold shadow-[var(--shadow-button)]"
+                          className="py-1.5 px-2 flex items-center justify-center gap-1 bg-[var(--color-accent-amber)] hover:opacity-90 text-[var(--color-on-accent)] rounded-lg transition-colors border-none text-[10px] font-bold shadow-[var(--shadow-button)]"
                         >
-                          <Printer size={13} /> Receipt (58)
+                          <Printer size={11} /> Receipt (58)
                         </button>
 
                         {(viewingDetail.raw.type === 'cargo' || viewingDetail.raw.type === 'marketing' || viewingDetail.raw.type === 'package') && (
                           <>
                             <button
                               onClick={() => handleReprintTag('80mm')}
-                              className="py-2 px-2 flex items-center justify-center gap-1.5 bg-[var(--color-accent-amber)] hover:opacity-90 text-[var(--color-on-accent)] rounded-lg transition-colors border-none text-[11px] font-bold shadow-[var(--shadow-button)]"
+                              className="py-1.5 px-2 flex items-center justify-center gap-1 bg-[var(--color-accent-amber)] hover:opacity-90 text-[var(--color-on-accent)] rounded-lg transition-colors border-none text-[10px] font-bold shadow-[var(--shadow-button)]"
                             >
-                              <Printer size={13} /> Print Tag
+                              <Printer size={11} /> Print Tag
                             </button>
                             <button
                               onClick={() => handleReprintTagPDF()}
-                              className="py-2 px-3 flex items-center justify-center gap-1.5 bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)] text-[var(--color-foreground)] rounded-full transition-all duration-200 whitespace-nowrap border border-[rgba(217,119,6,0.45)] text-[11px] font-semibold shadow-[0_0_0_1px_rgba(217,119,6,0.2),0_3px_10px_rgba(0,0,0,0.18),0_0_28px_rgba(217,119,6,0.55)] hover:shadow-[0_0_0_1px_rgba(217,119,6,0.35),0_5px_16px_rgba(0,0,0,0.22),0_0_40px_rgba(217,119,6,0.8)] hover:-translate-y-0.5"
+                              className="py-1.5 px-2.5 flex items-center justify-center gap-1 bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)] text-[var(--color-foreground)] rounded-full transition-all duration-200 whitespace-nowrap border border-[rgba(217,119,6,0.45)] text-[10px] font-semibold shadow-[0_0_0_1px_rgba(217,119,6,0.2),0_3px_10px_rgba(0,0,0,0.18),0_0_28px_rgba(217,119,6,0.55)] hover:shadow-[0_0_0_1px_rgba(217,119,6,0.35),0_5px_16px_rgba(0,0,0,0.22),0_0_40px_rgba(217,119,6,0.8)] hover:-translate-y-0.5"
                               title="Open 100×80mm PDF tag"
                             >
-                              <Printer size={13} /> Tag PDF
+                              <Printer size={11} /> Tag PDF
                             </button>
                           </>
                         )}
@@ -5103,10 +5115,10 @@ export const TransactionLedger = ({
                         {(viewingDetail.raw.type === 'cargo' || viewingDetail.raw.type === 'baggage' || viewingDetail.raw.type === 'package') && (
                           <button
                             onClick={() => handleReprintReceiptPDF()}
-                            className="py-2 px-3 flex items-center justify-center gap-1.5 bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)] text-[var(--color-foreground)] rounded-full transition-all duration-200 whitespace-nowrap border border-[rgba(217,119,6,0.45)] text-[11px] font-semibold shadow-[0_0_0_1px_rgba(217,119,6,0.2),0_3px_10px_rgba(0,0,0,0.18),0_0_28px_rgba(217,119,6,0.55)] hover:shadow-[0_0_0_1px_rgba(217,119,6,0.35),0_5px_16px_rgba(0,0,0,0.22),0_0_40px_rgba(217,119,6,0.8)] hover:-translate-y-0.5 col-span-2 sm:col-span-1"
+                            className="py-1.5 px-2.5 flex items-center justify-center gap-1 bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)] text-[var(--color-foreground)] rounded-full transition-all duration-200 whitespace-nowrap border border-[rgba(217,119,6,0.45)] text-[10px] font-semibold shadow-[0_0_0_1px_rgba(217,119,6,0.2),0_3px_10px_rgba(0,0,0,0.18),0_0_28px_rgba(217,119,6,0.55)] hover:shadow-[0_0_0_1px_rgba(217,119,6,0.35),0_5px_16px_rgba(0,0,0,0.22),0_0_40px_rgba(217,119,6,0.8)] hover:-translate-y-0.5 col-span-2 sm:col-span-1"
                             title="Open PDF receipt for viewing or printing"
                           >
-                            <Printer size={13} /> PDF Receipt
+                            <Printer size={11} /> PDF Receipt
                           </button>
                         )}
                       </div>
