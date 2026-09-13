@@ -108,6 +108,30 @@ function airlineBadgeColors(airlineName: string) {
   return AIRLINE_BADGE_PALETTE[hashStringToIndex(key, AIRLINE_BADGE_PALETTE.length)];
 }
 
+// Airline/destination now show as their own badge beside the customer name
+// (see airlineBadgeColors above) -- this strips those same two facts back
+// out of the plain detail line so they don't also appear there. `detail` is
+// a pre-built flat string whose exact shape varies by transaction type AND
+// by which code path built/last edited it (this file's own edit-save
+// handler alone has at least 4 different templates), so this deliberately
+// does NOT re-parse it positionally by type (a past ledger detail-string
+// change broke exactly that way). Instead it removes only exact-value
+// substring matches of the real current field -- if a given entry's detail
+// doesn't contain that exact text (an older/different format), this is a
+// no-op and the original text is left untouched rather than mangled.
+function stripBadgedFieldsFromDetail(detail: string, ...values: (string | null | undefined)[]): string {
+  let result = detail;
+  for (const v of values) {
+    if (!v) continue;
+    result = result.split(v).join('');
+  }
+  return result
+    .replace(/\s*·\s*·\s*/g, ' · ')
+    .replace(/^\s*·\s*/, '')
+    .replace(/\s*·\s*$/, '')
+    .trim();
+}
+
 // Maps a transaction type to its real DB table -- needed anywhere a
 // retrieval/approval action writes an audit_log row, since audit_log's
 // table_name should point at the actual table (cargo_entries/manifests/
@@ -4147,7 +4171,11 @@ export const TransactionLedger = ({
                             })()}
                           </div>
                           <div className={`text-[10px] text-[var(--color-muted)] line-clamp-2 mt-0.5 font-sans ${e.raw?.is_debt_clearance ? 'italic' : ''}`}>
-                            {e.detail}
+                            {stripBadgedFieldsFromDetail(
+                              e.detail,
+                              (e.raw as any)?.airline,
+                              (e.type === 'cargo' || e.type === 'marketing') ? (e.raw as any)?.route : (e.raw as any)?.destination
+                            )}
                           </div>
                         </div>
 
@@ -4500,7 +4528,11 @@ export const TransactionLedger = ({
                         })()}
                       </div>
                       <div className={`text-[9px] text-[var(--color-muted)] mt-0.5 leading-snug line-clamp-2 ${e.raw?.is_debt_clearance ? 'italic' : ''}`}>
-                        {e.detail}
+                        {stripBadgedFieldsFromDetail(
+                          e.detail,
+                          (e.raw as any)?.airline,
+                          (e.type === 'cargo' || e.type === 'marketing') ? (e.raw as any)?.route : (e.raw as any)?.destination
+                        )}
                       </div>
                       {e.raw.remarks && (
                         <div className={`text-[9px] font-sans italic mt-1 leading-snug ${ (e.raw?.is_debt_clearance || e.id?.startsWith('DC-')) ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-success)]' }`}>

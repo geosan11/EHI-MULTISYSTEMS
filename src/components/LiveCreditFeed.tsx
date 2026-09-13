@@ -63,8 +63,14 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
     // this ledger's "Total" KPI tile) instead of a flush full-height strip,
     // so it reads as a self-contained tab rather than a permanent divider.
     // `self-center` keeps it from stretching to the row's full height.
+    // Deliberately NOT using the `ehi-credit-feed` class here (only the
+    // expanded panel below has it) -- that class carries a desktop-only
+    // `padding-top: 58px !important` (index.css) meant to clear the
+    // floating header-controls pill for the expanded panel's own header;
+    // reusing it on this shrink-wrapped pill pushed its content down
+    // inside its own box instead of leaving it centered.
     return (
-      <div className="ehi-credit-feed self-center shrink-0 my-4 mr-3 z-20 select-none">
+      <div className="self-center shrink-0 my-4 mr-3 z-20 select-none">
         <div className="w-11 rounded-2xl bg-[var(--color-surface-card)] border border-[rgba(245,158,11,0.35)] shadow-[var(--shadow-dropdown),0_0_18px_-6px_rgba(245,158,11,0.35)] flex flex-col items-center py-3 gap-3 transition-all">
           <button
             type="button"
