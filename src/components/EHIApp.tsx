@@ -2695,7 +2695,17 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               excessBaggageAirlines={excessBaggageAirlines}
               docked
             />
-          <div className="flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden">
+          {/* min-h-0 is load-bearing: a flex row's default min-height:auto
+              lets a column-flex child grow past its share of the row
+              instead of respecting it, which defeats this div's own
+              overflow-y-auto (nothing left to actually clip/scroll within)
+              and lets it grow to the ledger's full content height instead
+              of the fixed inset-0 parent's real viewport height. That, in
+              turn, was why the credit-feed pill's `self-center` (a sibling
+              deep inside TransactionLedger's own h-full row) drifted lower
+              as more rows loaded -- it was centering against an
+              ever-growing total height, not a stable viewport-bound one. */}
+          <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-y-auto overflow-x-hidden">
             <Header
               user={user}
               isOffline={isOffline}

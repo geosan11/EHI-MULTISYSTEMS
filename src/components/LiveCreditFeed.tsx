@@ -60,17 +60,24 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
   if (collapsed) {
     // Floating rounded pill (matches SideNav's own floating-card recipe --
     // shadow-dropdown + radius-2xl -- plus the amber glow already used for
-    // this ledger's "Total" KPI tile) instead of a flush full-height strip,
-    // so it reads as a self-contained tab rather than a permanent divider.
-    // `self-center` keeps it from stretching to the row's full height.
+    // this ledger's "Total" KPI tile), genuinely `position: fixed` to the
+    // viewport -- same recipe as SideNav/.ehi-header-controls elsewhere in
+    // this app. This used to be `self-center` as a flex sibling of the
+    // ledger's own root row instead: that row's height isn't clamped to the
+    // viewport by design (TransactionLedger's `h-full` deliberately
+    // resolves to its natural, un-clamped content height so the WHOLE
+    // ledger -- header, KPI, table -- scrolls together as one long page,
+    // see this file's own history). A flex-centered sibling inside that
+    // ever-growing row re-centers against a taller box every time more
+    // rows load, so the pill visibly drifted down the page instead of
+    // staying put. `position: fixed` sidesteps that entirely -- it's
+    // anchored to the viewport, not to any scrolling ancestor's height.
     // Deliberately NOT using the `ehi-credit-feed` class here (only the
     // expanded panel below has it) -- that class carries a desktop-only
     // `padding-top: 58px !important` (index.css) meant to clear the
-    // floating header-controls pill for the expanded panel's own header;
-    // reusing it on this shrink-wrapped pill pushed its content down
-    // inside its own box instead of leaving it centered.
+    // floating header-controls pill for the expanded panel's own header.
     return (
-      <div className="self-center shrink-0 my-4 mr-3 z-20 select-none">
+      <div className="select-none" style={{ position: 'fixed', top: '50%', right: 12, transform: 'translateY(-50%)', zIndex: 20 }}>
         <div className="w-11 rounded-2xl bg-[var(--color-surface-card)] border border-[rgba(245,158,11,0.35)] shadow-[var(--shadow-dropdown),0_0_18px_-6px_rgba(245,158,11,0.35)] flex flex-col items-center py-3 gap-3 transition-all">
           <button
             type="button"
