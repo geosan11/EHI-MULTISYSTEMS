@@ -197,10 +197,35 @@ const styles = StyleSheet.create({
 });
 
 const VALUE_COL_WIDTH = 136;
-// Roughly the vertical space one itemRow takes (route line + ref line +
-// pieces/kg details line + border/padding) -- used only to grow the page,
-// never to lay anything out, so an approximation is fine.
-const ITEM_ROW_HEIGHT = 30;
+// itemRow splits its width between the text block (route/tag/pieces) and
+// the right-aligned amount -- this is what's actually left for wrapping
+// once a typical Naira amount ("NGN 123,456.78" at 8pt Courier-Bold, ~67pt)
+// and the gap between them are accounted for. Erring smaller (a more
+// generous wrap estimate) rather than exact, per estimateWrappedLines' own
+// "deliberately generous" guidance.
+const ITEM_TEXT_COL_WIDTH = 120;
+// Approximate per-line height across the three possible lines in an item
+// (8pt route, 6pt tag, 7pt pieces/kg) -- flat and slightly generous for the
+// smaller-font lines rather than computing each precisely, since this only
+// ever pads the page-height guess, never lays anything out.
+const ITEM_LINE_HEIGHT = 10;
+// itemRow's own marginBottom(3) + paddingBottom(3) + borderBottomWidth(1),
+// rounded up for slack.
+const ITEM_ROW_SPACING = 8;
+
+// The previous version of this function used one flat ITEM_ROW_HEIGHT
+// guess per item with no allowance for the route/destination text
+// wrapping onto a second line -- exactly the under-estimate
+// estimateWrappedLines' own comment warns about ("doesn't clip content,
+// it silently pushes it onto a second, mostly-blank page"), which is what
+// was causing this receipt to render 4 pages instead of 2 once several
+// items (some with longer route names) pushed the real content past the
+// guessed page height and react-pdf auto-paginated the overflow.
+function estimateItemHeight(item: BatchDebtReceiptItem): number {
+  const routeLines = estimateWrappedLines(item.route || item.type, ITEM_TEXT_COL_WIDTH, 8);
+  const totalLines = routeLines + 1 + (item.pieces || item.kg ? 1 : 0); // route(+wrap) + tag + optional pieces/kg
+  return totalLines * ITEM_LINE_HEIGHT + ITEM_ROW_SPACING;
+}
 
 const BatchDebtReceiptPDF = ({ data }: { data: BatchDebtReceiptData }) => {
   let h = 300;
@@ -208,7 +233,11 @@ const BatchDebtReceiptPDF = ({ data }: { data: BatchDebtReceiptData }) => {
   if (data.qrCodeDataUrl) h += 60;
   if (data.customerPhone) h += 14;
   if (data.bankName) h += 14;
-  h += data.items.length * ITEM_ROW_HEIGHT;
+  h += data.items.reduce((sum, item) => sum + estimateItemHeight(item), 0);
+  // Fixed safety margin on top of the per-item estimates above -- "a
+  // receipt with a little trailing blank space is fine; one that spills a
+  // page is not" (estimateWrappedLines' own comment).
+  h += 20;
 
   for (const field of [data.customerName, data.agentName]) {
     const lines = estimateWrappedLines(field, VALUE_COL_WIDTH, 8);

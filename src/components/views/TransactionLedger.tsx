@@ -2702,12 +2702,20 @@ export const TransactionLedger = ({
     if (!notifySameCustomerRequired(selected)) return;
     const items = selected.map(e => {
       const tx = e.raw as Transaction;
-      const remaining = roundMoney(tx.amount - (tx.amountPaid || 0) - ((tx.raw as any)?.retrieved_amount || 0));
+      // retrieved_amount only offsets an outstanding Debt balance -- for an
+      // already-paid Cash/Transfer/POS/Wallet entry it tracks goods pickup,
+      // not money owed, so subtracting it here understated what the
+      // customer actually paid whenever that entry also had a retrieval.
+      let amount = tx.amount;
+      if (e.mode === 'Debt') {
+        const remaining = roundMoney(tx.amount - (tx.amountPaid || 0) - ((tx.raw as any)?.retrieved_amount || 0));
+        amount = remaining > 0 ? remaining : tx.amount;
+      }
       return {
         ref: tx.id,
         route: (tx.type === 'baggage' || tx.type === 'package') ? (tx.destination || '') : (tx.route || ''),
         type: tx.type,
-        amount: remaining > 0 ? remaining : tx.amount,
+        amount,
         tagNumber: tx.awb_tag_number,
         pieces: tx.pieces,
         kg: tx.kg,
@@ -4628,6 +4636,7 @@ export const TransactionLedger = ({
                 <th className="py-3 px-2 w-[72px] font-medium">Date</th>
                 <th className="py-3 px-2 font-medium min-w-[120px]">Customer / Detail</th>
                 <th className="py-3 px-2 w-[72px] font-medium text-center">Status</th>
+                <th className="py-3 px-2 w-[28px] font-medium text-center"></th>
                 <th className="py-3 px-2 w-[80px] font-medium text-right">Amount</th>
                 <th className="py-3 px-2 w-[56px] font-medium text-center">Mode</th>
                 <th className="py-3 px-3 w-[32px] font-medium text-center"></th>
@@ -4639,7 +4648,7 @@ export const TransactionLedger = ({
               {displayEntries.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={(isAccountantOrAdmin || !viewOnly) ? (canSeePin ? 9 : 8) : (canSeePin ? 8 : 7)}
+                    colSpan={(isAccountantOrAdmin || !viewOnly) ? (canSeePin ? 10 : 9) : (canSeePin ? 9 : 8)}
                     className="py-8 text-center text-[var(--color-muted)]"
                   >
                     No entries found matching filters.
@@ -4649,7 +4658,7 @@ export const TransactionLedger = ({
                 <>
                   {rowVirtualizer.getVirtualItems().length > 0 && (
                     <tr style={{ height: rowVirtualizer.getVirtualItems()[0].start }}>
-                      <td colSpan={(isAccountantOrAdmin || !viewOnly) ? (canSeePin ? 9 : 8) : (canSeePin ? 8 : 7)} />
+                      <td colSpan={(isAccountantOrAdmin || !viewOnly) ? (canSeePin ? 10 : 9) : (canSeePin ? 9 : 8)} />
                     </tr>
                   )}
                   {rowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -4657,7 +4666,7 @@ export const TransactionLedger = ({
                     if (e.type === 'shift-marker') {
                       return (
                         <tr key={e.id} className="bg-[rgba(245,158,11,0.1)] border-b border-[var(--color-accent-amber)]">
-                          <td colSpan={9} className="py-2 px-4 text-center font-bold text-[var(--color-accent-amber)] text-[11px]">
+                          <td colSpan={10} className="py-2 px-4 text-center font-bold text-[var(--color-accent-amber)] text-[11px]">
                             {e.name} — {e.detail}
                           </td>
                         </tr>
@@ -4896,6 +4905,28 @@ export const TransactionLedger = ({
                         {e.source === 'expense' ? 'Expense' : (e.raw?.is_debt_clearance || e.id?.startsWith('DC-')) ? 'Collection' : (e.status || 'Intake')}
                       </span>
                     </td>
+                    {/* Batch select (any mode -- see selectedDebtIds' own
+                        declaration comment). Between Status and Amount so
+                        it's always in view without scrolling the table
+                        horizontally -- it previously sat in the last
+                        column, past the visible edge on any viewport
+                        narrower than this table's min-w-[720px]. */}
+                    <td className="py-2.5 px-2 text-center" onClick={(evt) => evt.stopPropagation()}>
+                      {e.source === 'transaction' && (
+                        <input
+                          type="checkbox"
+                          checked={selectedDebtIds.has(e.id)}
+                          onChange={(evt) => {
+                            setSelectedDebtIds(prev => {
+                              const next = new Set(prev);
+                              if (evt.target.checked) next.add(e.id); else next.delete(e.id);
+                              return next;
+                            });
+                          }}
+                          className="w-3.5 h-3.5 cursor-pointer"
+                        />
+                      )}
+                    </td>
                     {/* Amount */}
                     <td className={`py-2.5 px-2 text-right font-mono text-[11px] whitespace-nowrap ${e.source === "expense" ? "text-[var(--color-error)] font-bold" : "text-[var(--color-success)] font-bold"}`}>
                       <div>{e.source === "expense" ? "-" : ""}₦{fmt(e.source === "expense" ? e.amount : Math.max(0, e.amount - ((e.raw as any)?.raw?.retrieved_amount || 0)))}</div>
@@ -4954,27 +4985,9 @@ export const TransactionLedger = ({
                         )}
                       </div>
                     </td>
-                    {/* Batch select (any mode -- see selectedDebtIds' own
-                        declaration comment) + Chevron */}
+                    {/* Chevron */}
                     <td className="py-2.5 px-3 text-center">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {e.source === 'transaction' && (
-                          <input
-                            type="checkbox"
-                            checked={selectedDebtIds.has(e.id)}
-                            onClick={(evt) => evt.stopPropagation()}
-                            onChange={(evt) => {
-                              setSelectedDebtIds(prev => {
-                                const next = new Set(prev);
-                                if (evt.target.checked) next.add(e.id); else next.delete(e.id);
-                                return next;
-                              });
-                            }}
-                            className="w-3.5 h-3.5 cursor-pointer shrink-0"
-                          />
-                        )}
-                        <ChevronRight size={14} className="text-[var(--color-muted)] group-hover:text-[var(--color-foreground)] transition-colors shrink-0" />
-                      </div>
+                      <ChevronRight size={14} className="text-[var(--color-muted)] group-hover:text-[var(--color-foreground)] transition-colors ml-auto" />
                     </td>
                   </tr>
                   );
