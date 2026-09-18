@@ -11,6 +11,50 @@ import { supabase, writeAuditLog } from '../../lib/supabase';
 import { useHubNames } from '../../lib/hubRoutes';
 import { useBanks } from '../../lib/banks';
 import { isOfficeWorkEntry } from '../../lib/officeWork';
+import { downloadBatchDebtReceipt } from './BatchDebtReceipt';
+import { isDebtSettled, computeDebtDisplayModeFromRow, DebtEntryType as DebtDept } from '../../lib/debtStatus';
+
+const DEBT_TABLE_BY_TYPE: Record<DebtDept, string> = {
+  cargo: 'cargo_entries', baggage: 'manifests', marketing: 'marketing_entries', package: 'package_entries',
+};
+const DEBT_MODE_COL_BY_TYPE: Record<DebtDept, string> = {
+  cargo: 'receipt_mode', baggage: 'payment_mode', marketing: 'payment_mode', package: 'payment_mode',
+};
+
+// Shared by the initial fetchedDebts load and its realtime channels below --
+// one raw-row -> Transaction mapping per department, reused instead of
+// duplicated per call site.
+function mapDebtRow(r: any, type: DebtDept): Transaction {
+  const base = {
+    time: r.created_at, created_at: r.created_at, type, status: r.status || 'Intake',
+    hub_id: r.hub_id, hub: r.hub, paymentHistory: r.payment_history || [], raw: r,
+    mode: computeDebtDisplayModeFromRow(r, type),
+  };
+  if (type === 'cargo') {
+    return {
+      ...base, id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo', detail: `${r.airline || ''}`,
+      amount: r.amount || 0, amountPaid: r.amount_paid || 0, awb_tag_number: r.awb_tag_number,
+      airline: r.airline, clientType: r.client_type, corporate_client_id: r.corporate_client_id,
+      consigneePhone: r.consignee_phone,
+    } as Transaction;
+  }
+  if (type === 'baggage') {
+    return {
+      ...base, id: r.transaction_id || r.id, name: r.passenger_name || 'Passenger', detail: `${r.flight_no || ''}`,
+      amount: r.amount || 0, amountPaid: r.amount_paid || 0, clientType: r.client_type, consigneePhone: r.passenger_phone,
+    } as Transaction;
+  }
+  if (type === 'marketing') {
+    return {
+      ...base, id: r.entry_ref || r.id, name: r.customer_name || 'Customer', detail: `${r.route || ''}`,
+      amount: r.amount_paid || 0, amountPaid: r.debt_amount_paid || 0, clientType: r.client_type, consigneePhone: r.customer_phone,
+    } as Transaction;
+  }
+  return {
+    ...base, id: r.entry_ref || r.id, name: r.customer_name || 'Customer', detail: `${r.destination || ''}`,
+    amount: r.amount || 0, amountPaid: r.amount_paid || 0, consigneePhone: r.customer_phone,
+  } as Transaction;
+}
 
 export const DebtorsTab = ({
   transactions = [],
@@ -75,36 +119,52 @@ export const DebtorsTab = ({
           supabase.from('marketing_entries').select('*').eq('payment_mode', 'Debt').order('created_at', { ascending: false }).limit(1000),
           supabase.from('package_entries').select('*').eq('payment_mode', 'Debt').order('created_at', { ascending: false }).limit(1000),
         ]);
-        const mapped: Transaction[] = [];
-        (cargoRes.data || []).forEach((r: any) => mapped.push({
-          id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo', detail: `${r.airline || ''}`,
-          amount: r.amount || 0, amountPaid: r.amount_paid || 0, paymentHistory: r.payment_history || [], mode: 'Debt',
-          time: r.created_at, created_at: r.created_at, type: 'cargo', awb_tag_number: r.awb_tag_number, status: r.status || 'Intake',
-          airline: r.airline, hub_id: r.hub_id, hub: r.hub, clientType: r.client_type, corporate_client_id: r.corporate_client_id,
-          consigneePhone: r.consignee_phone, raw: r,
-        } as Transaction));
-        (baggageRes.data || []).forEach((r: any) => mapped.push({
-          id: r.transaction_id || r.id, name: r.passenger_name || 'Passenger', detail: `${r.flight_no || ''}`,
-          amount: r.amount || 0, amountPaid: r.amount_paid || 0, paymentHistory: r.payment_history || [], mode: 'Debt',
-          time: r.created_at, created_at: r.created_at, type: 'baggage', status: r.status || 'Intake',
-          hub_id: r.hub_id, hub: r.hub, clientType: r.client_type, consigneePhone: r.passenger_phone, raw: r,
-        } as Transaction));
-        (marketingRes.data || []).forEach((r: any) => mapped.push({
-          id: r.entry_ref || r.id, name: r.customer_name || 'Customer', detail: `${r.route || ''}`,
-          amount: r.amount_paid || 0, amountPaid: r.debt_amount_paid || 0, paymentHistory: r.payment_history || [], mode: 'Debt',
-          time: r.created_at, created_at: r.created_at, type: 'marketing', status: r.status || 'Intake',
-          hub_id: r.hub_id, hub: r.hub, clientType: r.client_type, consigneePhone: r.customer_phone, raw: r,
-        } as Transaction));
-        (packageRes.data || []).forEach((r: any) => mapped.push({
-          id: r.entry_ref || r.id, name: r.customer_name || 'Customer', detail: `${r.destination || ''}`,
-          amount: r.amount || 0, amountPaid: r.amount_paid || 0, paymentHistory: r.payment_history || [], mode: 'Debt',
-          time: r.created_at, created_at: r.created_at, type: 'package', status: r.status || 'Intake',
-          hub_id: r.hub_id, hub: r.hub, consigneePhone: r.customer_phone, raw: r,
-        } as Transaction));
+        const mapped: Transaction[] = [
+          ...(cargoRes.data || []).map((r: any) => mapDebtRow(r, 'cargo')),
+          ...(baggageRes.data || []).map((r: any) => mapDebtRow(r, 'baggage')),
+          ...(marketingRes.data || []).map((r: any) => mapDebtRow(r, 'marketing')),
+          ...(packageRes.data || []).map((r: any) => mapDebtRow(r, 'package')),
+        ];
         if (active) setFetchedDebts(mapped);
       } catch { /* keep whatever's already in the transactions prop */ }
     })();
     return () => { active = false; };
+  }, []);
+
+  // This screen only refetched on remount (e.g. leaving and returning to
+  // the Credit Sales sub-tab) -- a debt collected or newly logged from
+  // another agent's session/device never appeared here until then. Mirrors
+  // EHIApp.tsx's own per-table realtime channel pattern; upserts by id into
+  // fetchedDebts on INSERT/UPDATE so a debt just cleared elsewhere drops
+  // out of the debtor list (via the balance/isDebtSettled check in `debts`
+  // above) as soon as the event arrives, not on next remount.
+  useEffect(() => {
+    const upsert = (type: DebtDept) => (payload: any) => {
+      const r = payload.new as any;
+      const mapped = mapDebtRow(r, type);
+      setFetchedDebts(prev => {
+        const idx = prev.findIndex(t => t.id === mapped.id);
+        if (idx === -1) {
+          // The UPDATE subscription below is unfiltered (see comment
+          // above), so it also delivers every non-Debt update state-wide
+          // -- only start tracking a row here if it's actually Debt-mode.
+          if (r[DEBT_MODE_COL_BY_TYPE[type]] !== 'Debt') return prev;
+          return [mapped, ...prev];
+        }
+        const copy = prev.slice();
+        copy[idx] = mapped;
+        return copy;
+      });
+    };
+    const types: DebtDept[] = ['cargo', 'baggage', 'marketing', 'package'];
+    const channels = types.map(type =>
+      supabase
+        .channel(`ehi-debtors-${type}-live`)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: DEBT_TABLE_BY_TYPE[type], filter: `${DEBT_MODE_COL_BY_TYPE[type]}=eq.Debt` }, upsert(type))
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: DEBT_TABLE_BY_TYPE[type] }, upsert(type))
+        .subscribe()
+    );
+    return () => { channels.forEach(c => supabase.removeChannel(c)); };
   }, []);
 
   // Merge the dedicated fetch with the live, realtime-updated `transactions`
@@ -128,7 +188,11 @@ export const DebtorsTab = ({
 
   const debts = useMemo(() => {
     return debtSource
-      .filter(t => t.mode === 'Debt' || t.mode?.includes('Debt'))
+      // Check the row's actual mode column, not the pre-computed display
+      // string -- t.mode can now legitimately read 'Debt Paid' for a
+      // settled debt sourced from the live `transactions` prop, and
+      // `.includes('Debt')` would still match that string.
+      .filter(t => ((t.raw as any)?.receipt_mode ?? (t.raw as any)?.payment_mode) === 'Debt')
       .map(t => {
         const ageInDays = realAgeInDays(t);
         let bucket: 'current' | 'overdue' | 'critical' | 'writeoff-risk' = 'current';
@@ -139,6 +203,11 @@ export const DebtorsTab = ({
         const amt = Number(t.amount || 0);
         const amtPaid = Number(t.amountPaid || 0);
         const retrieved = Number((t.raw as any)?.retrieved_amount || 0);
+        // Package's legacy debt_paid boolean settles the debt independently
+        // of the amount/amountPaid arithmetic (see src/lib/debtStatus.ts) --
+        // without this, a package debt cleared only via that flag showed
+        // correctly as "Debt Paid" everywhere else but stayed listed here.
+        const settled = isDebtSettled(amtPaid, retrieved, amt, (t.raw as any)?.debt_paid === true);
 
         return {
           ...t,
@@ -150,11 +219,22 @@ export const DebtorsTab = ({
           clientType: (isOfficeWorkEntry(t) ? 'Corporate' : 'Individual') as 'Corporate' | 'Individual',
           ageInDays,
           agingBucket: bucket,
-          balance: amt - amtPaid - retrieved,
+          balance: settled ? 0 : amt - amtPaid - retrieved,
         };
       })
       .filter(d => d.balance > 0);
   }, [debtSource]);
+
+  // statementPrint is a value snapshot captured once at click time (see
+  // setStatementPrint below) -- without this, a debt paid down/cleared
+  // elsewhere while this statement was open kept showing the pre-payment
+  // balance/history until manually closed and reopened, same bug class as
+  // TransactionLedger.tsx's viewingDetail/clearDebtEntry.
+  useEffect(() => {
+    if (!statementPrint) return;
+    const fresh = debts.find(d => d.id === statementPrint.id);
+    if (fresh && fresh !== statementPrint) setStatementPrint(fresh as unknown as Transaction);
+  }, [debts]);
 
   let visibleDebts = debts;
   if (filter !== 'All') {
@@ -339,14 +419,15 @@ export const DebtorsTab = ({
     }
   };
 
-  // Bulk-clears every currently-selected Office Work (B2B) debt for its
-  // full remaining balance in one action -- a corporate client settling
-  // several outstanding shipments in one payment previously meant clicking
-  // Confirm separately on every row. Deliberately scoped to the Corporate
-  // filter only (selectedIds is reset on any filter change, see its own
-  // state comment) -- bulk-clearing a mix of unrelated individual
-  // customers carries more accidental-mass-clear risk than this narrower
-  // office-client case.
+  // Bulk-clears every currently-selected debt for its full remaining
+  // balance in one action -- a customer (corporate or an individual with
+  // several outstanding routes/shipments) settling multiple debts in one
+  // payment previously meant clicking Confirm separately on every row.
+  // Available on the Corporate and Individual tabs (not the mixed "All"
+  // tab -- selectedIds is reset on any filter change, see its own state
+  // comment, so a selection never survives across tabs anyway). The
+  // confirm dialog's count/total display is the safety net against a
+  // misclick, the same one already relied on when this was Corporate-only.
   const handleBulkClear = async () => {
     if (bulkClearing || selectedIds.size === 0) return;
     if (bulkMode === 'Transfer' && !bulkBank.trim()) {
@@ -406,6 +487,77 @@ export const DebtorsTab = ({
     }
   };
 
+  // Independent of handleBulkClear -- printable before or after clearing,
+  // for whichever order the agent works in. Combines every selected debt
+  // into ONE receipt (one customer name, every route/ref listed, a single
+  // total) instead of printing one mini-receipt per debt.
+  const handleBatchPrintReceipt = async () => {
+    const selected = visibleDebts.filter(d => selectedIds.has(d.id));
+    if (selected.length === 0) return;
+    // The combined receipt is for one customer's several debts, not a
+    // mixed batch -- block rather than guess which name to print.
+    if (new Set(selected.map(d => d.name)).size > 1) {
+      showToast({ message: 'Batch receipt requires all selected debts to belong to the same customer.', type: 'warning' });
+      return;
+    }
+    const items = selected.map(d => ({
+      ref: d.id,
+      route: (d.type === 'baggage' || d.type === 'package')
+        ? ((d.raw as any)?.destination || '')
+        : ((d.raw as any)?.route || ''),
+      type: d.type,
+      amount: d.balance,
+    }));
+    try {
+      await downloadBatchDebtReceipt({
+        batchRef: `BATCH-${Date.now()}`,
+        date: new Date().toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' }),
+        agentName: user?.name || 'Unknown',
+        customerName: selected[0].name,
+        customerPhone: selected[0].consigneePhone,
+        items,
+        totalAmount: items.reduce((s, i) => s + i.amount, 0),
+        paymentMode: bulkMode,
+        bankName: bulkMode === 'Transfer' ? bulkBank : undefined,
+      });
+    } catch (err: any) {
+      showToast({ message: err?.message || 'Failed to generate batch receipt.', type: 'error' });
+    }
+  };
+
+  // Belt-and-suspenders on top of the statementPrint resync effect above: a
+  // realtime event can still be in flight at the exact click moment. Re-
+  // fetches this one row immediately before printing so a statement never
+  // shows a stale balance/payment history. Falls back to the in-memory
+  // value (possibly stale, e.g. offline) if this fetch doesn't come back.
+  const handlePrintStatement = async () => {
+    if (!statementPrint) return;
+    const deptType = (statementPrint as any).type as DebtEntryType;
+    const idCol = deptType === 'baggage' ? 'transaction_id' : 'entry_ref';
+    try {
+      const { data: freshRow } = await supabase
+        .from(DEBT_TABLE_NAME[deptType])
+        .select('*')
+        .eq(idCol, statementPrint.id)
+        .maybeSingle();
+      if (freshRow) {
+        const amt = deptType === 'marketing' ? Number(freshRow.amount_paid || 0) : Number(freshRow.amount || 0);
+        const amtPaid = deptType === 'marketing' ? Number(freshRow.debt_amount_paid || 0) : Number(freshRow.amount_paid || 0);
+        const retrieved = Number(freshRow.retrieved_amount || 0);
+        const settled = isDebtSettled(amtPaid, retrieved, amt, deptType === 'package' && freshRow.debt_paid === true);
+        setStatementPrint({
+          ...statementPrint,
+          amount: amt,
+          amountPaid: amtPaid,
+          paymentHistory: freshRow.payment_history || [],
+          raw: freshRow,
+          balance: settled ? 0 : amt - amtPaid - retrieved,
+        } as any);
+      }
+    } catch { /* offline or fetch failed -- print with what we already have */ }
+    window.print();
+  };
+
   return (
     <div className="space-y-6 pb-24">
       
@@ -415,7 +567,7 @@ export const DebtorsTab = ({
             <button onClick={() => setStatementPrint(null)} className="flex items-center space-x-2 bg-[var(--color-surface-1)] border border-[var(--color-border-strong)] px-4 py-2 rounded-lg text-[13px] font-sans font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-2)] transition-colors">
               <span>Close</span>
             </button>
-             <button onClick={() => window.print()} className="flex items-center space-x-2 bg-[var(--color-surface-2)] px-4 py-2 rounded-lg text-[13px] font-sans font-medium text-[var(--color-foreground)]">
+             <button onClick={handlePrintStatement} className="flex items-center space-x-2 bg-[var(--color-surface-2)] px-4 py-2 rounded-lg text-[13px] font-sans font-medium text-[var(--color-foreground)]">
               <Printer size={16} />
               <span>Print / Export PDF</span>
             </button>
@@ -548,8 +700,8 @@ export const DebtorsTab = ({
         </select>
       </div>
 
-      {/* BULK CLEAR BAR -- Office Work (B2B) only, see handleBulkClear's comment */}
-      {filter === 'Corporate' && visibleDebts.length > 0 && (
+      {/* BULK CLEAR BAR -- available on Corporate and Individual, not the mixed All tab */}
+      {filter !== 'All' && visibleDebts.length > 0 && (
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-3">
           <label className="flex items-center gap-2 text-[12px] font-sans font-semibold text-[var(--color-foreground)] cursor-pointer select-none shrink-0">
             <input
@@ -585,13 +737,22 @@ export const DebtorsTab = ({
                   {banks.map((b) => <option key={b} value={b}>{b}</option>)}
                 </select>
               )}
-              <button
-                onClick={handleBulkClear}
-                disabled={bulkClearing || (bulkMode === 'Transfer' && !bulkBank.trim())}
-                className="bg-[var(--color-success)] text-[var(--color-on-accent)] px-4 py-1.5 rounded-lg text-[12px] font-sans font-bold hover:opacity-90 transition-opacity focus:outline-none disabled:opacity-50 ml-auto"
-              >
-                {bulkClearing ? 'Clearing...' : `Clear ${selectedIds.size} Debt${selectedIds.size === 1 ? '' : 's'}`}
-              </button>
+              <div className="flex items-center gap-2 ml-auto">
+                <button
+                  onClick={handleBatchPrintReceipt}
+                  className="flex items-center gap-1.5 bg-[var(--color-surface-2)] text-[var(--color-foreground)] px-4 py-1.5 rounded-lg text-[12px] font-sans font-bold hover:opacity-90 transition-opacity focus:outline-none"
+                >
+                  <Printer size={14} />
+                  Print Receipt
+                </button>
+                <button
+                  onClick={handleBulkClear}
+                  disabled={bulkClearing || (bulkMode === 'Transfer' && !bulkBank.trim())}
+                  className="bg-[var(--color-success)] text-[var(--color-on-accent)] px-4 py-1.5 rounded-lg text-[12px] font-sans font-bold hover:opacity-90 transition-opacity focus:outline-none disabled:opacity-50"
+                >
+                  {bulkClearing ? 'Clearing...' : `Clear ${selectedIds.size} Debt${selectedIds.size === 1 ? '' : 's'}`}
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -623,7 +784,7 @@ export const DebtorsTab = ({
                     onClick={() => setExpandedId(isExpanded ? null : d.id)}
                     className="p-4 flex items-center justify-between cursor-pointer hover:bg-[var(--color-surface-hover)] transition-colors"
                   >
-                    {filter === 'Corporate' && (
+                    {filter !== 'All' && (
                       <input
                         type="checkbox"
                         checked={selectedIds.has(d.id)}

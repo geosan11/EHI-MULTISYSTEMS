@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase.js';
 import { CARGO_ROUTES } from './constants.js';
+import { getCached, setCached } from './localCache.js';
+
+export const HUB_RECORDS_CACHE_KEY = 'ehi_hub_records_v1';
+export const HUB_NAMES_CACHE_KEY = 'ehi_hub_names_v1';
 
 // Same key PackageForm.tsx already used for its own inline version of this
 // fetch -- kept identical so real devices' existing cached value isn't
@@ -105,12 +109,20 @@ export interface HubRecord { id: string; name: string; code: string; }
 // non-UUID data feeding straight into hub-scoped rate lookups and the
 // actual sale INSERT's hub_id column. This is the real-hubs-table source
 // that fix needs.
+// Cache-first (matches useHubRoutes' own pattern above) -- previously
+// plain useState([]), so a cold offline reload left this at [] until a
+// fetch resolved, silently breaking anything that needs a real hub id
+// (the admin "Global Hub Context" selector, this same file's own
+// useHubNames-derived lookups) for as long as the device stayed offline.
 export function useHubs(): HubRecord[] {
-  const [hubs, setHubs] = useState<HubRecord[]>([]);
+  const [hubs, setHubs] = useState<HubRecord[]>(() => getCached<HubRecord[]>(HUB_RECORDS_CACHE_KEY, []));
   useEffect(() => {
     let cancelled = false;
     supabase.from('hubs').select('id, name, code').order('name').then(({ data }) => {
-      if (data && !cancelled) setHubs(data as HubRecord[]);
+      if (data && !cancelled) {
+        setHubs(data as HubRecord[]);
+        setCached(HUB_RECORDS_CACHE_KEY, data);
+      }
     });
     return () => { cancelled = true; };
   }, []);
@@ -118,7 +130,7 @@ export function useHubs(): HubRecord[] {
 }
 
 export function useHubNames(): Record<string, string> {
-  const [names, setNames] = useState<Record<string, string>>({});
+  const [names, setNames] = useState<Record<string, string>>(() => getCached<Record<string, string>>(HUB_NAMES_CACHE_KEY, {}));
   useEffect(() => {
     let cancelled = false;
     supabase.from('hubs').select('id, name').then(({ data }) => {
@@ -126,6 +138,7 @@ export function useHubNames(): Record<string, string> {
         const map: Record<string, string> = {};
         data.forEach((h: any) => { map[h.id] = h.name; });
         setNames(map);
+        setCached(HUB_NAMES_CACHE_KEY, map);
       }
     });
     return () => { cancelled = true; };

@@ -178,6 +178,40 @@ export const CorporateBilling = ({ user, onBack }: { user: User; onBack: () => v
     });
   }, []);
 
+  // accumulated_monthly_debt is decremented atomically server-side by
+  // clear_cargo_debt every time a corporate client's debt is paid down --
+  // without this, the one-shot fetch above left this screen's balance
+  // stale until manually remounted (see
+  // 20260950_corporate_clients_realtime_publication.sql, which adds this
+  // table to the publication so these events actually arrive).
+  useEffect(() => {
+    const channel = supabase
+      .channel('ehi-corporate-clients-live')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'corporate_clients' },
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            setClients(prev => prev.filter(c => c.id !== (payload.old as any).id));
+            return;
+          }
+          const r = payload.new as any;
+          setClients(prev => {
+            const idx = prev.findIndex(c => c.id === r.id);
+            const next: CorporateClient = {
+              id: r.id, company_name: r.company_name, contact_phone: r.contact_phone,
+              accumulated_monthly_debt: r.accumulated_monthly_debt,
+            };
+            if (idx === -1) return [...prev, next].sort((a, b) => a.company_name.localeCompare(b.company_name));
+            const copy = prev.slice();
+            copy[idx] = next;
+            return copy;
+          });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   // [start, end) -- end is exclusive (midnight of the day AFTER the last
   // included day) so a shipment logged any time on the last calendar day
   // of the range is still captured, instead of an inclusive `lte` on a

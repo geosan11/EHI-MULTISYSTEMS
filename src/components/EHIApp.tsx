@@ -2,11 +2,16 @@ import { useState, useEffect, lazy, Suspense, useRef, useCallback, memo, useMemo
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { User, TabView, Transaction, Expense, ExcessBaggageAirline, CustomerWallet, HubShift, ShiftDepartment } from '../lib/types';
-import { processSyncQueue, writeWithOfflineSupport, cleanupOldQueue, getUnsyncedLocalTransactions } from '../lib/sync';
+import { processSyncQueue, writeWithOfflineSupport, cleanupOldQueue, getUnsyncedLocalTransactions, getAllLocalMirrorTransactions } from '../lib/sync';
 import { db } from '../lib/db';
 import Dexie from 'dexie';
 import { refillPoolIfLow } from '../lib/tagPool';
 import { getHubCode, getShiftBoundary, rowsEqualById } from '../lib/helpers';
+import { computeDebtDisplayModeFromRow, computeDebtDisplayModeFromRealtimeMerge } from '../lib/debtStatus';
+import { getCached, setCached } from '../lib/localCache';
+
+const CUSTOMER_WALLETS_CACHE_KEY = 'ehi_customer_wallets_v1';
+const TODAY_SHIFTS_CACHE_KEY = 'ehi_today_shifts_v1';
 import { useTheme } from '../lib/useTheme';
 import { getAllowedTabs } from '../lib/permissions';
 import { Header as HeaderRaw } from './Header';
@@ -259,6 +264,12 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [initError, setInitError] = useState(false);
+  // Distinct from initError: set when the ledger is populated from this
+  // device's own local Dexie mirror instead of a real Supabase fetch (a
+  // cold launch/reload while offline, or fetchInitial itself failing) --
+  // lets the UI show an honest "this device's saved entries only" banner
+  // instead of either a blank ledger or claiming the fetch succeeded.
+  const [offlineFallbackActive, setOfflineFallbackActive] = useState(false);
   const [retryTrigger, setRetryTrigger] = useState(0);
   // Rate-limits the "Failed to load data" screen's Retry button -- without
   // this, mashing it during a real outage fires setRetryTrigger repeatedly
@@ -314,14 +325,20 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const transactionsRef = useRef<Transaction[]>([]);
 
-  // Global Customer Wallets state and real-time synchronization
-  const [customerWallets, setCustomerWallets] = useState<CustomerWallet[]>([]);
+  // Global Customer Wallets state and real-time synchronization. Cache-
+  // first (localStorage) so Wallet-mode's balance display and customer
+  // match still work on a cold offline reload -- previously plain
+  // useState([]), so this stayed empty until a fetch succeeded.
+  const [customerWallets, setCustomerWallets] = useState<CustomerWallet[]>(() => getCached<CustomerWallet[]>(CUSTOMER_WALLETS_CACHE_KEY, []));
   // Every shift touched in the last 24h (open or closed), not just the
   // single open one -- lets the ledger render both "Day started" and
   // "Day ended" markers, and survives a reload (unlike keeping only an
   // in-memory "active shift", which would be lost the moment a shift
   // closes and would otherwise erase all trace it ever happened).
-  const [todayShifts, setTodayShifts] = useState<HubShift[]>([]);
+  // Cache-first (localStorage) -- needed to stamp created_shift_id on new
+  // offline entries after a cold reload, not just to render "Day started"/
+  // "Day ended" markers; previously plain useState([]).
+  const [todayShifts, setTodayShifts] = useState<HubShift[]>(() => getCached<HubShift[]>(TODAY_SHIFTS_CACHE_KEY, []));
   // Derived, not separate state -- each department (Cargo, Package,
   // Marketing, Baggage, GAT, plus 'all' for the unfiltered Master Ledger)
   // can have its own open shift simultaneously, so "the active shift" is a
@@ -367,7 +384,11 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       // Cargo/Package/Marketing/Excess-Baggage form's activeWallet useMemo
       // (each does its own linear customer-match scan over this array) to
       // recompute for no reason.
-      setCustomerWallets(prev => rowsEqualById(prev, rows) ? prev : rows);
+      setCustomerWallets(prev => {
+        if (rowsEqualById(prev, rows)) return prev;
+        setCached(CUSTOMER_WALLETS_CACHE_KEY, rows);
+        return rows;
+      });
       // Same "don't silently show an incomplete list" convention
       // fetchInitial already uses below for cargo/baggage/marketing/package.
       if (capped) {
@@ -470,6 +491,29 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
   // for a genuinely wide lookback -- see the matching max-span guard on
   // TransactionLedger.tsx's date-range picker.
   const LEDGER_ROW_CAP = ledgerRowCap;
+
+  // Fallback for a cold launch/reload that can't reach Supabase at all
+  // (offline, or fetchInitial itself failing below) -- without this,
+  // `transactions` stayed `[]` (its initial useState value) indefinitely,
+  // even though getAllLocalMirrorTransactions (this device's full Dexie
+  // mirror, not just its unsynced outbox) would have real data to show.
+  // Only ever reflects what THIS device itself wrote or has separately
+  // synced down, never other devices' entries -- offlineFallbackActive
+  // exists so the UI can say so honestly instead of implying a full fetch.
+  const loadOfflineFallback = useCallback(async () => {
+    const { transactions: localTx, expenses: localExpenses } = await getAllLocalMirrorTransactions();
+    if (localTx.length === 0 && localExpenses.length === 0) return;
+    setTransactions(prev => {
+      if (prev.length > 0) return prev; // a real fetch already populated this
+      const localOnly = pendingTxRef.current.filter(p => !localTx.some((t: any) => t.id === p.id));
+      const combined = [...localOnly, ...localTx];
+      const unique = combined.filter((v, i, a) => a.findIndex((x: any) => x.id === v.id) === i);
+      return unique.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    });
+    setExpenses(prev => (prev.length > 0 ? prev : localExpenses));
+    setOfflineFallbackActive(true);
+  }, []);
+
   const fetchInitial = useCallback(async () => {
     // globalDateRange changes on every filter click -- without this guard,
     // quickly clicking through Today -> Yesterday -> 7 days can let an
@@ -557,7 +601,11 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         // after shiftsToMark itself was memoized (commit 9f5d16f fixed that
         // memo's own computation, not the fact its inputs were fresh every
         // time). Same idiom as the hub_shifts realtime UPDATE handler below.
-        setTodayShifts(prev => rowsEqualById(prev, shifts) ? prev : shifts);
+        setTodayShifts(prev => {
+          if (rowsEqualById(prev, shifts)) return prev;
+          setCached(TODAY_SHIFTS_CACHE_KEY, shifts);
+          return shifts;
+        });
 
         const dcByType: Record<string, any[]> = { cargo: [], baggage: [], marketing: [], package: [] };
         (debtCollectionRes.data || []).forEach((row: any) => { dcByType[row.entry_type]?.push(row.raw); });
@@ -617,14 +665,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               name: r.consignee_name || 'Cargo',
               detail: `${r.airline || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}${r.size_inches ? ` · ${r.size_inches}in` : ''}`,
               amount: r.amount || 0,
-              // + retrieved_amount: a debt can be fully settled by a MIX of
-              // an explicit payment and a partial retrieval (see
-              // clear_cargo_debt's own balance formula, which subtracts
-              // retrieved_amount) -- without it here, a debt genuinely
-              // fully paid via that mix showed as still "Debt" forever,
-              // never flipping to "Debt Paid", even though
-              // payment_confirmed is correctly true server-side.
-              mode: r.receipt_mode === 'Debt' && Number(r.amount_paid || 0) + Number(r.retrieved_amount || 0) >= Number(r.amount || 0) ? 'Debt Paid' : (r.receipt_mode || 'Cash'),
+              mode: computeDebtDisplayModeFromRow(r, 'cargo'),
               time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
               type: 'cargo',
               status: r.status || 'Intake',
@@ -687,8 +728,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               name: r.passenger_name || 'Baggage Passenger',
               detail: `${r.flight_no || ''} · ${r.destination || ''} · ${r.total_pcs || 1}pcs · +${r.excess_kg || 0}kg excess`,
               amount: r.amount || 0,
-              // See the cargo mapping's comment above on + retrieved_amount.
-              mode: r.payment_mode === 'Debt' && Number(r.amount_paid || 0) + Number(r.retrieved_amount || 0) >= Number(r.amount || 0) ? 'Debt Paid' : (r.payment_mode || 'POS'),
+              mode: computeDebtDisplayModeFromRow(r, 'baggage'),
               time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
               type: 'baggage',
               status: 'Delivered',
@@ -760,8 +800,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               name: r.customer_name || 'Customer',
               detail: `${r.route || ''} · ${r.qty_big_bag || 0}BB ${r.qty_med_bag || 0}MB ${r.qty_small_bag || 0}SB`,
               amount: r.amount_paid || 0,
-              // See the cargo mapping's comment above on + retrieved_amount.
-              mode: r.payment_mode === 'Debt' && Number(r.debt_amount_paid || 0) + Number(r.retrieved_amount || 0) >= Number(r.amount_paid || 0) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
+              mode: computeDebtDisplayModeFromRow(r, 'marketing'),
               time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
               type: 'marketing',
               status: 'Intake',
@@ -821,8 +860,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               name: r.customer_name || 'Customer',
               detail: `${r.destination || ''} · ${r.content_type || 'Package'} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg${r.contents ? ` · ${r.contents}` : ''}`,
               amount: r.amount || 0,
-              // See the cargo mapping's comment above on + retrieved_amount.
-              mode: r.payment_mode === 'Debt' && (r.debt_paid === true || Number(r.amount_paid || 0) + Number(r.retrieved_amount || 0) >= Number(r.amount || 0)) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
+              mode: computeDebtDisplayModeFromRow(r, 'package'),
               time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
               type: 'package',
               status: r.status || 'Intake',
@@ -923,12 +961,14 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           return rowsEqualById(prev, sorted) ? prev : sorted;
         });
         consecutiveFetchFailuresRef.current = 0;
+        setOfflineFallbackActive(false);
       } catch (err) {
         if (fetchEpochRef.current !== myEpoch) return;
         console.error("Failed to fetch initial tx:", err);
         consecutiveFetchFailuresRef.current++;
         setInitError(true);
         setLedgerRowsLoadingMore(false);
+        loadOfflineFallback().catch(() => {});
       } finally {
         // Guarded by epoch, same as the two early-return checks above: if a
         // newer fetchInitial call has already started by the time this one
@@ -1259,6 +1299,17 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     fetchInitial();
   }, [isOffline, retryTrigger, fetchInitial]);
 
+  // Covers the case the effect above can't: a fully cold launch/reload
+  // while already offline never calls fetchInitial at all (guarded above),
+  // so its own catch-block fallback never gets a chance to run either --
+  // `transactions` would otherwise stay [] (its initial value) until a
+  // real 'online' event later triggers a real fetch.
+  useEffect(() => {
+    if (!isOffline || transactions.length > 0) return;
+    loadOfflineFallback().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOffline]);
+
   // Self-healing fallback for cargo/baggage/marketing/package, same
   // reasoning as fetchWallets' own periodic refresh above: postgres_changes
   // delivers nothing for a table missing from the supabase_realtime
@@ -1379,11 +1430,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             name: r.consignee_name || 'Cargo',
             detail: `${r.airline || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}${r.size_inches ? ` · ${r.size_inches}in` : ''}`,
             amount: r.amount || 0,
-            // Same 'Debt Paid' recomputation fetchInitial and this
-            // channel's own UPDATE handler use -- an INSERT is rarely
-            // already fully paid off, but kept consistent regardless.
-            // See fetchInitial's cargo mapping comment on + retrieved_amount.
-            mode: r.receipt_mode === 'Debt' && Number(r.amount_paid || 0) + Number(r.retrieved_amount || 0) >= Number(r.amount || 0) ? 'Debt Paid' : (r.receipt_mode || 'Cash'),
+            mode: computeDebtDisplayModeFromRow(r, 'cargo'),
             time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
             type: 'cargo',
             status: r.status || 'Intake',
@@ -1427,19 +1474,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             t.id === (r.entry_ref || r.id) ? {
               ...t,
               status: r.status || t.status,
-              // 'Debt Paid' is a synthetic display value never stored in
-              // receipt_mode itself (clear_cargo_debt only ever updates
-              // amount_paid/payment_history/payment_confirmed, never the
-              // mode column -- confirmed via 20260824_clear_cargo_debt_
-              // corporate_decrement.sql) -- recomputed here the same way
-              // fetchInitial does, or a debt just cleared via
-              // handleClearDebt's RPC call would show its correct
-              // optimistic 'Debt Paid' state for a moment, then get
-              // silently reverted back to 'Debt' the instant this
-              // handler's own realtime round-trip for that same RPC
-              // write arrives.
-              // + retrieved_amount, see fetchInitial's cargo mapping comment.
-              mode: (r.receipt_mode || t.mode) === 'Debt' && Number(r.amount_paid ?? t.amountPaid ?? 0) + Number(r.retrieved_amount ?? (t.raw as any)?.retrieved_amount ?? 0) >= Number(r.amount ?? t.amount ?? 0) ? 'Debt Paid' : (r.receipt_mode || t.mode),
+              mode: computeDebtDisplayModeFromRealtimeMerge(r, t, 'cargo'),
               paymentConfirmed: r.payment_confirmed,
               posApprovalCode: r.pos_approval_code,
               bank: r.bank ?? t.bank,
@@ -1483,8 +1518,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             name: r.passenger_name || 'Baggage Passenger',
             detail: `${r.flight_no || ''} · ${r.destination || ''} · ${r.total_pcs || 1}pcs · +${r.excess_kg || 0}kg excess`,
             amount: r.amount || 0,
-            // See fetchInitial's cargo mapping comment on + retrieved_amount.
-            mode: r.payment_mode === 'Debt' && Number(r.amount_paid || 0) + Number(r.retrieved_amount || 0) >= Number(r.amount || 0) ? 'Debt Paid' : (r.payment_mode || 'POS'),
+            mode: computeDebtDisplayModeFromRow(r, 'baggage'),
             time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
             type: 'baggage',
             status: 'Delivered',
@@ -1520,10 +1554,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           setTransactions(prev => prev.map(t =>
             t.id === (r.transaction_id || r.id) ? {
               ...t,
-              // Same 'Debt Paid' recomputation as the cargo channel above --
-              // see its comment for why this can't just pass payment_mode through.
-              // + retrieved_amount, see fetchInitial's cargo mapping comment.
-              mode: (r.payment_mode || t.mode) === 'Debt' && Number(r.amount_paid ?? t.amountPaid ?? 0) + Number(r.retrieved_amount ?? (t.raw as any)?.retrieved_amount ?? 0) >= Number(r.amount ?? t.amount ?? 0) ? 'Debt Paid' : (r.payment_mode || t.mode),
+              mode: computeDebtDisplayModeFromRealtimeMerge(r, t, 'baggage'),
               paymentConfirmed: r.payment_confirmed,
               posApprovalCode: r.pos_approval_code,
               editedBy: r.last_edited_by ?? t.editedBy,
@@ -1559,8 +1590,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             name: r.customer_name || 'Customer',
             detail: `${r.route || ''} · ${r.qty_big_bag || 0}BB ${r.qty_med_bag || 0}MB ${r.qty_small_bag || 0}SB`,
             amount: r.amount_paid || 0,
-            // See fetchInitial's cargo mapping comment on + retrieved_amount.
-            mode: r.payment_mode === 'Debt' && Number(r.debt_amount_paid || 0) + Number(r.retrieved_amount || 0) >= Number(r.amount_paid || 0) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
+            mode: computeDebtDisplayModeFromRow(r, 'marketing'),
             time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
             type: 'marketing',
             status: 'Intake',
@@ -1591,13 +1621,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           setTransactions(prev => prev.map(t =>
             t.id === (r.entry_ref || r.id) ? {
               ...t,
-              // Same 'Debt Paid' recomputation as the cargo channel above,
-              // but keyed on debt_amount_paid vs amount_paid -- marketing_
-              // entries' own naming inversion (amount_paid there is the
-              // SALE total, not what's been paid down; see clear_marketing_
-              // debt's comment on this).
-              // + retrieved_amount, see fetchInitial's cargo mapping comment.
-              mode: (r.payment_mode || t.mode) === 'Debt' && Number(r.debt_amount_paid ?? t.amountPaid ?? 0) + Number(r.retrieved_amount ?? (t.raw as any)?.retrieved_amount ?? 0) >= Number(r.amount_paid ?? t.amount ?? 0) ? 'Debt Paid' : (r.payment_mode || t.mode),
+              mode: computeDebtDisplayModeFromRealtimeMerge(r, t, 'marketing'),
               paymentConfirmed: r.payment_confirmed,
               status: r.status || t.status,
               editedBy: r.last_edited_by ?? t.editedBy,
@@ -1632,8 +1656,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             name: r.customer_name || 'Customer',
             detail: `${r.destination || ''} · ${r.content_type || 'Package'} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg${r.contents ? ` · ${r.contents}` : ''}`,
             amount: r.amount || 0,
-            // See fetchInitial's cargo mapping comment on + retrieved_amount.
-            mode: r.payment_mode === 'Debt' && (r.debt_paid === true || Number(r.amount_paid || 0) + Number(r.retrieved_amount || 0) >= Number(r.amount || 0)) ? 'Debt Paid' : (r.payment_mode || 'Cash'),
+            mode: computeDebtDisplayModeFromRow(r, 'package'),
             time: new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
             type: 'package',
             status: r.status || 'Intake',
@@ -1669,11 +1692,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             t.id === (r.entry_ref || r.id) ? {
               ...t,
               status: r.status || t.status,
-              // Same 'Debt Paid' recomputation as the cargo channel above,
-              // also OR'ing in the legacy debt_paid boolean flag to match
-              // fetchInitial's own package formula exactly.
-              // + retrieved_amount, see fetchInitial's cargo mapping comment.
-              mode: (r.payment_mode || t.mode) === 'Debt' && (r.debt_paid === true || t.debtPaid === true || Number(r.amount_paid ?? t.amountPaid ?? 0) + Number(r.retrieved_amount ?? (t.raw as any)?.retrieved_amount ?? 0) >= Number(r.amount ?? t.amount ?? 0)) ? 'Debt Paid' : (r.payment_mode || t.mode),
+              mode: computeDebtDisplayModeFromRealtimeMerge(r, t, 'package'),
               paymentConfirmed: r.payment_confirmed,
               posApprovalCode: r.pos_approval_code,
               bank: r.bank ?? t.bank,
@@ -2503,7 +2522,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             style={{ maxWidth: 'var(--content-max-width)' }}
           >
             <ErrorBoundary>
-              {initError && (
+              {initError && !offlineFallbackActive && (
                 <div className="flex flex-col items-center justify-center h-full gap-4 p-8">
                   <div className="text-[var(--color-error)] font-mono text-[13px] text-center">
                     Failed to load data. Check your internet connection.
@@ -2515,6 +2534,11 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                   >
                     {retryOnCooldown ? 'Retrying...' : 'Retry'}
                   </button>
+                </div>
+              )}
+              {offlineFallbackActive && (
+                <div className="text-center text-[11px] font-sans text-[var(--color-muted)] bg-[var(--color-surface-1)] border-b border-[var(--color-border)] py-1.5 px-4">
+                  Showing this device's saved entries only -- reconnect for the full ledger.
                 </div>
               )}
               <Suspense fallback={<TabLoadingFallback />}>

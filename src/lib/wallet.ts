@@ -11,12 +11,13 @@ export interface WalletTxnResult {
 
 // Single entry point for every wallet balance mutation in the app.
 // Routes through apply_wallet_transaction() (see
-// supabase/migrations/20260810_wallet_atomicity_and_isolation.sql),
-// which locks the wallet row, checks hub ownership, floors deductions
-// at zero, and writes the balance update + its wallet_transactions
-// audit row in one atomic call -- replacing the old pattern of every
-// call site computing balance +/- amount in JS and writing it back
-// as two separate, unchecked, un-awaited requests.
+// supabase/migrations/20260951_wallet_transaction_idempotency_key.sql for
+// the current definition), which locks the wallet row, checks hub
+// ownership, rejects a deduction that would take the balance negative
+// (raises, does not silently floor at zero), and writes the balance update
+// + its wallet_transactions audit row in one atomic call -- replacing the
+// old pattern of every call site computing balance +/- amount in JS and
+// writing it back as two separate, unchecked, un-awaited requests.
 export async function applyWalletTransaction(params: {
   walletId: string;
   type: WalletTxnType;
@@ -36,6 +37,13 @@ export async function applyWalletTransaction(params: {
   // fold real cash/transfer/POS top-ups into its expected-cash math instead
   // of that cash being invisible to the day's reconciliation.
   paymentMode?: 'Cash' | 'Transfer' | 'POS';
+  // Generated once per logical charge attempt (crypto.randomUUID()) by the
+  // caller -- a retry of the SAME attempt (same key) becomes a no-op that
+  // returns the original result instead of applying the delta twice. See
+  // 20260951_wallet_transaction_idempotency_key.sql's header comment for
+  // exactly which failure mode this closes (a dropped response after the
+  // RPC already committed).
+  idempotencyKey?: string;
 }): Promise<WalletTxnResult> {
   const rpcArgs: Record<string, unknown> = {
     p_wallet_id: params.walletId,
@@ -46,6 +54,7 @@ export async function applyWalletTransaction(params: {
     p_description: params.description ?? null,
     p_logged_by: params.loggedBy,
     p_payment_mode: params.paymentMode ?? null,
+    p_idempotency_key: params.idempotencyKey ?? null,
   };
   if (params.department) rpcArgs.p_department = params.department;
   const { data, error } = await supabase.rpc('apply_wallet_transaction', rpcArgs);

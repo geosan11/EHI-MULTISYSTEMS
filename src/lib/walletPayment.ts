@@ -36,6 +36,10 @@ export async function chargeWalletForSale(params: {
     description: params.description,
     loggedBy: params.loggedBy,
     department: params.department,
+    // One key per sale attempt -- if this exact request's response is lost
+    // (network drop after the RPC already committed) and something retries
+    // it, the retry becomes a no-op instead of a second deduction.
+    idempotencyKey: crypto.randomUUID(),
   });
   if (!res.ok) return { ok: false, walletDeduction: 0, remainder, error: res.error };
   return { ok: true, walletDeduction: deduct, remainder, newBalance: res.newBalance };

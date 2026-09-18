@@ -5,7 +5,8 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { Transaction, User, Expense } from "../../lib/types";
 import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDateTime, normalizeAirlineName, formatPaymentModeDisplay, roundMoney, parseLocalDateBoundary, cleanRoute } from "../../lib/helpers";
 import { applyWalletTransaction, processRetrieval, unretrieveEntry, approveRetrieval, RetrievalEntryType } from "../../lib/wallet";
-import { clearDebt, reopenDebt, DebtEntryType } from "../../lib/debt";
+import { clearDebt, reopenDebt, DebtEntryType, DEBT_TABLE_NAME } from "../../lib/debt";
+import { computeDebtDisplayModeFromRow } from "../../lib/debtStatus";
 import { deleteTransaction } from "../../lib/deleteTransaction";
 import { confirmPayment, PaymentEntryType } from "../../lib/paymentConfirmation";
 import { useHubRoutes, useHubNames } from "../../lib/hubRoutes";
@@ -1045,6 +1046,36 @@ export const TransactionLedger = ({
     });
   }, [mergedTransactions, mergedExpenses]);
 
+  // viewingDetail/clearDebtEntry are value snapshots captured once at click
+  // time (see their setters below), never otherwise re-synced -- clearing
+  // this same debt from elsewhere (another agent, another tab, a realtime
+  // event) left an already-open modal showing stale data until the user
+  // manually closed and reopened it. Neither modal holds local-only draft
+  // state of its own (the clear-debt payment form fields live in separate
+  // clearDebtMode/clearDebtBank/clearDebtWallet state below), so re-seeding
+  // the whole snapshot from the live `entries` array whenever it changes is
+  // safe and keeps both modals -- and anything printed/reprinted from them
+  // -- current without requiring a manual refresh.
+  useEffect(() => {
+    if (!viewingDetail) return;
+    const fresh = entries.find(e => e.id === viewingDetail.id);
+    if (fresh && fresh !== viewingDetail) setViewingDetail(fresh as Entry);
+  }, [entries]);
+
+  useEffect(() => {
+    if (!clearDebtEntry) return;
+    const fresh = entries.find(e => e.id === clearDebtEntry.id);
+    if (!fresh) return;
+    if (fresh.mode !== 'Debt') {
+      // Fully settled (or reopened into a non-Debt mode) by another
+      // action while this modal was still open -- nothing left to clear.
+      setClearDebtEntry(null);
+      showToast({ message: 'This debt was already settled elsewhere', type: 'info' });
+      return;
+    }
+    if (fresh !== clearDebtEntry) setClearDebtEntry(fresh as Entry);
+  }, [entries]);
+
   // Single source of truth (src/lib/officeWork.ts) shared with
   // DebtorsTab.tsx and Analytics.tsx, so the Office/Individual split can't
   // drift between screens the way it already had once (see that file's own
@@ -1781,8 +1812,32 @@ export const TransactionLedger = ({
   // a normal browser tab (to view, save, print on any printer, or email).
   const handleReprintReceiptPDF = async () => {
     if (!viewingDetail || !viewingDetail.raw) return;
-    const tx = viewingDetail.raw;
+    let tx = viewingDetail.raw;
     if (tx.type !== 'cargo' && tx.type !== 'baggage' && tx.type !== 'package') return;
+
+    // Belt-and-suspenders on top of the live-resync effect above: a
+    // realtime event can still be in flight at the exact click moment.
+    // Re-fetch this one row immediately before printing so a receipt never
+    // shows a stale debt/payment status. Falls back to the in-memory value
+    // (possibly stale, e.g. offline) if this fetch doesn't come back.
+    try {
+      const deptType = tx.type as DebtEntryType;
+      const idCol = deptType === 'baggage' ? 'transaction_id' : 'entry_ref';
+      const { data: freshRow } = await supabase
+        .from(DEBT_TABLE_NAME[deptType])
+        .select('*')
+        .eq(idCol, tx.id)
+        .maybeSingle();
+      if (freshRow) {
+        tx = {
+          ...tx,
+          mode: computeDebtDisplayModeFromRow(freshRow, deptType),
+          amountPaid: freshRow.amount_paid ?? tx.amountPaid,
+          paymentHistory: freshRow.payment_history ?? tx.paymentHistory,
+          raw: freshRow,
+        };
+      }
+    } catch { /* offline or fetch failed -- print with what we already have */ }
 
     try {
       if (tx.type === 'cargo') {

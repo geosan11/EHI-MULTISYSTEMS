@@ -3,6 +3,7 @@ import { useEnterToNextField } from '../../lib/useEnterToNextField';
 import { PaymentMode, Transaction, User, ExcessBaggageAirline, HubShift } from '../../lib/types';
 import { fmt, roundMoney, tnow, getHubCode, upperOnChange, generatePickupPin, formatPaymentModeDisplay } from '../../lib/helpers';
 import { chargeWalletForSale } from '../../lib/walletPayment';
+import { useIsOnline } from '../../lib/useIsOnline';
 import { matchOfficeClient, useCorporateClients, useCorporateRouteRates, useOfficeWorkAutoPrice } from '../../lib/officeWork';
 import { matchWallet } from '../../lib/customerIdentity';
 import { WalletRemainderSelector } from '../WalletRemainderSelector';
@@ -63,6 +64,13 @@ export const ExcessBaggageForm = ({
   const [pcs, setPcs] = useState('');
   const [phone, setPhone] = useState('');
   const [mode, setMode] = useState<PaymentMode>('POS');
+  // Wallet-mode charges are a real-time, non-reversible atomic RPC with no
+  // offline queue -- see chargeWalletForSale's own comment -- blocked
+  // outright while offline instead of risking a cross-device double-spend.
+  const isOnline = useIsOnline();
+  useEffect(() => {
+    if (!isOnline && mode === 'Wallet') setMode('POS');
+  }, [isOnline, mode]);
 
   const [selectedWalletOverride, setSelectedWalletOverride] = useState<CustomerWallet | null>(null);
   const [walletRemainderMode, setWalletRemainderMode] = useState<'Cash' | 'Transfer' | 'POS'>('Cash');
@@ -886,7 +894,7 @@ export const ExcessBaggageForm = ({
           <div className="space-y-1.5">
             <span className="text-[12px] font-sans font-semibold text-[var(--color-light-muted)]">Payment Mode</span>
             <div className="flex bg-[var(--color-surface-3)] rounded-[var(--radius-sm)] p-1 border border-[var(--color-border)]">
-              {['Cash', 'POS', 'Transfer', 'Wallet'].map(m => (
+              {(isOnline ? ['Cash', 'POS', 'Transfer', 'Wallet'] : ['Cash', 'POS', 'Transfer']).map(m => (
                 <button
                   key={m}
                   type="button"
@@ -902,6 +910,11 @@ export const ExcessBaggageForm = ({
                 </button>
               ))}
             </div>
+            {!isOnline && (
+              <div className="text-[11px] font-sans text-[var(--color-muted)]">
+                Wallet payments need a connection -- use Cash/Transfer/POS while offline.
+              </div>
+            )}
             {mode === "Wallet" && (
               <div className="mt-2 space-y-2">
                 <CustomerWalletPicker

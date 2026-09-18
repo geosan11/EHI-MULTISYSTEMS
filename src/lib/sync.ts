@@ -267,6 +267,154 @@ export async function writeWithOfflineSupport(
   }
 }
 
+// Shared by getUnsyncedLocalTransactions and getAllLocalMirrorTransactions
+// below -- one Dexie-row -> Transaction mapping per department, reused
+// instead of duplicated per caller.
+function mapCargoLocalRow(item: any): any {
+  const r = item.data as any;
+  if (!r) return null;
+  return {
+    id: r.id || r.entry_ref,
+    name: r.consignee_name || 'Cargo',
+    detail: `${r.airline || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}`,
+    amount: r.amount || 0,
+    mode: r.receipt_mode || 'Cash',
+    time: new Date(item.created_at || Date.now()).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+    type: 'cargo',
+    status: r.status || 'Intake',
+    awb_tag_number: r.awb_tag_number,
+    kg: r.total_kg,
+    pieces: r.total_pcs,
+    pickupPin: r.pickup_pin || undefined,
+    created_at: item.created_at || r.created_at,
+    airline: r.airline,
+    flight: r.flight_number || undefined,
+    bank: r.bank,
+    route: r.route,
+    hub_id: r.hub_id,
+    terminal: r.terminal,
+    contentType: r.content_type,
+    remarks: r.remark || undefined,
+    amountPaid: r.amount_paid || 0,
+    paymentHistory: r.payment_history || [],
+    paymentConfirmed: r.payment_confirmed,
+    wallet_id: r.wallet_id || undefined,
+    wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
+    // Mirrors the same fields added to fetchInitial's cargo mapping in
+    // EHIApp.tsx -- otherwise a debt-clearance shadow entry created
+    // while offline shows its "COLLECTION" badge only until it syncs,
+    // then loses it (this local-mirror path is what renders it before
+    // that point).
+    is_debt_clearance: r.is_debt_clearance || undefined,
+    related_tx_id: r.related_tx_id || undefined,
+  };
+}
+
+function mapBaggageLocalRow(item: any): any {
+  const r = item.data as any;
+  if (!r) return null;
+  return {
+    id: r.id || r.transaction_id,
+    name: r.passenger_name || 'Baggage Passenger',
+    detail: `${r.flight_no || ''} · ${r.destination || ''} · ${r.total_pcs || 1}pcs · +${r.excess_kg || 0}kg excess`,
+    amount: r.amount || 0,
+    mode: r.payment_mode || 'POS',
+    time: new Date(item.created_at || Date.now()).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+    type: 'baggage',
+    status: 'Delivered',
+    created_at: item.created_at || r.created_at,
+    bank: r.bank,
+    hub_id: r.hub_id,
+    airline: r.airline,
+    destination: r.destination,
+    excessKg: r.excess_kg,
+    totalKg: r.total_kg,
+    flight: r.flight_no,
+    pnr: r.pnr || undefined,
+    kg: r.excess_kg,
+    pieces: r.total_pcs,
+    amountPaid: r.amount_paid || 0,
+    paymentHistory: r.payment_history || [],
+    paymentConfirmed: r.payment_confirmed,
+    wallet_id: r.wallet_id || undefined,
+    wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
+  };
+}
+
+function mapMarketingLocalRow(item: any): any {
+  const r = item.data as any;
+  if (!r) return null;
+  return {
+    id: r.id || r.entry_ref,
+    awb_tag_number: r.awb_tag_number || undefined,
+    name: r.customer_name || 'Customer',
+    detail: `${r.route || ''} · ${r.qty_big_bag || 0}BB ${r.qty_med_bag || 0}MB ${r.qty_small_bag || 0}SB`,
+    amount: r.amount_paid || 0,
+    mode: r.payment_mode || 'Cash',
+    time: new Date(item.created_at || Date.now()).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+    type: 'marketing',
+    status: 'Intake',
+    created_at: item.created_at || r.created_at,
+    hub_id: r.hub_id,
+    route: r.route,
+    wallet_id: r.wallet_id || undefined,
+    wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
+    consigneePhone: r.customer_phone || undefined,
+  };
+}
+
+function mapPackageLocalRow(item: any): any {
+  const r = item.data as any;
+  if (!r) return null;
+  return {
+    id: r.id || r.entry_ref,
+    name: r.customer_name || 'Customer',
+    detail: `${r.destination || ''} · ${r.content_type || 'Package'} · ${r.contents || ''}`,
+    amount: r.amount || 0,
+    mode: r.payment_mode || 'Cash',
+    time: new Date(item.created_at || Date.now()).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+    type: 'package',
+    status: r.status || 'Intake',
+    created_at: item.created_at || r.created_at,
+    hub_id: r.hub_id,
+    terminal: r.terminal,
+    destination: r.destination,
+    contents: r.contents,
+    wallet_id: r.wallet_id || undefined,
+    wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
+    consigneePhone: r.customer_phone || undefined,
+  };
+}
+
+async function mapLocalMirrorRows(
+  cargo: any[], baggage: any[], marketing: any[], packages: any[], queue: any[]
+): Promise<{ transactions: any[]; expenses: any[] }> {
+  const txs: any[] = [];
+  const expenses: any[] = [];
+
+  for (const q of queue) {
+    if (q.table_name === 'expenses') {
+      expenses.push({
+        id: q.record_id || (q.payload as any).id,
+        type: (q.payload as any).category || 'General',
+        amount: (q.payload as any).amount || 0,
+        description: (q.payload as any).description || '',
+        time: q.created_at,
+        created_at: q.created_at,
+        status: 'pending',
+        logged_by: (q.payload as any).logged_by,
+      });
+    }
+  }
+
+  cargo.forEach(item => { const t = mapCargoLocalRow(item); if (t) txs.push(t); });
+  baggage.forEach(item => { const t = mapBaggageLocalRow(item); if (t) txs.push(t); });
+  marketing.forEach(item => { const t = mapMarketingLocalRow(item); if (t) txs.push(t); });
+  packages.forEach(item => { const t = mapPackageLocalRow(item); if (t) txs.push(t); });
+
+  return { transactions: txs, expenses };
+}
+
 export async function getUnsyncedLocalTransactions(): Promise<{ transactions: any[]; expenses: any[] }> {
   try {
     const [cargo, baggage, marketing, packages, queue] = await Promise.all([
@@ -276,153 +424,64 @@ export async function getUnsyncedLocalTransactions(): Promise<{ transactions: an
       db.package_entries.where('synced').equals(0).toArray().catch(() => []),
       db.sync_queue.where('synced').equals(0).toArray().catch(() => []),
     ]);
-
-    const txs: any[] = [];
-    const expenses: any[] = [];
-
-    for (const q of queue) {
-      if (q.table_name === 'expenses') {
-        expenses.push({
-          id: q.record_id || (q.payload as any).id,
-          type: (q.payload as any).category || 'General',
-          amount: (q.payload as any).amount || 0,
-          description: (q.payload as any).description || '',
-          time: q.created_at,
-          created_at: q.created_at,
-          status: 'pending',
-          logged_by: (q.payload as any).logged_by,
-        });
-      }
-    }
-
-    cargo.forEach(item => {
-      const r = item.data as any;
-      if (r) {
-        txs.push({
-          id: r.id || r.entry_ref,
-          name: r.consignee_name || 'Cargo',
-          detail: `${r.airline || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}`,
-          amount: r.amount || 0,
-          mode: r.receipt_mode || 'Cash',
-          time: new Date(item.created_at || Date.now()).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
-          type: 'cargo',
-          status: r.status || 'Intake',
-          awb_tag_number: r.awb_tag_number,
-          kg: r.total_kg,
-          pieces: r.total_pcs,
-          pickupPin: r.pickup_pin || undefined,
-          created_at: item.created_at || r.created_at,
-          airline: r.airline,
-          flight: r.flight_number || undefined,
-          bank: r.bank,
-          route: r.route,
-          hub_id: r.hub_id,
-          terminal: r.terminal,
-          contentType: r.content_type,
-          remarks: r.remark || undefined,
-          amountPaid: r.amount_paid || 0,
-          paymentHistory: r.payment_history || [],
-          paymentConfirmed: r.payment_confirmed,
-          wallet_id: r.wallet_id || undefined,
-          wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
-          // Mirrors the same fields added to fetchInitial's cargo mapping in
-          // EHIApp.tsx -- otherwise a debt-clearance shadow entry created
-          // while offline shows its "COLLECTION" badge only until it syncs,
-          // then loses it (this local-mirror path is what renders it before
-          // that point).
-          is_debt_clearance: r.is_debt_clearance || undefined,
-          related_tx_id: r.related_tx_id || undefined,
-        });
-      }
-    });
-
-    baggage.forEach(item => {
-      const r = item.data as any;
-      if (r) {
-        txs.push({
-          id: r.id || r.transaction_id,
-          name: r.passenger_name || 'Baggage Passenger',
-          detail: `${r.flight_no || ''} · ${r.destination || ''} · ${r.total_pcs || 1}pcs · +${r.excess_kg || 0}kg excess`,
-          amount: r.amount || 0,
-          mode: r.payment_mode || 'POS',
-          time: new Date(item.created_at || Date.now()).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
-          type: 'baggage',
-          status: 'Delivered',
-          created_at: item.created_at || r.created_at,
-          bank: r.bank,
-          hub_id: r.hub_id,
-          airline: r.airline,
-          destination: r.destination,
-          excessKg: r.excess_kg,
-          totalKg: r.total_kg,
-          flight: r.flight_no,
-          pnr: r.pnr || undefined,
-          kg: r.excess_kg,
-          pieces: r.total_pcs,
-          amountPaid: r.amount_paid || 0,
-          paymentHistory: r.payment_history || [],
-          paymentConfirmed: r.payment_confirmed,
-          wallet_id: r.wallet_id || undefined,
-          wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
-        });
-      }
-    });
-
-    marketing.forEach(item => {
-      const r = item.data as any;
-      if (r) {
-        txs.push({
-          id: r.id || r.entry_ref,
-          awb_tag_number: r.awb_tag_number || undefined,
-          name: r.customer_name || 'Customer',
-          detail: `${r.route || ''} · ${r.qty_big_bag || 0}BB ${r.qty_med_bag || 0}MB ${r.qty_small_bag || 0}SB`,
-          amount: r.amount_paid || 0,
-          mode: r.payment_mode || 'Cash',
-          time: new Date(item.created_at || Date.now()).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
-          type: 'marketing',
-          status: 'Intake',
-          created_at: item.created_at || r.created_at,
-          hub_id: r.hub_id,
-          route: r.route,
-          wallet_id: r.wallet_id || undefined,
-          wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
-          consigneePhone: r.customer_phone || undefined,
-        });
-      }
-    });
-
-    packages.forEach(item => {
-      const r = item.data as any;
-      if (r) {
-        txs.push({
-          id: r.id || r.entry_ref,
-          name: r.customer_name || 'Customer',
-          detail: `${r.destination || ''} · ${r.content_type || 'Package'} · ${r.contents || ''}`,
-          amount: r.amount || 0,
-          mode: r.payment_mode || 'Cash',
-          time: new Date(item.created_at || Date.now()).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
-          type: 'package',
-          status: r.status || 'Intake',
-          created_at: item.created_at || r.created_at,
-          hub_id: r.hub_id,
-          terminal: r.terminal,
-          destination: r.destination,
-          contents: r.contents,
-          wallet_id: r.wallet_id || undefined,
-          wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
-          consigneePhone: r.customer_phone || undefined,
-        });
-      }
-    });
-
-    return { transactions: txs, expenses };
+    return await mapLocalMirrorRows(cargo, baggage, marketing, packages, queue);
   } catch (err) {
     console.error('Failed to read unsynced local transactions:', err);
     return { transactions: [], expenses: [] };
   }
 }
 
+// Every row this device has locally mirrored, synced or not -- unlike
+// getUnsyncedLocalTransactions (outbox only), this is used as a full
+// fallback ledger when fetchInitial can't reach Supabase at all (offline
+// cold start/reload). Only ever contains what THIS device itself wrote or
+// has separately synced down -- never other devices' entries.
+export async function getAllLocalMirrorTransactions(): Promise<{ transactions: any[]; expenses: any[] }> {
+  try {
+    const [cargo, baggage, marketing, packages, queue] = await Promise.all([
+      db.cargo_entries.toArray().catch(() => []),
+      db.manifests.toArray().catch(() => []),
+      db.marketing_entries.toArray().catch(() => []),
+      db.package_entries.toArray().catch(() => []),
+      db.sync_queue.where('synced').equals(0).toArray().catch(() => []),
+    ]);
+    return await mapLocalMirrorRows(cargo, baggage, marketing, packages, queue);
+  } catch (err) {
+    console.error('Failed to read local mirror transactions:', err);
+    return { transactions: [], expenses: [] };
+  }
+}
+
+// EHIApp.tsx can trigger this from three independent, genuinely-overlapping
+// signals (mount, a 60s poll, and the real 'online' event) with no
+// serialization between them today. The underlying writes are upsert-based
+// (see writeWithOfflineSupport/this function's own onConflictColumn logic
+// below) so a concurrent double-run can't create a duplicate row -- but it
+// does waste a redundant round-trip per queued item and double the log
+// noise. The Web Locks API also excludes a second browser TAB sharing this
+// same IndexedDB, which a plain in-module flag alone can't do; falls back
+// to that flag on a browser without navigator.locks.
+let syncQueueInFlight = false;
+
 export async function processSyncQueue(): Promise<{ synced: number; errors: string[] }> {
+  if (typeof navigator !== 'undefined' && 'locks' in navigator) {
+    let result: { synced: number; errors: string[] } = { synced: 0, errors: [] };
+    await (navigator as any).locks.request('ehi-sync-queue', { ifAvailable: true }, async (lock: unknown) => {
+      if (!lock) return; // another tab already holds it -- skip this pass
+      result = await processSyncQueueInner();
+    });
+    return result;
+  }
+  if (syncQueueInFlight) return { synced: 0, errors: [] };
+  syncQueueInFlight = true;
+  try {
+    return await processSyncQueueInner();
+  } finally {
+    syncQueueInFlight = false;
+  }
+}
+
+async function processSyncQueueInner(): Promise<{ synced: number; errors: string[] }> {
   const pending = await db.sync_queue.where('synced').equals(0).toArray();
   let synced = 0;
   const errors: string[] = [];

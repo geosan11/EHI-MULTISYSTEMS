@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Transaction, User, Expense, CustomerWallet, HubShift } from "../../lib/types";
 import { fmt, roundMoney, tnow, generatePickupPin, normalizeAirlineName, airlineNamesLooselyMatch, getHubCode, upperOnChange, isStandalonePWA, formatPaymentModeDisplay, lagosBusinessDate } from "../../lib/helpers";
 import { chargeWalletForSale } from "../../lib/walletPayment";
+import { useIsOnline } from "../../lib/useIsOnline";
 import { matchWallet } from "../../lib/customerIdentity";
 import { WalletRemainderSelector } from "../WalletRemainderSelector";
 import { useHubRoutes, useValidatedRouteSelection, useHubs } from "../../lib/hubRoutes";
@@ -308,6 +309,14 @@ export const CargoForm = ({
   const [mode, setMode] = useState<string>(
     "Cash",
   );
+  // Wallet-mode charges are a real-time, non-reversible atomic RPC (see
+  // chargeWalletForSale's own comment) with no offline queue -- queuing it
+  // would risk a cross-device double-spend against the same wallet that no
+  // client-side fix can fully close. Blocked outright while offline instead.
+  const isOnline = useIsOnline();
+  useEffect(() => {
+    if (!isOnline && mode === 'Wallet') setMode('Cash');
+  }, [isOnline, mode]);
   const [corporateMode, setCorporateMode] = useState<string>("Debt");
   const [bank, setBank] = useState(banks[0] as string);
   const [remark, setRemark] = useState("");
@@ -1355,19 +1364,22 @@ export const CargoForm = ({
     // Build central ledger transaction record (Debt contract)
     const finalTxDetail = `${selectedIntake.airline} · ${selectedIntake.pieces || 1}pcs · ${weightNum}kg · ${selectedIntake.route} · ${selectedIntake.contentType || selectedIntake.content_type || 'General Goods'}`;
 
-    // Block reusing a physical AWB whose previous consignment already
-    // completed delivery -- the same check the retail flow already has.
-    // This was missing here entirely: a duplicated physical tag lets two
-    // shipments share one tracking history, a common consign-fraud
-    // pattern, and corporate gate-weighing had no protection against it.
-    // Skipped offline -- see the retail submit path's identical comment.
-    if (navigator.onLine && await isTagAlreadyDelivered(selectedIntake.awb)) {
-      showToast({
-        message: `${selectedIntake.awb} was already delivered on a previous consignment. This tag cannot be reused -- verify the physical AWB before finalizing.`,
-        type: "error",
-      });
-      setIsWeighingSubmitting(false);
-      return;
+    // Flags reuse of a physical AWB whose previous consignment already
+    // completed delivery -- a duplicated physical tag lets two shipments
+    // share one tracking history, a common consign-fraud pattern. Fire-
+    // and-forget rather than awaited -- see the retail submit path's
+    // identical comment on why this shouldn't block the whole submission.
+    // Skipped offline entirely -- the check would only ever fail on the
+    // network call itself while offline.
+    if (navigator.onLine) {
+      isTagAlreadyDelivered(selectedIntake.awb).then(alreadyDelivered => {
+        if (alreadyDelivered) {
+          showToast({
+            message: `⚠ ${selectedIntake.awb} may have been reused -- it was already delivered on a previous consignment. Verify the physical AWB.`,
+            type: "error",
+          });
+        }
+      }).catch(() => {});
     }
 
     const txEntry: Transaction = {
@@ -1580,19 +1592,25 @@ export const CargoForm = ({
       resolvedAwb = await getNextTag(`${hubCode}-CG`, `EHI-${hubCode}-CG`);
     }
 
-    // Block reusing a tag whose previous consignment already completed
+    // Flags reuse of a tag whose previous consignment already completed
     // delivery -- a duplicated physical tag makes two shipments share one
-    // tracking history and is a common consign-fraud pattern. Skipped
-    // offline: this AWB just came from the atomic pool/counter, so it
-    // cannot possibly have a prior DELIVER event -- the check would only
-    // ever fail on the network call itself while offline.
-    if (navigator.onLine && await isTagAlreadyDelivered(resolvedAwb)) {
-      showToast({
-        message: `${resolvedAwb} was already delivered on a previous consignment. This tag cannot be reused -- generate a new one.`,
-        type: "error",
-      });
-      setSubmitting(false);
-      return;
+    // tracking history and is a common consign-fraud pattern. Fire-and-
+    // forget rather than awaited: this AWB just came from the atomic pool/
+    // counter so a hit here is rare, and blocking the whole submission on
+    // this one network round-trip added latency to every online Cash/
+    // Transfer/POS/Debt sale for a check that isn't correctness-critical to
+    // *this* submission. Skipped offline entirely -- the check would only
+    // ever fail on the network call itself while offline, never produce a
+    // real true/false answer.
+    if (navigator.onLine) {
+      isTagAlreadyDelivered(resolvedAwb).then(alreadyDelivered => {
+        if (alreadyDelivered) {
+          showToast({
+            message: `⚠ ${resolvedAwb} may have been reused -- it was already delivered on a previous consignment. Verify the physical AWB.`,
+            type: "error",
+          });
+        }
+      }).catch(() => {});
     }
 
     const nextSerial = incrementLocalSerial();
@@ -2863,7 +2881,7 @@ export const CargoForm = ({
               <div>
                 {renderLabel(CreditCard, "Receipt / Payment Mode")}
                 <div className="flex bg-[var(--color-surface-3)] rounded-[var(--radius-sm)] p-1 border border-[var(--color-border)] mb-3">
-                  {["Cash", "Transfer", "POS", "Wallet"].map((m) => (
+                  {(isOnline ? ["Cash", "Transfer", "POS", "Wallet"] : ["Cash", "Transfer", "POS"]).map((m) => (
                     <button
                       key={m}
                       type="button"
@@ -2883,6 +2901,11 @@ export const CargoForm = ({
                     </button>
                   ))}
                 </div>
+                {!isOnline && (
+                  <div className="text-[11px] font-sans text-[var(--color-muted)] mb-3">
+                    Wallet payments need a connection -- use Cash/Transfer/POS while offline.
+                  </div>
+                )}
 
                 {mode === "Wallet" && (
                   <div className="mb-3 space-y-2">

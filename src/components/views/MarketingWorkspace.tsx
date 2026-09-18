@@ -9,6 +9,7 @@ import { useExpenseCategories } from "../../lib/expenseCategories";
 import { useBanks } from "../../lib/banks";
 import { fmt, uid, tnow, getHubCode, upperOnChange, roundMoney, generatePickupPin, formatPaymentModeDisplay } from "../../lib/helpers";
 import { chargeWalletForSale } from "../../lib/walletPayment";
+import { useIsOnline } from "../../lib/useIsOnline";
 import { matchOfficeClient, useCorporateClients, useCorporateRouteRates, useOfficeWorkAutoPrice } from "../../lib/officeWork";
 import { matchWallet } from "../../lib/customerIdentity";
 import { WalletRemainderSelector } from "../WalletRemainderSelector";
@@ -165,6 +166,13 @@ export const MarketingWorkspace = ({
   // consciously picking it. isValid above now requires it explicitly.
   const [route, setRoute] = useState<string>('');
   const [mode, setMode] = useState<string>("Transfer");
+  // Wallet-mode charges are a real-time, non-reversible atomic RPC with no
+  // offline queue -- see chargeWalletForSale's own comment -- blocked
+  // outright while offline instead of risking a cross-device double-spend.
+  const isOnline = useIsOnline();
+  useEffect(() => {
+    if (!isOnline && mode === 'Wallet') setMode('Transfer');
+  }, [isOnline, mode]);
   const banks = useBanks();
   const [bank, setBank] = useState<string>(banks[0]);
   const [bb, setBb] = useState(0);
@@ -1052,10 +1060,15 @@ export const MarketingWorkspace = ({
                     <option value="Transfer">Transfer (Bank)</option>
                     <option value="TransferCash">Transfer → Cash</option>
                     <option value="POS">POS</option>
-                    <option value="Wallet">💰 Customer Credit Wallet</option>
+                    {isOnline && <option value="Wallet">💰 Customer Credit Wallet</option>}
                     <option value="Debt">Debt / Credit</option>
                   </select>
                 </div>
+                {!isOnline && (
+                  <div className="text-[11px] font-sans text-[var(--color-muted)]">
+                    Wallet payments need a connection -- use another mode while offline.
+                  </div>
+                )}
 
                 {mode === "Wallet" && (
                   <div className="mb-3 space-y-2">

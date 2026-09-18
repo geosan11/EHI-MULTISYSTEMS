@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from './supabase';
 import { roundMoney } from './helpers';
+import { getCached, setCached } from './localCache';
+
+export const CORPORATE_CLIENTS_CACHE_KEY = 'ehi_corporate_clients_office_work_v1';
+export const CORPORATE_ROUTE_RATES_CACHE_KEY = 'ehi_corporate_route_rates_v1';
 
 export interface CorporateClient {
   id: string;
@@ -85,8 +89,12 @@ export function isOfficeWorkEntry(entry: {
   return /office\s*work/i.test(remarkText);
 }
 
+// Cache-first (localStorage), matching hubRoutes.ts's useHubRoutes pattern
+// -- previously plain useState([]), so a cold offline reload lost every B2B
+// client match/contract-rate auto-fill for Package/Excess Baggage/
+// Marketing until a fetch succeeded.
 export function useCorporateClients(): CorporateClient[] {
-  const [clients, setClients] = useState<CorporateClient[]>([]);
+  const [clients, setClients] = useState<CorporateClient[]>(() => getCached<CorporateClient[]>(CORPORATE_CLIENTS_CACHE_KEY, []));
   useEffect(() => {
     let active = true;
     const fetchClients = async () => {
@@ -96,15 +104,17 @@ export function useCorporateClients(): CorporateClient[] {
           .select('id, company_name, contact_phone, accumulated_monthly_debt, active')
           .order('company_name');
         if (active && data) {
-          setClients(data.map((c: any) => ({
+          const mapped = data.map((c: any) => ({
             id: c.id,
             company_name: c.company_name,
             contact_phone: c.contact_phone || '',
             accumulated_monthly_debt: c.accumulated_monthly_debt ?? 0,
             active: c.active ?? true,
-          })));
+          }));
+          setClients(mapped);
+          setCached(CORPORATE_CLIENTS_CACHE_KEY, mapped);
         }
-      } catch { /* keep empty if offline */ }
+      } catch { /* keep cached/current value if offline */ }
     };
     fetchClients();
 
@@ -159,7 +169,7 @@ export function useOfficeWorkAutoPrice(
 }
 
 export function useCorporateRouteRates(): CorporateRouteRate[] {
-  const [rates, setRates] = useState<CorporateRouteRate[]>([]);
+  const [rates, setRates] = useState<CorporateRouteRate[]>(() => getCached<CorporateRouteRate[]>(CORPORATE_ROUTE_RATES_CACHE_KEY, []));
   useEffect(() => {
     let active = true;
     const fetchRates = async () => {
@@ -167,8 +177,11 @@ export function useCorporateRouteRates(): CorporateRouteRate[] {
         const { data } = await supabase
           .from('corporate_route_rates')
           .select('id, corporate_client_id, route_name, rate_per_kg, minimum_amount');
-        if (active && data) setRates(data as CorporateRouteRate[]);
-      } catch { /* keep empty if offline */ }
+        if (active && data) {
+          setRates(data as CorporateRouteRate[]);
+          setCached(CORPORATE_ROUTE_RATES_CACHE_KEY, data);
+        }
+      } catch { /* keep cached/current value if offline */ }
     };
     fetchRates();
 
