@@ -7,6 +7,7 @@ import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDate
 import { applyWalletTransaction, processRetrieval, unretrieveEntry, approveRetrieval, RetrievalEntryType } from "../../lib/wallet";
 import { clearDebt, reopenDebt, DebtEntryType, DEBT_TABLE_NAME } from "../../lib/debt";
 import { computeDebtDisplayModeFromRow } from "../../lib/debtStatus";
+import { downloadBatchDebtReceipt } from "./BatchDebtReceipt";
 import { deleteTransaction } from "../../lib/deleteTransaction";
 import { confirmPayment, PaymentEntryType } from "../../lib/paymentConfirmation";
 import { useHubRoutes, useHubNames } from "../../lib/hubRoutes";
@@ -341,6 +342,18 @@ export const TransactionLedger = ({
   const [clearDebtBank, setClearDebtBank] = useState('');
   const [clearDebtWallet, setClearDebtWallet] = useState<CustomerWallet | null>(null);
   const [clearDebtRemainderMode, setClearDebtRemainderMode] = useState<'Cash' | 'Transfer' | 'POS'>('Cash');
+
+  // Batch clear/print, Debt mode only -- lets an agent settle several of one
+  // customer's outstanding debts (different routes/shipments) in one action
+  // instead of opening Clear Debt separately per row, then print one
+  // combined receipt for the batch. Wallet isn't offered here (unlike the
+  // single-entry Clear Debt above) -- splitting a wallet+remainder payment
+  // safely across N different-balance debts at once isn't worth the added
+  // risk for what bulk clearing is actually used for.
+  const [selectedDebtIds, setSelectedDebtIds] = useState<Set<string>>(new Set());
+  const [batchClearingDebts, setBatchClearingDebts] = useState(false);
+  const [batchDebtMode, setBatchDebtMode] = useState<'Cash' | 'Transfer' | 'POS'>('Cash');
+  const [batchDebtBank, setBatchDebtBank] = useState('');
   const [clearingDebt, setClearingDebt] = useState(false);
   const [reopeningDebt, setReopeningDebt] = useState(false);
   const [deletingTx, setDeletingTx] = useState(false);
@@ -488,6 +501,10 @@ export const TransactionLedger = ({
   // narrows the ledger to unpaid Debt entries of that class regardless of
   // modeFilter, since picking a debt-type split is inherently about debts.
   const [debtClassFilter, setDebtClassFilter] = useState<'All' | 'Office' | 'Individual'>('All');
+  // A batch-clear/print selection surviving a search/filter change could
+  // silently include rows no longer even visible -- same reasoning as
+  // DebtorsTab.tsx's matching selectedIds reset.
+  useEffect(() => { setSelectedDebtIds(new Set()); }, [modeFilter, debtClassFilter, searchQuery, typeFilter]);
   // GAT (General Aviation Terminal / MM1) is a second physical Lagos
   // counter tagged on cargo/package entries, not a separate hub -- see
   // TerminalSwitch.tsx.
@@ -2571,6 +2588,130 @@ export const TransactionLedger = ({
     }
   };
 
+  // Clears every currently-selected Debt entry for its full remaining
+  // balance in one action -- one customer with several outstanding
+  // routes/shipments previously meant opening Clear Debt separately per
+  // row. Same RPC/audit-log shape as confirmClearDebt's non-Wallet branch
+  // above, just looped -- Wallet mode isn't offered here (see
+  // selectedDebtIds' own declaration comment).
+  const handleBatchClearDebts = async () => {
+    if (batchClearingDebts || selectedDebtIds.size === 0) return;
+    if (batchDebtMode === 'Transfer' && !batchDebtBank.trim()) {
+      showToast({ message: 'Select the bank for this transfer payment.', type: 'warning' });
+      return;
+    }
+    const withRemaining = displayEntries
+      .filter((e): e is Entry => e.source === 'transaction' && selectedDebtIds.has(e.id))
+      .map(e => {
+        const tx = e.raw as Transaction;
+        const remaining = roundMoney(tx.amount - (tx.amountPaid || 0) - ((tx.raw as any)?.retrieved_amount || 0));
+        return { tx, remaining };
+      })
+      .filter(x => x.remaining > 0);
+    if (withRemaining.length === 0) return;
+    const total = withRemaining.reduce((s, x) => s + x.remaining, 0);
+    const ok = await confirm({
+      title: 'Clear selected debts?',
+      message: `This clears ${withRemaining.length} debt${withRemaining.length === 1 ? '' : 's'} totalling ₦${fmt(total)} via ${batchDebtMode}. This cannot be undone.`,
+      confirmLabel: `Clear ${withRemaining.length} Debt${withRemaining.length === 1 ? '' : 's'}`,
+      tone: 'danger',
+    });
+    if (!ok) return;
+
+    setBatchClearingDebts(true);
+    try {
+      const results = await Promise.all(withRemaining.map(async ({ tx, remaining }) => {
+        const result = await clearDebt({
+          type: tx.type as DebtEntryType,
+          id: tx.id,
+          paymentAmount: remaining,
+          paymentMode: batchDebtMode,
+          bank: batchDebtMode === 'Transfer' ? batchDebtBank : undefined,
+          loggedBy: user.name || 'Unknown',
+          expectedRemaining: remaining,
+        });
+        return { tx, remaining, result };
+      }));
+
+      let cleared = 0;
+      let clearedTotal = 0;
+      let failed = 0;
+      results.forEach(({ tx, remaining, result }) => {
+        if (!result.ok) { failed++; return; }
+        const fullyPaid = result.fullyPaid ?? true;
+        const historyEntry = { amount: remaining, mode: batchDebtMode, by: user.name || 'Unknown', at: new Date().toISOString() };
+        const updated: Transaction = {
+          ...tx,
+          amountPaid: result.newAmountPaid ?? tx.amount,
+          paymentHistory: [...(tx.paymentHistory || []), historyEntry],
+          mode: fullyPaid ? (result.newMode || 'Debt Paid') : 'Debt',
+          paymentConfirmed: fullyPaid,
+          confirmedBy: fullyPaid ? (user.name || 'Unknown') : tx.confirmedBy,
+          confirmedAt: fullyPaid ? new Date().toISOString() : tx.confirmedAt,
+          ...(tx.type === 'package' && fullyPaid ? { debtPaid: true, debtPaidAt: new Date().toISOString() } : {}),
+        };
+        onUpdateTx(updated);
+        writeAuditLog({
+          user_id: user.id, user_name: user.name || 'Unknown', action: 'DEBT_COLLECTION',
+          table_name: RETRIEVAL_TABLE_NAME[tx.type as RetrievalEntryType], record_id: tx.id,
+          description: `₦${fmt(remaining)} collected against ${tx.name}'s debt via ${batchDebtMode} (batch clear)${fullyPaid ? ' (fully cleared)' : ''}`,
+          hub: hubNames[tx.hub_id || ''] || tx.hub, hub_id: tx.hub_id,
+          old_values: { amount_paid: tx.amountPaid || 0 },
+          new_values: { amount_paid: result.newAmountPaid, mode: batchDebtMode, amount: remaining },
+        }).catch(() => {});
+        cleared++;
+        clearedTotal += remaining;
+      });
+
+      setSelectedDebtIds(new Set());
+      if (failed === 0) {
+        showToast({ message: `${cleared} debt${cleared === 1 ? '' : 's'} cleared (₦${fmt(clearedTotal)}).`, type: 'success' });
+      } else {
+        showToast({ message: `${cleared} of ${withRemaining.length} debts cleared (₦${fmt(clearedTotal)}). ${failed} failed -- their balances may have changed, refresh and retry.`, type: 'warning' });
+      }
+    } finally {
+      setBatchClearingDebts(false);
+    }
+  };
+
+  // Independent of handleBatchClearDebts -- printable before or after
+  // clearing. Combines every selected debt into ONE receipt (one customer
+  // name, every route/ref listed, a single total) instead of printing one
+  // mini-receipt per debt.
+  const handleBatchPrintReceipt = async () => {
+    const selected = displayEntries.filter((e): e is Entry => e.source === 'transaction' && selectedDebtIds.has(e.id));
+    if (selected.length === 0) return;
+    if (new Set(selected.map(e => e.name)).size > 1) {
+      showToast({ message: 'Batch receipt requires all selected debts to belong to the same customer.', type: 'warning' });
+      return;
+    }
+    const items = selected.map(e => {
+      const tx = e.raw as Transaction;
+      const remaining = roundMoney(tx.amount - (tx.amountPaid || 0) - ((tx.raw as any)?.retrieved_amount || 0));
+      return {
+        ref: tx.id,
+        route: (tx.type === 'baggage' || tx.type === 'package') ? (tx.destination || '') : (tx.route || ''),
+        type: tx.type,
+        amount: remaining > 0 ? remaining : tx.amount,
+      };
+    });
+    try {
+      await downloadBatchDebtReceipt({
+        batchRef: `BATCH-${Date.now()}`,
+        date: txDisplayDateTime(new Date().toISOString(), ''),
+        agentName: user.name || 'Unknown',
+        customerName: selected[0].name,
+        customerPhone: (selected[0].raw as Transaction).consigneePhone,
+        items,
+        totalAmount: items.reduce((s, i) => s + i.amount, 0),
+        paymentMode: batchDebtMode,
+        bankName: batchDebtMode === 'Transfer' ? batchDebtBank : undefined,
+      });
+    } catch (err: any) {
+      showToast({ message: err?.message || 'Failed to generate batch receipt.', type: 'error' });
+    }
+  };
+
   // Reverses the most recent debt-collection payment via reopen_*_debt --
   // same any-staff, audited policy as Clear Debt above (see the comment on
   // the Reopen Debt button). Undoes the LAST payment_history entry only
@@ -3051,6 +3192,15 @@ export const TransactionLedger = ({
     });
     return result;
   }, [filteredEntries, shiftsToMark]);
+
+  // Feeds the Batch Debt Clear/Print bar's "Select All" -- only real,
+  // still-outstanding Debt entries are selectable (excludes shift markers,
+  // which share this array but have mode: '', and any row already showing
+  // as "Debt Paid").
+  const debtEntriesInView = useMemo(
+    () => displayEntries.filter((e): e is Entry => e.source === 'transaction' && e.mode === 'Debt'),
+    [displayEntries]
+  );
 
   const tableRef = useRef<HTMLDivElement>(null);
   const rowVirtualizer = useVirtualizer({
@@ -4100,6 +4250,62 @@ export const TransactionLedger = ({
               </div>
             )}
 
+            {/* ── Batch Debt Clear/Print Bar -- Debt mode only ──── */}
+            {modeFilter === 'Debt' && (
+              <div className="px-4 py-2.5 bg-[rgba(239,68,68,0.05)] border-b border-[rgba(239,68,68,0.15)] flex flex-col sm:flex-row sm:items-center gap-2 shrink-0">
+                <label className="flex items-center gap-2 text-[10px] font-mono font-semibold text-[var(--color-error)] cursor-pointer select-none shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={selectedDebtIds.size > 0 && selectedDebtIds.size === debtEntriesInView.length}
+                    onChange={(e) => setSelectedDebtIds(e.target.checked ? new Set(debtEntriesInView.map(x => x.id)) : new Set())}
+                    className="w-3.5 h-3.5 cursor-pointer"
+                  />
+                  Select All ({debtEntriesInView.length})
+                </label>
+                {selectedDebtIds.size > 0 && (
+                  <div className="flex flex-1 flex-wrap items-center gap-2">
+                    <span className="text-[10px] font-mono font-bold text-[var(--color-foreground)]">
+                      {selectedDebtIds.size} selected
+                    </span>
+                    <select
+                      value={batchDebtMode}
+                      onChange={e => setBatchDebtMode(e.target.value as any)}
+                      className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg px-2 py-1 text-[10px] font-mono text-[var(--color-foreground)] focus:outline-none"
+                    >
+                      <option value="Cash">Cash</option>
+                      <option value="Transfer">Transfer</option>
+                      <option value="POS">POS</option>
+                    </select>
+                    {batchDebtMode === 'Transfer' && (
+                      <select
+                        value={batchDebtBank}
+                        onChange={e => setBatchDebtBank(e.target.value)}
+                        className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg px-2 py-1 text-[10px] font-mono text-[var(--color-foreground)] focus:outline-none"
+                      >
+                        <option value="">Select Bank</option>
+                        {banks.map((b) => <option key={b} value={b}>{b}</option>)}
+                      </select>
+                    )}
+                    <div className="flex items-center gap-2 ml-auto">
+                      <button
+                        onClick={handleBatchPrintReceipt}
+                        className="flex items-center gap-1 bg-[var(--color-surface-2)] text-[var(--color-foreground)] px-3 py-1 rounded-lg text-[10px] font-mono font-bold hover:opacity-90 transition-colors"
+                      >
+                        <Printer size={11} /> Print Receipt
+                      </button>
+                      <button
+                        onClick={handleBatchClearDebts}
+                        disabled={batchClearingDebts || (batchDebtMode === 'Transfer' && !batchDebtBank.trim())}
+                        className="bg-[var(--color-success)] text-[var(--color-on-accent)] px-3 py-1 rounded-lg text-[10px] font-mono font-bold hover:opacity-90 transition-colors disabled:opacity-50"
+                      >
+                        {batchClearingDebts ? 'Clearing...' : `Clear ${selectedDebtIds.size} Debt${selectedDebtIds.size === 1 ? '' : 's'}`}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Table / Mobile Cards Container */}
             <div ref={tableRef} className="flex-1 overflow-auto p-3 sm:p-4 pb-4 relative">
               {/* Loading overlay for All Time's first fetch -- sits on top
@@ -4186,6 +4392,21 @@ export const TransactionLedger = ({
                         {/* Top header row */}
                         <div className="flex items-center justify-between gap-2 border-b border-[var(--color-border)] pb-2">
                           <div className="flex items-center gap-1.5 min-w-0">
+                            {e.mode === 'Debt' && (
+                              <input
+                                type="checkbox"
+                                checked={selectedDebtIds.has(e.id)}
+                                onClick={(evt) => evt.stopPropagation()}
+                                onChange={(evt) => {
+                                  setSelectedDebtIds(prev => {
+                                    const next = new Set(prev);
+                                    if (evt.target.checked) next.add(e.id); else next.delete(e.id);
+                                    return next;
+                                  });
+                                }}
+                                className="w-3.5 h-3.5 cursor-pointer shrink-0"
+                              />
+                            )}
                             <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${
                               e.type === 'cargo' ? 'bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)]' :
                               e.type === 'baggage' ? 'bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)]' :
@@ -4441,6 +4662,21 @@ export const TransactionLedger = ({
                   >
                     {(isAccountantOrAdmin || !viewOnly) && (
                       <td className="py-2.5 px-3">
+                        {e.mode === 'Debt' && (
+                          <input
+                            type="checkbox"
+                            checked={selectedDebtIds.has(e.id)}
+                            onClick={(evt) => evt.stopPropagation()}
+                            onChange={(evt) => {
+                              setSelectedDebtIds(prev => {
+                                const next = new Set(prev);
+                                if (evt.target.checked) next.add(e.id); else next.delete(e.id);
+                                return next;
+                              });
+                            }}
+                            className="w-3.5 h-3.5 cursor-pointer"
+                          />
+                        )}
                         {(e.mode === 'Cash' || e.mode === 'POS' || e.mode === 'Transfer') && isAccountantOrAdmin && !e.raw?.is_debt_clearance && (
                           <div onClick={(evt) => evt.stopPropagation()}>
                             {e.mode === 'POS' && !e.posApprovalCode ? (
