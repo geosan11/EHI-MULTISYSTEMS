@@ -2693,6 +2693,9 @@ export const TransactionLedger = ({
         route: (tx.type === 'baggage' || tx.type === 'package') ? (tx.destination || '') : (tx.route || ''),
         type: tx.type,
         amount: remaining > 0 ? remaining : tx.amount,
+        tagNumber: tx.awb_tag_number,
+        pieces: tx.pieces,
+        kg: tx.kg,
       };
     });
     try {

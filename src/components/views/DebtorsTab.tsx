@@ -34,6 +34,7 @@ function mapDebtRow(r: any, type: DebtDept): Transaction {
     return {
       ...base, id: r.entry_ref || r.id, name: r.consignee_name || 'Cargo', detail: `${r.airline || ''}`,
       amount: r.amount || 0, amountPaid: r.amount_paid || 0, awb_tag_number: r.awb_tag_number,
+      pieces: r.total_pcs, kg: r.total_kg, route: r.route,
       airline: r.airline, clientType: r.client_type, corporate_client_id: r.corporate_client_id,
       consigneePhone: r.consignee_phone,
     } as Transaction;
@@ -42,17 +43,20 @@ function mapDebtRow(r: any, type: DebtDept): Transaction {
     return {
       ...base, id: r.transaction_id || r.id, name: r.passenger_name || 'Passenger', detail: `${r.flight_no || ''}`,
       amount: r.amount || 0, amountPaid: r.amount_paid || 0, clientType: r.client_type, consigneePhone: r.passenger_phone,
+      pieces: r.total_pcs, kg: r.excess_kg, destination: r.destination,
     } as Transaction;
   }
   if (type === 'marketing') {
     return {
       ...base, id: r.entry_ref || r.id, name: r.customer_name || 'Customer', detail: `${r.route || ''}`,
       amount: r.amount_paid || 0, amountPaid: r.debt_amount_paid || 0, clientType: r.client_type, consigneePhone: r.customer_phone,
+      awb_tag_number: r.awb_tag_number, route: r.route,
     } as Transaction;
   }
   return {
     ...base, id: r.entry_ref || r.id, name: r.customer_name || 'Customer', detail: `${r.destination || ''}`,
     amount: r.amount || 0, amountPaid: r.amount_paid || 0, consigneePhone: r.customer_phone,
+    pieces: r.total_pcs || undefined, kg: r.total_kg || undefined, destination: r.destination,
   } as Transaction;
 }
 
@@ -507,6 +511,9 @@ export const DebtorsTab = ({
         : ((d.raw as any)?.route || ''),
       type: d.type,
       amount: d.balance,
+      tagNumber: d.awb_tag_number,
+      pieces: d.pieces,
+      kg: d.kg,
     }));
     try {
       await downloadBatchDebtReceipt({
