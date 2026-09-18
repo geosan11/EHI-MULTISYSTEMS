@@ -423,9 +423,9 @@ export const DebtorsTab = ({
   // balance in one action -- a customer (corporate or an individual with
   // several outstanding routes/shipments) settling multiple debts in one
   // payment previously meant clicking Confirm separately on every row.
-  // Available on the Corporate and Individual tabs (not the mixed "All"
-  // tab -- selectedIds is reset on any filter change, see its own state
-  // comment, so a selection never survives across tabs anyway). The
+  // Available on every filter tab (All/Corporate/Individual) -- originally
+  // Corporate-only, but that hid the checkboxes/buttons entirely on the
+  // default "All" view, which read as "the feature is missing." The
   // confirm dialog's count/total display is the safety net against a
   // misclick, the same one already relied on when this was Corporate-only.
   const handleBulkClear = async () => {
@@ -700,8 +700,8 @@ export const DebtorsTab = ({
         </select>
       </div>
 
-      {/* BULK CLEAR BAR -- available on Corporate and Individual, not the mixed All tab */}
-      {filter !== 'All' && visibleDebts.length > 0 && (
+      {/* BULK CLEAR BAR -- available on every filter tab, including All */}
+      {visibleDebts.length > 0 && (
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-3">
           <label className="flex items-center gap-2 text-[12px] font-sans font-semibold text-[var(--color-foreground)] cursor-pointer select-none shrink-0">
             <input
@@ -784,21 +784,19 @@ export const DebtorsTab = ({
                     onClick={() => setExpandedId(isExpanded ? null : d.id)}
                     className="p-4 flex items-center justify-between cursor-pointer hover:bg-[var(--color-surface-hover)] transition-colors"
                   >
-                    {filter !== 'All' && (
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(d.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => {
-                          setSelectedIds(prev => {
-                            const next = new Set(prev);
-                            if (e.target.checked) next.add(d.id); else next.delete(d.id);
-                            return next;
-                          });
-                        }}
-                        className="w-4 h-4 mr-3 shrink-0 cursor-pointer"
-                      />
-                    )}
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(d.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        setSelectedIds(prev => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(d.id); else next.delete(d.id);
+                          return next;
+                        });
+                      }}
+                      className="w-4 h-4 mr-3 shrink-0 cursor-pointer"
+                    />
                     <div className="flex-1 min-w-0 pr-4">
                       <div className="flex items-center space-x-2 mb-1">
                         <div className={`w-2 h-2 rounded-full shrink-0 ${getBucketDot(d.agingBucket)}`} />
