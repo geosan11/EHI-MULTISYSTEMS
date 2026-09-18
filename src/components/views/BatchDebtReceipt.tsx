@@ -269,9 +269,7 @@ const BatchDebtReceiptPDF = ({ data }: { data: BatchDebtReceiptData }) => {
         <View key={i} style={styles.itemRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.itemRoute}>{item.route || item.type}</Text>
-            <Text style={styles.itemRef}>
-              {item.ref}{item.tagNumber && item.tagNumber !== item.ref ? ` · Tag: ${item.tagNumber}` : ''}
-            </Text>
+            <Text style={styles.itemRef}>Tag: {item.tagNumber || item.ref}</Text>
             {(item.pieces || item.kg) ? (
               <Text style={styles.itemDetails}>
                 {item.pieces ? `${item.pieces}pcs` : ''}{item.pieces && item.kg ? ' · ' : ''}{item.kg ? `${item.kg}kg` : ''}

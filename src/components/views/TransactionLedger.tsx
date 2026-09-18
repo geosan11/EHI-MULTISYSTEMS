@@ -2588,20 +2588,38 @@ export const TransactionLedger = ({
     }
   };
 
+  // Both batch actions below require a single customer per batch -- a
+  // combined receipt only makes sense under one name, and batch-clearing
+  // several unrelated customers' debts in one click is exactly the
+  // accidental-mass-clear risk per-customer batching is meant to avoid.
+  // Shared so "not the same customer" is reported identically either way.
+  const notifySameCustomerRequired = (selected: Entry[]): boolean => {
+    if (new Set(selected.map(e => e.name)).size > 1) {
+      showToast({ message: 'Selected transactions are not for the same customer -- batch print/clear requires everything selected to belong to one customer.', type: 'warning' });
+      return false;
+    }
+    return true;
+  };
+
   // Clears every currently-selected Debt entry for its full remaining
   // balance in one action -- one customer with several outstanding
   // routes/shipments previously meant opening Clear Debt separately per
   // row. Same RPC/audit-log shape as confirmClearDebt's non-Wallet branch
   // above, just looped -- Wallet mode isn't offered here (see
-  // selectedDebtIds' own declaration comment).
+  // selectedDebtIds' own declaration comment). Non-Debt rows in the
+  // current selection (batch selection now spans every mode, for
+  // printing) are silently skipped rather than erroring -- only Debt rows
+  // are ever clearable.
   const handleBatchClearDebts = async () => {
     if (batchClearingDebts || selectedDebtIds.size === 0) return;
+    const selectedEntries = displayEntries.filter((e): e is Entry => e.source === 'transaction' && selectedDebtIds.has(e.id));
+    if (!notifySameCustomerRequired(selectedEntries)) return;
     if (batchDebtMode === 'Transfer' && !batchDebtBank.trim()) {
       showToast({ message: 'Select the bank for this transfer payment.', type: 'warning' });
       return;
     }
-    const withRemaining = displayEntries
-      .filter((e): e is Entry => e.source === 'transaction' && selectedDebtIds.has(e.id))
+    const withRemaining = selectedEntries
+      .filter(e => e.mode === 'Debt')
       .map(e => {
         const tx = e.raw as Transaction;
         const remaining = roundMoney(tx.amount - (tx.amountPaid || 0) - ((tx.raw as any)?.retrieved_amount || 0));
@@ -2681,10 +2699,7 @@ export const TransactionLedger = ({
   const handleBatchPrintReceipt = async () => {
     const selected = displayEntries.filter((e): e is Entry => e.source === 'transaction' && selectedDebtIds.has(e.id));
     if (selected.length === 0) return;
-    if (new Set(selected.map(e => e.name)).size > 1) {
-      showToast({ message: 'Batch receipt requires all selected debts to belong to the same customer.', type: 'warning' });
-      return;
-    }
+    if (!notifySameCustomerRequired(selected)) return;
     const items = selected.map(e => {
       const tx = e.raw as Transaction;
       const remaining = roundMoney(tx.amount - (tx.amountPaid || 0) - ((tx.raw as any)?.retrieved_amount || 0));
@@ -3196,14 +3211,24 @@ export const TransactionLedger = ({
     return result;
   }, [filteredEntries, shiftsToMark]);
 
-  // Feeds the Batch Debt Clear/Print bar's "Select All" -- only real,
-  // still-outstanding Debt entries are selectable (excludes shift markers,
-  // which share this array but have mode: '', and any row already showing
-  // as "Debt Paid").
+  // Feeds the Batch Select/Print bar's "Select All" -- batch PRINTING works
+  // across every payment mode (a customer paying Cash for several routes
+  // wants one combined receipt too, not just a debt settlement), so this is
+  // every real transaction row, not Debt-only. Batch CLEARING still only
+  // makes sense for Debt rows -- see handleBatchClearDebts, which filters
+  // the current selection down to Debt entries itself rather than
+  // restricting what can be selected in the first place.
   const debtEntriesInView = useMemo(
-    () => displayEntries.filter((e): e is Entry => e.source === 'transaction' && e.mode === 'Debt'),
+    () => displayEntries.filter((e): e is Entry => e.source === 'transaction'),
     [displayEntries]
   );
+  // Gates the "Clear N Debts" button -- printing accepts any mode, but
+  // clearing only ever applies to Debt rows (see handleBatchClearDebts).
+  const selectedAreAllDebt = useMemo(() => {
+    if (selectedDebtIds.size === 0) return false;
+    const selected = debtEntriesInView.filter(e => selectedDebtIds.has(e.id));
+    return selected.length > 0 && selected.every(e => e.mode === 'Debt');
+  }, [debtEntriesInView, selectedDebtIds]);
 
   const tableRef = useRef<HTMLDivElement>(null);
   const rowVirtualizer = useVirtualizer({
@@ -4253,8 +4278,8 @@ export const TransactionLedger = ({
               </div>
             )}
 
-            {/* ── Batch Debt Clear/Print Bar -- Debt mode only ──── */}
-            {modeFilter === 'Debt' && (
+            {/* ── Batch Select/Print Bar -- every mode; Clear is Debt-only ── */}
+            {debtEntriesInView.length > 0 && (
               <div className="px-4 py-2.5 bg-[rgba(239,68,68,0.05)] border-b border-[rgba(239,68,68,0.15)] flex flex-col sm:flex-row sm:items-center gap-2 shrink-0">
                 <label className="flex items-center gap-2 text-[10px] font-mono font-semibold text-[var(--color-error)] cursor-pointer select-none shrink-0">
                   <input
@@ -4296,13 +4321,15 @@ export const TransactionLedger = ({
                       >
                         <Printer size={11} /> Print Receipt
                       </button>
-                      <button
-                        onClick={handleBatchClearDebts}
-                        disabled={batchClearingDebts || (batchDebtMode === 'Transfer' && !batchDebtBank.trim())}
-                        className="bg-[var(--color-success)] text-[var(--color-on-accent)] px-3 py-1 rounded-lg text-[10px] font-mono font-bold hover:opacity-90 transition-colors disabled:opacity-50"
-                      >
-                        {batchClearingDebts ? 'Clearing...' : `Clear ${selectedDebtIds.size} Debt${selectedDebtIds.size === 1 ? '' : 's'}`}
-                      </button>
+                      {selectedAreAllDebt && (
+                        <button
+                          onClick={handleBatchClearDebts}
+                          disabled={batchClearingDebts || (batchDebtMode === 'Transfer' && !batchDebtBank.trim())}
+                          className="bg-[var(--color-success)] text-[var(--color-on-accent)] px-3 py-1 rounded-lg text-[10px] font-mono font-bold hover:opacity-90 transition-colors disabled:opacity-50"
+                        >
+                          {batchClearingDebts ? 'Clearing...' : `Clear ${selectedDebtIds.size} Debt${selectedDebtIds.size === 1 ? '' : 's'}`}
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -4395,7 +4422,7 @@ export const TransactionLedger = ({
                         {/* Top header row */}
                         <div className="flex items-center justify-between gap-2 border-b border-[var(--color-border)] pb-2">
                           <div className="flex items-center gap-1.5 min-w-0">
-                            {e.mode === 'Debt' && (
+                            {e.source === 'transaction' && (
                               <input
                                 type="checkbox"
                                 checked={selectedDebtIds.has(e.id)}
@@ -4665,21 +4692,6 @@ export const TransactionLedger = ({
                   >
                     {(isAccountantOrAdmin || !viewOnly) && (
                       <td className="py-2.5 px-3">
-                        {e.mode === 'Debt' && (
-                          <input
-                            type="checkbox"
-                            checked={selectedDebtIds.has(e.id)}
-                            onClick={(evt) => evt.stopPropagation()}
-                            onChange={(evt) => {
-                              setSelectedDebtIds(prev => {
-                                const next = new Set(prev);
-                                if (evt.target.checked) next.add(e.id); else next.delete(e.id);
-                                return next;
-                              });
-                            }}
-                            className="w-3.5 h-3.5 cursor-pointer"
-                          />
-                        )}
                         {(e.mode === 'Cash' || e.mode === 'POS' || e.mode === 'Transfer') && isAccountantOrAdmin && !e.raw?.is_debt_clearance && (
                           <div onClick={(evt) => evt.stopPropagation()}>
                             {e.mode === 'POS' && !e.posApprovalCode ? (
@@ -4942,9 +4954,27 @@ export const TransactionLedger = ({
                         )}
                       </div>
                     </td>
-                    {/* Chevron */}
+                    {/* Batch select (any mode -- see selectedDebtIds' own
+                        declaration comment) + Chevron */}
                     <td className="py-2.5 px-3 text-center">
-                      <ChevronRight size={14} className="text-[var(--color-muted)] group-hover:text-[var(--color-foreground)] transition-colors ml-auto" />
+                      <div className="flex items-center justify-end gap-1.5">
+                        {e.source === 'transaction' && (
+                          <input
+                            type="checkbox"
+                            checked={selectedDebtIds.has(e.id)}
+                            onClick={(evt) => evt.stopPropagation()}
+                            onChange={(evt) => {
+                              setSelectedDebtIds(prev => {
+                                const next = new Set(prev);
+                                if (evt.target.checked) next.add(e.id); else next.delete(e.id);
+                                return next;
+                              });
+                            }}
+                            className="w-3.5 h-3.5 cursor-pointer shrink-0"
+                          />
+                        )}
+                        <ChevronRight size={14} className="text-[var(--color-muted)] group-hover:text-[var(--color-foreground)] transition-colors shrink-0" />
+                      </div>
                     </td>
                   </tr>
                   );

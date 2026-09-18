@@ -423,6 +423,18 @@ export const DebtorsTab = ({
     }
   };
 
+  // Both batch actions below require a single customer per batch -- a
+  // combined receipt only makes sense under one name, and batch-clearing
+  // several unrelated customers' debts in one click is exactly the
+  // accidental-mass-clear risk per-customer batching is meant to avoid.
+  const notifySameCustomerRequired = (selected: Transaction[]): boolean => {
+    if (new Set(selected.map(d => d.name)).size > 1) {
+      showToast({ message: 'Selected transactions are not for the same customer -- batch print/clear requires everything selected to belong to one customer.', type: 'warning' });
+      return false;
+    }
+    return true;
+  };
+
   // Bulk-clears every currently-selected debt for its full remaining
   // balance in one action -- a customer (corporate or an individual with
   // several outstanding routes/shipments) settling multiple debts in one
@@ -434,11 +446,12 @@ export const DebtorsTab = ({
   // misclick, the same one already relied on when this was Corporate-only.
   const handleBulkClear = async () => {
     if (bulkClearing || selectedIds.size === 0) return;
+    const selected = visibleDebts.filter(d => selectedIds.has(d.id));
+    if (!notifySameCustomerRequired(selected)) return;
     if (bulkMode === 'Transfer' && !bulkBank.trim()) {
       showToast({ message: 'Select the bank for this transfer payment.', type: 'warning' });
       return;
     }
-    const selected = visibleDebts.filter(d => selectedIds.has(d.id));
     const total = selected.reduce((sum, d) => sum + d.balance, 0);
     const ok = await confirm({
       title: 'Clear selected debts?',
@@ -498,12 +511,7 @@ export const DebtorsTab = ({
   const handleBatchPrintReceipt = async () => {
     const selected = visibleDebts.filter(d => selectedIds.has(d.id));
     if (selected.length === 0) return;
-    // The combined receipt is for one customer's several debts, not a
-    // mixed batch -- block rather than guess which name to print.
-    if (new Set(selected.map(d => d.name)).size > 1) {
-      showToast({ message: 'Batch receipt requires all selected debts to belong to the same customer.', type: 'warning' });
-      return;
-    }
+    if (!notifySameCustomerRequired(selected)) return;
     const items = selected.map(d => ({
       ref: d.id,
       route: (d.type === 'baggage' || d.type === 'package')
