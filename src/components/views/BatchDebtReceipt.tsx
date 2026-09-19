@@ -43,6 +43,15 @@ export interface BatchDebtReceiptData {
   qrCodeDataUrl?: string;
 }
 
+// Route/destination strings are "CODE/Full City Name" (see hubRoutes.ts's
+// `${h.code}/${h.name}` format) -- a batch receipt lists several of these
+// at once, so the short code alone (e.g. "ABV" instead of "ABV/Abuja Air
+// Cargo Station") keeps each item line compact and scannable.
+function formatRouteCode(route: string): string {
+  if (!route) return '';
+  return route.split('/')[0];
+}
+
 function formatNaira(n: number | string): string {
   const num = typeof n === 'string' ? parseFloat(n) : n;
   return 'NGN ' + (num || 0).toLocaleString('en-NG', {
@@ -138,13 +147,25 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     color: "#333333",
   },
+  // A previous version of this nested a `{flex:1}`-only View (route/tag/
+  // pieces stacked) as a sibling of the amount Text, both inside a single
+  // row-direction itemRow -- that unstyled inner View's own children
+  // ended up overlapping instead of stacking (react-pdf/Yoga rendered the
+  // tag line on top of the route line rather than below it). Explicit
+  // column-direction rows/lines, each its own top-level child of itemRow,
+  // is the same defensive pattern already used elsewhere in this file
+  // (the label/value `row` style above) and avoids that nesting entirely.
   itemRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    flexDirection: "column",
     marginBottom: 3,
     paddingBottom: 3,
     borderBottomWidth: 1,
     borderBottomColor: "#EEEEEE",
+  },
+  itemHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
   },
   itemRoute: {
     fontSize: 8,
@@ -300,18 +321,18 @@ const BatchDebtReceiptPDF = ({ data }: { data: BatchDebtReceiptData }) => {
       </View>
       {data.items.map((item, i) => (
         <View key={i} style={styles.itemRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.itemRoute}>{item.route || item.type}</Text>
-            <Text style={styles.itemRef}>
-              Tag: {item.tagNumber || item.ref}{item.time ? ` · ${item.time}` : ''}
-            </Text>
-            {(item.pieces || item.kg) ? (
-              <Text style={styles.itemDetails}>
-                {item.pieces ? `${item.pieces}pcs` : ''}{item.pieces && item.kg ? ' · ' : ''}{item.kg ? `${item.kg}kg` : ''}
-              </Text>
-            ) : null}
+          <View style={styles.itemHeaderRow}>
+            <Text style={styles.itemRoute}>{formatRouteCode(item.route) || item.type}</Text>
+            <Text style={styles.itemAmount}>{formatNaira(item.amount)}</Text>
           </View>
-          <Text style={styles.itemAmount}>{formatNaira(item.amount)}</Text>
+          <Text style={styles.itemRef}>
+            Tag: {item.tagNumber || item.ref}{item.time ? ` · ${item.time}` : ''}
+          </Text>
+          {(item.pieces || item.kg) ? (
+            <Text style={styles.itemDetails}>
+              {item.pieces ? `${item.pieces}pcs` : ''}{item.pieces && item.kg ? ' · ' : ''}{item.kg ? `${item.kg}kg` : ''}
+            </Text>
+          ) : null}
         </View>
       ))}
 
