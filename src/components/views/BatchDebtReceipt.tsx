@@ -28,6 +28,9 @@ export interface BatchDebtReceiptItem {
   // by the mappers this data is built from) -- when this entry was logged,
   // not when the batch/receipt was printed.
   time?: string;
+  // Cargo/package's content_type (e.g. "General Goods", "Electronics") --
+  // undefined for baggage/marketing, which don't track this.
+  contentType?: string;
 }
 
 export interface BatchDebtReceiptData {
@@ -246,9 +249,24 @@ const ITEM_ROW_SPACING = 8;
 // was causing this receipt to render 4 pages instead of 2 once several
 // items (some with longer route names) pushed the real content past the
 // guessed page height and react-pdf auto-paginated the overflow.
+// pieces/kg/contentType share one line ("2pcs · 44kg · General Goods") --
+// shared with the actual render below so the height estimate can never
+// silently drift from what's actually drawn.
+function formatItemDetailsLine(item: BatchDebtReceiptItem): string {
+  const parts: string[] = [];
+  if (item.pieces) parts.push(`${item.pieces}pcs`);
+  if (item.kg) parts.push(`${item.kg}kg`);
+  if (item.contentType) parts.push(item.contentType);
+  return parts.join(' · ');
+}
+
 function estimateItemHeight(item: BatchDebtReceiptItem): number {
   const routeLines = estimateWrappedLines(item.route || item.type, ITEM_TEXT_COL_WIDTH, 8);
-  const totalLines = routeLines + 1 + (item.pieces || item.kg ? 1 : 0); // route(+wrap) + tag + optional pieces/kg
+  let totalLines = routeLines + 1; // route(+wrap) + tag/time line
+  const details = formatItemDetailsLine(item);
+  // contentType can push this line long enough to wrap too -- same
+  // under-estimate risk as the route line above if left unaccounted for.
+  if (details) totalLines += estimateWrappedLines(details, ITEM_TEXT_COL_WIDTH, 7);
   return totalLines * ITEM_LINE_HEIGHT + ITEM_ROW_SPACING;
 }
 
@@ -328,10 +346,8 @@ const BatchDebtReceiptPDF = ({ data }: { data: BatchDebtReceiptData }) => {
           <Text style={styles.itemRef}>
             Tag: {item.tagNumber || item.ref}{item.time ? ` · ${item.time}` : ''}
           </Text>
-          {(item.pieces || item.kg) ? (
-            <Text style={styles.itemDetails}>
-              {item.pieces ? `${item.pieces}pcs` : ''}{item.pieces && item.kg ? ' · ' : ''}{item.kg ? `${item.kg}kg` : ''}
-            </Text>
+          {formatItemDetailsLine(item) ? (
+            <Text style={styles.itemDetails}>{formatItemDetailsLine(item)}</Text>
           ) : null}
         </View>
       ))}

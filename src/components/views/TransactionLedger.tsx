@@ -2745,6 +2745,7 @@ export const TransactionLedger = ({
         pieces: tx.pieces,
         kg: tx.kg,
         time: tx.time,
+        contentType: tx.contentType,
       };
     });
     try {
