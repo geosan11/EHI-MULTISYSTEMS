@@ -2718,6 +2718,12 @@ export const TransactionLedger = ({
   const handleBatchPrintReceipt = async () => {
     const selected = displayEntries.filter((e): e is Entry => e.source === 'transaction' && selectedDebtIds.has(e.id));
     if (selected.length === 0) return;
+    // Same requirement as clearing -- a receipt claiming a payment was
+    // made needs to say how, not a vague placeholder.
+    if (!batchDebtMode) {
+      showToast({ message: 'Select a payment mode before printing.', type: 'warning' });
+      return;
+    }
     if (!notifySameCustomerRequired(selected)) return;
     const items = selected.map(e => {
       const tx = e.raw as Transaction;
@@ -2750,10 +2756,8 @@ export const TransactionLedger = ({
         customerPhone: (selected[0].raw as Transaction).consigneePhone,
         items,
         totalAmount: items.reduce((s, i) => s + i.amount, 0),
-        // Printing (unlike clearing) doesn't require a mode to already be
-        // picked -- it's allowed before a batch is cleared at all -- so
-        // this falls back to a neutral label instead of an empty string.
-        paymentMode: batchDebtMode || 'As Agreed',
+        // Guaranteed non-empty by the guard above.
+        paymentMode: batchDebtMode,
         bankName: batchDebtMode === 'Transfer' ? batchDebtBank : undefined,
       });
     } catch (err: any) {
@@ -4351,7 +4355,9 @@ export const TransactionLedger = ({
                     <div className="flex items-center gap-2 ml-auto">
                       <button
                         onClick={handleBatchPrintReceipt}
-                        className="flex items-center gap-1 bg-[var(--color-surface-2)] text-[var(--color-foreground)] px-3 py-1 rounded-lg text-[10px] font-mono font-bold hover:opacity-90 transition-colors"
+                        disabled={!batchDebtMode}
+                        title={!batchDebtMode ? 'Select a payment mode first' : undefined}
+                        className="flex items-center gap-1 bg-[var(--color-surface-2)] text-[var(--color-foreground)] px-3 py-1 rounded-lg text-[10px] font-mono font-bold hover:opacity-90 transition-colors disabled:opacity-50"
                       >
                         <Printer size={11} /> Print Receipt
                       </button>

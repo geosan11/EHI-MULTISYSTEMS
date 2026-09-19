@@ -527,6 +527,12 @@ export const DebtorsTab = ({
   const handleBatchPrintReceipt = async () => {
     const selected = visibleDebts.filter(d => selectedIds.has(d.id));
     if (selected.length === 0) return;
+    // Same requirement as clearing -- a receipt claiming a payment was
+    // made needs to say how, not a vague placeholder.
+    if (!bulkMode) {
+      showToast({ message: 'Select a payment mode before printing.', type: 'warning' });
+      return;
+    }
     if (!notifySameCustomerRequired(selected)) return;
     const items = selected.map(d => ({
       ref: d.id,
@@ -549,10 +555,8 @@ export const DebtorsTab = ({
         customerPhone: selected[0].consigneePhone,
         items,
         totalAmount: items.reduce((s, i) => s + i.amount, 0),
-        // Printing (unlike clearing) doesn't require a mode to already be
-        // picked -- it's allowed before a batch is cleared at all -- so
-        // this falls back to a neutral label instead of an empty string.
-        paymentMode: bulkMode || 'As Agreed',
+        // Guaranteed non-empty by the guard above.
+        paymentMode: bulkMode,
         bankName: bulkMode === 'Transfer' ? bulkBank : undefined,
       });
     } catch (err: any) {
@@ -778,7 +782,9 @@ export const DebtorsTab = ({
               <div className="flex items-center gap-2 ml-auto">
                 <button
                   onClick={handleBatchPrintReceipt}
-                  className="flex items-center gap-1.5 bg-[var(--color-surface-2)] text-[var(--color-foreground)] px-4 py-1.5 rounded-lg text-[12px] font-sans font-bold hover:opacity-90 transition-opacity focus:outline-none"
+                  disabled={!bulkMode}
+                  title={!bulkMode ? 'Select a payment mode first' : undefined}
+                  className="flex items-center gap-1.5 bg-[var(--color-surface-2)] text-[var(--color-foreground)] px-4 py-1.5 rounded-lg text-[12px] font-sans font-bold hover:opacity-90 transition-opacity focus:outline-none disabled:opacity-50"
                 >
                   <Printer size={14} />
                   Print Receipt
