@@ -95,9 +95,18 @@ export const DebtorsTab = ({
   // different filter.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkClearing, setBulkClearing] = useState(false);
-  const [bulkMode, setBulkMode] = useState<'Cash' | 'Transfer' | 'POS'>('Cash');
+  // Starts (and resets to) empty rather than defaulting to 'Cash' -- see
+  // the matching effect below. A silent default meant a staff member
+  // could clear a debt without ever consciously choosing how it was
+  // actually paid.
+  const [bulkMode, setBulkMode] = useState<'Cash' | 'Transfer' | 'POS' | ''>('');
   const [bulkBank, setBulkBank] = useState('');
   useEffect(() => { setSelectedIds(new Set()); }, [filter]);
+  // Forces a fresh, deliberate mode choice for every new batch -- fires
+  // whenever the selection returns to empty (after a completed clear or
+  // manually unchecking everything), not on every incremental checkbox
+  // added to an already-in-progress selection.
+  useEffect(() => { if (selectedIds.size === 0) setBulkMode(''); }, [selectedIds]);
 
   // This screen only ever received the `transactions` prop, which
   // EHIApp.tsx's fetchInitial windows to `globalDateRange` (defaults to
@@ -446,6 +455,13 @@ export const DebtorsTab = ({
   // misclick, the same one already relied on when this was Corporate-only.
   const handleBulkClear = async () => {
     if (bulkClearing || selectedIds.size === 0) return;
+    // Belt-and-suspenders on top of the button's own disabled state -- the
+    // mode is required, not defaulted, specifically so a batch clear can
+    // never go through without a staff member consciously picking it.
+    if (!bulkMode) {
+      showToast({ message: 'Select a payment mode before clearing.', type: 'warning' });
+      return;
+    }
     const selected = visibleDebts.filter(d => selectedIds.has(d.id));
     if (!notifySameCustomerRequired(selected)) return;
     if (bulkMode === 'Transfer' && !bulkBank.trim()) {
@@ -522,6 +538,7 @@ export const DebtorsTab = ({
       tagNumber: d.awb_tag_number,
       pieces: d.pieces,
       kg: d.kg,
+      time: d.time,
     }));
     try {
       await downloadBatchDebtReceipt({
@@ -532,7 +549,10 @@ export const DebtorsTab = ({
         customerPhone: selected[0].consigneePhone,
         items,
         totalAmount: items.reduce((s, i) => s + i.amount, 0),
-        paymentMode: bulkMode,
+        // Printing (unlike clearing) doesn't require a mode to already be
+        // picked -- it's allowed before a batch is cleared at all -- so
+        // this falls back to a neutral label instead of an empty string.
+        paymentMode: bulkMode || 'As Agreed',
         bankName: bulkMode === 'Transfer' ? bulkBank : undefined,
       });
     } catch (err: any) {
@@ -736,8 +756,11 @@ export const DebtorsTab = ({
               <select
                 value={bulkMode}
                 onChange={e => setBulkMode(e.target.value as any)}
-                className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg px-2.5 py-1.5 text-[12px] font-sans text-[var(--color-foreground)] focus:outline-none"
+                className={`bg-[var(--color-surface-1)] border rounded-lg px-2.5 py-1.5 text-[12px] font-sans focus:outline-none ${
+                  bulkMode === '' ? 'border-[var(--color-error)] text-[var(--color-error)]' : 'border-[var(--color-border)] text-[var(--color-foreground)]'
+                }`}
               >
+                <option value="" disabled>Select mode…</option>
                 <option value="Cash">Cash</option>
                 <option value="Transfer">Transfer</option>
                 <option value="POS">POS</option>
@@ -762,7 +785,8 @@ export const DebtorsTab = ({
                 </button>
                 <button
                   onClick={handleBulkClear}
-                  disabled={bulkClearing || (bulkMode === 'Transfer' && !bulkBank.trim())}
+                  disabled={bulkClearing || !bulkMode || (bulkMode === 'Transfer' && !bulkBank.trim())}
+                  title={!bulkMode ? 'Select a payment mode first' : undefined}
                   className="bg-[var(--color-success)] text-[var(--color-on-accent)] px-4 py-1.5 rounded-lg text-[12px] font-sans font-bold hover:opacity-90 transition-opacity focus:outline-none disabled:opacity-50"
                 >
                   {bulkClearing ? 'Clearing...' : `Clear ${selectedIds.size} Debt${selectedIds.size === 1 ? '' : 's'}`}

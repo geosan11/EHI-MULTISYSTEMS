@@ -24,6 +24,10 @@ export interface BatchDebtReceiptItem {
   tagNumber?: string;
   pieces?: number;
   kg?: number;
+  // Pre-formatted "HH:MM" (matches every Transaction.time already computed
+  // by the mappers this data is built from) -- when this entry was logged,
+  // not when the batch/receipt was printed.
+  time?: string;
 }
 
 export interface BatchDebtReceiptData {
@@ -298,7 +302,9 @@ const BatchDebtReceiptPDF = ({ data }: { data: BatchDebtReceiptData }) => {
         <View key={i} style={styles.itemRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.itemRoute}>{item.route || item.type}</Text>
-            <Text style={styles.itemRef}>Tag: {item.tagNumber || item.ref}</Text>
+            <Text style={styles.itemRef}>
+              Tag: {item.tagNumber || item.ref}{item.time ? ` · ${item.time}` : ''}
+            </Text>
             {(item.pieces || item.kg) ? (
               <Text style={styles.itemDetails}>
                 {item.pieces ? `${item.pieces}pcs` : ''}{item.pieces && item.kg ? ' · ' : ''}{item.kg ? `${item.kg}kg` : ''}

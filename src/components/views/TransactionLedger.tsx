@@ -352,7 +352,12 @@ export const TransactionLedger = ({
   // risk for what bulk clearing is actually used for.
   const [selectedDebtIds, setSelectedDebtIds] = useState<Set<string>>(new Set());
   const [batchClearingDebts, setBatchClearingDebts] = useState(false);
-  const [batchDebtMode, setBatchDebtMode] = useState<'Cash' | 'Transfer' | 'POS'>('Cash');
+  // Starts (and resets to) empty rather than defaulting to 'Cash' -- a
+  // silent default meant a staff member could clear a debt without ever
+  // consciously choosing how it was actually paid, which is exactly what
+  // was reported ("it's clearing to Cash"). Requiring an explicit pick
+  // each time a batch starts fresh makes the choice deliberate.
+  const [batchDebtMode, setBatchDebtMode] = useState<'Cash' | 'Transfer' | 'POS' | ''>('');
   const [batchDebtBank, setBatchDebtBank] = useState('');
   const [clearingDebt, setClearingDebt] = useState(false);
   const [reopeningDebt, setReopeningDebt] = useState(false);
@@ -505,6 +510,13 @@ export const TransactionLedger = ({
   // silently include rows no longer even visible -- same reasoning as
   // DebtorsTab.tsx's matching selectedIds reset.
   useEffect(() => { setSelectedDebtIds(new Set()); }, [modeFilter, debtClassFilter, searchQuery, typeFilter]);
+  // Forces a fresh, deliberate mode choice for every new batch -- fires
+  // whenever the selection returns to empty (after a completed/aborted
+  // clear, a filter change resetting it above, or manually unchecking
+  // everything), not on every incremental checkbox added to an
+  // already-in-progress selection, which would otherwise force staff to
+  // re-pick the mode after every single click.
+  useEffect(() => { if (selectedDebtIds.size === 0) setBatchDebtMode(''); }, [selectedDebtIds]);
   // GAT (General Aviation Terminal / MM1) is a second physical Lagos
   // counter tagged on cargo/package entries, not a separate hub -- see
   // TerminalSwitch.tsx.
@@ -2612,6 +2624,13 @@ export const TransactionLedger = ({
   // are ever clearable.
   const handleBatchClearDebts = async () => {
     if (batchClearingDebts || selectedDebtIds.size === 0) return;
+    // Belt-and-suspenders on top of the button's own disabled state -- the
+    // mode is required, not defaulted, specifically so a batch clear can
+    // never go through without a staff member consciously picking it.
+    if (!batchDebtMode) {
+      showToast({ message: 'Select a payment mode before clearing.', type: 'warning' });
+      return;
+    }
     const selectedEntries = displayEntries.filter((e): e is Entry => e.source === 'transaction' && selectedDebtIds.has(e.id));
     if (!notifySameCustomerRequired(selectedEntries)) return;
     if (batchDebtMode === 'Transfer' && !batchDebtBank.trim()) {
@@ -2719,6 +2738,7 @@ export const TransactionLedger = ({
         tagNumber: tx.awb_tag_number,
         pieces: tx.pieces,
         kg: tx.kg,
+        time: tx.time,
       };
     });
     try {
@@ -2730,7 +2750,10 @@ export const TransactionLedger = ({
         customerPhone: (selected[0].raw as Transaction).consigneePhone,
         items,
         totalAmount: items.reduce((s, i) => s + i.amount, 0),
-        paymentMode: batchDebtMode,
+        // Printing (unlike clearing) doesn't require a mode to already be
+        // picked -- it's allowed before a batch is cleared at all -- so
+        // this falls back to a neutral label instead of an empty string.
+        paymentMode: batchDebtMode || 'As Agreed',
         bankName: batchDebtMode === 'Transfer' ? batchDebtBank : undefined,
       });
     } catch (err: any) {
@@ -4306,8 +4329,11 @@ export const TransactionLedger = ({
                     <select
                       value={batchDebtMode}
                       onChange={e => setBatchDebtMode(e.target.value as any)}
-                      className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg px-2 py-1 text-[10px] font-mono text-[var(--color-foreground)] focus:outline-none"
+                      className={`bg-[var(--color-surface-1)] border rounded-lg px-2 py-1 text-[10px] font-mono focus:outline-none ${
+                        batchDebtMode === '' ? 'border-[var(--color-error)] text-[var(--color-error)]' : 'border-[var(--color-border)] text-[var(--color-foreground)]'
+                      }`}
                     >
+                      <option value="" disabled>Select mode…</option>
                       <option value="Cash">Cash</option>
                       <option value="Transfer">Transfer</option>
                       <option value="POS">POS</option>
@@ -4332,7 +4358,8 @@ export const TransactionLedger = ({
                       {selectedAreAllDebt && (
                         <button
                           onClick={handleBatchClearDebts}
-                          disabled={batchClearingDebts || (batchDebtMode === 'Transfer' && !batchDebtBank.trim())}
+                          disabled={batchClearingDebts || !batchDebtMode || (batchDebtMode === 'Transfer' && !batchDebtBank.trim())}
+                          title={!batchDebtMode ? 'Select a payment mode first' : undefined}
                           className="bg-[var(--color-success)] text-[var(--color-on-accent)] px-3 py-1 rounded-lg text-[10px] font-mono font-bold hover:opacity-90 transition-colors disabled:opacity-50"
                         >
                           {batchClearingDebts ? 'Clearing...' : `Clear ${selectedDebtIds.size} Debt${selectedDebtIds.size === 1 ? '' : 's'}`}
