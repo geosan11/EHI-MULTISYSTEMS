@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
   },
   itemRef: {
     fontSize: 6,
-    fontFamily: "Courier",
+    fontFamily: "Courier-Bold",
     color: "#000000",
   },
   itemDetails: {
