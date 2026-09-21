@@ -535,19 +535,29 @@ export const DebtorsTab = ({
       return;
     }
     if (!notifySameCustomerRequired(selected)) return;
-    const items = selected.map(d => ({
-      ref: d.id,
-      route: (d.type === 'baggage' || d.type === 'package')
-        ? ((d.raw as any)?.destination || '')
-        : ((d.raw as any)?.route || ''),
-      type: d.type,
-      amount: d.balance,
-      tagNumber: d.awb_tag_number,
-      pieces: d.pieces,
-      kg: d.kg,
-      time: d.time,
-      contentType: d.contentType,
-    }));
+    const items = selected.map(d => {
+      // d.time/d.created_at is the entry's raw created_at ISO string (see
+      // mapDebtRow) -- split it into the receipt's separate pre-formatted
+      // date/time fields rather than passing the raw ISO straight through.
+      const created = d.created_at && !isNaN(new Date(d.created_at).getTime())
+        ? new Date(d.created_at)
+        : null;
+      return {
+        ref: d.id,
+        route: (d.type === 'baggage' || d.type === 'package')
+          ? ((d.raw as any)?.destination || '')
+          : ((d.raw as any)?.route || ''),
+        type: d.type,
+        amount: d.balance,
+        tagNumber: d.awb_tag_number,
+        pieces: d.pieces,
+        kg: d.kg,
+        date: created ? created.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : undefined,
+        time: created ? created.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }) : undefined,
+        contentType: d.contentType,
+        contents: (d.raw as any)?.contents || undefined,
+      };
+    });
     try {
       await downloadBatchDebtReceipt({
         batchRef: `BATCH-${Date.now()}`,

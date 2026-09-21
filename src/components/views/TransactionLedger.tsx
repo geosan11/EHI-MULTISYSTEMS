@@ -2736,6 +2736,9 @@ export const TransactionLedger = ({
         const remaining = roundMoney(tx.amount - (tx.amountPaid || 0) - ((tx.raw as any)?.retrieved_amount || 0));
         amount = remaining > 0 ? remaining : tx.amount;
       }
+      const created = tx.created_at && !isNaN(new Date(tx.created_at).getTime())
+        ? new Date(tx.created_at)
+        : null;
       return {
         ref: tx.id,
         route: (tx.type === 'baggage' || tx.type === 'package') ? (tx.destination || '') : (tx.route || ''),
@@ -2744,8 +2747,10 @@ export const TransactionLedger = ({
         tagNumber: tx.awb_tag_number,
         pieces: tx.pieces,
         kg: tx.kg,
+        date: created ? created.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : undefined,
         time: tx.time,
         contentType: tx.contentType,
+        contents: tx.contents,
       };
     });
     try {

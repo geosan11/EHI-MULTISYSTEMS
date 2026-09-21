@@ -28,9 +28,17 @@ export interface BatchDebtReceiptItem {
   // by the mappers this data is built from) -- when this entry was logged,
   // not when the batch/receipt was printed.
   time?: string;
+  // Pre-formatted short date (e.g. "11 Sep") for the same entry `time`
+  // refers to -- a batch can mix entries logged on different days, so the
+  // single batch-level `date` (when it was printed) isn't enough to tell
+  // which day each line item actually happened.
+  date?: string;
   // Cargo/package's content_type (e.g. "General Goods", "Electronics") --
   // undefined for baggage/marketing, which don't track this.
   contentType?: string;
+  // Package/Parcel's free-text description of what's inside -- distinct
+  // from contentType, which holds the service class, not the contents.
+  contents?: string;
 }
 
 export interface BatchDebtReceiptData {
@@ -116,7 +124,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 7,
-    color: "#777777",
+    color: "#000000",
     textTransform: "uppercase",
     width: 60,
     fontFamily: "Helvetica",
@@ -179,12 +187,12 @@ const styles = StyleSheet.create({
   itemRef: {
     fontSize: 6,
     fontFamily: "Courier",
-    color: "#888888",
+    color: "#000000",
   },
   itemDetails: {
     fontSize: 7,
     fontFamily: "Helvetica",
-    color: "#555555",
+    color: "#000000",
     marginTop: 1,
   },
   itemAmount: {
@@ -218,7 +226,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 7,
-    color: "#888888",
+    color: "#000000",
     textAlign: "center",
     marginTop: 1,
   },
@@ -249,23 +257,35 @@ const ITEM_ROW_SPACING = 8;
 // was causing this receipt to render 4 pages instead of 2 once several
 // items (some with longer route names) pushed the real content past the
 // guessed page height and react-pdf auto-paginated the overflow.
-// pieces/kg/contentType share one line ("2pcs · 44kg · General Goods") --
-// shared with the actual render below so the height estimate can never
-// silently drift from what's actually drawn.
+// pieces/kg/contents/contentType share one line
+// ("2pcs · 44kg · Clothes · General Goods") -- shared with the actual
+// render below so the height estimate can never silently drift from what's
+// actually drawn.
 function formatItemDetailsLine(item: BatchDebtReceiptItem): string {
   const parts: string[] = [];
   if (item.pieces) parts.push(`${item.pieces}pcs`);
   if (item.kg) parts.push(`${item.kg}kg`);
+  if (item.contents) parts.push(item.contents);
   if (item.contentType) parts.push(item.contentType);
   return parts.join(' · ');
 }
 
+// Tag/ref + date + time share one line -- same shared-with-render pattern
+// as formatItemDetailsLine above, now that `date` makes this line's length
+// variable instead of a flat "always 1 line" guess.
+function formatTagLine(item: BatchDebtReceiptItem): string {
+  const tag = item.tagNumber || item.ref;
+  const when = [item.date, item.time].filter(Boolean).join(' ');
+  return `Tag: ${tag}${when ? ` · ${when}` : ''}`;
+}
+
 function estimateItemHeight(item: BatchDebtReceiptItem): number {
   const routeLines = estimateWrappedLines(item.route || item.type, ITEM_TEXT_COL_WIDTH, 8);
-  let totalLines = routeLines + 1; // route(+wrap) + tag/time line
+  const tagLines = estimateWrappedLines(formatTagLine(item), ITEM_TEXT_COL_WIDTH, 6);
+  let totalLines = routeLines + tagLines;
   const details = formatItemDetailsLine(item);
-  // contentType can push this line long enough to wrap too -- same
-  // under-estimate risk as the route line above if left unaccounted for.
+  // contentType/contents can push this line long enough to wrap too --
+  // same under-estimate risk as the route line above if left unaccounted for.
   if (details) totalLines += estimateWrappedLines(details, ITEM_TEXT_COL_WIDTH, 7);
   return totalLines * ITEM_LINE_HEIGHT + ITEM_ROW_SPACING;
 }
@@ -343,9 +363,7 @@ const BatchDebtReceiptPDF = ({ data }: { data: BatchDebtReceiptData }) => {
             <Text style={styles.itemRoute}>{formatRouteCode(item.route) || item.type}</Text>
             <Text style={styles.itemAmount}>{formatNaira(item.amount)}</Text>
           </View>
-          <Text style={styles.itemRef}>
-            Tag: {item.tagNumber || item.ref}{item.time ? ` · ${item.time}` : ''}
-          </Text>
+          <Text style={styles.itemRef}>{formatTagLine(item)}</Text>
           {formatItemDetailsLine(item) ? (
             <Text style={styles.itemDetails}>{formatItemDetailsLine(item)}</Text>
           ) : null}
