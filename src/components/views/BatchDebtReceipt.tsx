@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontFamily: "Helvetica-Bold",
     textTransform: "uppercase",
-    color: "#333333",
+    color: "#000000",
   },
   // A previous version of this nested a `{flex:1}`-only View (route/tag/
   // pieces stacked) as a sibling of the amount Text, both inside a single
