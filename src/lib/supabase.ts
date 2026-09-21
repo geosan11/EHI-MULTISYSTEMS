@@ -3,6 +3,11 @@ import { appLogger } from './logger';
 
 let _client: SupabaseClient;
 
+// Guards the forced-sign-out check below so a burst of parallel requests
+// that all fail with the same dead-session cause triggers it once, not once
+// per request (see the 401/42501 handling further down).
+let forcedSignOutInFlight = false;
+
 // A custom fetch wrapper to intercept and log Supabase network failures
 const customFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
   try {
@@ -21,8 +26,39 @@ const customFetch = async (input: RequestInfo | URL, init?: RequestInit): Promis
       } catch (e) {
         errorBody = 'Could not read error body';
       }
-      
-      appLogger.log('ERROR', 'SUPABASE_API', `HTTP ${response.status} on ${urlStr} (${duration}ms) - ${errorBody.slice(0, 200)}`);
+
+      // hub_shifts(hub_id, department) WHERE status = 'open' is the
+      // *intended* final guard against double-starting a shift (see
+      // EHIApp.tsx's handleStartShift/autoRollShift) -- both call sites
+      // already catch this exact conflict and handle it gracefully. Logging
+      // it as ERROR just inflates Sentry with an expected, already-handled
+      // race rather than a real problem.
+      const isBenignShiftRace = response.status === 409 &&
+        urlStr.includes('hub_shifts') &&
+        errorBody.includes('"code":"23505"');
+
+      appLogger.log(isBenignShiftRace ? 'WARN' : 'ERROR', 'SUPABASE_API', `HTTP ${response.status} on ${urlStr} (${duration}ms) - ${errorBody.slice(0, 200)}`);
+
+      // PostgREST returns 401 (not 403) specifically when the request's role
+      // resolved to `anon` -- every table this app queries is `TO
+      // authenticated` only with `anon` REVOKE ALL'd, so a 401 + Postgres
+      // 42501 (insufficient_privilege) unambiguously means the access token
+      // is dead, not that a real user hit a permission wall (that comes back
+      // as 403). GoTrue's own background refresh eventually notices this and
+      // fires SIGNED_OUT (handled in App.tsx: "Your session expired"), but
+      // that can lag well behind a page load's burst of parallel queries,
+      // during which every one of them fails the same way. Check for -- and
+      // act on -- a dead session the moment the first 42501 is seen instead
+      // of waiting on that background timing.
+      if (response.status === 401 && errorBody.includes('"code":"42501"') && !forcedSignOutInFlight) {
+        forcedSignOutInFlight = true;
+        _client.auth.getSession()
+          .then(({ data }) => {
+            if (!data?.session) return _client.auth.signOut();
+          })
+          .catch(() => {})
+          .finally(() => { forcedSignOutInFlight = false; });
+      }
     } else if (duration > 1500) {
       const urlStr = typeof input === 'string' ? input : (input instanceof Request ? input.url : input.toString());
       appLogger.log('WARN', 'SUPABASE_API', `Slow API response on ${urlStr} (${duration}ms)`);
