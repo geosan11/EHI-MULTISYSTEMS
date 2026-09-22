@@ -25,14 +25,19 @@ const NATIONAL_AIRPORTS_SET = new Set(NATIONAL_AIRPORTS);
 // opening a specific flight's detail (GET /status) can, and at most once
 // per TTL window per flight+date, shared across every viewer.
 //
-// Set just over an hour -- the /cron/flight-radar/refresh route below
-// force-refreshes every flight on today's board once an hour (see
-// vercel.json's "crons" entry), so in normal operation this TTL is never
-// actually reached by a live user action: opening a flight's detail almost
-// always finds an hour-fresh row the cron job already paid for, and a
-// per-viewer live call only fires as a fallback (cron hasn't run yet today,
-// a brand-new flight number added after the last run, etc).
-const CACHE_TTL_MS = 65 * 60 * 1000;
+// This is the PRIMARY intra-day freshness mechanism, not just a fallback --
+// the /cron/flight-radar/refresh route below only runs once a DAY (see
+// vercel.json's "crons" entry), not hourly. Vercel's Hobby plan hard-caps
+// cron jobs at once/day; a more frequent schedule fails deployment outright
+// rather than just running less often. So in practice: the cron job gives
+// every flight a same-morning baseline refresh, and this TTL is what keeps
+// anything actually being looked at (a delay, a gate change, etc.) from
+// going stale for the rest of the day -- first viewer past the TTL window
+// pays for a live call, everyone after them for the next TTL window reads
+// that same cached result. If this project moves to a Pro+ plan, bumping
+// the cron schedule to hourly (and this TTL up alongside it) is the
+// straightforward next step.
+const CACHE_TTL_MS = 20 * 60 * 1000;
 
 // Departures-board cache TTL for CargoForm's flight-number auto-fill --
 // longer than CACHE_TTL_MS above since a whole-airport board is a much
@@ -543,22 +548,27 @@ router.get('/board', async (req, res) => {
   res.json({ date, flights: Array.from(flights.values()) });
 });
 
-// Hourly shared refresh -- pulls live status once per hour for every flight
-// actually on today's board (today's cargo_entries.flight_number /
-// manifests.flight_no, across every hub) and writes it to
-// flight_status_cache, so every viewer of GET /board reads an already-fresh
-// row instead of each agent's own flight-detail click being what decides
-// whether a live AeroDataBox call happens. This deliberately does NOT touch
-// flight_departures_board_cache / NATIONAL_AIRPORTS -- refreshing all 19
-// airports' full-day departures boards hourly would be ~38 AeroDataBox
-// calls x 24/day = far past what the free/low tier's 600-unit/month budget
-// (see CACHE_TTL_MS's comment above) can absorb. That board stays exactly
-// as it was: cache-only reads (GET /national-board) plus the existing
+// Daily shared refresh -- runs once a day (see vercel.json's "crons" entry;
+// Vercel's Hobby plan hard-caps cron jobs at once/day, a more frequent
+// schedule fails deployment outright) and gives every flight on today's
+// board (today's cargo_entries.flight_number / manifests.flight_no, across
+// every hub) a same-morning live status baseline written to
+// flight_status_cache -- so the FIRST viewer of the day already finds a
+// fresh row instead of being the one who pays for a live AeroDataBox call.
+// CACHE_TTL_MS's on-demand refresh (see that constant's comment) is what
+// keeps things fresh for the REST of the day beyond this one daily pull.
+//
+// This deliberately does NOT touch flight_departures_board_cache /
+// NATIONAL_AIRPORTS -- refreshing all 19 airports' full-day departures
+// boards would be ~38 AeroDataBox calls, on top of everything else this
+// budget-conscious file already does, for the free/low tier's 600-unit/
+// month budget (see CACHE_TTL_MS's comment). That board stays exactly as
+// it was: cache-only reads (GET /national-board) plus the existing
 // admin-triggered manual refresh (POST /national-board/refresh). Refreshing
 // only today's actual shipment flights (typically a handful, not 19
 // airports' worth of speculative departures) is what "pull it into the
-// database once an hour so nobody's individual page view has to" actually
-// means here without blowing the API budget doing it.
+// database once a day so nobody's individual page view has to" means here
+// without blowing the API budget doing it.
 async function refreshTodaysBoardFlights(admin: any): Promise<{ date: string; flightsRefreshed: number; errors: number }> {
   const date = lagosBusinessDate();
   const [cargoRes, manifestRes] = await Promise.all([
@@ -591,10 +601,12 @@ async function refreshTodaysBoardFlights(admin: any): Promise<{ date: string; fl
   // Time-budgeted, not just count-budgeted: api/index.ts's whole Express app
   // shares one 60s maxDuration (vercel.json), so this bails out with
   // whatever it's refreshed so far once 45s have elapsed rather than risking
-  // a hard timeout mid-run. Anything left over just gets picked up by next
-  // hour's run -- a flight's cached status being an extra hour stale in the
-  // (unlikely, given how few flights EHI has per day) case of a very large
-  // board is a fine trade-off against the function being killed outright.
+  // a hard timeout mid-run. Anything left over just misses today's baseline
+  // refresh -- CACHE_TTL_MS's on-demand path still catches it the first time
+  // someone actually opens that flight, same as any flight added after this
+  // job ran. A fine trade-off against the function being killed outright, in
+  // the (unlikely, given how few flights EHI has per day) case of a very
+  // large board.
   for (const fn of flightNumbers) {
     if (Date.now() - startedAt > 45_000) break;
     try {
@@ -615,7 +627,8 @@ async function refreshTodaysBoardFlights(admin: any): Promise<{ date: string; fl
 // set, Vercel automatically attaches it as `Authorization: Bearer
 // <CRON_SECRET>` to its own cron invocations of this route. Left unset,
 // this route 503s (disabled), never open. See vercel.json's "crons" entry
-// for the actual hourly trigger.
+// for the actual once-daily trigger (Vercel's Hobby plan only allows
+// once-per-day cron schedules -- a more frequent one fails deployment).
 cronRouter.get('/refresh', async (req, res) => {
   const configured = process.env.CRON_SECRET;
   if (!configured) { res.status(503).json({ error: 'Cron not configured' }); return; }
