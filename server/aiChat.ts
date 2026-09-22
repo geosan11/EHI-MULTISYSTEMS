@@ -2,7 +2,7 @@ import express from 'express';
 import { getAiClient } from './gemini.js';
 import { getAdminClient, getOrFetchDeparturesBoard } from './flightRadar.js';
 import { CARGO_ROUTES } from '../src/lib/constants.js';
-import { lagosBusinessDate } from '../src/lib/helpers.js';
+import { lagosBusinessDate, getHubCode } from '../src/lib/helpers.js';
 
 const router = express.Router();
 
@@ -178,8 +178,15 @@ router.post('/message', async (req, res) => {
     } else if (intent === 'flight') {
       const destRoute = routeMentions.length >= 2 ? routeMentions[1] : routeMentions[0];
       const originRoute = routeMentions.length >= 2 ? routeMentions[0] : undefined;
-      const originHub = originRoute ? await resolveHubForRoute(admin, originRoute, hubs) : null;
-      const originIata = originHub?.code || caller.hub_code;
+      // AeroDataBox needs a real airport IATA code -- NEVER hubs.code
+      // directly, that column is a company-internal code (e.g. Lagos Head
+      // Office is stored as "HQ", not "LOS") and 404s against AeroDataBox.
+      // An explicit origin mention already carries a real IATA (it came from
+      // CARGO_ROUTES via findRouteMentions), so use that; otherwise derive
+      // one from the caller's hub NAME via getHubCode() -- the same
+      // city/code-matching helper CargoForm.tsx uses for this exact purpose
+      // (getHubCode(user.hub_code || user.hub)), never the raw hub_code column.
+      const originIata = originRoute ? originRoute.split('/')[0] : getHubCode(caller.hub_name || caller.hub_code);
       if (!originIata || originIata === 'XXX') {
         facts = "The staff member's origin hub/airport could not be determined.";
       } else {
