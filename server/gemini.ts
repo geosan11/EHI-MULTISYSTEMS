@@ -57,7 +57,7 @@ Return ONLY valid JSON. Absolutely do not include markdown blocks or "json" head
 `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3.6-flash',
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
@@ -121,7 +121,7 @@ Write in a formal corporate tone. Return ONLY the 3 plain-text paragraphs.
 `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3.6-flash',
       contents: prompt,
     });
 
@@ -166,7 +166,7 @@ router.post('/parse-pdf', async (req, res) => {
     const prompt = `You are parsing a Nigerian bank statement PDF. Extract all credit transactions only (where money came in). Return a JSON array with this structure per transaction: [{"date": "YYYY-MM-DD", "description": "string", "credit": number, "reference": "string"}]. Ignore debit rows. Dates should be YYYY-MM-DD. Amounts should be plain numbers without commas or currency symbols. Do not wrap the JSON in markdown blocks.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3.6-flash',
       contents: [documentPart, prompt],
       config: {
         responseMimeType: 'application/json',

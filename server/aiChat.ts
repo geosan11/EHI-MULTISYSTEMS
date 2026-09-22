@@ -205,7 +205,7 @@ router.post('/message', async (req, res) => {
 
     const prompt = buildPrompt(message, caller.hub_name, facts);
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3.6-flash',
       contents: prompt,
     });
 
