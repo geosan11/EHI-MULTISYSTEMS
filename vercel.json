@@ -18,5 +18,8 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/cron/flight-radar/refresh", "schedule": "0 * * * *" }
   ]
 }

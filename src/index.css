@@ -886,6 +886,26 @@ main {
   }
 }
 
+/* AI Chat Buddy FAB/panel -- sits above BottomNav's own 70px + safe-area
+   height (see BottomNav.tsx) on mobile so it never overlaps the nav bar;
+   desktop has no bottom nav so it just floats above the viewport edge. */
+@media (max-width: 767px) {
+  .ehi-ai-chat-fab {
+    bottom: calc(70px + env(safe-area-inset-bottom) + 12px) !important;
+  }
+  .ehi-ai-chat-panel {
+    bottom: calc(70px + env(safe-area-inset-bottom) + 72px) !important;
+  }
+}
+@media (min-width: 768px) {
+  .ehi-ai-chat-fab {
+    bottom: 24px !important;
+  }
+  .ehi-ai-chat-panel {
+    bottom: 88px !important;
+  }
+}
+
 /* Reusable mobile/desktop visibility utilities — explicit CSS instead of
    Tailwind's hidden/md: responsive variants, which are unreliable in some
    production build configurations. Mirrors the same pattern already used

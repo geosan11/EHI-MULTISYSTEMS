@@ -3,8 +3,10 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 const router = express.Router();
 
-// Initialize GoogleGenAI client (lazy/safely checked)
-const getAiClient = () => {
+// Initialize GoogleGenAI client (lazy/safely checked). Exported so
+// server/aiChat.ts (AI Chat Buddy) reuses the same client setup instead of
+// duplicating it.
+export const getAiClient = () => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.warn("warning: GEMINI_API_KEY environment variable is not set.");

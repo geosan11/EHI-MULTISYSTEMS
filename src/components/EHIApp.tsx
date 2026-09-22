@@ -55,6 +55,7 @@ const FlightRadar = lazy(() => import('./views/FlightRadar').then(m => ({ defaul
 
 import { ErrorBoundary } from './ErrorBoundary';
 import { syncLagosRates, getEquivalentHubIds } from '../lib/lagosHubSync';
+import { AIChatBuddy } from './AIChatBuddy';
 
 const Header = memo(HeaderRaw);
 const BottomNav = memo(BottomNavRaw);
@@ -2676,6 +2677,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       <div className="ehi-bottomnav-wrapper fixed bottom-0 left-0 right-0 w-full z-50" style={{ overflow: 'visible', background: 'transparent' }}>
         <BottomNav user={user} currentTab={currentTab} onChangeTab={setCurrentTab} />
       </div>
+
+      <AIChatBuddy user={user} />
 
       {/* Per-stream view-only ledger overlay */}
       {streamLedger && createPortal(

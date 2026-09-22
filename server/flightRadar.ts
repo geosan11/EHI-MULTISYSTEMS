@@ -1,8 +1,14 @@
 import express from 'express';
 import axios from 'axios';
 import { CARGO_ROUTES } from '../src/lib/constants.js';
+import { lagosBusinessDate } from '../src/lib/helpers.js';
 
 const router = express.Router();
+// Separate router for the hourly cron refresh (server/app.ts mounts this at
+// /api/cron/flight-radar with NO requireAuthenticatedUser -- Vercel Cron
+// requests carry no user session, only the CRON_SECRET checked inside
+// cronRouter.get('/refresh') below).
+export const cronRouter = express.Router();
 
 // Every airport EHI actually ships to/from, derived from the same route
 // list CargoForm/PackageForm use -- Part C's "Nigeria Today" board is
@@ -18,7 +24,15 @@ const NATIONAL_AIRPORTS_SET = new Set(NATIONAL_AIRPORTS);
 // opening the board (GET /board) never calls AeroDataBox at all, only
 // opening a specific flight's detail (GET /status) can, and at most once
 // per TTL window per flight+date, shared across every viewer.
-const CACHE_TTL_MS = 10 * 60 * 1000;
+//
+// Set just over an hour -- the /cron/flight-radar/refresh route below
+// force-refreshes every flight on today's board once an hour (see
+// vercel.json's "crons" entry), so in normal operation this TTL is never
+// actually reached by a live user action: opening a flight's detail almost
+// always finds an hour-fresh row the cron job already paid for, and a
+// per-viewer live call only fires as a fallback (cron hasn't run yet today,
+// a brand-new flight number added after the last run, etc).
+const CACHE_TTL_MS = 65 * 60 * 1000;
 
 // Departures-board cache TTL for CargoForm's flight-number auto-fill --
 // longer than CACHE_TTL_MS above since a whole-airport board is a much
@@ -36,7 +50,7 @@ const DEPARTURES_CACHE_TTL_MS = 20 * 60 * 1000;
 // browser on every load.
 const FLIGHT_STATUS_CACHE_COLUMNS = 'flight_number,flight_date,airline_name,status,scheduled_departure,actual_departure,scheduled_arrival,actual_arrival,delay_minutes,departure_airport,arrival_airport,diverted_airport,fetched_at';
 
-async function getAdminClient() {
+export async function getAdminClient() {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceKey) return null;
@@ -318,7 +332,7 @@ async function fetchDeparturesFromAeroDataBox(originIata: string, date: string):
 // national-board routes below (looped across NATIONAL_AIRPORTS). See this
 // file's DEPARTURES_CACHE_TTL_MS comment for why this is a board-per-airport
 // cache rather than a call-per-lookup like getOrRefresh.
-async function getOrFetchDeparturesBoard(admin: any, originIata: string, date: string, forceRefresh: boolean): Promise<any[]> {
+export async function getOrFetchDeparturesBoard(admin: any, originIata: string, date: string, forceRefresh: boolean): Promise<any[]> {
   const { data: cached, error: cacheError } = await admin
     .from('flight_departures_board_cache')
     .select('*')
@@ -527,6 +541,98 @@ router.get('/board', async (req, res) => {
   }
 
   res.json({ date, flights: Array.from(flights.values()) });
+});
+
+// Hourly shared refresh -- pulls live status once per hour for every flight
+// actually on today's board (today's cargo_entries.flight_number /
+// manifests.flight_no, across every hub) and writes it to
+// flight_status_cache, so every viewer of GET /board reads an already-fresh
+// row instead of each agent's own flight-detail click being what decides
+// whether a live AeroDataBox call happens. This deliberately does NOT touch
+// flight_departures_board_cache / NATIONAL_AIRPORTS -- refreshing all 19
+// airports' full-day departures boards hourly would be ~38 AeroDataBox
+// calls x 24/day = far past what the free/low tier's 600-unit/month budget
+// (see CACHE_TTL_MS's comment above) can absorb. That board stays exactly
+// as it was: cache-only reads (GET /national-board) plus the existing
+// admin-triggered manual refresh (POST /national-board/refresh). Refreshing
+// only today's actual shipment flights (typically a handful, not 19
+// airports' worth of speculative departures) is what "pull it into the
+// database once an hour so nobody's individual page view has to" actually
+// means here without blowing the API budget doing it.
+async function refreshTodaysBoardFlights(admin: any): Promise<{ date: string; flightsRefreshed: number; errors: number }> {
+  const date = lagosBusinessDate();
+  const [cargoRes, manifestRes] = await Promise.all([
+    admin.from('cargo_entries').select('flight_number').not('flight_number', 'is', null)
+      .gte('created_at', new Date(`${date}T00:00:00.000+01:00`).toISOString())
+      .lte('created_at', new Date(`${date}T23:59:59.999+01:00`).toISOString()),
+    admin.from('manifests').select('flight_no').not('flight_no', 'is', null)
+      .gte('created_at', new Date(`${date}T00:00:00.000+01:00`).toISOString())
+      .lte('created_at', new Date(`${date}T23:59:59.999+01:00`).toISOString()),
+  ]);
+
+  const flightNumbers = new Set<string>();
+  for (const c of cargoRes.data || []) {
+    const fn = (c.flight_number || '').trim();
+    if (fn) flightNumbers.add(fn);
+  }
+  for (const m of manifestRes.data || []) {
+    const fn = (m.flight_no || '').trim();
+    if (fn) flightNumbers.add(fn);
+  }
+
+  let errors = 0;
+  let refreshed = 0;
+  const startedAt = Date.now();
+  // Sequential, not Promise.all -- AeroDataBox's free/low tier caps at
+  // roughly 1 request/sec, so a batch of same-instant parallel calls risks
+  // 429s that Promise.all would otherwise fan out simultaneously. A ~1s
+  // stagger keeps this comfortably under that.
+  //
+  // Time-budgeted, not just count-budgeted: api/index.ts's whole Express app
+  // shares one 60s maxDuration (vercel.json), so this bails out with
+  // whatever it's refreshed so far once 45s have elapsed rather than risking
+  // a hard timeout mid-run. Anything left over just gets picked up by next
+  // hour's run -- a flight's cached status being an extra hour stale in the
+  // (unlikely, given how few flights EHI has per day) case of a very large
+  // board is a fine trade-off against the function being killed outright.
+  for (const fn of flightNumbers) {
+    if (Date.now() - startedAt > 45_000) break;
+    try {
+      const result = await getOrRefresh(fn, date, true);
+      if (result.error) errors++; else refreshed++;
+    } catch {
+      errors++;
+    }
+    await new Promise(r => setTimeout(r, 1000));
+  }
+
+  return { date, flightsRefreshed: refreshed, errors };
+}
+
+// Vercel Cron requests carry no user session -- authenticated instead by a
+// static shared secret, same pattern as requireWebhookSecret in
+// server/app.ts. Configure CRON_SECRET in Vercel's project env vars; when
+// set, Vercel automatically attaches it as `Authorization: Bearer
+// <CRON_SECRET>` to its own cron invocations of this route. Left unset,
+// this route 503s (disabled), never open. See vercel.json's "crons" entry
+// for the actual hourly trigger.
+cronRouter.get('/refresh', async (req, res) => {
+  const configured = process.env.CRON_SECRET;
+  if (!configured) { res.status(503).json({ error: 'Cron not configured' }); return; }
+  const supplied = (req.headers['authorization'] || '').replace('Bearer ', '').trim();
+  if (supplied !== configured) { res.status(401).json({ error: 'Unauthorized' }); return; }
+
+  const admin = await getAdminClient();
+  if (!admin) { res.status(503).json({ error: 'Server not configured' }); return; }
+  if (!process.env.AERODATABOX_API_KEY) { res.json({ ok: true, skipped: 'AERODATABOX_API_KEY not configured' }); return; }
+
+  try {
+    const result = await refreshTodaysBoardFlights(admin);
+    res.json({ ok: true, ...result });
+  } catch (err: any) {
+    console.error('[flightRadar] /cron/refresh failed:', err?.message || err);
+    res.status(500).json({ error: err?.message || 'Refresh failed' });
+  }
 });
 
 export default router;

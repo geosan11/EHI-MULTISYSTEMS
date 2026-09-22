@@ -8,7 +8,8 @@ import notificationRoutes from './notifications.js';
 import eodRoutes from './eod.js';
 import geminiRoutes from './gemini.js';
 import qzRoutes from './qz.js';
-import flightRadarRoutes from './flightRadar.js';
+import flightRadarRoutes, { cronRouter as flightRadarCronRouter } from './flightRadar.js';
+import aiChatRoutes from './aiChat.js';
 import { parseBankAlert } from './emailParser.js';
 
 // Same DSN as the client (VITE_SENTRY_DSN reads fine server-side too --
@@ -212,6 +213,15 @@ export function createApp() {
   // window, shared across every viewer via flight_status_cache), same
   // reasoning flightRadar.ts's own header comment lays out.
   app.use('/api/flight-radar', requireAuthenticatedUser, flightRadarRoutes);
+  // No requireAuthenticatedUser -- Vercel Cron's own request carries no user
+  // session. Authenticated instead by CRON_SECRET, checked inside the route
+  // itself (flightRadar.ts's cronRouter), same shared-secret pattern as the
+  // inbound email webhook above.
+  app.use('/api/cron/flight-radar', flightRadarCronRouter);
+  // AI Chat Buddy -- one-shot Q&A (pricing/flight lookups), same rate
+  // limiter + auth gate as /api/gemini since it's the same kind of
+  // low-frequency, deliberate, user-triggered AI call.
+  app.use('/api/ai-chat', notifyLimiter, requireAuthenticatedUser, aiChatRoutes);
 
   app.post('/api/admin/create-staff', adminLimiter, async (req, res) => {
     const adminCtx = await requireAdminCaller(req, res);
