@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   titleText: {
-    fontSize: 9,
+    fontSize: 11,
     color: "#FFFFFF",
     textAlign: "center",
     fontWeight: "bold",
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   copyLabelText: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: "bold",
     fontFamily: "Helvetica-Bold",
     textAlign: "center",
@@ -123,14 +123,14 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   label: {
-    fontSize: 7,
+    fontSize: 9,
     color: "#000000",
     textTransform: "uppercase",
     width: 60,
     fontFamily: "Helvetica",
   },
   value: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: "bold",
     fontFamily: "Helvetica-Bold",
     color: "#000000",
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   refValue: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: "bold",
     fontFamily: "Courier-Bold",
     color: "#000000",
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   sectionHeaderText: {
-    fontSize: 7,
+    fontSize: 9,
     fontWeight: "bold",
     fontFamily: "Helvetica-Bold",
     textTransform: "uppercase",
@@ -179,24 +179,24 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   itemRoute: {
-    fontSize: 8,
+    fontSize: 10,
     fontFamily: "Helvetica-Bold",
     color: "#000000",
     flex: 1,
   },
   itemRef: {
-    fontSize: 6,
+    fontSize: 8,
     fontFamily: "Courier-Bold",
     color: "#000000",
   },
   itemDetails: {
-    fontSize: 7,
+    fontSize: 9,
     fontFamily: "Helvetica",
     color: "#000000",
     marginTop: 1,
   },
   itemAmount: {
-    fontSize: 8,
+    fontSize: 10,
     fontFamily: "Courier-Bold",
     color: "#000000",
     textAlign: "right",
@@ -207,25 +207,25 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   amountBoxLabel: {
-    fontSize: 7,
+    fontSize: 9,
     color: "#FFFFFF",
     textTransform: "uppercase",
     fontFamily: "Helvetica",
   },
   amountBoxValue: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "bold",
     fontFamily: "Courier-Bold",
     color: "#FFFFFF",
     marginVertical: 2,
   },
   amountBoxSub: {
-    fontSize: 8,
+    fontSize: 10,
     color: "#FFFFFF",
     fontFamily: "Helvetica",
   },
   footerText: {
-    fontSize: 7,
+    fontSize: 9,
     color: "#000000",
     textAlign: "center",
     marginTop: 1,
@@ -235,16 +235,18 @@ const styles = StyleSheet.create({
 const VALUE_COL_WIDTH = 136;
 // itemRow splits its width between the text block (route/tag/pieces) and
 // the right-aligned amount -- this is what's actually left for wrapping
-// once a typical Naira amount ("NGN 123,456.78" at 8pt Courier-Bold, ~67pt)
+// once a typical Naira amount ("NGN 123,456.78" at 10pt Courier-Bold, ~78pt)
 // and the gap between them are accounted for. Erring smaller (a more
 // generous wrap estimate) rather than exact, per estimateWrappedLines' own
 // "deliberately generous" guidance.
-const ITEM_TEXT_COL_WIDTH = 120;
+const ITEM_TEXT_COL_WIDTH = 110;
 // Approximate per-line height across the three possible lines in an item
-// (8pt route, 6pt tag, 7pt pieces/kg) -- flat and slightly generous for the
-// smaller-font lines rather than computing each precisely, since this only
-// ever pads the page-height guess, never lays anything out.
-const ITEM_LINE_HEIGHT = 10;
+// (10pt route, 8pt tag, 9pt pieces/kg) -- flat and slightly generous for
+// the smaller-font lines rather than computing each precisely, since this
+// only ever pads the page-height guess, never lays anything out. Bumped
+// alongside the font-size increase below -- taller text needs taller lines,
+// or the page-height estimate silently falls behind actual content again.
+const ITEM_LINE_HEIGHT = 13;
 // itemRow's own marginBottom(3) + paddingBottom(3) + borderBottomWidth(1),
 // rounded up for slack.
 const ITEM_ROW_SPACING = 8;
@@ -280,18 +282,26 @@ function formatTagLine(item: BatchDebtReceiptItem): string {
 }
 
 function estimateItemHeight(item: BatchDebtReceiptItem): number {
-  const routeLines = estimateWrappedLines(item.route || item.type, ITEM_TEXT_COL_WIDTH, 8);
-  const tagLines = estimateWrappedLines(formatTagLine(item), ITEM_TEXT_COL_WIDTH, 6);
+  // Font sizes here must match itemRoute/itemRef/itemDetails' actual
+  // styles above -- estimateWrappedLines derives chars-per-line straight
+  // from the font size passed in, so a stale (smaller) value here
+  // silently under-counts wrapped lines for the real (larger) font,
+  // pushing content onto an unwanted extra page with no visible warning.
+  const routeLines = estimateWrappedLines(item.route || item.type, ITEM_TEXT_COL_WIDTH, 10);
+  const tagLines = estimateWrappedLines(formatTagLine(item), ITEM_TEXT_COL_WIDTH, 8);
   let totalLines = routeLines + tagLines;
   const details = formatItemDetailsLine(item);
   // contentType/contents can push this line long enough to wrap too --
   // same under-estimate risk as the route line above if left unaccounted for.
-  if (details) totalLines += estimateWrappedLines(details, ITEM_TEXT_COL_WIDTH, 7);
+  if (details) totalLines += estimateWrappedLines(details, ITEM_TEXT_COL_WIDTH, 9);
   return totalLines * ITEM_LINE_HEIGHT + ITEM_ROW_SPACING;
 }
 
 const BatchDebtReceiptPDF = ({ data }: { data: BatchDebtReceiptData }) => {
-  let h = 300;
+  // Bumped from 300 alongside the across-the-board font-size increase --
+  // every label/value/section-header row is now taller too, not just the
+  // per-item lines accounted for below.
+  let h = 340;
   h += 14; // "*** CUSTOMER/MERCHANT COPY ***" line, unconditional
   if (data.qrCodeDataUrl) h += 60;
   if (data.customerPhone) h += 14;
@@ -299,11 +309,12 @@ const BatchDebtReceiptPDF = ({ data }: { data: BatchDebtReceiptData }) => {
   h += data.items.reduce((sum, item) => sum + estimateItemHeight(item), 0);
   // Fixed safety margin on top of the per-item estimates above -- "a
   // receipt with a little trailing blank space is fine; one that spills a
-  // page is not" (estimateWrappedLines' own comment).
-  h += 20;
+  // page is not" (estimateWrappedLines' own comment). Bumped from 20 with
+  // the base/font-size increase.
+  h += 30;
 
   for (const field of [data.customerName, data.agentName]) {
-    const lines = estimateWrappedLines(field, VALUE_COL_WIDTH, 8);
+    const lines = estimateWrappedLines(field, VALUE_COL_WIDTH, 10);
     if (lines > 1) h += (lines - 1) * 14;
   }
 
