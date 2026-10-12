@@ -29,7 +29,7 @@ const TxRow = React.memo(
   }) => {
     const accent =
       t.type === "cargo"
-        ? { color: "var(--color-accent-amber)", bg: "rgba(245,158,11,0.10)" }
+        ? { color: "var(--color-accent-amber)", bg: "rgba(251,191,36,0.10)" }
         : t.type === "marketing"
           ? { color: "var(--color-success)", bg: "rgba(16,185,129,0.10)" }
           : { color: "var(--color-accent-cobalt)", bg: "rgba(59,130,246,0.10)" };
@@ -40,7 +40,7 @@ const TxRow = React.memo(
         : t.mode === "Transfer"
           ? { bg: "rgba(59,130,246,0.15)", color: "var(--color-accent-cobalt)" }
           : t.mode === "POS"
-            ? { bg: "rgba(245,158,11,0.15)", color: "var(--color-accent-amber)" }
+            ? { bg: "rgba(251,191,36,0.15)", color: "var(--color-accent-amber)" }
             : { bg: "rgba(239,68,68,0.12)", color: "var(--color-error)" };
 
     const statusDot =
@@ -284,7 +284,7 @@ export const Dashboard = ({
             style={{
               position: "absolute", top: -60, left: -40, width: 220, height: 220,
               borderRadius: "50%", filter: "blur(70px)", pointerEvents: "none",
-              background: "radial-gradient(circle, rgba(240,178,48,0.25) 0%, transparent 70%)",
+              background: "radial-gradient(circle, rgba(251,191,36,0.25) 0%, transparent 70%)",
             }}
           />
           <div
@@ -301,7 +301,7 @@ export const Dashboard = ({
               className="relative"
               style={{
                 background: "linear-gradient(160deg, var(--color-navy) 0%, var(--color-navy-deep) 100%)",
-                border: "1px solid rgba(240,178,48,0.25)",
+                border: "1px solid rgba(251,191,36,0.25)",
                 borderRadius: "var(--radius-lg)",
                 padding: "16px 18px",
                 boxShadow: "var(--shadow-card)",
@@ -349,7 +349,7 @@ export const Dashboard = ({
               <ScoreCard
                 label="Cargo" icon={Package}
                 color="var(--color-accent-amber)"
-                bg="rgba(245,158,11,0.07)" borderColor="rgba(245,158,11,0.22)"
+                bg="rgba(251,191,36,0.07)" borderColor="rgba(251,191,36,0.22)"
                 total={cargoTotal}
                 sub1={`${cargoTx.length} ${cargoTx.length === 1 ? "entry" : "entries"}`}
                 sub2={`${cargoKgTotal.toLocaleString()} KG`}
@@ -475,7 +475,7 @@ export const Dashboard = ({
                 {(user.role === 'super_admin' || user.role === 'admin' || user.role === 'cargo_agent') && (
                   <button
                     onClick={() => window.dispatchEvent(new CustomEvent('ehi-nav', { detail: 'Cargo' }))}
-                    className="px-3 py-1.5 bg-[rgba(245,158,11,0.1)] border border-[rgba(245,158,11,0.3)] text-[var(--color-accent-amber)] text-[11px] font-bold rounded-lg"
+                    className="px-3 py-1.5 bg-[rgba(251,191,36,0.1)] border border-[rgba(251,191,36,0.3)] text-[var(--color-accent-amber)] text-[11px] font-bold rounded-lg"
                   >
                     + Cargo Entry
                   </button>

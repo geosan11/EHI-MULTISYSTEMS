@@ -456,7 +456,7 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
             </div>
           )}
           {showIncompleteWindowBanner && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[rgba(245,158,11,0.08)] border border-[var(--color-accent-amber)] text-[11px] font-sans text-[var(--color-accent-amber)]">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[rgba(251,191,36,0.08)] border border-[var(--color-accent-amber)] text-[11px] font-sans text-[var(--color-accent-amber)]">
               <AlertCircle size={14} />
               Data only loaded from {dateRange?.start} onward — this period may be showing an incomplete total.
             </div>
@@ -584,7 +584,7 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
                      <span className="text-[12px] font-sans text-[var(--color-muted)]">Total Collected</span>
                      <span className="text-[20px] font-bold font-mono text-[var(--color-foreground)] mt-1">{fmt(cashTotal + transferTotal + posTotal)}</span>
                    </div>
-                   <div className={`flex items-center justify-center w-16 h-16 rounded-full border-4 ${collectionEff >= 90 ? 'border-[var(--color-success)] text-[var(--color-success)] bg-[rgba(16,185,129,0.1)]' : collectionEff >= 70 ? 'border-[var(--color-accent-amber)] text-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.1)]' : 'border-[var(--color-error)] text-[var(--color-error)] bg-[rgba(239,68,68,0.1)]'}`}>
+                   <div className={`flex items-center justify-center w-16 h-16 rounded-full border-4 ${collectionEff >= 90 ? 'border-[var(--color-success)] text-[var(--color-success)] bg-[rgba(16,185,129,0.1)]' : collectionEff >= 70 ? 'border-[var(--color-accent-amber)] text-[var(--color-accent-amber)] bg-[rgba(251,191,36,0.1)]' : 'border-[var(--color-error)] text-[var(--color-error)] bg-[rgba(239,68,68,0.1)]'}`}>
                      <span className="text-[18px] font-bold font-mono">{collectionEff.toFixed(0)}%</span>
                    </div>
                 </div>
@@ -638,13 +638,13 @@ export const AccountingConsole = ({ user, transactions, expenses, onBack, onAddE
                    onChange={e => setRegDate(e.target.value)}
                    className="bg-transparent text-[14px] font-sans font-medium text-[var(--color-foreground)] focus:outline-none"
                  />
-                 <div className={`px-2.5 py-1 rounded-md text-[11px] font-sans font-bold uppercase ${isLocked ? 'bg-[rgba(16,185,129,0.15)] text-[var(--color-success)]' : 'bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)]'}`}>
+                 <div className={`px-2.5 py-1 rounded-md text-[11px] font-sans font-bold uppercase ${isLocked ? 'bg-[rgba(16,185,129,0.15)] text-[var(--color-success)]' : 'bg-[rgba(251,191,36,0.15)] text-[var(--color-accent-amber)]'}`}>
                    {isLocked ? 'LOCKED' : 'OPEN'}
                  </div>
                </div>
 
                {showRegDateIncompleteBanner && (
-                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[rgba(245,158,11,0.08)] border border-[var(--color-accent-amber)] text-[11px] font-sans text-[var(--color-accent-amber)]">
+                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[rgba(251,191,36,0.08)] border border-[var(--color-accent-amber)] text-[11px] font-sans text-[var(--color-accent-amber)]">
                    <AlertCircle size={14} />
                    Data only loaded from {dateRange?.start} onward — {regDate} may be showing an incomplete total.
                  </div>

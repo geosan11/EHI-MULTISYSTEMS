@@ -42,7 +42,7 @@ export const CustomerWalletPicker: React.FC<CustomerWalletPickerProps> = ({
     <>
     <div className="relative w-full">
       {selectedWallet ? (
-        <div className="p-3 bg-[rgba(245,158,11,0.08)] border border-[var(--color-accent-amber)] rounded-xl flex items-center justify-between gap-3">
+        <div className="p-3 bg-[rgba(251,191,36,0.08)] border border-[var(--color-accent-amber)] rounded-xl flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] flex items-center justify-center font-bold shrink-0">
               <Wallet size={16} />
@@ -52,7 +52,7 @@ export const CustomerWalletPicker: React.FC<CustomerWalletPickerProps> = ({
                 <span className="text-[12px] font-bold font-sans text-[var(--color-foreground)] truncate">
                   {selectedWallet.customer_name}
                 </span>
-                <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-[rgba(16,185,129,0.15)] text-[var(--color-success)] uppercase">
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-[rgba(16,185,129,0.15)] text-[var(--color-success)] uppercase">
                   Active Credit
                 </span>
               </div>
@@ -92,7 +92,7 @@ export const CustomerWalletPicker: React.FC<CustomerWalletPickerProps> = ({
                 {currentCustomerName ? `Select Wallet for "${currentCustomerName}"` : 'Select / Search Customer Wallet'}
               </span>
             </div>
-            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[var(--color-surface-3)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.2)]">
+            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[var(--color-surface-3)] text-[var(--color-accent-amber)] border border-[rgba(251,191,36,0.2)]">
               {wallets.length} Active
             </span>
           </button>
@@ -100,7 +100,7 @@ export const CustomerWalletPicker: React.FC<CustomerWalletPickerProps> = ({
             <button
               type="button"
               onClick={() => onOpenCreateModal(currentCustomerName)}
-              className="p-2.5 bg-[rgba(245,158,11,0.1)] hover:bg-[var(--color-accent-amber)] text-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] border border-[rgba(245,158,11,0.25)] rounded-xl transition-all cursor-pointer shrink-0"
+              className="p-2.5 bg-[rgba(251,191,36,0.1)] hover:bg-[var(--color-accent-amber)] text-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] border border-[rgba(251,191,36,0.25)] rounded-xl transition-all cursor-pointer shrink-0"
               title="Create New Credit Wallet"
             >
               <Plus size={16} />
@@ -176,7 +176,7 @@ export const CustomerWalletPicker: React.FC<CustomerWalletPickerProps> = ({
                       }}
                       className={`w-full p-3 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer ${
                         isSelected
-                          ? 'bg-[rgba(245,158,11,0.12)] border-[var(--color-accent-amber)]'
+                          ? 'bg-[rgba(251,191,36,0.12)] border-[var(--color-accent-amber)]'
                           : 'bg-[var(--color-surface-2)] border-[var(--color-border)] hover:border-[var(--color-accent-amber)]'
                       }`}
                     >
@@ -197,7 +197,7 @@ export const CustomerWalletPicker: React.FC<CustomerWalletPickerProps> = ({
                         <div className="text-[13px] font-mono font-bold text-[var(--color-accent-amber)]">
                           ₦{fmt(w.balance)}
                         </div>
-                        <div className="text-[9px] font-mono text-[var(--color-success)] uppercase">
+                        <div className="text-[10px] font-mono text-[var(--color-success)] uppercase">
                           Available
                         </div>
                       </div>

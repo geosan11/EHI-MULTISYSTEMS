@@ -2355,11 +2355,11 @@ export const TransactionLedger = ({
       ? `${n} collection${n === 1 ? '' : 's'} on this debt — open the row for the full breakdown; each also shows as a COLLECTION row.`
       : undefined;
     return owed > 0 ? (
-      <div className="text-[9px] font-mono text-[var(--color-accent-amber)]" title={tip}>
+      <div className="text-[10px] font-mono text-[var(--color-accent-amber)]" title={tip}>
         ₦{fmt(paid)} paid · ₦{fmt(owed)} owed{n > 0 ? ` · ↳${n}` : ''}
       </div>
     ) : (
-      <div className="text-[9px] font-mono text-[var(--color-success)]" title={tip}>
+      <div className="text-[10px] font-mono text-[var(--color-success)]" title={tip}>
         Cleared{parts ? ` · ${parts}` : ''}
       </div>
     );
@@ -3630,7 +3630,7 @@ export const TransactionLedger = ({
         {/* Flush strip under the app shell top bar -- square corners, no
             floating inset card. Keeps ledger chrome attached to the shell
             instead of stacking a second rounded glass panel under it. */}
-        <div className="px-4 py-3 flex items-center justify-between shrink-0 bg-[var(--color-surface-card)] border-b border-[var(--color-border)]">
+        <div className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap shrink-0 bg-[var(--color-surface-card)] border-b border-[var(--color-border)]">
           <div className="flex items-center gap-3 min-w-0">
             <BackButton onClick={onBack} label="Back" />
             <div className="min-w-0">
@@ -3649,7 +3649,7 @@ export const TransactionLedger = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end ml-auto">
             {defaultTypeFilter === 'baggage' && (
               <>
                 <select
@@ -3741,7 +3741,7 @@ export const TransactionLedger = ({
             <button
               title="Print Compact 80mm Ledger Summary"
               onClick={handlePrint80mmLedger}
-              className="relative overflow-hidden h-8 px-2 flex items-center gap-1.5 bg-[rgba(245,158,11,0.12)] border border-[rgba(245,158,11,0.3)] rounded-full text-[var(--color-accent-amber)] backdrop-blur-md hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-amber)] active:translate-y-0 active:scale-95 font-mono text-[10px] font-bold transition-all cursor-pointer"
+              className="relative overflow-hidden h-8 px-2 flex items-center gap-1.5 bg-[rgba(251,191,36,0.12)] border border-[rgba(251,191,36,0.3)] rounded-full text-[var(--color-accent-amber)] backdrop-blur-md hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-amber)] active:translate-y-0 active:scale-95 font-mono text-[10px] font-bold transition-all cursor-pointer"
             >
               <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/15 to-transparent pointer-events-none" />
               <Printer size={13} className="relative" />
@@ -3832,14 +3832,14 @@ export const TransactionLedger = ({
                       // just on selection), so Total reads as the standout
                       // tile the way it does in the reference design, without
                       // competing with the stronger shadow-amber glow above.
-                      : 'bg-[var(--color-surface-card)] border-[rgba(245,158,11,0.35)] hover:border-[var(--color-accent-amber)] shadow-[var(--shadow-sm),0_0_18px_-6px_rgba(245,158,11,0.35)]'
+                      : 'bg-[var(--color-surface-card)] border-[rgba(251,191,36,0.35)] hover:border-[var(--color-accent-amber)] shadow-[var(--shadow-sm),0_0_18px_-6px_rgba(251,191,36,0.35)]'
                   }`}
                 >
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'All' ? 'bg-[rgba(251,191,36,0.22)]' : 'bg-[rgba(251,191,36,0.12)]'}`}>
                     <LayoutGrid size={16} className="text-[var(--color-accent-amber)]" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[9px] font-mono text-[var(--color-accent-amber)] uppercase tracking-wider truncate">Total</div>
+                    <div className="text-[10px] font-mono text-[var(--color-accent-amber)] uppercase tracking-wider truncate">Total</div>
                     <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-foreground)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.totalAmount)}`}</div>
                   </div>
                 </div>
@@ -3858,9 +3858,9 @@ export const TransactionLedger = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1">
-                      <div className="text-[9px] font-mono text-[var(--color-success)] uppercase tracking-wider truncate">Cash</div>
+                      <div className="text-[10px] font-mono text-[var(--color-success)] uppercase tracking-wider truncate">Cash</div>
                       {isAccountantOrAdmin && unverifiedCash.length > 0 && (
-                        <span className="text-[8px] font-mono font-bold bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unverifiedCash.length}</span>
+                        <span className="text-[10px] font-mono font-bold bg-[rgba(251,191,36,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unverifiedCash.length}</span>
                       )}
                     </div>
                     <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-success)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.cashAmount)}`}</div>
@@ -3881,9 +3881,9 @@ export const TransactionLedger = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1">
-                      <div className="text-[9px] font-mono text-[var(--color-accent-cobalt)] uppercase tracking-wider truncate">Transfer</div>
+                      <div className="text-[10px] font-mono text-[var(--color-accent-cobalt)] uppercase tracking-wider truncate">Transfer</div>
                       {isAccountantOrAdmin && unconfirmedTransfer.length > 0 && (
-                        <span className="text-[8px] font-mono font-bold bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unconfirmedTransfer.length}</span>
+                        <span className="text-[10px] font-mono font-bold bg-[rgba(251,191,36,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unconfirmedTransfer.length}</span>
                       )}
                     </div>
                     <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-accent-cobalt)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.transferAmount)}`}</div>
@@ -3895,18 +3895,18 @@ export const TransactionLedger = ({
                   onClick={() => setModeFilter(modeFilter === 'POS' ? 'All' : 'POS')}
                   className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
                     modeFilter === 'POS'
-                      ? 'bg-[rgba(245,158,11,0.06)] border-[var(--color-accent-amber)] shadow-[var(--shadow-amber)]'
+                      ? 'bg-[rgba(251,191,36,0.06)] border-[var(--color-accent-amber)] shadow-[var(--shadow-amber)]'
                       : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-accent-amber)] shadow-[var(--shadow-sm)]'
                   }`}
                 >
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'POS' ? 'bg-[rgba(245,158,11,0.22)]' : 'bg-[rgba(245,158,11,0.12)]'}`}>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'POS' ? 'bg-[rgba(251,191,36,0.22)]' : 'bg-[rgba(251,191,36,0.12)]'}`}>
                     <CreditCard size={16} className="text-[var(--color-accent-amber)]" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1">
-                      <div className="text-[9px] font-mono text-[var(--color-accent-amber)] uppercase tracking-wider truncate">POS</div>
+                      <div className="text-[10px] font-mono text-[var(--color-accent-amber)] uppercase tracking-wider truncate">POS</div>
                       {isAccountantOrAdmin && unconfirmedPOS.length > 0 && (
-                        <span className="text-[8px] font-mono font-bold bg-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unconfirmedPOS.length}</span>
+                        <span className="text-[10px] font-mono font-bold bg-[rgba(251,191,36,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unconfirmedPOS.length}</span>
                       )}
                     </div>
                     <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-accent-amber)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.posAmount)}`}</div>
@@ -3927,9 +3927,9 @@ export const TransactionLedger = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1">
-                      <div className="text-[9px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Debt</div>
+                      <div className="text-[10px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Debt</div>
                       {displayTotals.unpaidDebtCount > 0 && (
-                        <span className="text-[8px] font-mono font-bold bg-[rgba(239,68,68,0.2)] text-[var(--color-error)] px-1 py-0.5 rounded shrink-0">{displayTotals.unpaidDebtCount}</span>
+                        <span className="text-[10px] font-mono font-bold bg-[rgba(239,68,68,0.2)] text-[var(--color-error)] px-1 py-0.5 rounded shrink-0">{displayTotals.unpaidDebtCount}</span>
                       )}
                     </div>
                     <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.debtAmount)}`}</div>
@@ -3949,7 +3949,7 @@ export const TransactionLedger = ({
                     <Wallet size={16} className="text-[var(--color-purple-fg)]" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[9px] font-mono text-[var(--color-purple-fg)] uppercase tracking-wider truncate">Wallet</div>
+                    <div className="text-[10px] font-mono text-[var(--color-purple-fg)] uppercase tracking-wider truncate">Wallet</div>
                     <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-purple-fg)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.walletAmount)}`}</div>
                   </div>
                 </button>
@@ -3962,7 +3962,7 @@ export const TransactionLedger = ({
                   modeFilter); the two totals themselves are computed from
                   filteredEntries just like the KPI tiles above, so they
                   narrow together with every other active filter. */}
-              <div className="flex items-center gap-2 mt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
                 <button
                   onClick={() => {
                     const next = debtClassFilter === 'Office' ? 'All' : 'Office';
@@ -3973,18 +3973,18 @@ export const TransactionLedger = ({
                     // this one to silently produce zero rows.
                     if (next !== 'All') setModeFilter('Debt');
                   }}
-                  className={`flex-1 rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
+                  className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
                     debtClassFilter === 'Office'
                       ? 'bg-[rgba(239,68,68,0.06)] border-[var(--color-error)] shadow-[var(--shadow-error)]'
                       : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-error)] shadow-[var(--shadow-sm)]'
                   }`}
                 >
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${debtClassFilter === 'Office' ? 'bg-[rgba(239,68,68,0.22)]' : 'bg-[rgba(239,68,68,0.12)]'}`}>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${debtClassFilter === 'Office' ? 'bg-[rgba(239,68,68,0.22)]' : 'bg-[rgba(239,68,68,0.12)]'}`}>
                     <Building2 size={14} className="text-[var(--color-error)]" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[9px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Office Debt (B2B)</div>
-                    <div className="text-[12px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={11} className="animate-spin" /> : `₦${fmt(displayTotals.officeDebtAmount)}`}</div>
+                    <div className="text-[10px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Office Debt (B2B)</div>
+                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={11} className="animate-spin" /> : `₦${fmt(displayTotals.officeDebtAmount)}`}</div>
                   </div>
                 </button>
                 <button
@@ -3993,18 +3993,18 @@ export const TransactionLedger = ({
                     setDebtClassFilter(next);
                     if (next !== 'All') setModeFilter('Debt');
                   }}
-                  className={`flex-1 rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
+                  className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
                     debtClassFilter === 'Individual'
                       ? 'bg-[rgba(239,68,68,0.06)] border-[var(--color-error)] shadow-[var(--shadow-error)]'
                       : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-error)] shadow-[var(--shadow-sm)]'
                   }`}
                 >
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${debtClassFilter === 'Individual' ? 'bg-[rgba(239,68,68,0.22)]' : 'bg-[rgba(239,68,68,0.12)]'}`}>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${debtClassFilter === 'Individual' ? 'bg-[rgba(239,68,68,0.22)]' : 'bg-[rgba(239,68,68,0.12)]'}`}>
                     <UserIcon size={14} className="text-[var(--color-error)]" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[9px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Individual Debt</div>
-                    <div className="text-[12px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={11} className="animate-spin" /> : `₦${fmt(displayTotals.individualDebtAmount)}`}</div>
+                    <div className="text-[10px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Individual Debt</div>
+                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={11} className="animate-spin" /> : `₦${fmt(displayTotals.individualDebtAmount)}`}</div>
                   </div>
                 </button>
               </div>
@@ -4016,7 +4016,7 @@ export const TransactionLedger = ({
                 {([
                   { label: 'All',        value: 'All',        activeClass: 'bg-[var(--color-surface-2)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
                   { label: 'Cargo',      value: 'Cargo',      activeClass: 'bg-[rgba(59,130,246,0.15)] border-[var(--color-accent-cobalt)] text-[var(--color-accent-cobalt)]' },
-                  { label: 'Baggage',    value: 'Baggage',    activeClass: 'bg-[rgba(245,158,11,0.15)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
+                  { label: 'Baggage',    value: 'Baggage',    activeClass: 'bg-[rgba(251,191,36,0.15)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
                   { label: 'Marketing',  value: 'Marketing',  activeClass: 'bg-[rgba(16,185,129,0.15)] border-[var(--color-success)] text-[var(--color-success)]' },
                   { label: 'Package',    value: 'Package',    activeClass: 'bg-[rgba(168,85,247,0.15)] border-[var(--color-purple-border)] text-[var(--color-purple-fg)]' },
                   { label: 'Expense',    value: 'Expense',    activeClass: 'bg-[rgba(239,68,68,0.15)] border-[var(--color-error)] text-[var(--color-error)]' },
@@ -4035,7 +4035,7 @@ export const TransactionLedger = ({
                       }`}
                     >
                       {label}
-                      <span className={`text-[9px] px-1 py-0 rounded-full min-w-[16px] text-center ${
+                      <span className={`text-[10px] px-1 py-0 rounded-full min-w-[16px] text-center ${
                         isActive ? 'bg-[rgba(255,255,255,0.15)]' : 'bg-[var(--color-surface-2)]'
                       }`}>
                         {count}
@@ -4054,7 +4054,7 @@ export const TransactionLedger = ({
               {airlineManifestSummary.length > 0 && (
                 <div className="px-4 py-2.5 overflow-x-auto">
                   <div className="flex items-center gap-2 flex-nowrap min-w-max">
-                    <span className="text-[9px] font-mono font-bold text-[var(--color-muted)] uppercase tracking-wider shrink-0">
+                    <span className="text-[10px] font-mono font-bold text-[var(--color-muted)] uppercase tracking-wider shrink-0">
                       Airline Weight Manifest:
                     </span>
                     {airlineManifestSummary.map((a) => (
@@ -4064,9 +4064,9 @@ export const TransactionLedger = ({
                         title={`${a.entries} entries`}
                       >
                         <span className="text-[10px] font-bold font-mono text-[var(--color-foreground)]">{a.airline}</span>
-                        <span className="text-[9px] font-mono text-[var(--color-accent-cobalt)]">{a.kg.toFixed(0)}KG</span>
-                        <span className="text-[9px] font-mono text-[var(--color-muted)]">{a.pieces}PC</span>
-                        <span className="text-[9px] font-mono text-[var(--color-success)] font-bold">₦{fmt(a.amount)}</span>
+                        <span className="text-[10px] font-mono text-[var(--color-accent-cobalt)]">{a.kg.toFixed(0)}KG</span>
+                        <span className="text-[10px] font-mono text-[var(--color-muted)]">{a.pieces}PC</span>
+                        <span className="text-[10px] font-mono text-[var(--color-success)] font-bold">₦{fmt(a.amount)}</span>
                       </div>
                     ))}
                   </div>
@@ -4098,7 +4098,7 @@ export const TransactionLedger = ({
                     value={searchInput}
                     onChange={(e) => handleSearchInputChange(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') commitSearch(searchInput); }}
-                    className="w-full h-9 pl-9 pr-8 bg-[var(--color-surface-1)] border border-[var(--color-border)] focus:border-[var(--color-accent-amber)] rounded-full text-[11px] font-sans text-[var(--color-foreground)] focus:outline-none focus:shadow-[0_0_12px_rgba(240,178,48,0.15)] transition-all placeholder-[var(--color-muted)] font-medium"
+                    className="w-full h-9 pl-9 pr-8 bg-[var(--color-surface-1)] border border-[var(--color-border)] focus:border-[var(--color-accent-amber)] rounded-full text-[11px] font-sans text-[var(--color-foreground)] focus:outline-none focus:shadow-[0_0_12px_rgba(251,191,36,0.15)] transition-all placeholder-[var(--color-muted)] font-medium"
                   />
                   {searchInput && (
                     <button
@@ -4363,7 +4363,7 @@ export const TransactionLedger = ({
 
             {/* ── Bulk Cash Verification Banner ─────────────── */}
             {modeFilter === 'Cash' && unverifiedCash.length > 0 && isAccountantOrAdmin && (
-              <div className="px-4 py-2.5 bg-[rgba(245,158,11,0.05)] border-b border-[rgba(245,158,11,0.15)] flex items-center gap-3 shrink-0">
+              <div className="px-4 py-2.5 bg-[rgba(251,191,36,0.05)] border-b border-[rgba(251,191,36,0.15)] flex items-center gap-3 shrink-0">
                 <CheckSquare size={13} className={`text-[var(--color-accent-amber)] ${bulkConfirming ? 'opacity-50' : 'cursor-pointer'}`} onClick={bulkConfirming ? undefined : selectAllCash} />
                 <span className="text-[10px] font-mono text-[var(--color-accent-amber)] flex-1">{unverifiedCash.length} unverified cash {unverifiedCash.length === 1 ? 'entry' : 'entries'}</span>
                 <button
@@ -4378,7 +4378,7 @@ export const TransactionLedger = ({
 
             {/* ── Batch Select/Print Bar -- every mode; Clear is Debt-only ── */}
             {debtEntriesInView.length > 0 && (
-              <div className="px-4 py-2.5 bg-[rgba(245,158,11,0.06)] border-b border-[rgba(245,158,11,0.2)] flex flex-col sm:flex-row sm:items-center gap-2 shrink-0">
+              <div className="px-4 py-2.5 bg-[rgba(251,191,36,0.06)] border-b border-[rgba(251,191,36,0.2)] flex flex-col sm:flex-row sm:items-center gap-2 shrink-0">
                 <label className="flex items-center gap-2 text-[10px] font-mono font-semibold text-[var(--color-accent-amber)] cursor-pointer select-none shrink-0">
                   <input
                     type="checkbox"
@@ -4441,7 +4441,7 @@ export const TransactionLedger = ({
             )}
 
             {/* Table / Mobile Cards Container */}
-            <div ref={tableRef} className="flex-1 overflow-auto p-3 sm:p-4 pb-4 relative">
+            <div ref={tableRef} className="flex-1 overflow-auto p-3 sm:p-4 sm:pr-16 pb-4 relative">
               {/* Loading overlay for All Time's first fetch -- sits on top
                   of whatever's already rendered underneath (stale Current
                   Shift rows, or a briefly-unscoped intermediate state)
@@ -4503,7 +4503,7 @@ export const TransactionLedger = ({
                     if (e.type === 'shift-marker') {
                       return (
                         <div key={e.id} data-index={virtualRow.index} ref={cardVirtualizer.measureElement} style={wrapperStyle}>
-                          <div className="bg-[rgba(245,158,11,0.1)] border border-[var(--color-accent-amber)] rounded-lg p-2.5 text-center font-bold text-[var(--color-accent-amber)] text-[11px] font-mono">
+                          <div className="bg-[rgba(251,191,36,0.1)] border border-[var(--color-accent-amber)] rounded-lg p-2.5 text-center font-bold text-[var(--color-accent-amber)] text-[11px] font-mono">
                             {e.name} — {e.detail}
                           </div>
                         </div>
@@ -4543,7 +4543,7 @@ export const TransactionLedger = ({
                             )}
                             <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${
                               e.type === 'cargo' ? 'bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)]' :
-                              e.type === 'baggage' ? 'bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)]' :
+                              e.type === 'baggage' ? 'bg-[rgba(251,191,36,0.15)] text-[var(--color-accent-amber)]' :
                               e.type === 'marketing' ? 'bg-[rgba(16,185,129,0.15)] text-[var(--color-success)]' :
                               e.type === 'package' ? 'bg-[rgba(168,85,247,0.15)] text-[var(--color-purple)]' :
                               'bg-[rgba(239,68,68,0.15)] text-[var(--color-error)]'
@@ -4556,14 +4556,14 @@ export const TransactionLedger = ({
                             </div>
                             <span className="font-mono font-bold text-[11px] text-[var(--color-foreground)] truncate">{e.id}</span>
                             {canSeePin && e.raw.pickupPin && (
-                              <span className="font-mono text-[9px] text-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.12)] px-1 rounded">PIN: {e.raw.pickupPin}</span>
+                              <span className="font-mono text-[10px] text-[var(--color-accent-amber)] bg-[rgba(251,191,36,0.12)] px-1 rounded">PIN: {e.raw.pickupPin}</span>
                             )}
                           </div>
                           <div className="text-right shrink-0">
-                            <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold font-mono border ${statusColor}`}>
+                            <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold font-mono border ${statusColor}`}>
                               {e.source === 'expense' ? 'Expense' : (e.status || 'Intake')}
                             </span>
-                            <div className="text-[9px] font-mono text-[var(--color-muted)] mt-0.5">{displayDate} {displayTime}</div>
+                            <div className="text-[10px] font-mono text-[var(--color-muted)] mt-0.5">{displayDate} {displayTime}</div>
                           </div>
                         </div>
 
@@ -4577,7 +4577,7 @@ export const TransactionLedger = ({
                               const c = airlineBadgeColors((e.raw as any).airline);
                               return (
                                 <span
-                                  className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono uppercase tracking-wider border"
+                                  className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono uppercase tracking-wider border"
                                   style={{ background: c.bg, color: c.text, borderColor: c.border }}
                                 >
                                   {(e.raw as any).airline}
@@ -4588,7 +4588,7 @@ export const TransactionLedger = ({
                               const raw = e.raw as any;
                               const dest = raw ? ((e.type === 'cargo' || e.type === 'marketing') ? raw.route : raw.destination) : null;
                               return dest ? (
-                                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono uppercase tracking-wider bg-[rgba(245,158,11,0.12)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.3)]">
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono uppercase tracking-wider bg-[rgba(251,191,36,0.12)] text-[var(--color-accent-amber)] border border-[rgba(251,191,36,0.3)]">
                                   {dest}
                                 </span>
                               ) : null;
@@ -4616,28 +4616,28 @@ export const TransactionLedger = ({
                             // here would just be redundant.
                             <span
                               title="Tap this row to view the original debt this collection cleared"
-                              className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[rgba(59,130,246,0.3)]"
+                              className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[rgba(59,130,246,0.3)]"
                             >
                               COLLECTION →
                             </span>
                           )}
                           {e.raw?.retrieved && (
-                            <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(239,68,68,0.12)] text-[var(--color-error)] border border-[rgba(239,68,68,0.25)] line-through">
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono bg-[rgba(239,68,68,0.12)] text-[var(--color-error)] border border-[rgba(239,68,68,0.25)] line-through">
                               RETRIEVED
                             </span>
                           )}
                           {!e.raw?.retrieved && ((e.raw as any)?.raw?.retrieved_amount || 0) > 0 && (
-                            <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.3)]">
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono bg-[rgba(251,191,36,0.15)] text-[var(--color-accent-amber)] border border-[rgba(251,191,36,0.3)]">
                               PARTIAL: ₦{fmt((e.raw as any).raw.retrieved_amount)}
                             </span>
                           )}
                           {(e.raw?.wallet_id || (!(e.raw as any)?.is_debt_clearance && (e.raw?.paymentHistory || []).some((p: any) => p?.mode === 'Wallet'))) && (
-                            <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(245,158,11,0.12)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.25)]">
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono bg-[rgba(251,191,36,0.12)] text-[var(--color-accent-amber)] border border-[rgba(251,191,36,0.25)]">
                               WALLET
                             </span>
                           )}
                           {(e.raw as any)?.terminal === 'GAT' && (
-                            <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[var(--color-accent-cobalt)]">GAT</span>
+                            <span className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[var(--color-accent-cobalt)]">GAT</span>
                           )}
                         </div>
 
@@ -4647,10 +4647,10 @@ export const TransactionLedger = ({
                             <span className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${
                               e.mode === "Cash" ? "bg-[rgba(16,185,129,0.15)] text-[var(--color-success)]" :
                               e.mode === "Transfer" ? "bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)]" :
-                              e.mode === "POS" ? "bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)]" :
+                              e.mode === "POS" ? "bg-[rgba(251,191,36,0.15)] text-[var(--color-accent-amber)]" :
                               e.mode === "Expense" ? "bg-[rgba(239,68,68,0.15)] text-[var(--color-error)]" :
                               e.mode === "Debt Paid" ? "bg-[rgba(16,185,129,0.15)] text-[var(--color-success)]" :
-                              e.mode === "Wallet" ? "bg-[rgba(245,158,11,0.12)] text-[var(--color-accent-amber)]" :
+                              e.mode === "Wallet" ? "bg-[rgba(251,191,36,0.12)] text-[var(--color-accent-amber)]" :
                               "border border-[var(--color-error)] text-[var(--color-error)]"
                             }`}>
                               {e.mode === "Debt" ? "Debt" : e.mode === "Debt Paid" ? "Debt Cleared" : e.mode}
@@ -4662,7 +4662,7 @@ export const TransactionLedger = ({
                                   evt.stopPropagation();
                                   openClearDebt(e, evt);
                                 }}
-                                className="px-2 py-1 rounded bg-[rgba(16,185,129,0.15)] text-[var(--color-success)] text-[9px] font-bold flex items-center gap-1 cursor-pointer"
+                                className="px-2 py-1 rounded bg-[rgba(16,185,129,0.15)] text-[var(--color-success)] text-[10px] font-bold flex items-center gap-1 cursor-pointer"
                               >
                                 <HandCoins size={11} /> Clear
                               </button>
@@ -4703,7 +4703,7 @@ export const TransactionLedger = ({
                                   badge above for how much was already taken), matching this row's
                                   own retrieved_amount reads elsewhere in this file. */}
                               {((e.raw as any)?.raw?.retrieved_amount || 0) > 0 && (
-                                <div className="text-[9px] font-mono text-[var(--color-muted)] line-through">
+                                <div className="text-[10px] font-mono text-[var(--color-muted)] line-through">
                                   ₦{fmt(e.amount)}
                                 </div>
                               )}
@@ -4761,7 +4761,7 @@ export const TransactionLedger = ({
                     const e = displayEntries[virtualRow.index];
                     if (e.type === 'shift-marker') {
                       return (
-                        <tr key={e.id} className="bg-[rgba(245,158,11,0.1)] border-b border-[var(--color-accent-amber)]">
+                        <tr key={e.id} className="bg-[rgba(251,191,36,0.1)] border-b border-[var(--color-accent-amber)]">
                           <td colSpan={10} className="py-2 px-4 text-center font-bold text-[var(--color-accent-amber)] text-[11px]">
                             {e.name} — {e.detail}
                           </td>
@@ -4781,7 +4781,7 @@ export const TransactionLedger = ({
                     ref={rowVirtualizer.measureElement}
                     data-index={virtualRow.index}
                     onClick={() => e.raw?.is_debt_clearance ? handleJumpToOriginalDebt(e.raw?.related_tx_id) : setViewingDetail(e)}
-                    className={`border-b border-[var(--color-border)] hover:bg-[var(--color-border)] transition-colors cursor-pointer group ${
+                    className={`border-b border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] transition-colors cursor-pointer group ${
                       (e.raw?.retrieved || e.raw?.is_debt_clearance) ? 'opacity-50' : ''
                     } ${
                       // A debt-clearance row is a payment record, not a new
@@ -4807,7 +4807,7 @@ export const TransactionLedger = ({
                                     name={`pos-code-${e.id}`}
                                     autoFocus
                                     type="text"
-                                    className="w-16 bg-[var(--color-surface-1)] border border-[var(--color-accent-amber)] rounded px-1 py-0.5 text-[9px] text-[var(--color-foreground)] outline-none"
+                                    className="w-16 bg-[var(--color-surface-1)] border border-[var(--color-accent-amber)] rounded px-1 py-0.5 text-[10px] text-[var(--color-foreground)] outline-none"
                                     placeholder="Code"
                                     value={posCodeInput.code}
                                     onChange={evt => setPosCodeInput({ id: e.id, code: evt.target.value })}
@@ -4818,7 +4818,7 @@ export const TransactionLedger = ({
                               ) : (
                                 <button
                                   onClick={(evt) => { evt.stopPropagation(); setPosCodeInput({ id: e.id, code: '' }); }}
-                                  className="text-[var(--color-accent-amber)] hover:underline whitespace-nowrap text-[9px]"
+                                  className="text-[var(--color-accent-amber)] hover:underline whitespace-nowrap text-[10px]"
                                 >
                                   Enter code
                                 </button>
@@ -4843,7 +4843,7 @@ export const TransactionLedger = ({
                       </td>
                     )}
                     {canSeePin && (
-                      <td className="py-2.5 px-3 font-mono font-bold text-[13px] text-[var(--color-accent-amber)]">
+                      <td className={`py-2.5 px-3 font-mono text-[11px] tracking-wider ${e.raw.pickupPin ? 'font-semibold text-[var(--color-accent-amber)]' : 'text-[var(--color-text-disabled)]'}`}>
                         {e.raw.pickupPin || '—'}
                       </td>
                     )}
@@ -4852,7 +4852,7 @@ export const TransactionLedger = ({
                       <div className="flex items-center gap-1.5 min-w-0">
                         <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${
                           e.type === 'cargo' ? 'bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)]' :
-                          e.type === 'baggage' ? 'bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)]' :
+                          e.type === 'baggage' ? 'bg-[rgba(251,191,36,0.15)] text-[var(--color-accent-amber)]' :
                           e.type === 'marketing' ? 'bg-[rgba(16,185,129,0.15)] text-[var(--color-success)]' :
                           e.type === 'package' ? 'bg-[rgba(168,85,247,0.15)] text-[var(--color-purple)]' :
                           'bg-[rgba(239,68,68,0.15)] text-[var(--color-error)]'
@@ -4871,7 +4871,7 @@ export const TransactionLedger = ({
                     {/* Date + Time */}
                     <td className="py-2.5 px-2 whitespace-nowrap">
                       <div className="text-[10px] font-mono text-[var(--color-foreground)] font-medium">{displayDate}</div>
-                      <div className="text-[9px] font-mono text-[var(--color-muted)] mt-0.5">{displayTime}</div>
+                      <div className="text-[10px] font-mono text-[var(--color-muted)] mt-0.5">{displayTime}</div>
                     </td>
                     {/* Customer + Detail */}
                     <td className="py-2.5 px-2">
@@ -4887,44 +4887,44 @@ export const TransactionLedger = ({
                           // card's matching comment above.
                           <span
                             title="Click this row to view the original debt this collection cleared"
-                            className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[rgba(59,130,246,0.3)]"
+                            className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[rgba(59,130,246,0.3)]"
                           >
                             COLLECTION →
                           </span>
                         )}
                         {e.raw?.retrieved && (
-                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(239,68,68,0.12)] text-[var(--color-error)] border border-[rgba(239,68,68,0.25)] line-through">
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono bg-[rgba(239,68,68,0.12)] text-[var(--color-error)] border border-[rgba(239,68,68,0.25)] line-through">
                             RETRIEVED
                           </span>
                         )}
                         {!e.raw?.retrieved && ((e.raw as any)?.raw?.retrieved_amount || 0) > 0 && (
                           <span
-                            className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.3)]"
+                            className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono bg-[rgba(251,191,36,0.15)] text-[var(--color-accent-amber)] border border-[rgba(251,191,36,0.3)]"
                             title={`Partially retrieved: ${(e.raw as any).raw.retrieved_kg || 0} KG · ${(e.raw as any).raw.retrieved_pieces || 0} PCS`}
                           >
                             PARTIAL: {(e.raw as any).raw.retrieved_kg || 0}KG · {(e.raw as any).raw.retrieved_pieces || 0}PC · ₦{fmt((e.raw as any).raw.retrieved_amount)}
                           </span>
                         )}
                         {isOfficeWorkEntry(e) && (
-                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[var(--color-purple-bg)] text-[var(--color-purple-fg)] border border-[var(--color-purple-border)]">
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono bg-[var(--color-purple-bg)] text-[var(--color-purple-fg)] border border-[var(--color-purple-border)]">
                             OFFICE WORK
                           </span>
                         )}
                         {isUnlinkedOffice(e) && (
                           <span
                             title="Consignee matches a corporate client but this entry isn't linked — reconcile it in Office Work Reconciliation."
-                            className="text-[8px] font-bold font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)] border border-[var(--color-accent-amber)]"
+                            className="text-[10px] font-bold font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-[rgba(251,191,36,0.15)] text-[var(--color-accent-amber)] border border-[var(--color-accent-amber)]"
                           >
                             OFFICE?
                           </span>
                         )}
                         {e.raw?.wallet_id && (
-                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono bg-[rgba(245,158,11,0.12)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.25)]">
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono bg-[rgba(251,191,36,0.12)] text-[var(--color-accent-amber)] border border-[rgba(251,191,36,0.25)]">
                             WALLET
                           </span>
                         )}
                         {(e.raw as any)?.terminal === 'GAT' && (
-                          <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[var(--color-accent-cobalt)]">GAT</span>
+                          <span className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[var(--color-accent-cobalt)]">GAT</span>
                         )}
                       </div>
                       <div className="flex items-center flex-wrap gap-1.5">
@@ -4935,7 +4935,7 @@ export const TransactionLedger = ({
                           const c = airlineBadgeColors((e.raw as any).airline);
                           return (
                             <span
-                              className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono uppercase tracking-wider border"
+                              className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono uppercase tracking-wider border"
                               style={{ background: c.bg, color: c.text, borderColor: c.border }}
                             >
                               {(e.raw as any).airline}
@@ -4946,13 +4946,13 @@ export const TransactionLedger = ({
                           const raw = e.raw as any;
                           const dest = raw ? ((e.type === 'cargo' || e.type === 'marketing') ? raw.route : raw.destination) : null;
                           return dest ? (
-                            <span className="px-1.5 py-0.5 rounded text-[8px] font-bold font-mono uppercase tracking-wider bg-[rgba(245,158,11,0.12)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.3)]">
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono uppercase tracking-wider bg-[rgba(251,191,36,0.12)] text-[var(--color-accent-amber)] border border-[rgba(251,191,36,0.3)]">
                               {dest}
                             </span>
                           ) : null;
                         })()}
                       </div>
-                      <div className={`text-[9px] text-[var(--color-muted)] mt-0.5 leading-snug line-clamp-2 ${e.raw?.is_debt_clearance ? 'italic' : ''}`}>
+                      <div className={`text-[10px] text-[var(--color-muted)] mt-0.5 leading-snug line-clamp-2 ${e.raw?.is_debt_clearance ? 'italic' : ''}`}>
                         {stripBadgedFieldsFromDetail(
                           e.detail,
                           (e.raw as any)?.airline,
@@ -4960,7 +4960,7 @@ export const TransactionLedger = ({
                         )}
                       </div>
                       {e.raw.remarks && (
-                        <div className={`text-[9px] font-sans italic mt-1 leading-snug ${ (e.raw?.is_debt_clearance || e.id?.startsWith('DC-')) ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-success)]' }`}>
+                        <div className={`text-[10px] font-sans italic mt-1 leading-snug ${ (e.raw?.is_debt_clearance || e.id?.startsWith('DC-')) ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-success)]' }`}>
                           Remarks: {e.raw.remarks}
                         </div>
                       )}
@@ -4985,7 +4985,7 @@ export const TransactionLedger = ({
                           || (raw.enteredByName ? `By ${raw.enteredByName}` : null);
                         if (!agentLabel) return null;
                         return (
-                          <div className="text-[8px] text-[var(--color-muted)] font-mono mt-1 leading-snug">
+                          <div className="text-[10px] text-[var(--color-muted)] font-mono mt-1 leading-snug">
                             {agentLabel}
                           </div>
                         );
@@ -4993,7 +4993,7 @@ export const TransactionLedger = ({
                     </td>
                     {/* Status */}
                     <td className="py-2.5 px-2 text-center">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-[8px] font-bold font-mono whitespace-nowrap ${
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold font-mono whitespace-nowrap ${
                         (e.raw?.is_debt_clearance || e.id?.startsWith('DC-'))
                           ? 'text-[var(--color-accent-cobalt)] bg-[rgba(59,130,246,0.15)] border border-[rgba(59,130,246,0.3)]'
                           : statusColor
@@ -5030,12 +5030,12 @@ export const TransactionLedger = ({
                           bold figure above is what's still un-retrieved, matching the
                           mobile card's identical treatment above. */}
                       {((e.raw as any)?.raw?.retrieved_amount || 0) > 0 && (
-                        <div className="text-[9px] font-mono text-[var(--color-muted)] line-through">
+                        <div className="text-[10px] font-mono text-[var(--color-muted)] line-through">
                           ₦{fmt(e.amount)}
                         </div>
                       )}
                       {e.raw?.wallet_deduction_amount > 0 && e.mode !== 'Wallet' && (
-                        <div className="text-[9px] text-[var(--color-accent-amber)] font-normal">
+                        <div className="text-[10px] text-[var(--color-accent-amber)] font-normal">
                           ₦{fmt(Math.max(0, e.amount - e.raw.wallet_deduction_amount))} {e.mode} · ₦{fmt(e.raw.wallet_deduction_amount)} Wallet
                         </div>
                       )}
@@ -5045,13 +5045,13 @@ export const TransactionLedger = ({
                     <td className="py-2.5 px-2 text-center" onClick={(evt) => evt.stopPropagation()}>
                       <div className="flex flex-col items-center gap-0.5">
                         <div className="flex items-center gap-1.5 justify-center">
-                          <span className={`px-1.5 py-0.5 rounded font-sans text-[9px] font-medium flex items-center gap-1 ${
+                          <span className={`px-1.5 py-0.5 rounded font-sans text-[10px] font-medium flex items-center gap-1 ${
                             e.mode === "Cash" ? "bg-[rgba(16,185,129,0.15)] text-[var(--color-success)]" :
                             e.mode === "Transfer" ? "bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)]" :
-                            e.mode === "POS" ? "bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)]" :
+                            e.mode === "POS" ? "bg-[rgba(251,191,36,0.15)] text-[var(--color-accent-amber)]" :
                             e.mode === "Expense" ? "bg-[rgba(239,68,68,0.15)] text-[var(--color-error)]" :
                             e.mode === "Debt Paid" ? "bg-[rgba(16,185,129,0.15)] text-[var(--color-success)]" :
-                            e.mode === "Wallet" ? "bg-[rgba(245,158,11,0.12)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.3)]" :
+                            e.mode === "Wallet" ? "bg-[rgba(251,191,36,0.12)] text-[var(--color-accent-amber)] border border-[rgba(251,191,36,0.3)]" :
                             "border border-[var(--color-error)] text-[var(--color-error)]"
                           }`}>
                             {e.mode === "Debt" ? "Debt" : e.mode === "Debt Paid" ? "Debt Cleared" : e.mode === "Wallet" ? "💰 Wallet" : e.raw?.wallet_deduction_amount > 0 ? `${e.mode} + Wallet` : e.mode}
@@ -5077,7 +5077,7 @@ export const TransactionLedger = ({
                           )}
                         </div>
                         {e.mode === 'POS' && e.posApprovalCode && (
-                          <span className="text-[8px] text-[var(--color-muted)]">**{e.posApprovalCode.slice(-4)}</span>
+                          <span className="text-[10px] text-[var(--color-muted)]">**{e.posApprovalCode.slice(-4)}</span>
                         )}
                       </div>
                     </td>
@@ -5244,7 +5244,7 @@ export const TransactionLedger = ({
                     <span className={`px-2 py-0.5 rounded font-sans text-[11px] font-bold ${
                       viewingDetail.mode === "Cash" ? "bg-[rgba(16,185,129,0.15)] text-[var(--color-success)]" : 
                       viewingDetail.mode === "Transfer" ? "bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)]" : 
-                      viewingDetail.mode === "POS" ? "bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)]" : 
+                      viewingDetail.mode === "POS" ? "bg-[rgba(251,191,36,0.15)] text-[var(--color-accent-amber)]" : 
                       viewingDetail.mode === "Expense" ? "bg-[rgba(239,68,68,0.15)] text-[var(--color-error)]" : 
                       "border border-[var(--color-error)] text-[var(--color-error)]"
                     }`}>
@@ -5327,7 +5327,7 @@ export const TransactionLedger = ({
                           <span className="text-[var(--color-foreground)] whitespace-nowrap">₦{fmt(p?.amount || 0)}{p?.by ? ` · ${p.by}` : ''}</span>
                         </div>
                       ))}
-                      <div className="text-[9px] font-sans text-[var(--color-muted)] italic pt-0.5">Each also appears as a COLLECTION row in the ledger.</div>
+                      <div className="text-[10px] font-sans text-[var(--color-muted)] italic pt-0.5">Each also appears as a COLLECTION row in the ledger.</div>
                     </div>
                   )}
                 </div>
@@ -5403,7 +5403,7 @@ export const TransactionLedger = ({
                   is visible and traceable back to whoever did it. */}
               {viewingDetail.source === 'transaction' && (
                 <section className="pb-4 border-t border-[var(--color-border)] pt-3">
-                  <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider mb-2">Activity History</div>
+                  <div className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wider mb-2">Activity History</div>
                   {txHistoryLoading ? (
                     <div className="text-[11px] font-mono text-[var(--color-muted)]">Loading…</div>
                   ) : txHistory.length === 0 ? (
@@ -5422,7 +5422,7 @@ export const TransactionLedger = ({
                               <span className="font-bold">{ACTION_LABELS[h.action as string] || h.action}</span>
                               {' — '}{h.description}
                             </div>
-                            <div className="text-[9px] font-mono text-[var(--color-muted)] mt-0.5">
+                            <div className="text-[10px] font-mono text-[var(--color-muted)] mt-0.5">
                               {h.user_name || 'Unknown'} · {new Date(h.created_at).toLocaleString('en-NG')}
                             </div>
                           </div>
@@ -5440,7 +5440,7 @@ export const TransactionLedger = ({
                 <>
                   {/* Primary Operations Row */}
                   <div className="space-y-1.5">
-                    <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Operations</div>
+                    <div className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Operations</div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                       <button
                         onClick={() => setViewingQrTx(viewingDetail)}
@@ -5503,7 +5503,7 @@ export const TransactionLedger = ({
                       {(['cargo', 'baggage', 'marketing', 'package'] as const).includes(viewingDetail.type as RetrievalEntryType) && !viewingDetail.raw?.retrieved && (
                         <button
                           onClick={() => handleMarkRetrievedAndDeposit(viewingDetail)}
-                          className="py-1.5 px-2.5 flex items-center justify-center gap-1 bg-[rgba(245,158,11,0.12)] hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] text-[var(--color-accent-amber)] rounded-lg transition-colors border border-[rgba(245,158,11,0.3)] text-[9px] font-mono font-bold"
+                          className="py-1.5 px-2.5 flex items-center justify-center gap-1 bg-[rgba(251,191,36,0.12)] hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] text-[var(--color-accent-amber)] rounded-lg transition-colors border border-[rgba(251,191,36,0.3)] text-[10px] font-mono font-bold"
                           title="Deposit retrieved refund directly into customer credit wallet"
                         >
                           <HandCoins size={11} /> 💰 Refund to Wallet
@@ -5558,7 +5558,7 @@ export const TransactionLedger = ({
                   {/* Document Printing & PDF Row */}
                   {(user.can_print_ledger || user.role === 'super_admin') && (
                     <div className="space-y-1.5 pt-2 border-t border-[var(--color-border)]">
-                      <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Printing &amp; Documents</div>
+                      <div className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Printing &amp; Documents</div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                         <button
                           onClick={() => handleReprintReceipt('80mm')}

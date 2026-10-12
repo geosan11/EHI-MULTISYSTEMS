@@ -846,7 +846,7 @@ export const CustomerWallets = ({
           refund), approved/rejected by a different accountant/admin/
           super_admin */}
       {canApprovePayouts && pendingPayouts.length > 0 && (
-        <div className="p-3.5 bg-[rgba(245,158,11,0.06)] border border-[var(--color-accent-amber)] rounded-xl space-y-2.5">
+        <div className="p-3.5 bg-[rgba(251,191,36,0.06)] border border-[var(--color-accent-amber)] rounded-xl space-y-2.5">
           <div className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)] uppercase tracking-wider flex items-center gap-1.5">
             <HandCoins size={13} /> Pending Wallet Approvals ({pendingPayouts.length})
           </div>
@@ -860,7 +860,7 @@ export const CustomerWallets = ({
                   <div className="space-y-0.5 min-w-0">
                     <div className="font-bold text-[var(--color-foreground)] truncate">
                       {wallet?.customer_name || 'Unknown customer'} · ₦{fmt(payout.amount)}
-                      <span className="ml-1.5 px-1.5 py-0.5 rounded text-[8px] font-mono uppercase bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)] align-middle">
+                      <span className="ml-1.5 px-1.5 py-0.5 rounded text-[8px] font-mono uppercase bg-[rgba(251,191,36,0.15)] text-[var(--color-accent-amber)] align-middle">
                         {PENDING_TYPE_LABEL[payout.type] || payout.type}
                       </span>
                     </div>
@@ -960,7 +960,7 @@ export const CustomerWallets = ({
 
       {/* Database Table Missing Setup Banner */}
       {tableMissing && (
-        <div className="p-4 bg-[rgba(245,158,11,0.08)] border border-[var(--color-accent-amber)] rounded-xl space-y-3">
+        <div className="p-4 bg-[rgba(251,191,36,0.08)] border border-[var(--color-accent-amber)] rounded-xl space-y-3">
           <div className="flex items-center gap-2">
             <AlertCircle size={20} className="text-[var(--color-accent-amber)] shrink-0" />
             <div>
@@ -1103,7 +1103,7 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
                         setFormPhone(wallet.customer_phone || '');
                         setShowTopUpModal(true);
                       }}
-                      className="px-2 py-1 rounded text-[9px] font-mono font-bold bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)] hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] transition-colors flex items-center gap-1 cursor-pointer"
+                      className="px-2 py-1 rounded text-[9px] font-mono font-bold bg-[rgba(251,191,36,0.15)] text-[var(--color-accent-amber)] hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] transition-colors flex items-center gap-1 cursor-pointer"
                     >
                       <Plus size={10} strokeWidth={3} /> Top-Up
                     </button>
@@ -1446,7 +1446,7 @@ ALTER TABLE cargo_entries ADD CONSTRAINT cargo_entries_receipt_mode_check CHECK 
                 </button>
               </div>
 
-              <div className="text-[10px] font-mono text-[var(--color-muted)] leading-relaxed bg-[rgba(245,158,11,0.06)] border border-[rgba(245,158,11,0.2)] rounded-lg p-2.5">
+              <div className="text-[10px] font-mono text-[var(--color-muted)] leading-relaxed bg-[rgba(251,191,36,0.06)] border border-[rgba(251,191,36,0.2)] rounded-lg p-2.5">
                 This does not deduct the balance immediately -- a different accountant/admin must approve it first.
               </div>
 

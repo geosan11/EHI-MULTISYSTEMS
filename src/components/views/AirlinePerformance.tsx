@@ -323,7 +323,7 @@ export const AirlinePerformance = ({ user, onBack }: AirlinePerformanceProps) =>
             {/* Quick Presets */}
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[10px] font-mono text-[var(--color-muted)] mr-1">Presets:</span>
-              <button onClick={() => applyPreset('shift')} className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.3)] hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] transition-colors">
+              <button onClick={() => applyPreset('shift')} className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-[rgba(251,191,36,0.15)] text-[var(--color-accent-amber)] border border-[rgba(251,191,36,0.3)] hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] transition-colors">
                 Current Shift
               </button>
               <button onClick={() => applyPreset('today')} className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-[var(--color-surface-2)] text-[var(--color-foreground)] border border-[var(--color-border)] hover:bg-[var(--color-surface-3)] transition-colors">

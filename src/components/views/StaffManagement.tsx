@@ -45,7 +45,7 @@ const ROLES = [
 ];
 
 const roleColor = (role: string) => ({
-  super_admin:     'text-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.12)]',
+  super_admin:     'text-[var(--color-accent-amber)] bg-[rgba(251,191,36,0.12)]',
   admin:           'text-[var(--color-accent-cobalt)] bg-[rgba(59,130,246,0.12)]',
   cargo_agent:     'text-[var(--color-success)] bg-[rgba(16,185,129,0.12)]',
   baggage_agent:   'text-[var(--color-purple)] bg-[rgba(168,85,247,0.12)]',
@@ -350,7 +350,7 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
                     </span>
                   )}
                   {member.can_edit_ledger && (
-                    <span className="text-[8px] font-bold uppercase px-2 py-0.5 rounded font-mono text-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.1)] border border-[rgba(245,158,11,0.2)]">
+                    <span className="text-[8px] font-bold uppercase px-2 py-0.5 rounded font-mono text-[var(--color-accent-amber)] bg-[rgba(251,191,36,0.1)] border border-[rgba(251,191,36,0.2)]">
                       <Edit2 size={8} className="inline mr-1 mb-[1px]" />
                       Ledger Edit
                     </span>
@@ -600,7 +600,7 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
                     </button>
                   </div>
                   {editingStaff.can_print_ledger && (
-                    <div className="mt-2 text-[9px] font-mono text-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.08)] px-2 py-1 rounded">
+                    <div className="mt-2 text-[9px] font-mono text-[var(--color-accent-amber)] bg-[rgba(251,191,36,0.08)] px-2 py-1 rounded">
                       ⚠ This user can print receipts/tags from the ledger
                     </div>
                   )}
@@ -635,7 +635,7 @@ export const StaffManagement = ({ user, onBack }: { user: User; onBack: () => vo
                     </button>
                   </div>
                   {editingStaff.can_edit_ledger && (
-                    <div className="mt-2 text-[9px] font-mono text-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.08)] px-2 py-1 rounded">
+                    <div className="mt-2 text-[9px] font-mono text-[var(--color-accent-amber)] bg-[rgba(251,191,36,0.08)] px-2 py-1 rounded">
                       ⚠ This user can edit live transaction entries in the ledger
                     </div>
                   )}

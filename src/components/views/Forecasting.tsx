@@ -244,7 +244,7 @@ export const Forecasting = ({
         {forecastGenerated && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in duration-500">
             {/* Peak day info */}
-            <div className="bg-[rgba(245,158,11,0.03)] border border-[rgba(245,158,11,0.25)] rounded-xl p-4 space-y-2">
+            <div className="bg-[rgba(251,191,36,0.03)] border border-[rgba(251,191,36,0.25)] rounded-xl p-4 space-y-2">
               <div className="flex items-center space-x-1.5 text-sm font-bold text-[var(--color-accent-amber)]">
                 <Calendar size={16} />
                 <span className="text-[12px] uppercase">Peak Operational Day</span>

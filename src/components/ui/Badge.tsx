@@ -11,7 +11,7 @@ export type BadgeTone =
   | 'success' | 'error' | 'warning' | 'info' | 'amber' | 'purple' | 'neutral';
 
 const SIZE = {
-  sm: 'text-[9px] px-1.5 py-0.5 gap-1',
+  sm: 'text-[10px] px-1.5 py-0.5 gap-1',
   md: 'text-[11px] px-2 py-0.5 gap-1.5',
 } as const;
 

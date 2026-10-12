@@ -692,7 +692,7 @@ export const ExcessBaggageForm = ({
           {/* Office-work detection banner -- see CargoForm.tsx's
               equivalent for the reference implementation. */}
           {detectedOfficeClient && !linkedAsOfficeWork && (
-            <div className="p-3 rounded-lg border border-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.08)] flex items-start gap-3">
+            <div className="p-3 rounded-lg border border-[var(--color-accent-amber)] bg-[rgba(251,191,36,0.08)] flex items-start gap-3">
               <AlertTriangle size={16} className="text-[var(--color-accent-amber)] shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
                 <div className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)]">

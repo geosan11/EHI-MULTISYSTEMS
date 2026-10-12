@@ -511,7 +511,7 @@ export const FraudAlerts = ({
               key={alert.id}
               className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 transition-all hover:bg-[var(--color-surface-hover)] ${
                 alert.severity === 'critical' ? 'bg-[rgba(239,68,68,0.02)] border-red-500/20' :
-                alert.severity === 'high' ? 'bg-[rgba(245,158,11,0.02)] border-amber-500/20' :
+                alert.severity === 'high' ? 'bg-[rgba(251,191,36,0.02)] border-amber-500/20' :
                 'bg-[var(--color-surface-1)] border-[var(--color-border)]'
               }`}
             >

@@ -157,7 +157,7 @@ export const PartialRetrievalModal: React.FC<PartialRetrievalModalProps> = ({ en
             </div>
           )}
 
-          <div className={`p-4 rounded-xl border ${retrievalType === 'full' ? 'bg-[rgba(245,158,11,0.05)] border-[rgba(245,158,11,0.2)]' : 'bg-[rgba(59,130,246,0.05)] border-[rgba(59,130,246,0.2)]'}`}>
+          <div className={`p-4 rounded-xl border ${retrievalType === 'full' ? 'bg-[rgba(251,191,36,0.05)] border-[rgba(251,191,36,0.2)]' : 'bg-[rgba(59,130,246,0.05)] border-[rgba(59,130,246,0.2)]'}`}>
             <div className="flex flex-col items-center gap-1 border-b border-[rgba(255,255,255,0.1)] pb-3">
               <div className="text-[11px] font-mono text-[var(--color-muted)] uppercase tracking-wider flex items-center gap-1.5"><Wallet size={12} /> Retrieved Value</div>
               <div className={`text-[28px] font-mono font-bold ${retrievalType === 'full' ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-accent-cobalt)]'}`}>₦{fmt(retrievedValue)}</div>

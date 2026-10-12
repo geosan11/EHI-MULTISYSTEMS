@@ -14,7 +14,7 @@ export const WalletRemainderSelector = ({
   onBankChange: (b: string) => void;
   banks?: string[];
 }) => (
-  <div className="mt-2 p-3 rounded-xl border border-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.06)] space-y-2">
+  <div className="mt-2 p-3 rounded-xl border border-[var(--color-accent-amber)] bg-[rgba(251,191,36,0.06)] space-y-2">
     <div className="text-[11px] font-mono text-[var(--color-foreground)]">
       {walletName}'s wallet covers <span className="font-bold text-[var(--color-success)]">₦{fmt(coverage)}</span>.
       Collect the remaining <span className="font-bold text-[var(--color-accent-amber)]">₦{fmt(remainder)}</span> by:

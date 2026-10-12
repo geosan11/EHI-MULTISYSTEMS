@@ -1003,7 +1003,7 @@ const DebtorReportView = ({ data }: { data: any }) => (
 const StaffReportView = ({ data, collective }: { data: any[]; collective: { entries: number; revenue: number; collected: number; owed: number } }) => (
   <div className="space-y-5">
     {/* Layer 1 — Collective */}
-    <div className="rounded-[var(--radius-md)] border border-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.06)] p-3">
+    <div className="rounded-[var(--radius-md)] border border-[var(--color-accent-amber)] bg-[rgba(251,191,36,0.06)] p-3">
       <div className="text-[10px] text-[var(--color-accent-amber)] mb-2.5 uppercase font-bold tracking-wider">All Agents Combined</div>
       <div className="grid grid-cols-2 gap-3">
         <div>

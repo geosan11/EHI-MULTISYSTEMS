@@ -23,7 +23,7 @@ const TOAST_CONFIG: Record<
 > = {
   success: {
     icon: CheckCircle,
-    label: 'Payment processed',
+    label: 'Done',
     color: 'var(--color-success-fg)',
     bg: 'rgba(16, 185, 129, 0.07)',
     border: 'rgba(16, 185, 129, 0.25)',
@@ -41,7 +41,7 @@ const TOAST_CONFIG: Record<
   },
   warning: {
     icon: AlertTriangle,
-    label: 'Connection failed',
+    label: 'Heads up',
     color: 'var(--color-amber-fg)',
     bg: 'rgba(251, 191, 36, 0.07)',
     border: 'rgba(251, 191, 36, 0.25)',
@@ -50,7 +50,7 @@ const TOAST_CONFIG: Record<
   },
   info: {
     icon: Info,
-    label: 'Update available',
+    label: 'Notice',
     color: 'var(--color-info-fg)',
     bg: 'rgba(96, 165, 250, 0.07)',
     border: 'rgba(96, 165, 250, 0.25)',
@@ -144,7 +144,7 @@ export const ToastStack = ({
 }) => {
   if (toasts.length === 0) return null;
   return (
-    <div className="fixed top-4 inset-x-0 z-[99999999] flex flex-col items-center gap-2 px-4 pointer-events-none">
+    <div className="fixed top-4 inset-x-0 sm:inset-x-auto sm:top-auto sm:bottom-6 sm:right-24 sm:w-96 z-[99999999] flex flex-col items-center sm:items-end gap-2 px-4 sm:px-0 pointer-events-none">
       <div className="w-full max-w-sm flex flex-col gap-2">
         {toasts.map((t) => (
           <ToastCard key={t.id} {...t} onDismiss={onDismiss} />

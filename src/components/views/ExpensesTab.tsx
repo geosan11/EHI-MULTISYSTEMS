@@ -134,7 +134,7 @@ export const ExpensesTab = ({ expenses = [], user, period = 'today', onAddExpens
                 <button
                   key={c}
                   onClick={() => setCategory(c)}
-                  className={`flex items-center space-x-1.5 px-3 py-2 text-[12px] font-sans font-medium rounded-lg whitespace-nowrap transition-colors focus:outline-none ${category === c ? 'bg-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.3)] shadow-sm' : 'bg-[var(--color-surface-1)] text-[var(--color-muted)] border border-transparent'}`}
+                  className={`flex items-center space-x-1.5 px-3 py-2 text-[12px] font-sans font-medium rounded-lg whitespace-nowrap transition-colors focus:outline-none ${category === c ? 'bg-[rgba(251,191,36,0.15)] text-[var(--color-accent-amber)] border border-[rgba(251,191,36,0.3)] shadow-sm' : 'bg-[var(--color-surface-1)] text-[var(--color-muted)] border border-transparent'}`}
                 >
                   {getIcon(c)} <span>{c}</span>
                 </button>
@@ -175,7 +175,7 @@ export const ExpensesTab = ({ expenses = [], user, period = 'today', onAddExpens
            </div>
 
            {requiresApproval && (
-             <div className="flex items-start space-x-2 bg-[rgba(245,158,11,0.1)] border border-[rgba(245,158,11,0.2)] p-3 rounded-xl mt-2">
+             <div className="flex items-start space-x-2 bg-[rgba(251,191,36,0.1)] border border-[rgba(251,191,36,0.2)] p-3 rounded-xl mt-2">
                <AlertCircle size={16} className="text-[var(--color-accent-amber)] shrink-0 mt-0.5" />
                <div className="text-[12px] font-sans text-[var(--color-accent-amber)]">
                  This expense requires admin approval before it is posted.
@@ -269,7 +269,7 @@ export const ExpensesTab = ({ expenses = [], user, period = 'today', onAddExpens
             <div className="space-y-2">
               {expenses.map((e, idx) => (
                 <div key={idx} className="bg-[var(--color-surface-card)] rounded-xl border border-[var(--color-border)] p-4 flex items-start space-x-3">
-                  <div className="w-8 h-8 rounded-full bg-[rgba(245,158,11,0.1)] text-[var(--color-accent-amber)] flex items-center justify-center mt-0.5">
+                  <div className="w-8 h-8 rounded-full bg-[rgba(251,191,36,0.1)] text-[var(--color-accent-amber)] flex items-center justify-center mt-0.5">
                     {getIcon(e.type)}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -287,7 +287,7 @@ export const ExpensesTab = ({ expenses = [], user, period = 'today', onAddExpens
                            <span className="w-1 h-1 rounded-full bg-[var(--color-muted)]" />
                            <span className={`flex items-center space-x-1 px-1.5 py-0.5 rounded text-[9px] font-sans font-bold uppercase tracking-wider ${
                              e.status === 'approved' ? 'text-[var(--color-success)] bg-[rgba(16,185,129,0.1)]' :
-                             e.status === 'pending' ? 'text-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.1)]' :
+                             e.status === 'pending' ? 'text-[var(--color-accent-amber)] bg-[rgba(251,191,36,0.1)]' :
                              'text-[var(--color-error)] bg-[rgba(239,68,68,0.1)]'
                            }`}>
                              {e.status === 'approved' && <CheckCircle size={10} />}

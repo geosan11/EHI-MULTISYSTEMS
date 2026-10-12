@@ -1403,8 +1403,8 @@ export const Scanner = ({
         <div 
           onClick={() => setShowQueueSummary(true)}
           style={{
-            background: 'linear-gradient(135deg, rgba(245,158,11,0.1) 0%, rgba(245,158,11,0.03) 100%)',
-            border: '1.5px solid rgba(245,158,11,0.25)',
+            background: 'linear-gradient(135deg, rgba(251,191,36,0.1) 0%, rgba(251,191,36,0.03) 100%)',
+            border: '1.5px solid rgba(251,191,36,0.25)',
             borderRadius: 'var(--radius-md)',
             padding: '12px 14px',
             display: 'flex',
@@ -1516,7 +1516,7 @@ export const Scanner = ({
               setShowTrackView(true);
             }
           }}
-          className="h-11 px-4 bg-[rgba(245,158,11,0.12)] text-[var(--color-accent-amber)] text-[11px] font-mono rounded border border-[rgba(245,158,11,0.3)] cursor-pointer hover:bg-[rgba(245,158,11,0.2)] transition-colors shrink-0"
+          className="h-11 px-4 bg-[rgba(251,191,36,0.12)] text-[var(--color-accent-amber)] text-[11px] font-mono rounded border border-[rgba(251,191,36,0.3)] cursor-pointer hover:bg-[rgba(251,191,36,0.2)] transition-colors shrink-0"
         >
           TRACK
         </button>

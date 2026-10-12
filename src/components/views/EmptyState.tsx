@@ -34,7 +34,7 @@ export const EmptyState = ({ message = "No data available.", icon, title, subtex
             <button
               key={label}
               onClick={onClick}
-              className="px-3 py-1.5 bg-[rgba(245,158,11,0.1)] border border-[rgba(245,158,11,0.3)] text-[var(--color-accent-amber)] text-[11px] font-bold rounded-lg"
+              className="px-3 py-1.5 bg-[rgba(251,191,36,0.1)] border border-[rgba(251,191,36,0.3)] text-[var(--color-accent-amber)] text-[11px] font-bold rounded-lg"
             >
               {label}
             </button>

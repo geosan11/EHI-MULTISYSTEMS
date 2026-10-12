@@ -17,11 +17,11 @@ export const PaymentNarrationBox: React.FC<PaymentNarrationBoxProps> = ({ narrat
   if (!narrationCode) return null;
 
   return (
-    <div className="mt-4 p-4 border border-[var(--color-accent-amber)] rounded-lg bg-[rgba(245,158,11,0.05)] animate-in fade-in slide-in-from-top-2">
+    <div className="mt-4 p-4 border border-[var(--color-accent-amber)] rounded-lg bg-[rgba(251,191,36,0.05)] animate-in fade-in slide-in-from-top-2">
       <div className="text-[10px] font-bold text-[var(--color-accent-amber)] uppercase tracking-wider mb-2">
         PAYMENT NARRATION — share with customer
       </div>
-      <div className="flex items-center justify-between bg-[var(--color-surface-1)] p-3 rounded border border-[rgba(245,158,11,0.2)]">
+      <div className="flex items-center justify-between bg-[var(--color-surface-1)] p-3 rounded border border-[rgba(251,191,36,0.2)]">
         <span className="font-mono text-lg font-bold text-[var(--color-foreground)] tracking-widest">{narrationCode}</span>
         <button
           type="button"

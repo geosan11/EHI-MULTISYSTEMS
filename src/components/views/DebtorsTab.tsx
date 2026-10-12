@@ -274,7 +274,7 @@ export const DebtorsTab = ({
   const getBucketColor = (bucket: string) => {
     switch(bucket) {
       case 'current': return 'text-[var(--color-success)] bg-[rgba(16,185,129,0.1)] border-[var(--color-success)]';
-      case 'overdue': return 'text-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.1)] border-[var(--color-accent-amber)]';
+      case 'overdue': return 'text-[var(--color-accent-amber)] bg-[rgba(251,191,36,0.1)] border-[var(--color-accent-amber)]';
       case 'critical': return 'text-[#ea580c] bg-[rgba(234,88,12,0.1)] border-[#ea580c]'; // orange-600
       case 'writeoff-risk': return 'text-[var(--color-error)] bg-[rgba(239,68,68,0.1)] border-[var(--color-error)]';
       default: return 'text-[var(--color-muted)]';

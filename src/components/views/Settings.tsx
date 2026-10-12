@@ -414,7 +414,7 @@ export const Settings = ({
                 <div className={`flex items-center gap-2 px-3 py-2 rounded text-[10px] font-mono ${
                   connectionMode === 'live'
                     ? 'bg-[rgba(16,185,129,0.1)] border border-[rgba(16,185,129,0.2)] text-[var(--color-success)]'
-                    : 'bg-[rgba(245,158,11,0.08)] border border-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)]'
+                    : 'bg-[rgba(251,191,36,0.08)] border border-[rgba(251,191,36,0.15)] text-[var(--color-accent-amber)]'
                 }`}>
                   {connectionMode === 'live'
                     ? <><Wifi size={12} /> ● CONNECTED TO SUPABASE</>
@@ -711,7 +711,7 @@ export const Settings = ({
             ? 'bg-[rgba(16,185,129,0.1)] border border-[rgba(16,185,129,0.2)] text-[var(--color-success)]'
             : qzStatus === 'unavailable'
               ? 'bg-[rgba(239,68,68,0.08)] border border-[rgba(239,68,68,0.15)] text-[var(--color-error)]'
-              : 'bg-[rgba(245,158,11,0.08)] border border-[rgba(245,158,11,0.15)] text-[var(--color-accent-amber)]'
+              : 'bg-[rgba(251,191,36,0.08)] border border-[rgba(251,191,36,0.15)] text-[var(--color-accent-amber)]'
         }`}>
           {qzStatus === 'available'
             ? <><Wifi size={12} /> ● QZ TRAY DETECTED — {qzPrinters.length} printer(s) found</>

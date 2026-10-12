@@ -426,7 +426,7 @@ export const CorporateBilling = ({ user, onBack }: { user: User; onBack: () => v
               </div>
               <button
                 onClick={handleDownloadPDF}
-                className="flex items-center gap-1.5 px-3 py-2 bg-[rgba(245,158,11,0.1)] border border-[rgba(245,158,11,0.3)] text-[var(--color-accent-amber)] text-[11px] font-bold rounded-lg"
+                className="flex items-center gap-1.5 px-3 py-2 bg-[rgba(251,191,36,0.1)] border border-[rgba(251,191,36,0.3)] text-[var(--color-accent-amber)] text-[11px] font-bold rounded-lg"
               >
                 <FileDown size={13} /> Download PDF
               </button>

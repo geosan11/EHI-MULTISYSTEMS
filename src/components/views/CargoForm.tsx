@@ -2110,7 +2110,7 @@ export const CargoForm = ({
           
           {/* Pickup PIN or Reference details */}
           {(successTx as any).pickupPin ? (
-            <div className="flex-1 border border-[var(--color-accent-amber)] rounded-xl bg-[rgba(245,158,11,0.03)] flex flex-col justify-center px-3 py-1.5 shadow-sm">
+            <div className="flex-1 border border-[var(--color-accent-amber)] rounded-xl bg-[rgba(251,191,36,0.03)] flex flex-col justify-center px-3 py-1.5 shadow-sm">
               <div className="flex justify-between items-center">
                 <span className="text-[9px] font-mono font-bold text-[var(--color-accent-amber)] uppercase tracking-wider">
                   Pickup PIN
@@ -2275,7 +2275,7 @@ export const CargoForm = ({
             </button>
 
             {batchItems.length > 0 && (
-              <div className="rounded-lg border border-[var(--color-accent-amber)] border-opacity-40 bg-[rgba(245,158,11,0.05)] px-3 py-2 space-y-2">
+              <div className="rounded-lg border border-[var(--color-accent-amber)] border-opacity-40 bg-[rgba(251,191,36,0.05)] px-3 py-2 space-y-2">
                 <div className="text-[11px] font-mono text-[var(--color-muted)]">
                   Batch so far: <span className="font-bold text-[var(--color-foreground)]">{batchItems.length + 1} items</span> · ₦{fmt(batchItems.reduce((s, t) => s + t.amount, 0) + successTx.amount)} for {successTx.name}
                 </div>
@@ -2501,7 +2501,7 @@ export const CargoForm = ({
             </div>
 
             {batchItems.length > 0 && (
-              <div className="mb-4 rounded-lg border border-[var(--color-accent-amber)] border-opacity-40 bg-[rgba(245,158,11,0.05)] px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
+              <div className="mb-4 rounded-lg border border-[var(--color-accent-amber)] border-opacity-40 bg-[rgba(251,191,36,0.05)] px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-1.5 text-[11px] font-mono text-[var(--color-muted)]">
                   <Layers size={13} className="text-[var(--color-accent-amber)]" />
                   Batch for <span className="font-bold text-[var(--color-foreground)]">{batchItems[0]?.name}</span>: {batchItems.length} item(s) · ₦{fmt(batchItems.reduce((s, t) => s + t.amount, 0))} logged so far
@@ -2569,7 +2569,7 @@ export const CargoForm = ({
                   />
                   {/* Active Customer Wallet Banner */}
                   {activeWallet && (
-                    <div className="mt-2 p-2.5 rounded-lg border border-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.08)] flex items-center justify-between gap-2">
+                    <div className="mt-2 p-2.5 rounded-lg border border-[var(--color-accent-amber)] bg-[rgba(251,191,36,0.08)] flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <Coins size={16} className="text-[var(--color-accent-amber)] shrink-0" />
                         <div className="min-w-0">
@@ -2597,7 +2597,7 @@ export const CargoForm = ({
 
                   {/* Office-work detection banner */}
                   {detectedOfficeClient && !linkedAsOfficeWork && (
-                    <div className="mt-2 p-3 rounded-lg border border-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.08)] flex items-start gap-3">
+                    <div className="mt-2 p-3 rounded-lg border border-[var(--color-accent-amber)] bg-[rgba(251,191,36,0.08)] flex items-start gap-3">
                       <AlertTriangle size={16} className="text-[var(--color-accent-amber)] shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
                         <div className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)]">
@@ -2808,7 +2808,7 @@ export const CargoForm = ({
                 padding: "12px 14px",
                 margin: "24px 0 16px 0",
                 background:
-                  "linear-gradient(90deg, rgba(245,158,11,0.06) 0%, transparent 100%)",
+                  "linear-gradient(90deg, rgba(251,191,36,0.06) 0%, transparent 100%)",
                 borderLeft: "3px solid var(--color-accent-amber)",
                 borderRadius: "0 var(--radius-sm) var(--radius-sm) 0",
               }}
@@ -3335,7 +3335,7 @@ export const CargoForm = ({
                     </select>
                   </div>
 
-                  <div className="bg-[rgba(245,158,11,0.03)] border border-[rgba(245,158,11,0.1)] p-3 rounded text-[11px] font-sans text-[var(--color-light-muted)] space-y-1">
+                  <div className="bg-[rgba(251,191,36,0.03)] border border-[rgba(251,191,36,0.1)] p-3 rounded text-[11px] font-sans text-[var(--color-light-muted)] space-y-1">
                     <p className="font-semibold text-[var(--color-accent-amber)] flex items-center gap-1.5">
                       <AlertTriangle size={14} /> INTENTIONAL BUSINESS LOGIC:
                     </p>
@@ -3384,7 +3384,7 @@ export const CargoForm = ({
                                 />{" "}
                                 {pi.consignee}
                               </span>
-                              <span className="font-semibold px-1.5 py-0.5 rounded bg-[rgba(245,158,11,0.08)] text-[var(--color-accent-amber)] font-mono text-[9px]">
+                              <span className="font-semibold px-1.5 py-0.5 rounded bg-[rgba(251,191,36,0.08)] text-[var(--color-accent-amber)] font-mono text-[9px]">
                                 {pi.id}
                               </span>
                             </div>
@@ -3491,7 +3491,7 @@ export const CargoForm = ({
                           }}
                           className={`p-3.5 rounded-md border text-[13px] transition-colors cursor-pointer flex items-center justify-between ${
                             isSelected
-                              ? "bg-[rgba(245,158,11,0.05)] border-[var(--color-accent-amber)] shadow-lg"
+                              ? "bg-[rgba(251,191,36,0.05)] border-[var(--color-accent-amber)] shadow-lg"
                               : "bg-[var(--color-input-bg)] border-[var(--color-border)] hover:border-[var(--color-border-strong)]"
                           }`}
                         >
@@ -3822,12 +3822,12 @@ export const CargoForm = ({
                     {closeDebtSales > 0 && <div className="flex justify-between border-t border-[var(--color-border)] pt-1 mt-1"><span className="text-[var(--color-warning-fg)] font-sans">Unpaid Credit Sales (Owed)</span><span className="text-[var(--color-warning-fg)] font-bold">{fmt(closeDebtSales)}</span></div>}
                     {closeDebtTotalRecoveredToday > 0 && <div className="flex justify-between"><span className="text-[var(--color-success-fg)] font-sans">Debt Collected Today</span><span className="text-[var(--color-success-fg)] font-bold">{fmt(closeDebtTotalRecoveredToday)}</span></div>}
                   </div>
-                  <div className="bg-[rgba(245,158,11,0.1)] border border-[var(--color-accent-amber)] rounded-xl p-4">
+                  <div className="bg-[rgba(251,191,36,0.1)] border border-[var(--color-accent-amber)] rounded-xl p-4">
                     <div className="flex justify-between items-center">
                       <span className="text-[14px] text-[var(--color-accent-amber)] font-bold font-mono">BAL. CASH</span>
                       <span className={`text-[22px] font-bold font-mono ${closeBalanceCash >= 0 ? 'text-[var(--color-accent-amber)]' : 'text-[var(--color-error-fg)]'}`}>{fmt(Math.abs(closeBalanceCash))}</span>
                     </div>
-                    <div className="text-[11px] mt-1 text-[rgba(245,158,11,0.7)]">({fmt(closePhysicalCash)} cash-in-hand − {fmt(closeTotalExpenses)} expenses)</div>
+                    <div className="text-[11px] mt-1 text-[rgba(251,191,36,0.7)]">({fmt(closePhysicalCash)} cash-in-hand − {fmt(closeTotalExpenses)} expenses)</div>
                   </div>
                 </>
               )}

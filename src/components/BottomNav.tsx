@@ -119,7 +119,7 @@ const BottomNavTabs = ({ tabs, currentTab, onChangeTab }: {
           width: 40,
           height: 40,
           background: 'radial-gradient(circle at 35% 30%, var(--color-accent-amber), var(--color-accent-amber) 60%, #C98E28 100%)',
-          boxShadow: '0 6px 16px rgba(240,178,48,0.40), 0 0 0 4px var(--color-obsidian)',
+          boxShadow: '0 6px 16px rgba(251,191,36,0.40), 0 0 0 4px var(--color-obsidian)',
           border: 'none',
           cursor: 'pointer',
           zIndex: 2,

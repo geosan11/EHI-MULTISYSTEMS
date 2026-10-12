@@ -344,7 +344,7 @@ export const ArrivalsView = ({ user, onBack }: { user: User; onBack: () => void 
             className={`flex-1 py-2.5 text-[10px] font-bold font-mono tracking-widest transition-colors cursor-pointer border-none ${
               activeTab === t.key
                 ? t.key === 'AWAITING'
-                  ? 'text-[var(--color-accent-amber)] border-b-2 border-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.05)]'
+                  ? 'text-[var(--color-accent-amber)] border-b-2 border-[var(--color-accent-amber)] bg-[rgba(251,191,36,0.05)]'
                   : t.key === 'DELIVERED'
                     ? 'text-[var(--color-success)] border-b-2 border-[var(--color-success)] bg-[rgba(16,185,129,0.05)]'
                     : 'text-[var(--color-accent-cobalt)] border-b-2 border-[var(--color-accent-cobalt)] bg-[rgba(59,130,246,0.05)]'

@@ -61,7 +61,7 @@ export const Tabs = ({
           {t.label}
           {t.count != null && (
             <span
-              className="ml-0.5 rounded-full px-1.5 text-[9px] leading-[1.4]"
+              className="ml-0.5 rounded-full px-1.5 text-[10px] leading-[1.4]"
               style={{
                 background: active ? 'rgba(0,0,0,0.15)' : 'var(--color-neutral-bg)',
                 color: active ? 'var(--color-on-accent)' : 'var(--color-neutral-fg)',

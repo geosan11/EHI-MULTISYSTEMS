@@ -358,7 +358,7 @@ export const AirlineLedger = ({ user, onBack }: { user: User; onBack: () => void
                 <span>Debits: <strong>{fmt(summary.debits)}</strong></span>
               </div>
               {summary.cheques > 0 && (
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[rgba(245,158,11,0.08)] border border-[rgba(245,158,11,0.2)] text-[var(--color-accent-amber)] text-[10px] font-mono">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[rgba(251,191,36,0.08)] border border-[rgba(251,191,36,0.2)] text-[var(--color-accent-amber)] text-[10px] font-mono">
                   <CreditCard size={11} />
                   <span>Cheques: <strong>{fmt(summary.cheques)}</strong></span>
                 </div>
@@ -557,7 +557,7 @@ const typeColor: Record<EntryType, string> = {
   Credit: 'bg-[rgba(16,185,129,0.15)] border-[rgba(16,185,129,0.4)] text-[var(--color-success)]',
   Debit: 'bg-[rgba(239,68,68,0.15)] border-[rgba(239,68,68,0.4)] text-[var(--color-error)]',
   'Cheque Raise':
-    'bg-[rgba(245,158,11,0.15)] border-[rgba(245,158,11,0.4)] text-[var(--color-accent-amber)]',
+    'bg-[rgba(251,191,36,0.15)] border-[rgba(251,191,36,0.4)] text-[var(--color-accent-amber)]',
 };
 
 const typeInactive =

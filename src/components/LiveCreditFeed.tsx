@@ -64,8 +64,8 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
     // Uses its own classes -- not `ehi-credit-feed` (that is the expanded
     // side panel below).
     return (
-      <div className="select-none" style={{ position: 'fixed', top: '50%', right: 12, transform: 'translateY(-50%)', zIndex: 20 }}>
-        <div className="w-11 rounded-2xl bg-[var(--color-surface-card)] border border-[rgba(245,158,11,0.35)] shadow-[var(--shadow-dropdown),0_0_18px_-6px_rgba(245,158,11,0.35)] flex flex-col items-center py-3 gap-3 transition-all">
+      <div className="select-none" style={{ position: 'fixed', top: '50%', right: 0, transform: 'translateY(-50%)', zIndex: 20 }}>
+        <div className="w-9 rounded-l-xl rounded-r-none bg-[var(--color-surface-card)] border border-r-0 border-[var(--color-border-strong)] shadow-[var(--shadow-sm)] flex flex-col items-center py-2.5 gap-2.5 transition-colors hover:border-[var(--color-accent-amber)]">
           <button
             type="button"
             onClick={() => setCollapsed(false)}
@@ -109,7 +109,7 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
               LIVE CREDIT & RETRIEVAL FEED
               <Sparkles size={10} className="text-[var(--color-accent-amber)]" />
             </div>
-            <div className="text-[9px] font-mono text-[var(--color-muted)]">
+            <div className="text-[10px] font-mono text-[var(--color-muted)]">
               Liability: <span className="text-[var(--color-foreground)] font-bold">₦{fmt(totalLiability)}</span>
             </div>
           </div>
@@ -142,7 +142,7 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
           type="button"
           onClick={() => setActiveTab('wallets')}
           className={`flex-1 py-1 text-[10px] font-mono font-bold rounded transition-colors cursor-pointer flex items-center justify-center gap-1 ${activeTab === 'wallets'
-              ? 'bg-[var(--color-surface-2)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.2)]'
+              ? 'bg-[var(--color-surface-2)] text-[var(--color-accent-amber)] border border-[rgba(251,191,36,0.2)]'
               : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
             }`}
         >
@@ -152,7 +152,7 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
           type="button"
           onClick={() => setActiveTab('activity')}
           className={`flex-1 py-1 text-[10px] font-mono font-bold rounded transition-colors cursor-pointer flex items-center justify-center gap-1 ${activeTab === 'activity'
-              ? 'bg-[var(--color-surface-2)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.2)]'
+              ? 'bg-[var(--color-surface-2)] text-[var(--color-accent-amber)] border border-[rgba(251,191,36,0.2)]'
               : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
             }`}
         >
@@ -180,7 +180,7 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
                       {w.customer_name}
                     </button>
                     {w.customer_phone && (
-                      <div className="text-[9px] font-mono text-[var(--color-muted)] mt-0.5">
+                      <div className="text-[10px] font-mono text-[var(--color-muted)] mt-0.5">
                         {w.customer_phone}
                       </div>
                     )}
@@ -189,7 +189,7 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
                     <div className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)] leading-tight">
                       ₦{fmt(w.balance)}
                     </div>
-                    <div className="text-[8px] font-mono text-[var(--color-success)] uppercase">
+                    <div className="text-[10px] font-mono text-[var(--color-success)] uppercase">
                       Credit
                     </div>
                   </div>
@@ -200,7 +200,7 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onOpenTopUp(w.customer_name); }}
-                      className="flex-1 py-1 bg-[rgba(245,158,11,0.12)] hover:bg-[var(--color-accent-amber)] text-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] rounded-lg font-bold text-center transition-colors cursor-pointer flex items-center justify-center gap-1"
+                      className="flex-1 py-1 bg-[rgba(251,191,36,0.12)] hover:bg-[var(--color-accent-amber)] text-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] rounded-lg font-bold text-center transition-colors cursor-pointer flex items-center justify-center gap-1"
                     >
                       <Plus size={11} /> Top Up
                     </button>
@@ -245,7 +245,7 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
                   key={tx.id}
                   className={`p-2.5 rounded-xl border space-y-1.5 transition-all ${isRetrieval
                       ? 'bg-[rgba(16,185,129,0.06)] border-[rgba(16,185,129,0.25)]'
-                      : 'bg-[rgba(245,158,11,0.06)] border-[rgba(245,158,11,0.25)]'
+                      : 'bg-[rgba(251,191,36,0.06)] border-[rgba(251,191,36,0.25)]'
                     }`}
                 >
                   <div className="flex items-center justify-between text-[11px] font-mono">
@@ -312,12 +312,12 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
           <div className="p-3 bg-[var(--color-surface-2)] border-b border-[var(--color-border)] flex items-center justify-between shrink-0">
             <div className="min-w-0">
               <div className="text-[11px] font-bold font-sans text-[var(--color-foreground)] truncate">{drawerWallet.customer_name}</div>
-              <div className="text-[9px] font-mono text-[var(--color-muted)]">{drawerWallet.customer_phone || 'No phone'}</div>
+              <div className="text-[10px] font-mono text-[var(--color-muted)]">{drawerWallet.customer_phone || 'No phone'}</div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <div className="text-right">
                 <div className="text-[14px] font-bold font-mono text-[var(--color-accent-amber)]">₦{fmt(drawerWallet.balance)}</div>
-                <div className="text-[8px] font-mono text-[var(--color-success)] uppercase">Credit Balance</div>
+                <div className="text-[10px] font-mono text-[var(--color-success)] uppercase">Credit Balance</div>
               </div>
               <button
                 type="button"
@@ -331,7 +331,7 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
 
           {/* Recent Activity */}
           <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
-            <div className="text-[9px] font-mono text-[var(--color-muted)] uppercase tracking-wider px-1 pb-1">Recent Transactions</div>
+            <div className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wider px-1 pb-1">Recent Transactions</div>
             {transactions
               .filter(t =>
                 (t.name || '').toLowerCase() === (drawerWallet.customer_name || '').toLowerCase() ||
@@ -342,11 +342,11 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
                 <div key={i} className="p-2 bg-[var(--color-surface-2)] rounded-lg border border-[var(--color-border)] flex items-center justify-between gap-2">
                   <div className="min-w-0">
                     <div className="text-[10px] font-mono font-bold text-[var(--color-foreground)] truncate">{(t as any).id || 'TX'}</div>
-                    <div className="text-[9px] font-mono text-[var(--color-muted)] truncate">{t.detail || t.mode}</div>
+                    <div className="text-[10px] font-mono text-[var(--color-muted)] truncate">{t.detail || t.mode}</div>
                   </div>
                   <div className="text-right shrink-0">
                     <div className="text-[11px] font-mono font-bold text-[var(--color-success)]">₦{fmt(t.amount)}</div>
-                    <div className="text-[8px] font-mono text-[var(--color-muted)]">{t.mode}</div>
+                    <div className="text-[10px] font-mono text-[var(--color-muted)]">{t.mode}</div>
                   </div>
                 </div>
               ))}

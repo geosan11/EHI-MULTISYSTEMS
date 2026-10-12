@@ -463,7 +463,7 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
   const renderStep1 = () => (
     <div className="animate-in fade-in space-y-4">
       {/* Shift window being closed */}
-      <div className="ehi-card p-3 flex items-center gap-2 bg-[rgba(245,158,11,0.04)] border-[var(--color-accent-amber)]">
+      <div className="ehi-card p-3 flex items-center gap-2 bg-[rgba(251,191,36,0.04)] border-[var(--color-accent-amber)]">
         <span className="text-[10px] font-mono text-[var(--color-accent-amber)] uppercase tracking-wider shrink-0">SHIFT</span>
         <span className="text-[11px] font-mono text-[var(--color-foreground)]">{shiftLabel}</span>
       </div>
@@ -473,7 +473,7 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
         <div className="px-3 pt-2 pb-1">
           <span className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wider">New Sales This Shift</span>
         </div>
-        <div className="p-3 border-b border-[var(--color-border)] flex justify-between items-center bg-[rgba(245,158,11,0.05)]">
+        <div className="p-3 border-b border-[var(--color-border)] flex justify-between items-center bg-[rgba(251,191,36,0.05)]">
           <span className="text-[11px] font-mono text-[var(--color-muted)]">Cargo Station</span>
           <span className="text-[14px] font-bold font-mono text-[var(--color-accent-amber)]">{fmt(expectedTotals.cargoTotal)}</span>
         </div>
@@ -689,7 +689,7 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
             Short {fmt(Math.abs(variance))}
           </span>
         ) : (
-          <span className="text-[12px] font-mono text-[var(--color-accent-amber)] bg-[rgba(245,158,11,0.1)] px-2 py-0.5 rounded flex items-center">
+          <span className="text-[12px] font-mono text-[var(--color-accent-amber)] bg-[rgba(251,191,36,0.1)] px-2 py-0.5 rounded flex items-center">
             Over {fmt(variance)}
           </span>
         )}
@@ -764,7 +764,7 @@ export const EODReconciliation = ({ user, transactions, expenses, onBack, onEOD 
           <button 
             onClick={handlePrint}
             disabled={isGenerating}
-            className="flex-1 py-3 border border-[rgba(245,158,11,0.4)] text-[var(--color-accent-amber)] text-[11px] font-bold font-mono rounded cursor-pointer flex items-center justify-center bg-transparent hover:bg-[rgba(245,158,11,0.05)]"
+            className="flex-1 py-3 border border-[rgba(251,191,36,0.4)] text-[var(--color-accent-amber)] text-[11px] font-bold font-mono rounded cursor-pointer flex items-center justify-center bg-transparent hover:bg-[rgba(251,191,36,0.05)]"
           >
             🖨 PRINT
           </button>

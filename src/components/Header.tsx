@@ -59,7 +59,7 @@ export const Header = ({
 
   const getRoleColor = (role: string): { bg: string; border: string; text: string } => {
     switch (role) {
-      case 'super_admin': return { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.3)', text: 'var(--color-accent-amber)' };
+      case 'super_admin': return { bg: 'rgba(251,191,36,0.12)', border: 'rgba(251,191,36,0.3)', text: 'var(--color-accent-amber)' };
       case 'admin': return { bg: 'rgba(59,130,246,0.12)', border: 'rgba(59,130,246,0.3)', text: 'var(--color-accent-cobalt)' };
       case 'cargo_agent': return { bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.3)', text: 'var(--color-success)' };
       case 'baggage_agent': return { bg: 'rgba(139,92,246,0.12)', border: 'rgba(139,92,246,0.3)', text: 'var(--color-purple)' };
@@ -67,7 +67,7 @@ export const Header = ({
       case 'auditor': return { bg: 'rgba(249,115,22,0.12)', border: 'rgba(249,115,22,0.3)', text: '#f97316' };
       case 'driver': return { bg: 'rgba(100,116,139,0.12)', border: 'rgba(100,116,139,0.3)', text: '#64748b' };
       case 'marketing_agent': return { bg: 'rgba(16,185,129,0.10)', border: 'rgba(16,185,129,0.25)', text: 'var(--color-success)' };
-      default: return { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.2)', text: 'var(--color-accent-amber)' };
+      default: return { bg: 'rgba(251,191,36,0.12)', border: 'rgba(251,191,36,0.2)', text: 'var(--color-accent-amber)' };
     }
   };
 
@@ -175,7 +175,7 @@ export const Header = ({
                 if (onManualSync) onManualSync();
               }}
               title="Click to force sync offline entries"
-              className="px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 bg-[rgba(245,158,11,0.15)] border border-[rgba(245,158,11,0.35)] text-[var(--color-accent-amber)] font-mono text-[10px] font-bold animate-pulse cursor-pointer hover:bg-[rgba(245,158,11,0.30)] hover:scale-105 active:scale-95 transition-all shadow-md"
+              className="px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 bg-[rgba(251,191,36,0.15)] border border-[rgba(251,191,36,0.35)] text-[var(--color-accent-amber)] font-mono text-[10px] font-bold animate-pulse cursor-pointer hover:bg-[rgba(251,191,36,0.30)] hover:scale-105 active:scale-95 transition-all shadow-md"
             >
               <RefreshCw size={11} className="animate-spin" />
               <span>{pendingCount} Queued</span>
@@ -296,7 +296,7 @@ export const Header = ({
                   <div style={{
                     padding: '12px 14px',
                     borderBottom: '1px solid var(--color-border)',
-                    background: 'linear-gradient(135deg, rgba(245,158,11,0.06) 0%, transparent 100%)',
+                    background: 'linear-gradient(135deg, rgba(251,191,36,0.06) 0%, transparent 100%)',
                   }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-foreground)' }}>
                       {user.name}

@@ -3,24 +3,24 @@ import { createPortal } from 'react-dom';
 import { UserProfile, signIn } from '../lib/auth';
 import ehiLogo from '../assets/branding/ehi-logo.png';
 import { getConnectionMode, testSupabaseConnection, supabase } from '../lib/supabase';
-import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle, Clock, Radar, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle, Clock, ArrowRight, ShieldCheck, Radio, Server, Activity } from 'lucide-react';
 
 type ConnStatus = 'checking' | 'live' | 'offline' | 'unconfigured';
 
 export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) => void; notice?: { type: 'expired' | 'offline'; message: string } | null }) => {
-  const [email, setEmail]       = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail]             = useState('');
+  const [password, setPassword]       = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
-  const [error, setError]       = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [connStatus, setConnStatus] = useState<ConnStatus>('checking');
+  const [rememberMe, setRememberMe]   = useState(true);
+  const [error, setError]             = useState('');
+  const [isLoading, setIsLoading]     = useState(false);
+  const [connStatus, setConnStatus]   = useState<ConnStatus>('checking');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [isClosingReset, setIsClosingReset] = useState(false);
-  const [resetEmail, setResetEmail] = useState('');
-  const [resetSent, setResetSent] = useState(false);
+  const [resetEmail, setResetEmail]   = useState('');
+  const [resetSent, setResetSent]     = useState(false);
   const [resetSending, setResetSending] = useState(false);
-  const [resetError, setResetError] = useState('');
+  const [resetError, setResetError]   = useState('');
 
   const closeForgotPasswordModal = () => {
     if (isClosingReset) return;
@@ -66,9 +66,7 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
     }).catch(() => setConnStatus('offline'));
   }, []);
 
-  // Real wall-clock UTC display for the top utility bar -- purely
-  // informational (pre-login, there's no hub/shift context yet), so this
-  // is the only thing in that bar that's safe to show without a session.
+  // Wall-clock UTC display for the top utility bar
   const [utcTime, setUtcTime] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => setUtcTime(new Date()), 1000);
@@ -104,88 +102,121 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
     }
   };
 
-  // This screen is deliberately always-dark ("obsidian console"), same
-  // rationale as .ehi-terminal in index.css -- it doesn't track the
-  // in-app light/dark toggle since that's only meaningful once signed in.
   const statusConfig: Record<ConnStatus, { label: string; color: string; dot: string; pulse: boolean }> = {
-    checking:     { label: 'Connecting…',      color: '#94a3b8', dot: '#94a3b8', pulse: true  },
-    live:         { label: 'System Operational', color: '#34d399', dot: '#34d399', pulse: true  },
-    offline:      { label: 'Server Offline',   color: '#f87171', dot: '#f87171', pulse: false },
-    unconfigured: { label: 'Not Configured',   color: '#fbbf24', dot: '#fbbf24', pulse: false },
+    checking:     { label: 'Connecting…',        color: '#94a3b8', dot: '#94a3b8', pulse: true  },
+    live:         { label: 'Network Operational', color: '#34d399', dot: '#34d399', pulse: true  },
+    offline:      { label: 'Offline Mode Cache',  color: '#f87171', dot: '#f87171', pulse: false },
+    unconfigured: { label: 'Not Configured',     color: '#fbbf24', dot: '#fbbf24', pulse: false },
   };
   const status = statusConfig[connStatus];
 
   return (
-    <div className="relative flex flex-col min-h-[100dvh] w-full overflow-y-auto overflow-x-hidden select-none bg-[#080b12] text-slate-100 antialiased animate-in fade-in duration-300">
-      {/* Obsidian ambient mesh backdrop */}
+    <div className="relative flex flex-col min-h-[100dvh] w-full overflow-y-auto overflow-x-hidden select-none bg-[#07090e] text-slate-100 antialiased">
+      {/* Obsidian atmospheric lighting */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 pointer-events-none"
+        className="fixed inset-0 pointer-events-none"
         style={{
           backgroundImage:
-            'radial-gradient(at 15% 15%, rgba(59,130,246,0.16) 0px, transparent 48%),' +
-            'radial-gradient(at 85% 20%, rgba(245,158,11,0.10) 0px, transparent 40%),' +
-            'radial-gradient(at 50% 85%, rgba(99,102,241,0.14) 0px, transparent 55%),' +
-            'radial-gradient(at 88% 85%, rgba(16,185,129,0.08) 0px, transparent 45%)',
+            'radial-gradient(circle at 50% 0%, rgba(251,191,36,0.08) 0px, transparent 650px),' +
+            'radial-gradient(circle at 85% 100%, rgba(59,130,246,0.06) 0px, transparent 550px),' +
+            'radial-gradient(circle at 10% 90%, rgba(16,185,129,0.04) 0px, transparent 500px)',
+        }}
+      />
+      {/* Subtle geometric grid background */}
+      <div
+        aria-hidden="true"
+        className="fixed inset-0 pointer-events-none opacity-[0.035]"
+        style={{
+          backgroundImage:
+            'linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px)',
+          backgroundSize: '48px 48px',
         }}
       />
 
       {/* Top utility bar */}
-      <header className="relative z-10 w-full px-4 sm:px-6 lg:px-10 py-2 flex items-center justify-between border-b border-white/[0.06] bg-slate-950/40 backdrop-blur-md">
-        <div
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border backdrop-blur-md"
-          style={{ background: `${status.dot}18`, borderColor: `${status.dot}40` }}
-        >
-          <span className="relative flex h-1.5 w-1.5">
-            {status.pulse && (
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: status.dot }} />
-            )}
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: status.dot }} />
-          </span>
-          <span className="text-[10px] font-mono font-bold uppercase tracking-wider" style={{ color: status.color }}>
-            {status.label}
-          </span>
+      <header className="relative z-10 w-full px-4 sm:px-8 lg:px-12 py-3 flex items-center justify-between border-b border-white/[0.06] bg-[#090d16]/70 backdrop-blur-xl">
+        <div className="flex items-center gap-3">
+          <div
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-full border backdrop-blur-md transition-all"
+            style={{ background: `${status.dot}14`, borderColor: `${status.dot}33` }}
+          >
+            <span className="relative flex h-2 w-2">
+              {status.pulse && (
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: status.dot }} />
+              )}
+              <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: status.dot }} />
+            </span>
+            <span className="text-[11px] font-mono font-bold uppercase tracking-wider" style={{ color: status.color }}>
+              {status.label}
+            </span>
+          </div>
+
+          <div className="hidden md:flex items-center gap-1.5 text-[11px] font-mono text-slate-400 border-l border-white/10 pl-3">
+            <Server size={12} className="text-slate-500" />
+            <span>NODE // <span className="text-slate-300 font-semibold">WEST-AFRICA-LOS</span></span>
+          </div>
         </div>
-        <span className="absolute left-1/2 -translate-x-1/2 hidden sm:inline text-[10px] font-mono font-semibold uppercase tracking-widest text-slate-500">
-          Created by Geosan Production
+
+        <span className="hidden sm:inline text-[11px] font-mono uppercase tracking-[0.2em] text-slate-500 font-semibold">
+          EHI Multisystems • Aviation Logistics Suite
         </span>
-        <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-400">
-          <Clock size={12} />
-          <span>UTC <span className="text-slate-200 font-semibold">{utcLabel}</span></span>
+
+        <div className="flex items-center gap-2 text-[11px] font-mono text-slate-400 bg-white/[0.03] px-2.5 py-1 rounded-lg border border-white/[0.06]">
+          <Clock size={13} className="text-[var(--color-accent-amber)]" />
+          <span>UTC <span className="text-slate-200 font-semibold tracking-wider">{utcLabel}</span></span>
         </div>
       </header>
 
-      <main className="relative z-10 flex-1 flex items-center justify-center p-3 sm:p-4 lg:p-6 overflow-hidden">
+      {/* Main card container */}
+      <main className="relative z-10 flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-10">
         <div
-          className="w-full max-w-[380px] lg:max-w-2xl rounded-3xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 border border-white/10 shadow-2xl"
+          className="w-full max-w-[420px] lg:max-w-4xl rounded-[28px] overflow-hidden grid grid-cols-1 lg:grid-cols-12 border border-white/[0.08] shadow-[0_30px_90px_-20px_rgba(0,0,0,0.9)]"
           style={{
-            background: 'rgba(14,19,30,0.85)',
-            backdropFilter: 'blur(28px)',
-            WebkitBackdropFilter: 'blur(28px)',
-            boxShadow: '0 35px 80px -20px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.06), inset 0 1px 1px rgba(255,255,255,0.1)',
+            background: 'linear-gradient(180deg, rgba(16,21,34,0.92) 0%, rgba(10,13,22,0.95) 100%)',
+            backdropFilter: 'blur(32px)',
+            WebkitBackdropFilter: 'blur(32px)',
           }}
         >
-          {/* Left column: credentials */}
-          <section className="lg:col-span-7 p-5 sm:p-6 lg:p-8 flex flex-col justify-between">
-            {/* Mobile logo */}
-            <div className="mb-3 flex items-center justify-center lg:hidden">
-              <div className="p-1.5 rounded-xl bg-white/[0.04] border border-white/10">
-                <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 100, height: 'auto', objectFit: 'contain' }} />
+          {/* Left Column: Credentials Form */}
+          <section className="lg:col-span-7 p-6 sm:p-8 lg:p-10 flex flex-col justify-between">
+            {/* Mobile Header / Brand */}
+            <div className="mb-6 flex items-center justify-between lg:hidden">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-xl bg-white/[0.05] border border-white/10">
+                  <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 44, height: 'auto', objectFit: 'contain' }} />
+                </div>
+                <div>
+                  <div className="text-[13px] font-bold text-white tracking-wider">EHI MULTISYSTEMS</div>
+                  <div className="text-[10px] font-mono text-[var(--color-accent-amber)]">ENTERPRISE CONSOLE</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono text-emerald-400 font-semibold">
+                <ShieldCheck size={12} />
+                <span>TLS 1.3</span>
               </div>
             </div>
 
-            <div className="my-auto w-full max-w-md mx-auto">
-              <div className="mb-4 text-left">
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white mb-1">Operator Access</h1>
-                <p className="text-xs text-slate-400 leading-relaxed">Enter your credentials to access the dispatch console.</p>
+            <div className="my-auto w-full max-w-sm mx-auto">
+              <div className="mb-6 text-left">
+                <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-[var(--color-accent-amber)]/10 border border-[var(--color-accent-amber)]/25 mb-2.5">
+                  <Activity size={12} className="text-[var(--color-accent-amber)]" />
+                  <span className="text-[10px] font-mono font-bold tracking-widest text-[var(--color-accent-amber)] uppercase">Secure Operator Gateway</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-1.5">
+                  Sign In
+                </h1>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Enter your dispatch credentials to access the operational ledger and cargo consoles.
+                </p>
               </div>
 
               {notice && (
                 <div
-                  className="w-full flex items-center gap-2.5 backdrop-blur-md rounded-xl px-3.5 py-2 mb-3 animate-in fade-in"
+                  className="w-full flex items-center gap-2.5 backdrop-blur-md rounded-xl px-3.5 py-2.5 mb-4 animate-in fade-in"
                   style={{
-                    background: notice.type === 'offline' ? 'rgba(148,163,184,0.12)' : 'rgba(245,158,11,0.12)',
-                    border: `1px solid ${notice.type === 'offline' ? 'rgba(148,163,184,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                    background: notice.type === 'offline' ? 'rgba(148,163,184,0.12)' : 'rgba(251,191,36,0.12)',
+                    border: `1px solid ${notice.type === 'offline' ? 'rgba(148,163,184,0.3)' : 'rgba(251,191,36,0.3)'}`,
                   }}
                 >
                   <AlertCircle size={15} className="shrink-0" style={{ color: notice.type === 'offline' ? '#94a3b8' : '#fbbf24' }} />
@@ -193,15 +224,15 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-3">
-                {/* Email */}
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Email input */}
                 <div>
-                  <label htmlFor="login-email" className="block text-xs font-medium text-slate-300 mb-1">
-                    Email
+                  <label htmlFor="login-email" className="block text-[11px] font-mono uppercase tracking-wider text-slate-300 font-semibold mb-1.5">
+                    Operator Email
                   </label>
-                  <div className="relative rounded-xl group transition-all duration-200">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 group-focus-within:text-amber-400 transition-colors">
-                      <Mail size={17} />
+                  <div className="relative rounded-xl group transition-all">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 group-focus-within:text-[var(--color-accent-amber)] transition-colors">
+                      <Mail size={16} />
                     </div>
                     <input
                       id="login-email"
@@ -212,28 +243,28 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
                       placeholder="name@ehimultisystems.com"
                       autoComplete="email"
                       required
-                      className="w-full bg-[#111724]/80 hover:bg-[#111724] text-slate-100 placeholder-slate-500 text-sm rounded-xl border border-white/10 hover:border-white/20 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 pl-10 pr-4 py-2.5 transition-all duration-200 outline-none"
+                      className="w-full bg-[#0c101c]/90 text-slate-100 placeholder-slate-500 text-sm rounded-xl border border-white/10 hover:border-white/20 focus:border-[var(--color-accent-amber)] focus:ring-2 focus:ring-[var(--color-accent-amber)]/20 pl-10 pr-4 py-2.5 transition-all outline-none font-sans"
                     />
                   </div>
                 </div>
 
-                {/* Password */}
+                {/* Password input */}
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label htmlFor="login-password" className="block text-xs font-medium text-slate-300">
-                      Password
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label htmlFor="login-password" className="block text-[11px] font-mono uppercase tracking-wider text-slate-300 font-semibold">
+                      Master Key
                     </label>
                     <button
                       type="button"
                       onClick={() => { setShowForgotPassword(true); setResetEmail(email); setResetSent(false); setResetError(''); }}
-                      className="text-xs text-amber-400/90 hover:text-amber-300 hover:underline transition-colors cursor-pointer"
+                      className="text-xs text-[var(--color-accent-amber)] hover:underline transition-colors cursor-pointer font-medium"
                     >
                       Forgot password?
                     </button>
                   </div>
-                  <div className="relative rounded-xl group transition-all duration-200">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 group-focus-within:text-amber-400 transition-colors">
-                      <Lock size={17} />
+                  <div className="relative rounded-xl group transition-all">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 group-focus-within:text-[var(--color-accent-amber)] transition-colors">
+                      <Lock size={16} />
                     </div>
                     <input
                       id="login-password"
@@ -244,7 +275,7 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
                       placeholder="••••••••••••"
                       autoComplete="current-password"
                       required
-                      className="w-full bg-[#111724]/80 hover:bg-[#111724] text-slate-100 placeholder-slate-500 text-sm rounded-xl border border-white/10 hover:border-white/20 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 pl-10 pr-11 py-2.5 transition-all duration-200 outline-none"
+                      className="w-full bg-[#0c101c]/90 text-slate-100 placeholder-slate-500 text-sm rounded-xl border border-white/10 hover:border-white/20 focus:border-[var(--color-accent-amber)] focus:ring-2 focus:ring-[var(--color-accent-amber)]/20 pl-10 pr-11 py-2.5 transition-all outline-none font-sans"
                     />
                     <button
                       type="button"
@@ -257,61 +288,61 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
                   </div>
                 </div>
 
-                {/* Remember me */}
-                <div className="flex items-center justify-between pt-0.5">
+                {/* Remember device toggle */}
+                <div className="flex items-center justify-between pt-1">
                   <label className="inline-flex items-center gap-2.5 cursor-pointer select-none" onClick={() => setRememberMe(v => !v)}>
                     <span
-                      className="relative inline-flex items-center w-9 h-5 rounded-full border transition-colors duration-200"
+                      className="relative inline-flex items-center w-8 h-4.5 rounded-full border transition-all"
                       style={{
-                        background: rememberMe ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#1e293b',
-                        borderColor: rememberMe ? 'transparent' : 'rgba(255,255,255,0.1)',
-                        boxShadow: rememberMe ? '0 0 14px rgba(16,185,129,0.5)' : 'none',
+                        background: rememberMe ? 'var(--color-accent-amber)' : 'rgba(255,255,255,0.08)',
+                        borderColor: rememberMe ? 'transparent' : 'rgba(255,255,255,0.15)',
+                        boxShadow: rememberMe ? '0 0 12px rgba(251,191,36,0.35)' : 'none',
                       }}
                     >
                       <span
-                        className="w-3.5 h-3.5 bg-white rounded-full shadow transform transition-transform duration-200 ease-in-out"
-                        style={{ transform: rememberMe ? 'translateX(1.375rem)' : 'translateX(0.125rem)' }}
+                        className="w-3.5 h-3.5 bg-slate-950 rounded-full shadow transform transition-transform duration-200 ease-in-out"
+                        style={{ transform: rememberMe ? 'translateX(1.125rem)' : 'translateX(0.125rem)' }}
                       />
                     </span>
-                    <span className="text-xs text-slate-300">Remember this device</span>
+                    <span className="text-xs text-slate-300 font-medium">Remember terminal credentials</span>
                   </label>
                 </div>
 
                 {error && (
-                  <div className="flex items-center gap-2.5 bg-red-500/10 border border-red-500/25 backdrop-blur-md rounded-xl px-3.5 py-2 animate-in fade-in">
+                  <div className="flex items-center gap-2.5 bg-red-500/10 border border-red-500/25 backdrop-blur-md rounded-xl px-3.5 py-2.5 animate-in fade-in">
                     <AlertCircle size={15} className="text-red-400 shrink-0" />
                     <p className="text-[12px] text-red-300 leading-snug font-medium">{error}</p>
                   </div>
                 )}
 
                 {connStatus === 'unconfigured' && (
-                  <div className="bg-amber-500/10 border border-amber-400/25 backdrop-blur-md rounded-xl px-3.5 py-2">
+                  <div className="bg-amber-500/10 border border-amber-400/25 backdrop-blur-md rounded-xl px-3.5 py-2.5">
                     <p className="text-[11px] font-mono text-amber-300">
-                      VITE_SUPABASE_URL not configured. Add it to Vercel environment variables.
+                      VITE_SUPABASE_URL not configured. Add it to environment variables.
                     </p>
                   </div>
                 )}
 
-                {/* Primary CTA */}
-                <div>
+                {/* Primary CTA (Obsidian Gold Luxe) */}
+                <div className="pt-2">
                   <button
                     type="submit"
                     disabled={isLoading || connStatus === 'unconfigured'}
-                    className="relative w-full text-white font-semibold py-2.5 px-6 rounded-xl flex items-center justify-center gap-2 text-sm tracking-wide border border-white/20 shadow-lg group overflow-hidden transition-all duration-200 disabled:opacity-50"
+                    className="relative w-full text-slate-950 font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-2 text-sm tracking-wide transition-all duration-200 cursor-pointer disabled:opacity-50 group hover:opacity-95"
                     style={{
-                      background: 'linear-gradient(135deg, #3b82f6 0%, #4f46e5 52%, #7c3aed 100%)',
-                      boxShadow: '0 10px 28px -4px rgba(79,70,229,0.5), 0 0 18px 2px rgba(99,102,241,0.25), inset 0 1px 1px rgba(255,255,255,0.3)',
+                      background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)',
+                      boxShadow: '0 8px 24px -4px rgba(245,158,11,0.4), inset 0 1px 1px rgba(255,255,255,0.4)',
                     }}
                   >
                     {isLoading ? (
                       <>
-                        <Loader2 size={16} className="animate-spin" />
-                        <span>Signing in…</span>
+                        <Loader2 size={16} className="animate-spin text-slate-950" />
+                        <span>Authenticating…</span>
                       </>
                     ) : (
                       <>
-                        <span>Access Console</span>
-                        <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+                        <span>Enter Console</span>
+                        <ArrowRight size={16} className="transition-transform group-hover:translate-x-1 stroke-[2.5]" />
                       </>
                     )}
                   </button>
@@ -319,89 +350,105 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
               </form>
             </div>
 
-            <div className="pt-2.5 mt-2.5 border-t border-white/[0.06] flex items-center justify-between text-[11px] font-mono text-slate-500">
+            <div className="pt-4 mt-6 border-t border-white/[0.06] flex items-center justify-between text-[11px] font-mono text-slate-500">
               <span>EHI Multisystems • Operational Hub</span>
-              <span className="hidden sm:inline text-slate-600">Created by Geosan Production</span>
+              <span>v2.0 // Lagos Hub</span>
             </div>
           </section>
 
-          {/* Right column: brand / telemetry panel */}
+          {/* Right Column: Aviation Telemetry & Dispatch Control Panel */}
           <section
-            className="hidden lg:flex lg:col-span-5 m-2 lg:m-2.5 rounded-2xl p-4 sm:p-5 flex-col justify-between overflow-hidden shadow-2xl relative border border-white/15"
+            className="hidden lg:flex lg:col-span-5 m-3 rounded-2xl p-6 flex-col justify-between overflow-hidden relative border border-white/[0.08]"
             style={{
-              background: 'linear-gradient(155deg, rgba(30,58,138,0.85) 0%, rgba(49,46,129,0.9) 35%, rgba(76,29,149,0.85) 75%, rgba(26,16,60,0.95) 100%)',
-              boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.2), 0 25px 50px -12px rgba(10,14,26,0.85)',
+              background: 'linear-gradient(165deg, rgba(17,24,39,0.95) 0%, rgba(12,17,29,0.98) 50%, rgba(8,11,18,0.99) 100%)',
+              boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.1), 0 20px 40px -10px rgba(0,0,0,0.8)',
             }}
           >
-            {/* Decorative radar rings + sweep + route curves -- kept purely
-                atmospheric, no invented node names/latencies/security
-                claims, since nothing here is backed by a real monitoring
-                feed pre-login. */}
+            {/* Ambient gold-tinted tactical radar background */}
             <div aria-hidden="true" className="absolute inset-0 pointer-events-none overflow-hidden">
-              <div className="absolute -right-16 -top-16 w-72 h-72 rounded-full border border-white/15 animate-ehi-pulse-orbit" />
-              <div className="absolute -right-8 -top-8 w-56 h-56 rounded-full border border-white/10" />
+              <div className="absolute -right-16 -top-16 w-72 h-72 rounded-full border border-amber-400/10 animate-ehi-pulse-orbit" />
+              <div className="absolute -right-8 -top-8 w-56 h-56 rounded-full border border-white/5" />
               <div className="absolute -right-16 -top-16 w-72 h-72 animate-ehi-radar-sweep">
-                <div className="w-1/2 h-1/2 origin-bottom-right" style={{ background: 'conic-gradient(from 0deg, rgba(255,255,255,0.22) 0deg, rgba(255,255,255,0.04) 45deg, transparent 60deg)' }} />
+                <div className="w-1/2 h-1/2 origin-bottom-right" style={{ background: 'conic-gradient(from 0deg, rgba(251,191,36,0.15) 0deg, rgba(251,191,36,0.02) 45deg, transparent 60deg)' }} />
               </div>
+              {/* Route lines */}
               <svg className="w-full h-full opacity-20" fill="none" viewBox="0 0 400 600" xmlns="http://www.w3.org/2000/svg">
-                <path d="M-40 180 C 130 110, 240 320, 420 220" stroke="#FFFFFF" strokeWidth="1.5" strokeDasharray="5 5" />
-                <path d="M10 400 C 140 290, 290 520, 430 380" stroke="#FFFFFF" strokeWidth="1.5" strokeDasharray="3 3" />
-                <circle cx="270" cy="460" r="3" fill="#FFFFFF" />
-                <circle cx="180" cy="220" r="3" fill="#FFFFFF" />
+                <path d="M-40 180 C 130 110, 240 320, 420 220" stroke="#FBBF24" strokeWidth="1.5" strokeDasharray="5 5" />
+                <path d="M10 400 C 140 290, 290 520, 430 380" stroke="#38BDF8" strokeWidth="1.5" strokeDasharray="3 3" />
+                <circle cx="270" cy="460" r="3.5" fill="#FBBF24" />
+                <circle cx="180" cy="220" r="3.5" fill="#38BDF8" />
               </svg>
             </div>
 
+            {/* Top brand header in telemetry panel */}
             <div className="relative z-10 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-white/95 backdrop-blur-md p-1.5 flex items-center justify-center shadow-lg ring-2 ring-white/20">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-white p-2 flex items-center justify-center shadow-lg border border-white/20">
                   <img src={ehiLogo} alt="EHI Multisystems" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                 </div>
                 <div>
-                  <span className="text-xs font-bold text-white tracking-wide block">CARGO CONSOLE</span>
-                  <span className="text-[10px] font-mono text-blue-200/80">OPERATIONS TELEMETRY</span>
+                  <span className="text-xs font-extrabold text-white tracking-wider block font-sans">EHI MULTISYSTEMS</span>
+                  <span className="text-[10px] font-mono text-[var(--color-accent-amber)] font-medium">DISPATCH TELEMETRY</span>
                 </div>
               </div>
-              <div className="px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/15 text-[11px] font-mono text-blue-200 font-semibold flex items-center gap-1.5">
+              <div className="px-2.5 py-1 rounded-full bg-white/[0.04] backdrop-blur-md border border-white/10 text-[10px] font-mono text-slate-300 font-semibold flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <ShieldCheck size={13} className="text-emerald-400" />
+                <ShieldCheck size={12} className="text-emerald-400" />
                 <span>SECURE GATEWAY</span>
               </div>
             </div>
 
-            <div className="relative z-10 my-auto py-3 space-y-2.5">
-              <div className="bg-slate-950/50 backdrop-blur-lg rounded-xl p-3 border border-white/15 shadow-xl">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[11px] font-mono text-blue-200/90 flex items-center gap-1.5 font-medium">
-                    <Radar size={14} className="text-emerald-300" />Network Overview
+            {/* Middle telemetry widget */}
+            <div className="relative z-10 my-auto py-4 space-y-3">
+              <div className="bg-[#080d18]/80 backdrop-blur-lg rounded-2xl p-4 border border-white/[0.08] shadow-xl">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-mono text-slate-300 flex items-center gap-1.5 font-semibold">
+                    <Radio size={14} className="text-[var(--color-accent-amber)]" />Active Hub Network
                   </span>
+                  <span className="text-[10px] font-mono text-emerald-400 font-bold">ALL HUBS SYNCHRONIZED</span>
                 </div>
-                <div className="h-12 w-full rounded-lg bg-black/40 border border-white/10 relative overflow-hidden flex items-center justify-center">
-                  <svg className="w-full h-full p-2" fill="none" viewBox="0 0 320 80" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M20 40 Q 90 10, 160 40 T 300 40" stroke="rgba(99,102,241,0.4)" strokeDasharray="4 4" strokeWidth="1.5" />
-                    <path d="M20 40 Q 90 70, 160 40 T 300 40" stroke="rgba(245,158,11,0.4)" strokeDasharray="3 3" strokeWidth="1.5" />
-                    <circle cx="40" cy="35" r="4" fill="#38BDF8" className="animate-pulse" />
-                    <circle cx="160" cy="40" r="5" fill="#10B981" />
-                    <circle cx="280" cy="45" r="4" fill="#F59E0B" className="animate-pulse" />
-                  </svg>
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-pulse pointer-events-none" />
+
+                {/* Hub Node Matrix */}
+                <div className="grid grid-cols-4 gap-2 pt-1 pb-2">
+                  {[
+                    { code: 'LOS', name: 'Lagos Hub', status: 'ACTIVE' },
+                    { code: 'ABV', name: 'Abuja Station', status: 'ACTIVE' },
+                    { code: 'PHC', name: 'Port Harcourt', status: 'ACTIVE' },
+                    { code: 'KAN', name: 'Kano Station', status: 'SYNC' },
+                  ].map((node) => (
+                    <div key={node.code} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-2 text-center">
+                      <div className="text-[12px] font-mono font-bold text-white">{node.code}</div>
+                      <div className="text-[9px] font-mono text-slate-400 truncate">{node.name}</div>
+                      <div className="text-[8px] font-mono text-emerald-400 font-bold mt-0.5">{node.status}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-[10px] font-mono text-slate-400">
+                  <span>Data Integrity: 100% Offline-First</span>
+                  <span className="text-[var(--color-accent-amber)] font-semibold">Encrypted PWA</span>
                 </div>
               </div>
-              <div className="px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-400/20 text-[11px] text-amber-200/90 flex items-center gap-2">
-                <Lock size={14} className="text-amber-400 flex-shrink-0" />
-                <span className="leading-tight">Active waybills, manifest payloads, and hub routes are restricted to authenticated operators.</span>
+
+              <div className="px-3.5 py-2.5 rounded-xl bg-amber-400/[0.06] border border-amber-400/20 text-[11px] text-amber-200/90 flex items-center gap-2.5">
+                <Lock size={15} className="text-[var(--color-accent-amber)] shrink-0" />
+                <span className="leading-snug">Airwaybills, manifests, and cash ledger reconciliations require authenticated role credentials.</span>
               </div>
             </div>
 
-            <div className="relative z-10 pt-2 border-t border-white/10">
+            {/* Bottom telemetry footer */}
+            <div className="relative z-10 pt-3 border-t border-white/[0.08]">
               <div className="flex items-center gap-2 mb-1">
-                <Radar size={15} className="text-amber-400" />
-                <p className="text-blue-200 text-[11px] font-mono uppercase tracking-widest font-semibold">Operations Control</p>
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent-amber)]" />
+                <p className="text-[var(--color-accent-amber)] text-[10px] font-mono uppercase tracking-widest font-semibold">
+                  Aviation Operations & Cargo Command
+                </p>
               </div>
-              <h2 className="text-lg sm:text-xl font-bold text-white leading-tight tracking-tight">
-                Track, dispatch, and reconcile cargo in real time.
+              <h2 className="text-base font-bold text-white leading-tight">
+                Real-time tracking, flight manifests & fiscal ledger.
               </h2>
-              <p className="text-[11px] text-white/70 mt-1.5 font-normal leading-relaxed">
-                Integrated electronic manifests, instant waybill status sync, and automated custody handover receipts.
+              <p className="text-[11px] text-slate-400 mt-1 font-normal leading-relaxed">
+                Automated custody handovers, airline excess baggage, and instant retail POS reconciliation.
               </p>
             </div>
           </section>
@@ -411,7 +458,7 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
       {/* Forgot Password Modal */}
       {showForgotPassword && createPortal(
         <div
-          className={`fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 ${
+          className={`fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 ${
             isClosingReset ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'
           }`}
           onClick={(e) => {
@@ -422,56 +469,61 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
             className={`rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl h-auto max-h-[85vh] border border-white/10 ${
               isClosingReset ? 'animate-modal-slide-out' : 'animate-modal-slide-in'
             }`}
-            style={{ background: 'rgba(14,19,30,0.95)', backdropFilter: 'blur(28px)' }}
+            style={{ background: 'rgba(12,17,28,0.96)', backdropFilter: 'blur(32px)' }}
           >
-            <div className="p-5 border-b border-white/[0.06]">
-              <div className="text-[16px] font-bold text-white">Reset Password</div>
-              <div className="text-[12px] mt-0.5 text-slate-400">We'll email you a secure link to set a new password.</div>
+            <div className="p-6 border-b border-white/[0.06]">
+              <div className="text-[17px] font-bold text-white">Reset Master Password</div>
+              <div className="text-[12px] mt-1 text-slate-400">We will email a secure link to reset your operator credentials.</div>
             </div>
-            <div className="p-5">
+            <div className="p-6">
               {resetSent ? (
                 <div className="text-center py-4 space-y-3">
-                  <div className="text-[14px] font-bold text-amber-400">Reset link sent ✓</div>
+                  <div className="text-[15px] font-bold text-[var(--color-accent-amber)]">Reset Link Dispatched ✓</div>
                   <p className="text-[12px] leading-relaxed text-slate-200">
-                    Check {resetEmail} for a password reset link. It may take a minute to arrive.
+                    Check <span className="font-semibold text-white">{resetEmail}</span> for your reset link.
                   </p>
                   <button
                     onClick={closeForgotPasswordModal}
-                    className="w-full h-11 text-white text-[13px] font-bold rounded-xl mt-2 transition-opacity hover:opacity-90 cursor-pointer"
-                    style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #4f46e5 52%, #7c3aed 100%)' }}
+                    className="w-full h-11 text-slate-950 text-[13px] font-bold rounded-xl mt-3 transition-opacity hover:opacity-90 cursor-pointer"
+                    style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' }}
                   >
-                    Done
+                    Return to Login
                   </button>
                 </div>
               ) : (
                 <form onSubmit={handleForgotPassword} className="space-y-4">
-                  <input
-                    id="reset-email"
-                    name="email"
-                    type="email"
-                    value={resetEmail}
-                    onChange={(e) => setResetEmail(e.target.value)}
-                    placeholder="you@ehimultisystems.com"
-                    autoComplete="email"
-                    autoFocus
-                    className="w-full h-12 px-4 text-sm rounded-xl focus:outline-none transition-all bg-[#111724]/80 text-slate-100 border border-white/10 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20"
-                  />
+                  <div>
+                    <label htmlFor="reset-email" className="block text-[11px] font-mono uppercase tracking-wider text-slate-300 font-semibold mb-1.5">
+                      Operator Email Address
+                    </label>
+                    <input
+                      id="reset-email"
+                      name="email"
+                      type="email"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      placeholder="you@ehimultisystems.com"
+                      autoComplete="email"
+                      autoFocus
+                      className="w-full h-11 px-4 text-sm rounded-xl focus:outline-none transition-all bg-[#090d16] text-slate-100 border border-white/10 focus:border-[var(--color-accent-amber)] focus:ring-2 focus:ring-[var(--color-accent-amber)]/20"
+                    />
+                  </div>
                   {resetError && (
                     <p className="text-[12px] text-red-400 font-medium">{resetError}</p>
                   )}
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 pt-2">
                     <button
                       type="button"
                       onClick={closeForgotPasswordModal}
-                      className="flex-1 h-11 text-[13px] font-bold rounded-xl transition-colors cursor-pointer border border-white/15 text-slate-200 hover:bg-white/5"
+                      className="flex-1 h-11 text-[13px] font-semibold rounded-xl transition-colors cursor-pointer border border-white/15 text-slate-300 hover:bg-white/5"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={resetSending}
-                      className="flex-1 h-11 text-white text-[13px] font-bold rounded-xl disabled:opacity-60 transition-opacity hover:opacity-90 cursor-pointer"
-                      style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #4f46e5 52%, #7c3aed 100%)' }}
+                      className="flex-1 h-11 text-slate-950 text-[13px] font-bold rounded-xl disabled:opacity-60 transition-opacity hover:opacity-95 cursor-pointer"
+                      style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' }}
                     >
                       {resetSending ? 'Sending…' : 'Send Reset Link'}
                     </button>

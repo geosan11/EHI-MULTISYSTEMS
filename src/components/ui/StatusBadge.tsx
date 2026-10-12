@@ -13,7 +13,7 @@ const FLIGHT_STATUS_META: Record<FlightStatus, { label: string; color: string; b
   scheduled: { label: 'Scheduled', color: 'var(--color-muted)', bg: 'rgba(255,255,255,0.06)' },
   boarding: { label: 'Boarding', color: 'var(--color-accent-cobalt)', bg: 'rgba(59,130,246,0.12)' },
   departed: { label: 'En Route', color: 'var(--color-accent-cobalt)', bg: 'rgba(59,130,246,0.12)' },
-  delayed: { label: 'Delayed', color: 'var(--color-accent-amber)', bg: 'rgba(245,158,11,0.12)' },
+  delayed: { label: 'Delayed', color: 'var(--color-accent-amber)', bg: 'rgba(251,191,36,0.12)' },
   diverted: { label: 'Diverted', color: 'var(--color-error)', bg: 'rgba(239,68,68,0.12)' },
   // Special case: a diversion whose landing airport is the same one the
   // flight departed from -- flagged separately by the caller (see

@@ -20,3 +20,4 @@ coverage/
 /fix_*.cjs
 /fix_*.js
 *.patch
+scratch/

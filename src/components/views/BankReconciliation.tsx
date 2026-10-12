@@ -511,7 +511,7 @@ export const BankReconciliation = ({
                             {btx.status === 'Near-Match' && btx.matchedId && (
                                <button
                                  onClick={() => handleConfirmFuzzy(btx.id)}
-                                 className="bg-[rgba(245,158,11,0.1)] hover:bg-[rgba(245,158,11,0.2)] border border-[rgba(245,158,11,0.3)] text-[var(--color-accent-amber)] text-[11px] font-sans font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                                 className="bg-[rgba(251,191,36,0.1)] hover:bg-[rgba(251,191,36,0.2)] border border-[rgba(251,191,36,0.3)] text-[var(--color-accent-amber)] text-[11px] font-sans font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
                                >
                                  Confirm Pair
                                </button>
