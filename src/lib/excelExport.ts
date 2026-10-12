@@ -128,7 +128,9 @@ async function downloadExcelJsWorkbook(wb: ExcelJS.Workbook, filename: string): 
 export async function downloadDailyExcel(
   streamType: 'cargo' | 'baggage' | 'marketing' | 'package' | 'mixed',
   transactions: any[],
-  hubName: string
+  hubName: string,
+  filenameOverride?: string,
+  expenses?: any[]
 ): Promise<void> {
   const today = new Date().toISOString().slice(0, 10);
   const generatedLabel = new Date().toLocaleDateString('en-NG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -388,7 +390,37 @@ export async function downloadDailyExcel(
     });
   });
 
-  await downloadExcelJsWorkbook(wb, `EHI_${streamType}_${hubName.replace(/\s+/g,'_')}_${today}.xlsx`);
+  if (Array.isArray(expenses) && expenses.length > 0) {
+    const expHeaders = ['ID', 'Date', 'Time', 'Category', 'Description', 'Amount (NGN)', 'Payment Mode', 'Bank', 'Status', 'Logged By', 'Approved By'];
+    const expRows = expenses.map(e => [
+      e.id,
+      rowDate(e),
+      e.time || (e.created_at ? new Date(e.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''),
+      e.category || '',
+      e.description || '',
+      String(e.amount || 0),
+      e.mode || '',
+      e.bank || '',
+      e.status || 'pending',
+      e.logged_by || '',
+      e.approvedBy || '',
+    ]);
+    const expTotal = expenses.reduce((s, e) => s + (e.amount || 0), 0);
+    const expAoa = [
+      [`EHI Multisystems Nigeria Ltd — Operating Expenses`],
+      [`Hub: ${hubName} | Generated: ${generatedLabel}`],
+      [`Total Expenses: ${expenses.length} | Total Amount: NGN ${expTotal.toLocaleString('en-NG')}`],
+      [],
+      expHeaders,
+      ...expRows,
+    ];
+    const expWs = wb.addWorksheet('Expenses');
+    sanitizeSpreadsheetAoA(expAoa).forEach(r => expWs.addRow(r));
+    autoFitExcelJsColumns(expWs);
+  }
+
+  const exportFilename = filenameOverride || `EHI_${streamType}_${hubName.replace(/\s+/g,'_')}_${today}.xlsx`;
+  await downloadExcelJsWorkbook(wb, exportFilename);
 }
 
 // ── PER-AIRLINE MANIFEST EXCEL DOWNLOAD ───────────────────────

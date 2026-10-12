@@ -160,19 +160,6 @@ const ACTION_LABELS: Record<string, string> = {
   DEBT_REOPENED: 'Debt Reopened',
 };
 
-// Widest span the Current Shift date-range picker below will accept in one
-// go. EHIApp.tsx's fetchInitial (which this range feeds) is an eager,
-// date-bounded fetch capped per table at ledgerRowCap -- unlike this same
-// picker's effect on Tower/Analytics, which just narrows an aggregate
-// query, a state-wide/admin user here could otherwise trivially request a
-// window wide enough to approach that cap on every load. "All Time" is the
-// right tool for anything genuinely wider: it's server-paginated
-// (ledger_search_page/ledger_search_totals) and never goes through this
-// fetch at all. Picking the field the user just touched as authoritative
-// and clamping the OTHER field inward (see the two onChange handlers
-// below) keeps this from ever silently overriding what someone just typed.
-const LEDGER_DATE_RANGE_MAX_DAYS = 60;
-
 const dateInputValue = (d: Date): string => {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -868,6 +855,21 @@ export const TransactionLedger = ({
   const [allTimeEngaged, setAllTimeEngaged] = useState(false);
   const [allTimeTotals, setAllTimeTotals] = useState<LedgerTotals | null>(null);
   const allTimeProfileLookupRef = useRef<Record<string, string>>({});
+  const [isExportingAll, setIsExportingAll] = useState(false);
+  const [showExportOptions, setShowExportOptions] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setShowExportOptions(false);
+      }
+    };
+    if (showExportOptions) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showExportOptions]);
   // Guards fetchAllTimeFirstPage/fetchAllTimeNextPage against an
   // out-of-order response -- e.g. a user searches "abc", then clears the
   // search before that request resolves; without this, the stale "abc"
@@ -1023,7 +1025,7 @@ export const TransactionLedger = ({
     if (shiftFilter !== 'all' || !allTimeEngaged) return transactions;
     const byId = new Map<string, Transaction>();
     allTimeTxRows.forEach(t => byId.set(t.id, t));
-    transactions.forEach(t => { if (byId.has(t.id)) byId.set(t.id, t); });
+    transactions.forEach(t => byId.set(t.id, t));
     return Array.from(byId.values());
   }, [transactions, allTimeTxRows, allTimeEngaged, shiftFilter]);
 
@@ -1031,7 +1033,7 @@ export const TransactionLedger = ({
     if (shiftFilter !== 'all' || !allTimeEngaged) return expenses;
     const byId = new Map<string, Expense>();
     allTimeExpenseRows.forEach(e => byId.set(e.id, e));
-    expenses.forEach(e => { if (byId.has(e.id)) byId.set(e.id, e); });
+    expenses.forEach(e => byId.set(e.id, e));
     return Array.from(byId.values());
   }, [expenses, allTimeExpenseRows, allTimeEngaged, shiftFilter]);
 
@@ -1294,9 +1296,8 @@ export const TransactionLedger = ({
       if (entryTime && (entryTime < start || (end && entryTime >= end))) return false;
     }
 
-    // When viewing past date range (not current shift boundary and not paginated All Time),
-    // clamp entries to the selected dateRange so older/cached rows outside range don't leak in.
-    if (shiftFilter === 'all' && !allTimeEngaged && dateRange?.start && dateRange?.end) {
+    // When viewing custom date range, clamp entries to the selected dateRange
+    if (shiftFilter === 'all' && dateRange?.start && dateRange?.end) {
       const raw = e.raw as any;
       const candidateTimes = [raw?.created_at, (e as any)._sortTime, raw?.editedAt, raw?.confirmedAt]
         .map((v) => (v ? new Date(v).getTime() : NaN))
@@ -3646,6 +3647,83 @@ export const TransactionLedger = ({
     </>
   );
 
+  const handleExportExcel = async (exportAllHistorical: boolean = false) => {
+    setShowExportOptions(false);
+    if (defaultTypeFilter === 'baggage') {
+      const { downloadBaggageLedgerPDF } = await import('./ExcessBaggageLedgerPDF');
+      const txs = filteredEntries
+        .filter(e => e.source === 'transaction')
+        .map(e => e.raw as Transaction);
+      downloadBaggageLedgerPDF({
+        airlineName: 'Excess Baggage',
+        date: `${new Date().toLocaleDateString('en-GB')} ${tnow()}`,
+        hubName: user.hub || 'EHI Hub',
+        transactions: txs,
+        filters: {
+          flight: vjFlightFilter === 'All' ? '' : vjFlightFilter,
+          destination: vjDestFilter === 'All' ? '' : vjDestFilter
+        }
+      });
+      return;
+    }
+
+    if (!exportAllHistorical) {
+      // Fast in-memory export of whatever is currently on screen (0 extra queries, 0 egress)
+      const { downloadDailyExcel } = await import('../../lib/excelExport');
+      const txs = filteredEntries
+        .filter(e => e.source === 'transaction')
+        .map(e => e.raw as Transaction);
+      const exps = filteredEntries
+        .filter(e => e.source === 'expense')
+        .map(e => e.raw as Expense);
+      await downloadDailyExcel(defaultTypeFilter || 'mixed', txs, user.hub || 'EHI Hub', undefined, exps);
+      showToast({ message: `Exported ${txs.length} entries to Excel.`, type: 'success' });
+      return;
+    }
+
+    // Complete All-Time export from day one till now (on-demand single action, zero background egress)
+    try {
+      setIsExportingAll(true);
+      showToast({ message: 'Fetching complete historical records from day one for Excel export...', type: 'info' });
+      const [{ downloadDailyExcel }, { fetchAllLedgerRowsForExport }] = await Promise.all([
+        import('../../lib/excelExport'),
+        import('../../lib/ledgerSearch'),
+      ]);
+
+      const { transactions: allTxs, expenses: allExps } = await fetchAllLedgerRowsForExport(
+        allTimeFilterParams,
+        allTimeProfileLookupRef.current,
+      );
+
+      let finalTxs = allTxs;
+      if (destFilter !== 'All') {
+        finalTxs = finalTxs.filter(t => cleanRoute(t.route || t.destination) === cleanRoute(destFilter));
+      }
+
+      if (dateRange?.start && dateRange?.end) {
+        const startBound = parseLocalDateBoundary(dateRange.start);
+        const endBound = parseLocalDateBoundary(dateRange.end);
+        endBound.setDate(endBound.getDate() + 1);
+        finalTxs = finalTxs.filter(t => {
+          const tTime = t.created_at ? new Date(t.created_at) : null;
+          return tTime && tTime >= startBound && tTime < endBound;
+        });
+      }
+
+      const today = dateInputValue(new Date());
+      const hubTag = (user.hub || 'EHI_Hub').replace(/\s+/g, '_');
+      const streamTag = defaultTypeFilter || 'Master_Ledger';
+      const filename = `EHI_${streamTag}_Complete_All_Time_${hubTag}_${today}.xlsx`;
+
+      await downloadDailyExcel(defaultTypeFilter || 'mixed', finalTxs, user.hub || 'EHI Hub', filename, allExps);
+      showToast({ message: `Successfully exported complete ledger history (${finalTxs.length} entries) to Excel!`, type: 'success' });
+    } catch (err: any) {
+      showToast({ message: `Failed to export all-time ledger: ${err.message || err}`, type: 'error' });
+    } finally {
+      setIsExportingAll(false);
+    }
+  };
+
   return (
     <div className="ehi-ledger-textured flex flex-row h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] relative animate-in slide-in-from-right overflow-hidden">
       <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
@@ -3709,39 +3787,72 @@ export const TransactionLedger = ({
             </select>
 
             {/* Download */}
-            <button
-              title={defaultTypeFilter === 'baggage' ? 'Download PDF' : 'Download Excel'}
-              onClick={() => {
-                if (defaultTypeFilter === 'baggage') {
-                  import('./ExcessBaggageLedgerPDF').then(({ downloadBaggageLedgerPDF }) => {
-                    const txs = filteredEntries
-                      .filter(e => e.source === 'transaction')
-                      .map(e => e.raw as Transaction);
-                    downloadBaggageLedgerPDF({
-                      airlineName: 'Excess Baggage',
-                      date: `${new Date().toLocaleDateString('en-GB')} ${tnow()}`,
-                      hubName: user.hub || 'EHI Hub',
-                      transactions: txs,
-                      filters: {
-                        flight: vjFlightFilter === 'All' ? '' : vjFlightFilter,
-                        destination: vjDestFilter === 'All' ? '' : vjDestFilter
-                      }
-                    });
-                  });
-                } else {
-                  import('../../lib/excelExport').then(async ({ downloadDailyExcel }) => {
-                    const txs = filteredEntries
-                      .filter(e => e.source === 'transaction')
-                      .map(e => e.raw as Transaction);
-                    await downloadDailyExcel(defaultTypeFilter || 'mixed', txs, user.hub || 'EHI Hub');
-                  });
-                }
-              }}
-              className="relative overflow-hidden h-8 w-8 flex items-center justify-center bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full text-[var(--color-muted)] backdrop-blur-md hover:text-[var(--color-success)] hover:border-[var(--color-success)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-success)] active:translate-y-0 active:scale-95 transition-all"
-            >
-              <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
-              <Download size={13} className="relative" />
-            </button>
+            <div className="relative" ref={exportMenuRef}>
+              <button
+                title="Download Options (Current View or All-Time Complete History)"
+                disabled={isExportingAll}
+                onClick={() => {
+                  if (defaultTypeFilter === 'baggage') {
+                    handleExportExcel(false);
+                  } else {
+                    setShowExportOptions(prev => !prev);
+                  }
+                }}
+                className={`relative overflow-hidden h-8 px-2.5 flex items-center gap-1.5 bg-[var(--color-surface-1)] border rounded-full backdrop-blur-md transition-all cursor-pointer ${
+                  isExportingAll
+                    ? 'border-[var(--color-accent-amber)] text-[var(--color-accent-amber)] animate-pulse'
+                    : 'border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-success)] hover:border-[var(--color-success)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-success)] active:translate-y-0 active:scale-95'
+                }`}
+              >
+                <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+                {isExportingAll ? <Loader2 size={13} className="relative animate-spin" /> : <Download size={13} className="relative" />}
+                <span className="relative font-mono text-[10px] font-bold">
+                  {isExportingAll ? 'Exporting...' : 'Excel'}
+                </span>
+                <ChevronDown size={11} className={`relative transition-transform duration-200 ${showExportOptions ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showExportOptions && (
+                <div className="absolute right-0 top-full mt-1.5 w-64 bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl shadow-2xl p-1.5 z-50 flex flex-col gap-1 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-2.5 py-1.5 text-[9px] font-mono uppercase tracking-wider text-[var(--color-muted)] border-b border-[var(--color-border)]">
+                    Export Options (Zero Idle Egress)
+                  </div>
+                  <button
+                    onClick={() => handleExportExcel(false)}
+                    className="flex flex-col items-start px-2.5 py-2 rounded-lg hover:bg-[var(--color-surface-hover)] text-left transition-colors cursor-pointer group"
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <span className="text-[11px] font-mono font-bold text-[var(--color-foreground)] group-hover:text-[var(--color-success)]">
+                        Current View Only
+                      </span>
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[var(--color-surface-2)] text-[var(--color-muted)]">
+                        {filteredEntries.length} entries
+                      </span>
+                    </div>
+                    <span className="text-[9px] text-[var(--color-muted)] mt-0.5">
+                      Fast in-memory export of entries currently on screen.
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => handleExportExcel(true)}
+                    className="flex flex-col items-start px-2.5 py-2 rounded-lg hover:bg-[var(--color-surface-hover)] text-left transition-colors cursor-pointer group border-t border-[var(--color-border)]"
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <span className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)] flex items-center gap-1">
+                        All Time (Day 1 till Now)
+                      </span>
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[rgba(251,191,36,0.15)] text-[var(--color-accent-amber)] font-bold">
+                        {allTimeTotals?.rowCount ? `${allTimeTotals.rowCount}` : 'Complete'}
+                      </span>
+                    </div>
+                    <span className="text-[9px] text-[var(--color-muted)] mt-0.5">
+                      One-time on-demand download of full database history.
+                    </span>
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* Gated the same way More.tsx's own menu entry is -- every role
                 has More:DebtCollectionLog by default, but a super_admin can
@@ -4216,7 +4327,7 @@ export const TransactionLedger = ({
                 {dateRange && onDateRangeChange && (
                   <div
                     className="flex items-center gap-2 h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-full font-mono text-[10px] text-[var(--color-foreground)] transition-colors group"
-                    title={`This picker loads up to ${LEDGER_DATE_RANGE_MAX_DAYS} days at a time -- switch to "All Time" for a longer lookback.`}
+                    title="Select a custom date range to filter transactions"
                   >
                     <Calendar size={11} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
                     <input
@@ -4227,16 +4338,11 @@ export const TransactionLedger = ({
                       max={dateRange.end || undefined}
                       onChange={(e) => {
                         const newStart = e.target.value;
-                        if (shiftFilter === 'current') setShiftFilter('all');
-                        if (!newStart || !dateRange.end) { onDateRangeChange({ ...dateRange, start: newStart }); return; }
-                        const spanDays = Math.round((parseLocalDateBoundary(dateRange.end).getTime() - parseLocalDateBoundary(newStart).getTime()) / 86400000);
-                        if (spanDays > LEDGER_DATE_RANGE_MAX_DAYS) {
-                          const clampedEnd = parseLocalDateBoundary(newStart);
-                          clampedEnd.setDate(clampedEnd.getDate() + LEDGER_DATE_RANGE_MAX_DAYS);
-                          onDateRangeChange({ start: newStart, end: dateInputValue(clampedEnd) });
-                        } else {
-                          onDateRangeChange({ ...dateRange, start: newStart });
+                        if (shiftFilter === 'current') {
+                          setShiftFilter('all');
+                          if (!allTimeEngaged) fetchAllTimeFirstPage();
                         }
+                        onDateRangeChange({ ...dateRange, start: newStart });
                       }}
                       className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none h-full w-[100px] font-bold cursor-pointer"
                     />
@@ -4249,19 +4355,29 @@ export const TransactionLedger = ({
                       min={dateRange.start || undefined}
                       onChange={(e) => {
                         const newEnd = e.target.value;
-                        if (shiftFilter === 'current') setShiftFilter('all');
-                        if (!newEnd || !dateRange.start) { onDateRangeChange({ ...dateRange, end: newEnd }); return; }
-                        const spanDays = Math.round((parseLocalDateBoundary(newEnd).getTime() - parseLocalDateBoundary(dateRange.start).getTime()) / 86400000);
-                        if (spanDays > LEDGER_DATE_RANGE_MAX_DAYS) {
-                          const clampedStart = parseLocalDateBoundary(newEnd);
-                          clampedStart.setDate(clampedStart.getDate() - LEDGER_DATE_RANGE_MAX_DAYS);
-                          onDateRangeChange({ start: dateInputValue(clampedStart), end: newEnd });
-                        } else {
-                          onDateRangeChange({ ...dateRange, end: newEnd });
+                        if (shiftFilter === 'current') {
+                          setShiftFilter('all');
+                          if (!allTimeEngaged) fetchAllTimeFirstPage();
                         }
+                        onDateRangeChange({ ...dateRange, end: newEnd });
                       }}
                       className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none h-full w-[100px] font-bold cursor-pointer"
                     />
+                    {(dateRange.start || dateRange.end) && (
+                      <button
+                        title="Clear Date Range (View All Historical Dates)"
+                        onClick={() => {
+                          onDateRangeChange({ start: '', end: '' });
+                          if (shiftFilter === 'current') {
+                            setShiftFilter('all');
+                            if (!allTimeEngaged) fetchAllTimeFirstPage();
+                          }
+                        }}
+                        className="text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] transition-colors p-0.5 ml-0.5 cursor-pointer"
+                      >
+                        <X size={10} />
+                      </button>
+                    )}
                   </div>
                 )}
 

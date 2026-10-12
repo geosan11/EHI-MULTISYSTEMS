@@ -261,3 +261,38 @@ export async function fetchLedgerTotals(params: LedgerSearchParams): Promise<Led
     rowCount: Number(row?.row_count || 0),
   };
 }
+
+// On-demand fetch of all ledger rows across all time for Excel export.
+// Only called when an export is explicitly requested by the user, so it
+// never inflates normal background polling or increases idle egress.
+export async function fetchAllLedgerRowsForExport(
+  params: LedgerSearchParams,
+  profileLookup?: Record<string, string>,
+  onProgress?: (count: number) => void,
+): Promise<{ transactions: Transaction[]; expenses: Expense[] }> {
+  const lookup = profileLookup && Object.keys(profileLookup).length > 0
+    ? profileLookup
+    : await fetchProfileLookup();
+
+  let cursor: LedgerCursor | null = null;
+  let hasMore = true;
+  const allTx: Transaction[] = [];
+  const allExp: Expense[] = [];
+  const PAGE_LIMIT = 1000;
+
+  while (hasMore) {
+    const page = await fetchLedgerPage(params, cursor, lookup, PAGE_LIMIT);
+    page.rows.forEach((r) => {
+      if (r.transaction) allTx.push(r.transaction);
+      else if (r.expense) allExp.push(r.expense);
+    });
+    cursor = page.nextCursor;
+    hasMore = page.hasMore && !!cursor;
+    if (onProgress) {
+      onProgress(allTx.length + allExp.length);
+    }
+  }
+
+  return { transactions: allTx, expenses: allExp };
+}
+
