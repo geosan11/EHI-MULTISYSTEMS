@@ -3571,12 +3571,10 @@ export const TransactionLedger = ({
       <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
 
         {/* ── Top Bar ─────────────────────────────────────── */}
-        {/* Frosted-glass panel (bg-*-glass + backdrop-blur + rounded corners)
-            floating over the app's global film-grain noise overlay
-            (index.css's body::before) -- same recipe already used for
-            ResetPasswordScreen's card, applied here instead of the old
-            flush/flat bg-surface-card + border-b strip. */}
-        <div className="mx-3 mt-3 px-4 py-3 rounded-2xl flex items-center justify-between shrink-0 bg-[var(--color-surface-card-glass)] backdrop-blur-xl border border-[var(--color-border)] shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
+        {/* Flush strip under the app shell top bar -- square corners, no
+            floating inset card. Keeps ledger chrome attached to the shell
+            instead of stacking a second rounded glass panel under it. */}
+        <div className="px-4 py-3 flex items-center justify-between shrink-0 bg-[var(--color-surface-card)] border-b border-[var(--color-border)]">
           <div className="flex items-center gap-3 min-w-0">
             <BackButton onClick={onBack} label="Back" />
             <div className="min-w-0">

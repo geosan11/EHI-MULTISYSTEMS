@@ -959,59 +959,34 @@ main {
     /* .ehi-sidenav is position:fixed (floats above the page instead of
        sitting in normal flex flow) -- this reserves matching space so
        content never renders underneath it. Set on :root by SideNav.tsx,
-       kept in sync with whatever width it's currently rendering at. */
-    padding-left: var(--sidenav-offset, 240px);
+       kept in sync with whatever width it's currently rendering at.
+       Equals the rail width only (flush left, no inset gutter). */
+    padding-left: var(--sidenav-offset, 220px);
     transition: padding-left 0.3s cubic-bezier(0.2, 0, 0, 1);
   }
 
-  /* Desktop already hides .ehi-header-brand here (see the brand rule
-     further down), and .ehi-header-controls (below) is extracted out of
-     flow -- so once both are gone this row has nothing left to show.
-     Collapse its chrome to nothing rather than leaving an empty colored
-     bar sitting at the true top of the page. */
+  /* Desktop top bar: full-width strip inside the content column. Brand
+     is hidden (SideNav owns it); controls stay in-flow on the right so
+     they never float over page chrome (ledger filters, search, etc.). */
   .ehi-header-row {
-    padding: 0 !important;
-    min-height: 0 !important;
-    background: transparent !important;
-    border-bottom: none !important;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    min-height: 52px !important;
+    padding: 8px 16px !important;
+    background: var(--color-nav-bg) !important;
+    border-bottom: 1px solid var(--color-border) !important;
   }
 
-  /* Floats the username/theme/wifi/avatar cluster the same way
-     .ehi-sidenav floats -- position:fixed, detached from the header's
-     flex flow, styled as its own rounded card instead of sitting flush
-     in the full-width header bar. */
+  /* Controls sit in the top bar -- no fixed overlay, no pill chrome. */
   .ehi-header-controls {
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    z-index: 30;
-    background: var(--color-surface-card);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-full);
-    box-shadow: var(--shadow-dropdown);
-    padding: 4px 8px;
-    /* This pill's own bounding box is mostly empty padding/whitespace
-       (plus non-interactive user-info text) -- without this, it swallows
-       clicks meant for whatever page content is now allowed to scroll
-       underneath it, not just clicks that land on its actual buttons.
-       pointer-events:none here + auto on direct children makes it
-       "see-through" everywhere except its real controls. */
-    pointer-events: none;
-  }
-  .ehi-header-controls > * {
+    position: static;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
     pointer-events: auto;
-  }
-
-  /* Unlike the main scrollable content (which deliberately scrolls
-     underneath the floating header controls above), this panel's own
-     title/tabs are static chrome pinned to the top of a narrow right-hand
-     column -- the same corner .ehi-header-controls floats in -- so they'd
-     sit permanently under it with no scroll to ever reveal them. Reserve
-     space instead: 58px clears .ehi-header-controls' tallest state
-     (10px top + ~30px avatar orb + 8px vertical padding, plus a little
-     breathing room). */
-  .ehi-credit-feed {
-    padding-top: 58px !important;
   }
 }
 

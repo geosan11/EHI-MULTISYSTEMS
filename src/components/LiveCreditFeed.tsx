@@ -58,24 +58,11 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
     .slice(0, 25);
 
   if (collapsed) {
-    // Floating rounded pill (matches SideNav's own floating-card recipe --
-    // shadow-dropdown + radius-2xl -- plus the amber glow already used for
-    // this ledger's "Total" KPI tile), genuinely `position: fixed` to the
-    // viewport -- same recipe as SideNav/.ehi-header-controls elsewhere in
-    // this app. This used to be `self-center` as a flex sibling of the
-    // ledger's own root row instead: that row's height isn't clamped to the
-    // viewport by design (TransactionLedger's `h-full` deliberately
-    // resolves to its natural, un-clamped content height so the WHOLE
-    // ledger -- header, KPI, table -- scrolls together as one long page,
-    // see this file's own history). A flex-centered sibling inside that
-    // ever-growing row re-centers against a taller box every time more
-    // rows load, so the pill visibly drifted down the page instead of
-    // staying put. `position: fixed` sidesteps that entirely -- it's
-    // anchored to the viewport, not to any scrolling ancestor's height.
-    // Deliberately NOT using the `ehi-credit-feed` class here (only the
-    // expanded panel below has it) -- that class carries a desktop-only
-    // `padding-top: 58px !important` (index.css) meant to clear the
-    // floating header-controls pill for the expanded panel's own header.
+    // Collapsed feed as a fixed viewport pill so it stays put while the
+    // ledger scrolls. Avoids `self-center` inside TransactionLedger's
+    // un-clamped h-full row (that re-centered downward as more rows loaded).
+    // Uses its own classes -- not `ehi-credit-feed` (that is the expanded
+    // side panel below).
     return (
       <div className="select-none" style={{ position: 'fixed', top: '50%', right: 12, transform: 'translateY(-50%)', zIndex: 20 }}>
         <div className="w-11 rounded-2xl bg-[var(--color-surface-card)] border border-[rgba(245,158,11,0.35)] shadow-[var(--shadow-dropdown),0_0_18px_-6px_rgba(245,158,11,0.35)] flex flex-col items-center py-3 gap-3 transition-all">
@@ -154,22 +141,20 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('wallets')}
-          className={`flex-1 py-1 text-[10px] font-mono font-bold rounded transition-colors cursor-pointer flex items-center justify-center gap-1 ${
-            activeTab === 'wallets'
+          className={`flex-1 py-1 text-[10px] font-mono font-bold rounded transition-colors cursor-pointer flex items-center justify-center gap-1 ${activeTab === 'wallets'
               ? 'bg-[var(--color-surface-2)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.2)]'
               : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
-          }`}
+            }`}
         >
           <Wallet size={11} /> Wallets ({displayedWallets.length})
         </button>
         <button
           type="button"
           onClick={() => setActiveTab('activity')}
-          className={`flex-1 py-1 text-[10px] font-mono font-bold rounded transition-colors cursor-pointer flex items-center justify-center gap-1 ${
-            activeTab === 'activity'
+          className={`flex-1 py-1 text-[10px] font-mono font-bold rounded transition-colors cursor-pointer flex items-center justify-center gap-1 ${activeTab === 'activity'
               ? 'bg-[var(--color-surface-2)] text-[var(--color-accent-amber)] border border-[rgba(245,158,11,0.2)]'
               : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
-          }`}
+            }`}
         >
           <History size={11} /> Live Stream ({walletActivities.length})
         </button>
@@ -258,11 +243,10 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
               return (
                 <div
                   key={tx.id}
-                  className={`p-2.5 rounded-xl border space-y-1.5 transition-all ${
-                    isRetrieval
+                  className={`p-2.5 rounded-xl border space-y-1.5 transition-all ${isRetrieval
                       ? 'bg-[rgba(16,185,129,0.06)] border-[rgba(16,185,129,0.25)]'
                       : 'bg-[rgba(245,158,11,0.06)] border-[rgba(245,158,11,0.25)]'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center justify-between text-[11px] font-mono">
                     <span className="font-bold flex items-center gap-1">
@@ -370,8 +354,8 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
               (t.name || '').toLowerCase() === (drawerWallet.customer_name || '').toLowerCase() ||
               (t as any).wallet_id === drawerWallet.id
             ).length === 0 && (
-              <div className="py-6 text-center text-[10px] font-mono text-[var(--color-muted)]">No recent activity for this wallet</div>
-            )}
+                <div className="py-6 text-center text-[10px] font-mono text-[var(--color-muted)]">No recent activity for this wallet</div>
+              )}
           </div>
 
           {/* Quick Actions */}

@@ -35,22 +35,16 @@ export const Header = ({
   // offer either way, so it's left out of the menu entirely.
   stateWideView?: boolean;
   onToggleStateWideView?: () => void;
-  // .ehi-header-controls is position:fixed on desktop (see index.css) so it
-  // floats above whatever's scrolling underneath -- fine for the normal app
-  // shell, but the Master Ledger's own full-screen overlay has real chrome
-  // (top bar, manifest ribbon) in that same top-right corner, which the
-  // fixed pill then paints over. `docked` renders the identical pill inline
-  // instead, so it takes its place in that overlay's own header row rather
-  // than floating over it. The plain CSS class can't just be
-  // conditionally-overridden with more classes here -- it's defined later
-  // in index.css than Tailwind's own utilities, so it would still win the
-  // cascade -- hence the inline-style twin below instead.
+  // Desktop shell uses a sticky full-width top bar (.ehi-header-row) with
+  // controls in-flow. The Master Ledger stream overlay portals a full-screen
+  // layer that needs its own header row -- `docked` keeps the same controls
+  // inline there without relying on the shell sticky bar.
   docked?: boolean;
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
 
   const getRoleDisplay = (role: string) => {
-    switch(role) {
+    switch (role) {
       case 'cargo_agent': return 'Cargo Agent';
       case 'baggage_agent': return user.assigned_airline ? `${user.assigned_airline} POS` : 'Baggage POS';
       case 'marketing_agent': return 'Marketing';
@@ -64,16 +58,16 @@ export const Header = ({
   };
 
   const getRoleColor = (role: string): { bg: string; border: string; text: string } => {
-    switch(role) {
+    switch (role) {
       case 'super_admin': return { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.3)', text: 'var(--color-accent-amber)' };
-      case 'admin':       return { bg: 'rgba(59,130,246,0.12)', border: 'rgba(59,130,246,0.3)', text: 'var(--color-accent-cobalt)' };
+      case 'admin': return { bg: 'rgba(59,130,246,0.12)', border: 'rgba(59,130,246,0.3)', text: 'var(--color-accent-cobalt)' };
       case 'cargo_agent': return { bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.3)', text: 'var(--color-success)' };
       case 'baggage_agent': return { bg: 'rgba(139,92,246,0.12)', border: 'rgba(139,92,246,0.3)', text: 'var(--color-purple)' };
-      case 'accountant':  return { bg: 'rgba(20,184,166,0.12)', border: 'rgba(20,184,166,0.3)', text: '#14b8a6' };
-      case 'auditor':     return { bg: 'rgba(249,115,22,0.12)', border: 'rgba(249,115,22,0.3)', text: '#f97316' };
-      case 'driver':      return { bg: 'rgba(100,116,139,0.12)', border: 'rgba(100,116,139,0.3)', text: '#64748b' };
+      case 'accountant': return { bg: 'rgba(20,184,166,0.12)', border: 'rgba(20,184,166,0.3)', text: '#14b8a6' };
+      case 'auditor': return { bg: 'rgba(249,115,22,0.12)', border: 'rgba(249,115,22,0.3)', text: '#f97316' };
+      case 'driver': return { bg: 'rgba(100,116,139,0.12)', border: 'rgba(100,116,139,0.3)', text: '#64748b' };
       case 'marketing_agent': return { bg: 'rgba(16,185,129,0.10)', border: 'rgba(16,185,129,0.25)', text: 'var(--color-success)' };
-      default:            return { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.2)', text: 'var(--color-accent-amber)' };
+      default: return { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.2)', text: 'var(--color-accent-amber)' };
     }
   };
 
@@ -82,13 +76,7 @@ export const Header = ({
       className="flex flex-col w-full shrink-0 z-40 relative"
     >
       <div
-        // .ehi-header-row collapses to zero height/padding on desktop
-        // (index.css) since both its children normally leave flow entirely
-        // (brand hidden, controls floated) -- docked keeps the controls IN
-        // flow, so that collapse rule would squash them flush against the
-        // row's edges instead. Dropping the class here (docked only) lets
-        // the Tailwind padding/min-height below actually apply.
-        className={docked ? 'flex items-center justify-between px-4 py-3 min-h-[60px]' : 'ehi-header-row flex items-center justify-between px-4 py-3 min-h-[60px]'}
+        className="ehi-header-row flex items-center justify-between px-4 py-3 min-h-[60px]"
         style={{
           background: 'var(--color-nav-bg)',
           borderBottom: '1px solid var(--color-border)',
@@ -118,21 +106,9 @@ export const Header = ({
           </div>
         </div>
 
-        {/* Right controls -- ehi-header-controls floats this cluster as a
-            fixed overlay on desktop (see index.css), matching SideNav's
-            floating treatment instead of sitting in the header's flow.
-            docked (see prop comment above) renders the same pill in-flow
-            instead, used only inside the Master Ledger's overlay. */}
-        <div
-          className={docked ? 'flex items-center gap-1.5 ml-auto' : 'ehi-header-controls flex items-center gap-1.5 ml-auto'}
-          style={docked ? {
-            background: 'var(--color-surface-card)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-full)',
-            boxShadow: 'var(--shadow-dropdown)',
-            padding: '4px 8px',
-          } : undefined}
-        >
+        {/* Right controls -- sit in the sticky top bar on desktop
+            (.ehi-header-controls is in-flow; see index.css). */}
+        <div className="ehi-header-controls flex items-center gap-1.5 ml-auto">
 
           {/* User info */}
           <div className="text-right mr-0.5 hidden sm:block">

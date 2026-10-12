@@ -96,13 +96,14 @@ export const SideNav = ({
   // normal flex flow), so .ehi-main-content can no longer rely on flexbox
   // to make room for it -- it reads this CSS var (set on the root so no
   // prop-drilling into EHIApp is needed) to reserve matching space, kept in
-  // sync with the same width this component renders at. The docked
-  // instance sits in normal flow already, so it must never touch this --
-  // doing so would fight the real floating instance for the same var.
+  // sync with the same width this component renders at. Flush to the left
+  // edge (no inset gap), so the offset equals the rail width only. The
+  // docked instance sits in normal flow already, so it must never touch
+  // this -- doing so would fight the real floating instance for the same var.
   useEffect(() => {
     if (docked) return;
     const width = isExpanded ? 220 : 72;
-    document.documentElement.style.setProperty("--sidenav-offset", `${width + 20}px`);
+    document.documentElement.style.setProperty("--sidenav-offset", `${width}px`);
   }, [isExpanded, docked]);
 
   // getAllowedTabs is the single source of truth for which ids this user
@@ -143,16 +144,19 @@ export const SideNav = ({
         flexDirection: "column",
         width: docked ? 72 : (effectiveExpanded ? 220 : 72),
         position: docked ? "relative" : "fixed",
-        top: docked ? undefined : 10,
-        left: docked ? undefined : 10,
+        // Floating but attached: flush left edge, square corners, full
+        // height -- reads as part of the app shell rather than a detached
+        // rounded card floating in the canvas gutter.
+        top: docked ? undefined : 0,
+        left: docked ? undefined : 0,
         zIndex: docked ? undefined : 30,
         background: "var(--color-surface-card)",
-        border: docked ? "none" : "1px solid var(--color-border)",
-        borderRight: docked ? "1px solid var(--color-border)" : undefined,
-        borderRadius: docked ? 0 : "var(--radius-2xl)",
-        boxShadow: docked ? "none" : "var(--shadow-dropdown)",
+        border: "none",
+        borderRight: "1px solid var(--color-border)",
+        borderRadius: 0,
+        boxShadow: "none",
         flexShrink: 0,
-        height: docked ? "100%" : "calc(var(--app-height) - 20px)",
+        height: docked ? "100%" : "var(--app-height)",
         overflowY: "auto",
         overflowX: "hidden",
         transition: docked ? undefined : "width 0.3s cubic-bezier(0.2, 0, 0, 1)",
