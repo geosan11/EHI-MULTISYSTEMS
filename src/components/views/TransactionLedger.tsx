@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Transaction, User, Expense } from "../../lib/types";
 import { fmt, tnow, isStandalonePWA, getHubCode, getShiftBoundary, txDisplayDateTime, normalizeAirlineName, formatPaymentModeDisplay, roundMoney, parseLocalDateBoundary, cleanRoute } from "../../lib/helpers";
-import { applyWalletTransaction, processRetrieval, unretrieveEntry, approveRetrieval, RetrievalEntryType } from "../../lib/wallet";
+import { processRetrieval, unretrieveEntry, approveRetrieval, RetrievalEntryType } from "../../lib/wallet";
 import { clearDebt, reopenDebt, DebtEntryType, DEBT_TABLE_NAME } from "../../lib/debt";
 import { computeDebtDisplayModeFromRow } from "../../lib/debtStatus";
 import { downloadBatchDebtReceipt } from "./BatchDebtReceipt";
@@ -60,7 +60,7 @@ import {
 } from "lucide-react";
 import { QRCode } from "../QRCode";
 import TagPrintHistory from "./TagPrintHistory";
-import { supabase, writeAuditLog, fetchRowsCapped, fetchAllRows } from "../../lib/supabase";
+import { supabase, writeAuditLog, fetchAllRows } from "../../lib/supabase";
 import { useToast } from "../../lib/ToastContext";
 import { useConfirm } from "../../lib/ConfirmContext";
 import { LiveCreditFeed } from "../LiveCreditFeed";
@@ -458,9 +458,27 @@ export const TransactionLedger = ({
   // one is now discarded regardless, but not auto-firing in the first
   // place is the more direct fix.
   const [searchQuery, setSearchQuery] = useState("");
+  // 'current' = only entries within the current operational shift (7PM–7PM).
+  // 'all' = unfiltered by shift (shows all loaded transactions as before).
+  const [shiftFilter, setShiftFilter] = useState<'current' | 'all'>('current');
   const handleSearchInputChange = useCallback((val: string) => {
     setSearchInput(val);
+    if (!val.trim()) {
+      setSearchQuery("");
+    }
   }, []);
+
+  // For Current Shift mode (in-memory client filtering), debounce 250ms so typing immediately filters
+  // without requiring an explicit Enter key. In All Time mode, commitSearch (Enter/click) remains required to protect the server RPC.
+  useEffect(() => {
+    if (shiftFilter !== 'current') return;
+    const trimmed = searchInput.trim();
+    if (trimmed.length === 1) return;
+    const timer = setTimeout(() => {
+      setSearchQuery(searchInput);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchInput, shiftFilter]);
   // Runs the search -- Enter key, the search icon, or a one-shot
   // programmatic trigger (LiveCreditFeed's "filter ledger by this
   // customer" click) all funnel through here and commit immediately,
@@ -498,7 +516,26 @@ export const TransactionLedger = ({
   // as a discrete "stop searching" action, not something that should sit
   // half-typed waiting for a commit.
   const clearSearch = useCallback(() => commitSearch(""), [commitSearch]);
-  const [typeFilter, setTypeFilter] = useState(defaultTypeFilter || "All");
+
+  const normalizeType = useCallback((t: string | null | undefined): string => {
+    if (!t) return "All";
+    const lower = t.toLowerCase();
+    if (lower === 'cargo') return 'Cargo';
+    if (lower === 'baggage') return 'Baggage';
+    if (lower === 'marketing') return 'Marketing';
+    if (lower === 'package') return 'Package';
+    if (lower === 'expense') return 'Expense';
+    if (lower === 'office work') return 'Office Work';
+    return t;
+  }, []);
+
+  const [typeFilter, setTypeFilter] = useState(() => normalizeType(defaultTypeFilter));
+
+  useEffect(() => {
+    if (defaultTypeFilter) {
+      setTypeFilter(normalizeType(defaultTypeFilter));
+    }
+  }, [defaultTypeFilter, normalizeType]);
   const [modeFilter, setModeFilter] = useState("All");
   // Office (B2B/corporate) vs Individual split for Debt entries specifically
   // -- reuses the same clientType/linked_as_office_work/corporate_client_id
@@ -691,9 +728,6 @@ export const TransactionLedger = ({
   // Transaction modal's own route selects), so a destination shows up here
   // even before any entry going there has loaded this session.
   const [destFilter, setDestFilter] = useState("All");
-  // 'current' = only entries within the current operational shift (7PM–7PM).
-  // 'all' = unfiltered by shift (shows all loaded transactions as before).
-  const [shiftFilter, setShiftFilter] = useState<'current' | 'all'>('current');
   const confirm = useConfirm();
 
   const [wallets, setWallets] = useState<CustomerWallet[]>([]);
@@ -1139,12 +1173,11 @@ export const TransactionLedger = ({
     // (cargo/marketing carry it as `route`, baggage/package as
     // `destination`), unlike vjDestFilter above which is baggage-only.
     // cleanRoute() on both sides absorbs the casing/"Air Cargo Station"
-    // suffix drift it already exists to paper over elsewhere (rate-table
-    // matching, tag printing) -- a raw string-equality check would miss
-    // entries whose stored value differs only in that noise.
-    if (destFilter !== "All" && e.source === 'transaction') {
+    // suffix drift. Expenses have no route/destination and are excluded.
+    if (destFilter !== "All") {
+      if (e.source === 'expense') return false;
       const raw = e.raw as any;
-      const entryDest = (e.type === 'cargo' || e.type === 'marketing') ? raw.route : raw.destination;
+      const entryDest = (e.type === 'cargo' || e.type === 'marketing') ? raw?.route : raw?.destination;
       if (cleanRoute(entryDest) !== cleanRoute(destFilter)) return false;
     }
 
@@ -1161,7 +1194,10 @@ export const TransactionLedger = ({
       } else if (modeFilter === "Unverified") {
         if (!((e.mode === 'Cash' || e.mode === 'Transfer' || e.mode === 'POS') && !e.raw.paymentConfirmed)) return false;
       } else if (modeFilter === "Retrieved") {
-        if (!((e.raw as any)?.raw?.retrieved_amount > 0)) return false;
+        const raw = e.raw as any;
+        const retAmt = Number(raw?.retrieved_amount ?? raw?.raw?.retrieved_amount ?? 0);
+        const isRet = raw?.retrieved === true || raw?.raw?.retrieved === true || retAmt > 0;
+        if (!isRet) return false;
       } else if (modeFilter === "Debt Clearance" || modeFilter === "Debt Paid") {
         // Show BOTH the original entry whose mode flipped to 'Debt Paid' AND
         // any DC-... shadow collection entry created when a debt was cleared.
@@ -1258,27 +1294,34 @@ export const TransactionLedger = ({
       if (entryTime && (entryTime < start || (end && entryTime >= end))) return false;
     }
 
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
+    // When viewing past date range (not current shift boundary and not paginated All Time),
+    // clamp entries to the selected dateRange so older/cached rows outside range don't leak in.
+    if (shiftFilter === 'all' && !allTimeEngaged && dateRange?.start && dateRange?.end) {
       const raw = e.raw as any;
-      // Placeholder advertises "Search name, amount, reference..." -- amount
-      // was never actually in this text, so searching by amount silently
-      // matched nothing. Includes both the raw number (typed as "15000")
-      // and fmt()'s comma-grouped form (typed as "15,000"), same as the
-      // amount is actually displayed on the row.
-      //
-      // route/destination deliberately excluded -- that's now the dedicated
-      // destFilter dropdown below, not a free-text field (e.detail's summary
-      // string can still incidentally contain the route for cargo/marketing,
-      // e.g. "Arik Air · 3pcs · 12KG · ABV/Abuja · Electronics" -- left as-is,
-      // that's a display string quirk, not the deliberate search surface).
+      const candidateTimes = [raw?.created_at, (e as any)._sortTime, raw?.editedAt, raw?.confirmedAt]
+        .map((v) => (v ? new Date(v).getTime() : NaN))
+        .filter((t) => !isNaN(t));
+      const entryTime = candidateTimes.length > 0 ? new Date(Math.max(...candidateTimes)) : null;
+      if (entryTime) {
+        const startBound = parseLocalDateBoundary(dateRange.start);
+        const endBound = parseLocalDateBoundary(dateRange.end);
+        endBound.setDate(endBound.getDate() + 1);
+        if (entryTime < startBound || entryTime >= endBound) return false;
+      }
+    }
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase().trim();
+      const raw = e.raw as any;
+      // Comprehensive searchable text surface: IDs, names (sender, consignee, passenger),
+      // references (AWB, tag, PNR, flight, bank ref, POS code, PIN), amounts, routes, and remarks.
       const text =
-        `${e.id} ${e.time} ${e.type} ${e.name} ${e.detail} ${e.mode} ${e.amount} ${fmt(e.amount)} ${raw.awb_tag_number || ''} ${raw.remarks || ''} ${raw.related_tx_id || ''} ${raw.phone || ''} ${raw.consignee_phone || ''} ${raw.consigneePhone || ''} ${raw.customer_phone || ''} ${raw.pickupPin || ''}`.toLowerCase();
+        `${e.id} ${e.time} ${e.type} ${e.name} ${e.detail} ${e.mode} ${e.amount} ${fmt(e.amount)} ${raw?.awb_tag_number || ''} ${raw?.remarks || ''} ${raw?.remark || ''} ${raw?.related_tx_id || ''} ${raw?.phone || ''} ${raw?.consignee_phone || ''} ${raw?.consigneePhone || ''} ${raw?.customer_phone || ''} ${raw?.passenger_phone || ''} ${raw?.consignee || ''} ${raw?.consignee_name || ''} ${raw?.passenger_name || ''} ${raw?.customer_name || ''} ${raw?.pnr || ''} ${raw?.flight || ''} ${raw?.flight_no || ''} ${raw?.pickupPin || ''} ${raw?.pickup_pin || ''} ${raw?.bankReference || ''} ${raw?.bank_reference || ''} ${raw?.bankSender || ''} ${raw?.bank_sender || ''} ${raw?.posApprovalCode || ''} ${raw?.pos_approval_code || ''} ${raw?.airline || ''} ${raw?.contents || ''} ${raw?.contentType || ''} ${raw?.content_type || ''} ${raw?.route || ''} ${raw?.destination || ''} ${(e as any).enteredByName || raw?.entered_by || ''}`.toLowerCase();
       if (!text.includes(q)) return false;
     }
 
     return true;
-  }), [entries, typeFilter, modeFilter, terminalFilter, timeFilter, timeStart, timeEnd, searchQuery, shiftFilter, shiftBoundary, vjFlightFilter, vjDestFilter, destFilter, debtClassFilter]);
+  }), [entries, typeFilter, modeFilter, terminalFilter, timeFilter, timeStart, timeEnd, searchQuery, shiftFilter, shiftBoundary, vjFlightFilter, vjDestFilter, destFilter, debtClassFilter, dateRange, allTimeEngaged]);
 
   // Per-airline weight/pieces/revenue roll-up for whatever's currently in
   // filteredEntries -- recomputes with every filter change so it always
@@ -1940,7 +1983,7 @@ export const TransactionLedger = ({
     }
   };
 
-  const handleReprintTag = async (width: '58mm' | '80mm') => {
+  const handleReprintTag = async (_width?: '58mm' | '80mm') => {
     // Change: use wired PDF tag printing (opens PDF in new tab / OS print dialog)
     if (!viewingDetail || !viewingDetail.raw) return;
     // Open the tab synchronously, in direct response to the click --
@@ -3221,36 +3264,49 @@ export const TransactionLedger = ({
   );
   const displayEntries = useMemo(() => {
     let result = [...filteredEntries];
-    shiftsToMark.forEach((s: any) => {
-      result.push({
-        id: `shift-start-${s.id}`,
-        time: new Date(s.started_at).toISOString().split('T')[1].slice(0, 5),
-        type: 'shift-marker',
-        name: 'SHIFT STARTED',
-        detail: `Day started at ${new Date(s.started_at).toLocaleString()}`,
-        amount: 0,
-        mode: '',
-        status: '',
-        source: 'transaction',
-        raw: s,
-      });
-      if (s.ended_at) {
+    // Only display shift start/end markers in the normal, unfiltered timeline for the current shift.
+    // When searching, filtering, or when no transactions match, suppress synthetic shift markers
+    // so they do not clutter the results or mask the "No entries found matching filters" empty state.
+    const hasActiveSearchOrFilter =
+      searchQuery.trim() !== '' ||
+      modeFilter !== 'All' ||
+      destFilter !== 'All' ||
+      timeFilter !== 'All' ||
+      debtClassFilter !== 'All' ||
+      shiftFilter === 'all';
+
+    if (!hasActiveSearchOrFilter && filteredEntries.length > 0) {
+      shiftsToMark.forEach((s: any) => {
         result.push({
-          id: `shift-end-${s.id}`,
-          time: new Date(s.ended_at).toISOString().split('T')[1].slice(0, 5),
+          id: `shift-start-${s.id}`,
+          time: new Date(s.started_at).toISOString().split('T')[1].slice(0, 5),
           type: 'shift-marker',
-          name: 'SHIFT ENDED',
-          detail: `Day ended at ${new Date(s.ended_at).toLocaleString()}`,
+          name: 'SHIFT STARTED',
+          detail: `Day started at ${new Date(s.started_at).toLocaleString()}`,
           amount: 0,
           mode: '',
           status: '',
           source: 'transaction',
           raw: s,
         });
-      }
-    });
+        if (s.ended_at) {
+          result.push({
+            id: `shift-end-${s.id}`,
+            time: new Date(s.ended_at).toISOString().split('T')[1].slice(0, 5),
+            type: 'shift-marker',
+            name: 'SHIFT ENDED',
+            detail: `Day ended at ${new Date(s.ended_at).toLocaleString()}`,
+            amount: 0,
+            mode: '',
+            status: '',
+            source: 'transaction',
+            raw: s,
+          });
+        }
+      });
+    }
     return result;
-  }, [filteredEntries, shiftsToMark]);
+  }, [filteredEntries, shiftsToMark, searchQuery, modeFilter, destFilter, timeFilter, debtClassFilter, shiftFilter]);
 
   // Feeds the Batch Select/Print bar's "Select All" -- batch PRINTING works
   // across every payment mode (a customer paying Cash for several routes
@@ -3405,7 +3461,7 @@ export const TransactionLedger = ({
 
   const { hasNonDefaultFilters, activeFilterCount } = useMemo(() => {
     const hasNDF =
-      typeFilter !== (defaultTypeFilter || "All") ||
+      normalizeType(typeFilter) !== normalizeType(defaultTypeFilter) ||
       modeFilter !== "All" ||
       terminalFilter !== (defaultTerminalFilter || "All") ||
       timeFilter !== "All" ||
@@ -3415,7 +3471,7 @@ export const TransactionLedger = ({
       destFilter !== "All" ||
       debtClassFilter !== "All";
     const count =
-      (typeFilter !== (defaultTypeFilter || "All") ? 1 : 0) +
+      (normalizeType(typeFilter) !== normalizeType(defaultTypeFilter) ? 1 : 0) +
       (modeFilter !== "All" ? 1 : 0) +
       (terminalFilter !== (defaultTerminalFilter || "All") ? 1 : 0) +
       (timeFilter !== "All" ? 1 : 0) +
@@ -3425,10 +3481,10 @@ export const TransactionLedger = ({
       (destFilter !== "All" ? 1 : 0) +
       (debtClassFilter !== "All" ? 1 : 0);
     return { hasNonDefaultFilters: hasNDF, activeFilterCount: count };
-  }, [typeFilter, defaultTypeFilter, modeFilter, terminalFilter, defaultTerminalFilter, timeFilter, searchQuery, vjFlightFilter, vjDestFilter, destFilter, debtClassFilter]);
+  }, [typeFilter, defaultTypeFilter, modeFilter, terminalFilter, defaultTerminalFilter, timeFilter, searchQuery, vjFlightFilter, vjDestFilter, destFilter, debtClassFilter, normalizeType]);
 
   const resetAllFilters = () => {
-    setTypeFilter(defaultTypeFilter || "All");
+    setTypeFilter(normalizeType(defaultTypeFilter));
     setModeFilter("All");
     setTerminalFilter(defaultTerminalFilter || "All");
     setTimeFilter("All");
@@ -3967,7 +4023,7 @@ export const TransactionLedger = ({
                   { label: 'Office Work',value: 'Office Work',activeClass: 'bg-[var(--color-surface-2)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
                 ] as const).map(({ label, value, activeClass }) => {
                   const count = typeChipCounts[value] ?? 0;
-                  const isActive = typeFilter === value;
+                  const isActive = normalizeType(typeFilter) === value;
                   return (
                     <button
                       key={value}
@@ -4147,6 +4203,7 @@ export const TransactionLedger = ({
                       max={dateRange.end || undefined}
                       onChange={(e) => {
                         const newStart = e.target.value;
+                        if (shiftFilter === 'current') setShiftFilter('all');
                         if (!newStart || !dateRange.end) { onDateRangeChange({ ...dateRange, start: newStart }); return; }
                         const spanDays = Math.round((parseLocalDateBoundary(dateRange.end).getTime() - parseLocalDateBoundary(newStart).getTime()) / 86400000);
                         if (spanDays > LEDGER_DATE_RANGE_MAX_DAYS) {
@@ -4168,6 +4225,7 @@ export const TransactionLedger = ({
                       min={dateRange.start || undefined}
                       onChange={(e) => {
                         const newEnd = e.target.value;
+                        if (shiftFilter === 'current') setShiftFilter('all');
                         if (!newEnd || !dateRange.start) { onDateRangeChange({ ...dateRange, end: newEnd }); return; }
                         const spanDays = Math.round((parseLocalDateBoundary(newEnd).getTime() - parseLocalDateBoundary(dateRange.start).getTime()) / 86400000);
                         if (spanDays > LEDGER_DATE_RANGE_MAX_DAYS) {
@@ -4187,7 +4245,7 @@ export const TransactionLedger = ({
                 <div className="relative flex items-center h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-full font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
                   <Filter size={10} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] mr-2 shrink-0 transition-colors" />
                   <select
-                    value={typeFilter}
+                    value={normalizeType(typeFilter)}
                     onChange={(e) => setTypeFilter(e.target.value)}
                     className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none cursor-pointer h-full appearance-none font-bold pr-1"
                   >
@@ -4216,6 +4274,7 @@ export const TransactionLedger = ({
                     <option value="Cash" className="bg-[var(--color-surface-card)]">Cash</option>
                     <option value="Transfer" className="bg-[var(--color-surface-card)]">Transfer</option>
                     <option value="POS" className="bg-[var(--color-surface-card)]">POS</option>
+                    <option value="Wallet" className="bg-[var(--color-surface-card)]">Wallet</option>
                     <option value="Debt" className="bg-[var(--color-surface-card)]">Debt</option>
                     <option value="Unverified" className="bg-[var(--color-surface-card)]">Unverified</option>
                     <option value="Retrieved" className="bg-[var(--color-surface-card)]">Retrieved</option>
