@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { UserProfile, signIn } from '../lib/auth';
-import ehiLogo from '../assets/branding/ehi-logo.png';
+import skyBg from '../assets/login-sky-bg.jpg';
 import { getConnectionMode, testSupabaseConnection, supabase } from '../lib/supabase';
-import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle, Clock, ArrowRight, ShieldCheck, Radio, Server, Activity } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
 
 type ConnStatus = 'checking' | 'live' | 'offline' | 'unconfigured';
 
@@ -66,14 +66,6 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
     }).catch(() => setConnStatus('offline'));
   }, []);
 
-  // Wall-clock UTC display for the top utility bar
-  const [utcTime, setUtcTime] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setUtcTime(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  const utcLabel = utcTime.toISOString().slice(11, 19);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password.trim()) {
@@ -103,362 +95,249 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
   };
 
   const statusConfig: Record<ConnStatus, { label: string; color: string; dot: string; pulse: boolean }> = {
-    checking:     { label: 'Connecting…',        color: '#94a3b8', dot: '#94a3b8', pulse: true  },
-    live:         { label: 'Network Operational', color: '#34d399', dot: '#34d399', pulse: true  },
-    offline:      { label: 'Offline Mode Cache',  color: '#f87171', dot: '#f87171', pulse: false },
-    unconfigured: { label: 'Not Configured',     color: '#fbbf24', dot: '#fbbf24', pulse: false },
+    checking:     { label: 'Connecting…',        color: '#64748b', dot: '#94a3b8', pulse: true  },
+    live:         { label: 'Network Live',       color: '#059669', dot: '#10b981', pulse: true  },
+    offline:      { label: 'Offline Mode Cache', color: '#dc2626', dot: '#ef4444', pulse: false },
+    unconfigured: { label: 'Not Configured',     color: '#d97706', dot: '#f59e0b', pulse: false },
   };
   const status = statusConfig[connStatus];
 
   return (
-    <div className="relative flex flex-col min-h-[100dvh] w-full overflow-y-auto overflow-x-hidden select-none bg-[#07090e] text-slate-100 antialiased">
-      {/* Obsidian atmospheric lighting */}
+    <div className="relative min-h-[100dvh] w-full flex items-center justify-center p-4 sm:p-6 overflow-hidden select-none bg-[#90c5f9] text-slate-900 antialiased font-sans">
+      {/* Photorealistic serene daylight cloudy sky backdrop */}
+      <div
+        aria-hidden="true"
+        className="fixed inset-0 pointer-events-none bg-cover bg-center bg-no-repeat transition-opacity duration-700"
+        style={{ backgroundImage: `url(${skyBg})` }}
+      />
+
+      {/* Subtle atmospheric light bloom */}
       <div
         aria-hidden="true"
         className="fixed inset-0 pointer-events-none"
         style={{
-          backgroundImage:
-            'radial-gradient(circle at 50% 0%, rgba(251,191,36,0.08) 0px, transparent 650px),' +
-            'radial-gradient(circle at 85% 100%, rgba(59,130,246,0.06) 0px, transparent 550px),' +
-            'radial-gradient(circle at 10% 90%, rgba(16,185,129,0.04) 0px, transparent 500px)',
+          background: 'radial-gradient(circle at 50% 35%, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 65%)',
         }}
       />
-      {/* Subtle geometric grid background */}
+
+      {/* Subtle ethereal concentric orbital guide arcs */}
       <div
         aria-hidden="true"
-        className="fixed inset-0 pointer-events-none opacity-[0.035]"
-        style={{
-          backgroundImage:
-            'linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px)',
-          backgroundSize: '48px 48px',
-        }}
-      />
+        className="fixed inset-0 pointer-events-none flex items-center justify-center overflow-hidden"
+      >
+        <div className="w-[640px] h-[640px] rounded-full border border-white/50 shadow-[0_0_90px_rgba(255,255,255,0.45)]" />
+        <div className="absolute w-[960px] h-[960px] rounded-full border border-white/30" />
+        <div className="absolute w-[1280px] h-[1280px] rounded-full border border-white/20" />
+      </div>
 
-      {/* Top utility bar */}
-      <header className="relative z-10 w-full px-4 sm:px-8 lg:px-12 py-3 flex items-center justify-between border-b border-white/[0.06] bg-[#090d16]/70 backdrop-blur-xl">
-        <div className="flex items-center gap-3">
-          <div
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-full border backdrop-blur-md transition-all"
-            style={{ background: `${status.dot}14`, borderColor: `${status.dot}33` }}
-          >
-            <span className="relative flex h-2 w-2">
-              {status.pulse && (
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: status.dot }} />
-              )}
-              <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: status.dot }} />
-            </span>
-            <span className="text-[11px] font-mono font-bold uppercase tracking-wider" style={{ color: status.color }}>
-              {status.label}
-            </span>
-          </div>
-
-          <div className="hidden md:flex items-center gap-1.5 text-[11px] font-mono text-slate-400 border-l border-white/10 pl-3">
-            <Server size={12} className="text-slate-500" />
-            <span>NODE // <span className="text-slate-300 font-semibold">WEST-AFRICA-LOS</span></span>
-          </div>
+      {/* Top Left Brand Emblem */}
+      <header className="fixed top-6 left-6 sm:top-8 sm:left-10 z-20 flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-xl bg-[#1e2029] text-white flex items-center justify-center shadow-md">
+          {/* Geometric brand clover symbol matching reference */}
+          <svg className="w-4 h-4 fill-white" viewBox="0 0 24 24">
+            <path d="M12 2a4 4 0 0 1 4 4c0 1.5-.8 2.8-2 3.5 1.2.7 2 2 2 3.5a4 4 0 0 1-4 4 4 4 0 0 1-4-4c0-1.5.8-2.8 2-3.5-1.2-.7-2-2-2-3.5a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2c0 1.1.9 2 2 2s2-.9 2-2a2 2 0 0 0-2-2zm-3.5 9.5a2 2 0 0 0-2 2 2 2 0 0 0 2 2 2 2 0 0 0 2-2 2 2 0 0 0-2-2zm7 0a2 2 0 0 0-2 2 2 2 0 0 0 2 2 2 2 0 0 0 2-2 2 2 0 0 0-2-2z" />
+          </svg>
         </div>
-
-        <span className="hidden sm:inline text-[11px] font-mono uppercase tracking-[0.2em] text-slate-500 font-semibold">
-          EHI Multisystems • Aviation Logistics Suite
+        <span className="text-base sm:text-lg font-bold text-slate-900 tracking-tight font-sans">
+          EHI Multisystems
         </span>
-
-        <div className="flex items-center gap-2 text-[11px] font-mono text-slate-400 bg-white/[0.03] px-2.5 py-1 rounded-lg border border-white/[0.06]">
-          <Clock size={13} className="text-[var(--color-accent-amber)]" />
-          <span>UTC <span className="text-slate-200 font-semibold tracking-wider">{utcLabel}</span></span>
-        </div>
       </header>
 
-      {/* Main card container */}
-      <main className="relative z-10 flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-10">
-        <div
-          className="w-full max-w-[420px] lg:max-w-4xl rounded-[28px] overflow-hidden grid grid-cols-1 lg:grid-cols-12 border border-white/[0.08] shadow-[0_30px_90px_-20px_rgba(0,0,0,0.9)]"
-          style={{
-            background: 'linear-gradient(180deg, rgba(16,21,34,0.92) 0%, rgba(10,13,22,0.95) 100%)',
-            backdropFilter: 'blur(32px)',
-            WebkitBackdropFilter: 'blur(32px)',
-          }}
-        >
-          {/* Left Column: Credentials Form */}
-          <section className="lg:col-span-7 p-6 sm:p-8 lg:p-10 flex flex-col justify-between">
-            {/* Mobile Header / Brand */}
-            <div className="mb-6 flex items-center justify-between lg:hidden">
-              <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-xl bg-white/[0.05] border border-white/10">
-                  <img src={ehiLogo} alt="EHI Multisystems" style={{ width: 44, height: 'auto', objectFit: 'contain' }} />
-                </div>
-                <div>
-                  <div className="text-[13px] font-bold text-white tracking-wider">EHI MULTISYSTEMS</div>
-                  <div className="text-[10px] font-mono text-[var(--color-accent-amber)]">ENTERPRISE CONSOLE</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono text-emerald-400 font-semibold">
-                <ShieldCheck size={12} />
-                <span>TLS 1.3</span>
-              </div>
-            </div>
+      {/* Top Right Live Telemetry Badge */}
+      <aside aria-label="System status" className="fixed top-6 right-6 sm:top-8 sm:right-10 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/70 backdrop-blur-md border border-white/80 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-xs">
+        <span className="relative flex h-2 w-2">
+          {status.pulse && (
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: status.dot }} />
+          )}
+          <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: status.dot }} />
+        </span>
+        <span className="font-semibold text-slate-700 tracking-wide font-mono text-[11px]">{status.label}</span>
+      </aside>
 
-            <div className="my-auto w-full max-w-sm mx-auto">
-              <div className="mb-6 text-left">
-                <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-[var(--color-accent-amber)]/10 border border-[var(--color-accent-amber)]/25 mb-2.5">
-                  <Activity size={12} className="text-[var(--color-accent-amber)]" />
-                  <span className="text-[10px] font-mono font-bold tracking-widest text-[var(--color-accent-amber)] uppercase">Secure Operator Gateway</span>
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-1.5">
-                  Sign In
-                </h1>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Enter your dispatch credentials to access the operational ledger and cargo consoles.
-                </p>
-              </div>
+      {/* Main Glassmorphic Login Card */}
+      <main className="relative z-10 w-full max-w-[420px] rounded-[34px] p-7 sm:p-9 border border-white/90 shadow-[0_25px_60px_-15px_rgba(20,50,90,0.12),0_0_0_1px_rgba(255,255,255,0.8)_inset] bg-white/75 backdrop-blur-2xl transition-all">
+        {/* Top squircle icon badge with arrow enter glyph */}
+        <div className="mx-auto mb-5 w-12 h-12 rounded-2xl bg-white/90 border border-white shadow-[0_4px_16px_rgba(15,23,42,0.06)] flex items-center justify-center text-slate-800">
+          <svg className="w-5 h-5 text-slate-800 stroke-[2.2]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+            <polyline points="10 17 15 12 10 7" />
+            <line x1="15" y1="12" x2="3" y2="12" />
+          </svg>
+        </div>
 
-              {notice && (
-                <div
-                  className="w-full flex items-center gap-2.5 backdrop-blur-md rounded-xl px-3.5 py-2.5 mb-4 animate-in fade-in"
-                  style={{
-                    background: notice.type === 'offline' ? 'rgba(148,163,184,0.12)' : 'rgba(251,191,36,0.12)',
-                    border: `1px solid ${notice.type === 'offline' ? 'rgba(148,163,184,0.3)' : 'rgba(251,191,36,0.3)'}`,
-                  }}
-                >
-                  <AlertCircle size={15} className="shrink-0" style={{ color: notice.type === 'offline' ? '#94a3b8' : '#fbbf24' }} />
-                  <p className="text-[12px] leading-snug font-medium" style={{ color: notice.type === 'offline' ? '#cbd5e1' : '#fcd34d' }}>{notice.message}</p>
-                </div>
-              )}
+        {/* Heading & Subtitle */}
+        <div className="text-center mb-6">
+          <h1 className="text-[22px] sm:text-2xl font-bold text-slate-900 tracking-tight mb-1.5">
+            Sign in with email
+          </h1>
+          <p className="text-xs sm:text-[13px] text-slate-500 leading-relaxed max-w-[300px] mx-auto">
+            Unified logistics & aviation command portal for flights, cargo, and financial ledgers.
+          </p>
+        </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Email input */}
-                <div>
-                  <label htmlFor="login-email" className="block text-[11px] font-mono uppercase tracking-wider text-slate-300 font-semibold mb-1.5">
-                    Operator Email
-                  </label>
-                  <div className="relative rounded-xl group transition-all">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 group-focus-within:text-[var(--color-accent-amber)] transition-colors">
-                      <Mail size={16} />
-                    </div>
-                    <input
-                      id="login-email"
-                      name="email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="name@ehimultisystems.com"
-                      autoComplete="email"
-                      required
-                      className="w-full bg-[#0c101c]/90 text-slate-100 placeholder-slate-500 text-sm rounded-xl border border-white/10 hover:border-white/20 focus:border-[var(--color-accent-amber)] focus:ring-2 focus:ring-[var(--color-accent-amber)]/20 pl-10 pr-4 py-2.5 transition-all outline-none font-sans"
-                    />
-                  </div>
-                </div>
-
-                {/* Password input */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label htmlFor="login-password" className="block text-[11px] font-mono uppercase tracking-wider text-slate-300 font-semibold">
-                      Master Key
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => { setShowForgotPassword(true); setResetEmail(email); setResetSent(false); setResetError(''); }}
-                      className="text-xs text-[var(--color-accent-amber)] hover:underline transition-colors cursor-pointer font-medium"
-                    >
-                      Forgot password?
-                    </button>
-                  </div>
-                  <div className="relative rounded-xl group transition-all">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 group-focus-within:text-[var(--color-accent-amber)] transition-colors">
-                      <Lock size={16} />
-                    </div>
-                    <input
-                      id="login-password"
-                      name="password"
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••••••"
-                      autoComplete="current-password"
-                      required
-                      className="w-full bg-[#0c101c]/90 text-slate-100 placeholder-slate-500 text-sm rounded-xl border border-white/10 hover:border-white/20 focus:border-[var(--color-accent-amber)] focus:ring-2 focus:ring-[var(--color-accent-amber)]/20 pl-10 pr-11 py-2.5 transition-all outline-none font-sans"
-                    />
-                    <button
-                      type="button"
-                      aria-label="Toggle password visibility"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-300 focus:outline-none transition-colors cursor-pointer"
-                    >
-                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Remember device toggle */}
-                <div className="flex items-center justify-between pt-1">
-                  <label className="inline-flex items-center gap-2.5 cursor-pointer select-none" onClick={() => setRememberMe(v => !v)}>
-                    <span
-                      className="relative inline-flex items-center w-8 h-4.5 rounded-full border transition-all"
-                      style={{
-                        background: rememberMe ? 'var(--color-accent-amber)' : 'rgba(255,255,255,0.08)',
-                        borderColor: rememberMe ? 'transparent' : 'rgba(255,255,255,0.15)',
-                        boxShadow: rememberMe ? '0 0 12px rgba(251,191,36,0.35)' : 'none',
-                      }}
-                    >
-                      <span
-                        className="w-3.5 h-3.5 bg-slate-950 rounded-full shadow transform transition-transform duration-200 ease-in-out"
-                        style={{ transform: rememberMe ? 'translateX(1.125rem)' : 'translateX(0.125rem)' }}
-                      />
-                    </span>
-                    <span className="text-xs text-slate-300 font-medium">Remember terminal credentials</span>
-                  </label>
-                </div>
-
-                {error && (
-                  <div className="flex items-center gap-2.5 bg-red-500/10 border border-red-500/25 backdrop-blur-md rounded-xl px-3.5 py-2.5 animate-in fade-in">
-                    <AlertCircle size={15} className="text-red-400 shrink-0" />
-                    <p className="text-[12px] text-red-300 leading-snug font-medium">{error}</p>
-                  </div>
-                )}
-
-                {connStatus === 'unconfigured' && (
-                  <div className="bg-amber-500/10 border border-amber-400/25 backdrop-blur-md rounded-xl px-3.5 py-2.5">
-                    <p className="text-[11px] font-mono text-amber-300">
-                      VITE_SUPABASE_URL not configured. Add it to environment variables.
-                    </p>
-                  </div>
-                )}
-
-                {/* Primary CTA (Obsidian Gold Luxe) */}
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    disabled={isLoading || connStatus === 'unconfigured'}
-                    className="relative w-full text-slate-950 font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-2 text-sm tracking-wide transition-all duration-200 cursor-pointer disabled:opacity-50 group hover:opacity-95"
-                    style={{
-                      background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)',
-                      boxShadow: '0 8px 24px -4px rgba(245,158,11,0.4), inset 0 1px 1px rgba(255,255,255,0.4)',
-                    }}
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin text-slate-950" />
-                        <span>Authenticating…</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Enter Console</span>
-                        <ArrowRight size={16} className="transition-transform group-hover:translate-x-1 stroke-[2.5]" />
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
-            </div>
-
-            <div className="pt-4 mt-6 border-t border-white/[0.06] flex items-center justify-between text-[11px] font-mono text-slate-500">
-              <span>EHI Multisystems • Operational Hub</span>
-              <span>v2.0 // Lagos Hub</span>
-            </div>
-          </section>
-
-          {/* Right Column: Aviation Telemetry & Dispatch Control Panel */}
-          <section
-            className="hidden lg:flex lg:col-span-5 m-3 rounded-2xl p-6 flex-col justify-between overflow-hidden relative border border-white/[0.08]"
-            style={{
-              background: 'linear-gradient(165deg, rgba(17,24,39,0.95) 0%, rgba(12,17,29,0.98) 50%, rgba(8,11,18,0.99) 100%)',
-              boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.1), 0 20px 40px -10px rgba(0,0,0,0.8)',
-            }}
+        {notice && (
+          <div
+            className="w-full flex items-center gap-2.5 backdrop-blur-md rounded-xl px-3.5 py-2.5 mb-4 animate-in fade-in bg-amber-500/10 border border-amber-500/25 text-amber-900 text-xs"
           >
-            {/* Ambient gold-tinted tactical radar background */}
-            <div aria-hidden="true" className="absolute inset-0 pointer-events-none overflow-hidden">
-              <div className="absolute -right-16 -top-16 w-72 h-72 rounded-full border border-amber-400/10 animate-ehi-pulse-orbit" />
-              <div className="absolute -right-8 -top-8 w-56 h-56 rounded-full border border-white/5" />
-              <div className="absolute -right-16 -top-16 w-72 h-72 animate-ehi-radar-sweep">
-                <div className="w-1/2 h-1/2 origin-bottom-right" style={{ background: 'conic-gradient(from 0deg, rgba(251,191,36,0.15) 0deg, rgba(251,191,36,0.02) 45deg, transparent 60deg)' }} />
-              </div>
-              {/* Route lines */}
-              <svg className="w-full h-full opacity-20" fill="none" viewBox="0 0 400 600" xmlns="http://www.w3.org/2000/svg">
-                <path d="M-40 180 C 130 110, 240 320, 420 220" stroke="#FBBF24" strokeWidth="1.5" strokeDasharray="5 5" />
-                <path d="M10 400 C 140 290, 290 520, 430 380" stroke="#38BDF8" strokeWidth="1.5" strokeDasharray="3 3" />
-                <circle cx="270" cy="460" r="3.5" fill="#FBBF24" />
-                <circle cx="180" cy="220" r="3.5" fill="#38BDF8" />
-              </svg>
+            <AlertCircle size={15} className="shrink-0 text-amber-600" />
+            <p className="leading-snug font-medium">{notice.message}</p>
+          </div>
+        )}
+
+        {/* Authentication Form */}
+        <form onSubmit={handleSubmit} className="space-y-3.5">
+          {/* Email input field */}
+          <div className="relative rounded-xl bg-[#eef3f8]/80 hover:bg-[#eaf0f6] focus-within:bg-white focus-within:ring-2 focus-within:ring-slate-900/15 border border-slate-200/50 transition-all">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <Mail size={17} />
             </div>
+            <input
+              id="login-email"
+              name="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email"
+              autoComplete="email"
+              required
+              className="w-full bg-transparent text-slate-800 placeholder-slate-400 text-sm py-3 pl-10 pr-4 outline-none font-sans"
+            />
+          </div>
 
-            {/* Top brand header in telemetry panel */}
-            <div className="relative z-10 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-xl bg-white p-2 flex items-center justify-center shadow-lg border border-white/20">
-                  <img src={ehiLogo} alt="EHI Multisystems" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                </div>
-                <div>
-                  <span className="text-xs font-extrabold text-white tracking-wider block font-sans">EHI MULTISYSTEMS</span>
-                  <span className="text-[10px] font-mono text-[var(--color-accent-amber)] font-medium">DISPATCH TELEMETRY</span>
-                </div>
-              </div>
-              <div className="px-2.5 py-1 rounded-full bg-white/[0.04] backdrop-blur-md border border-white/10 text-[10px] font-mono text-slate-300 font-semibold flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <ShieldCheck size={12} className="text-emerald-400" />
-                <span>SECURE GATEWAY</span>
-              </div>
+          {/* Password input field */}
+          <div className="relative rounded-xl bg-[#eef3f8]/80 hover:bg-[#eaf0f6] focus-within:bg-white focus-within:ring-2 focus-within:ring-slate-900/15 border border-slate-200/50 transition-all">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <Lock size={17} />
             </div>
+            <input
+              id="login-password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              autoComplete="current-password"
+              required
+              className="w-full bg-transparent text-slate-800 placeholder-slate-400 text-sm py-3 pl-10 pr-10 outline-none font-sans"
+            />
+            <button
+              type="button"
+              aria-label="Toggle password visibility"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none transition-colors cursor-pointer"
+            >
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
 
-            {/* Middle telemetry widget */}
-            <div className="relative z-10 my-auto py-4 space-y-3">
-              <div className="bg-[#080d18]/80 backdrop-blur-lg rounded-2xl p-4 border border-white/[0.08] shadow-xl">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-mono text-slate-300 flex items-center gap-1.5 font-semibold">
-                    <Radio size={14} className="text-[var(--color-accent-amber)]" />Active Hub Network
-                  </span>
-                  <span className="text-[10px] font-mono text-emerald-400 font-bold">ALL HUBS SYNCHRONIZED</span>
-                </div>
+          {/* Forgot Password link */}
+          <div className="flex justify-end pt-0.5">
+            <button
+              type="button"
+              onClick={() => { setShowForgotPassword(true); setResetEmail(email); setResetSent(false); setResetError(''); }}
+              className="text-xs text-slate-500 hover:text-slate-800 transition-colors font-medium cursor-pointer"
+            >
+              Forgot password?
+            </button>
+          </div>
 
-                {/* Hub Node Matrix */}
-                <div className="grid grid-cols-4 gap-2 pt-1 pb-2">
-                  {[
-                    { code: 'LOS', name: 'Lagos Hub', status: 'ACTIVE' },
-                    { code: 'ABV', name: 'Abuja Station', status: 'ACTIVE' },
-                    { code: 'PHC', name: 'Port Harcourt', status: 'ACTIVE' },
-                    { code: 'KAN', name: 'Kano Station', status: 'SYNC' },
-                  ].map((node) => (
-                    <div key={node.code} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-2 text-center">
-                      <div className="text-[12px] font-mono font-bold text-white">{node.code}</div>
-                      <div className="text-[9px] font-mono text-slate-400 truncate">{node.name}</div>
-                      <div className="text-[8px] font-mono text-emerald-400 font-bold mt-0.5">{node.status}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-[10px] font-mono text-slate-400">
-                  <span>Data Integrity: 100% Offline-First</span>
-                  <span className="text-[var(--color-accent-amber)] font-semibold">Encrypted PWA</span>
-                </div>
-              </div>
-
-              <div className="px-3.5 py-2.5 rounded-xl bg-amber-400/[0.06] border border-amber-400/20 text-[11px] text-amber-200/90 flex items-center gap-2.5">
-                <Lock size={15} className="text-[var(--color-accent-amber)] shrink-0" />
-                <span className="leading-snug">Airwaybills, manifests, and cash ledger reconciliations require authenticated role credentials.</span>
-              </div>
+          {error && (
+            <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-3.5 py-2.5 text-xs text-red-700 animate-in fade-in">
+              <AlertCircle size={15} className="text-red-500 shrink-0" />
+              <p className="leading-snug font-medium">{error}</p>
             </div>
+          )}
 
-            {/* Bottom telemetry footer */}
-            <div className="relative z-10 pt-3 border-t border-white/[0.08]">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent-amber)]" />
-                <p className="text-[var(--color-accent-amber)] text-[10px] font-mono uppercase tracking-widest font-semibold">
-                  Aviation Operations & Cargo Command
-                </p>
-              </div>
-              <h2 className="text-base font-bold text-white leading-tight">
-                Real-time tracking, flight manifests & fiscal ledger.
-              </h2>
-              <p className="text-[11px] text-slate-400 mt-1 font-normal leading-relaxed">
-                Automated custody handovers, airline excess baggage, and instant retail POS reconciliation.
-              </p>
+          {connStatus === 'unconfigured' && (
+            <div className="bg-amber-500/10 border border-amber-400/25 rounded-xl px-3.5 py-2.5 text-xs text-amber-800">
+              VITE_SUPABASE_URL not configured. Add it to environment variables.
             </div>
-          </section>
+          )}
+
+          {/* Primary Action Button ("Get Started") */}
+          <div className="pt-1.5">
+            <button
+              type="submit"
+              disabled={isLoading || connStatus === 'unconfigured'}
+              className="w-full py-3.5 px-6 rounded-xl bg-[#1e2029] hover:bg-[#12131a] active:bg-black text-white font-medium text-sm tracking-wide shadow-[0_4px_14px_rgba(30,32,41,0.22)] active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 size={16} className="animate-spin text-white" />
+                  <span>Signing in…</span>
+                </>
+              ) : (
+                <span>Get Started</span>
+              )}
+            </button>
+          </div>
+        </form>
+
+        {/* Dotted "Or sign in with" Divider */}
+        <div className="relative my-6 flex items-center justify-center">
+          <div className="w-full border-t border-dashed border-slate-300" />
+          <span className="absolute bg-[#e9f2fa] px-3 text-[11px] text-slate-400 rounded-full font-medium">
+            Or sign in with
+          </span>
+        </div>
+
+        {/* Bottom 3 Frosted Action Badges (Google, Hub SSO, Apple) */}
+        <div className="grid grid-cols-3 gap-2.5">
+          {/* Google */}
+          <button
+            type="button"
+            aria-label="Sign in with Google"
+            onClick={() => {
+              if (email.endsWith('@gmail.com') || email.includes('@')) {
+                setError('Please use the Get Started button with your operational credentials.');
+              } else {
+                setError('Single Sign-On (Google Workspace) requires operator email.');
+              }
+            }}
+            className="h-11 rounded-xl bg-white/90 hover:bg-white border border-white/90 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:shadow-[0_4px_12px_rgba(15,23,42,0.08)] flex items-center justify-center transition-all cursor-pointer active:scale-95"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.27-2.09 3.665-5.17 3.665-9.12z" />
+              <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.03c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.13C3.28 21.44 7.35 24 12 24z" />
+              <path fill="#FBBC05" d="M5.28 14.29c-.25-.72-.38-1.49-.38-2.29s.13-1.57.38-2.29V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.13z" />
+              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.35 0 3.28 2.56 1.25 6.58l4.03 3.13c.95-2.83 3.6-4.96 6.72-4.96z" />
+            </svg>
+          </button>
+
+          {/* Social / Hub SSO (Facebook / Enterprise Network) */}
+          <button
+            type="button"
+            aria-label="Sign in with Enterprise Network"
+            onClick={() => {
+              setError('Enterprise Hub Directory available for authorized nodes.');
+            }}
+            className="h-11 rounded-xl bg-white/90 hover:bg-white border border-white/90 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:shadow-[0_4px_12px_rgba(15,23,42,0.08)] flex items-center justify-center transition-all cursor-pointer active:scale-95 text-[#1877F2]"
+          >
+            <svg className="w-5 h-5 fill-[#1877F2]" viewBox="0 0 24 24">
+              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+            </svg>
+          </button>
+
+          {/* Apple / Hardware Key */}
+          <button
+            type="button"
+            aria-label="Sign in with Apple"
+            onClick={() => {
+              setError('Apple ID / Hardware token login enabled on registered iOS terminals.');
+            }}
+            className="h-11 rounded-xl bg-white/90 hover:bg-white border border-white/90 shadow-[0_2px_8px_rgba(15,23,42,0.05)] hover:shadow-[0_4px_12px_rgba(15,23,42,0.08)] flex items-center justify-center transition-all cursor-pointer active:scale-95 text-slate-900"
+          >
+            <svg className="w-4 h-4 fill-slate-900" viewBox="0 0 24 24">
+              <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.84c.66-.82 1.11-1.96.99-3.1-.96.04-2.12.65-2.8 1.45-.6.69-1.12 1.85-.98 2.96 1.07.08 2.13-.49 2.79-1.31z" />
+            </svg>
+          </button>
         </div>
       </main>
 
-      {/* Forgot Password Modal */}
+      {/* Forgot Password Modal (matches the clean frosted theme) */}
       {showForgotPassword && createPortal(
         <div
-          className={`fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 ${
+          className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 ${
             isClosingReset ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'
           }`}
           onClick={(e) => {
@@ -466,26 +345,24 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
           }}
         >
           <div
-            className={`rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl h-auto max-h-[85vh] border border-white/10 ${
+            className={`rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl h-auto max-h-[85vh] border border-white/90 bg-white/90 backdrop-blur-2xl ${
               isClosingReset ? 'animate-modal-slide-out' : 'animate-modal-slide-in'
             }`}
-            style={{ background: 'rgba(12,17,28,0.96)', backdropFilter: 'blur(32px)' }}
           >
-            <div className="p-6 border-b border-white/[0.06]">
-              <div className="text-[17px] font-bold text-white">Reset Master Password</div>
-              <div className="text-[12px] mt-1 text-slate-400">We will email a secure link to reset your operator credentials.</div>
+            <div className="p-6 border-b border-slate-100">
+              <h2 className="text-[17px] font-bold text-slate-900">Reset Operator Password</h2>
+              <p className="text-[12px] mt-1 text-slate-500">We will email a secure link to reset your account credentials.</p>
             </div>
             <div className="p-6">
               {resetSent ? (
                 <div className="text-center py-4 space-y-3">
-                  <div className="text-[15px] font-bold text-[var(--color-accent-amber)]">Reset Link Dispatched ✓</div>
-                  <p className="text-[12px] leading-relaxed text-slate-200">
-                    Check <span className="font-semibold text-white">{resetEmail}</span> for your reset link.
+                  <div className="text-[15px] font-bold text-emerald-600">Reset Link Dispatched ✓</div>
+                  <p className="text-[12px] leading-relaxed text-slate-600">
+                    Check <span className="font-semibold text-slate-900">{resetEmail}</span> for your reset link.
                   </p>
                   <button
                     onClick={closeForgotPasswordModal}
-                    className="w-full h-11 text-slate-950 text-[13px] font-bold rounded-xl mt-3 transition-opacity hover:opacity-90 cursor-pointer"
-                    style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' }}
+                    className="w-full h-11 text-white text-[13px] font-medium rounded-xl mt-3 transition-opacity bg-[#1e2029] hover:bg-[#12131a] cursor-pointer"
                   >
                     Return to Login
                   </button>
@@ -493,7 +370,7 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
               ) : (
                 <form onSubmit={handleForgotPassword} className="space-y-4">
                   <div>
-                    <label htmlFor="reset-email" className="block text-[11px] font-mono uppercase tracking-wider text-slate-300 font-semibold mb-1.5">
+                    <label htmlFor="reset-email" className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Operator Email Address
                     </label>
                     <input
@@ -505,25 +382,24 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
                       placeholder="you@ehimultisystems.com"
                       autoComplete="email"
                       autoFocus
-                      className="w-full h-11 px-4 text-sm rounded-xl focus:outline-none transition-all bg-[#090d16] text-slate-100 border border-white/10 focus:border-[var(--color-accent-amber)] focus:ring-2 focus:ring-[var(--color-accent-amber)]/20"
+                      className="w-full h-11 px-4 text-sm rounded-xl focus:outline-none transition-all bg-[#eef3f8]/80 text-slate-900 border border-slate-200/50 focus:border-slate-900/40 focus:ring-2 focus:ring-slate-900/15"
                     />
                   </div>
                   {resetError && (
-                    <p className="text-[12px] text-red-400 font-medium">{resetError}</p>
+                    <p className="text-[12px] text-red-500 font-medium">{resetError}</p>
                   )}
                   <div className="flex gap-3 pt-2">
                     <button
                       type="button"
                       onClick={closeForgotPasswordModal}
-                      className="flex-1 h-11 text-[13px] font-semibold rounded-xl transition-colors cursor-pointer border border-white/15 text-slate-300 hover:bg-white/5"
+                      className="flex-1 h-11 text-[13px] font-medium rounded-xl transition-colors cursor-pointer border border-slate-200 text-slate-600 hover:bg-slate-100"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={resetSending}
-                      className="flex-1 h-11 text-slate-950 text-[13px] font-bold rounded-xl disabled:opacity-60 transition-opacity hover:opacity-95 cursor-pointer"
-                      style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)' }}
+                      className="flex-1 h-11 text-white text-[13px] font-medium rounded-xl disabled:opacity-60 transition-opacity bg-[#1e2029] hover:bg-[#12131a] cursor-pointer"
                     >
                       {resetSending ? 'Sending…' : 'Send Reset Link'}
                     </button>
