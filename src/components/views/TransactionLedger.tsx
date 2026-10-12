@@ -3327,6 +3327,24 @@ export const TransactionLedger = ({
     return selected.length > 0 && selected.every(e => e.mode === 'Debt');
   }, [debtEntriesInView, selectedDebtIds]);
 
+  const [isMobileView, setIsMobileView] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 640;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(max-width: 639px)');
+    const handleMediaChange = (e: MediaQueryListEvent | MediaQueryList) => {
+      setIsMobileView(e.matches);
+    };
+    handleMediaChange(mql);
+    mql.addEventListener('change', handleMediaChange);
+    return () => mql.removeEventListener('change', handleMediaChange);
+  }, []);
+
   const tableRef = useRef<HTMLDivElement>(null);
   const rowVirtualizer = useVirtualizer({
     count: displayEntries.length,
@@ -3338,19 +3356,25 @@ export const TransactionLedger = ({
   // same scroll container) -- card height genuinely varies (badges, PIN,
   // is_debt_clearance styling) unlike the desktop table's uniform 72px
   // rows, so this one measures actual rendered height via measureElement
-  // instead of trusting a single fixed estimate. Before this, the mobile
-  // card branch rendered every entry unconditionally regardless of
-  // viewport -- Tailwind's `block sm:hidden` only hides it with CSS, React
-  // still mounted and diffed all ~1,300 full cards on every render
-  // (including every scroll-triggered re-render from rowVirtualizer
-  // above), which was the dominant cause of the ledger lagging at that
-  // row count.
+  // instead of trusting a single fixed estimate.
   const cardVirtualizer = useVirtualizer({
     count: displayEntries.length,
     getScrollElement: () => tableRef.current,
     estimateSize: () => 190,
     overscan: 4,
+    measureElement: (el) => {
+      // Guard against measuring 0-height elements (e.g. during display:none or off-screen layout)
+      // which collapses TanStack Virtual into infinite resizeItem(index, 0) loops (React error #185)
+      const height = el.getBoundingClientRect().height;
+      return height > 20 ? height : 190;
+    },
   });
+
+  const measureCard = useCallback((node: HTMLDivElement | null) => {
+    if (node && node.offsetHeight > 0) {
+      cardVirtualizer.measureElement(node);
+    }
+  }, [cardVirtualizer]);
 
   // ─── KPI Math ─────────────────────────────────────────────────────────────
   // All five reduce passes are wrapped in a single useMemo so they only run
@@ -4465,6 +4489,7 @@ export const TransactionLedger = ({
                   cards actually in/near the viewport are ever mounted,
                   positioned with translateY against the sizer div's total
                   height instead of relying on document flow. */}
+              {isMobileView && (
               <div className="block sm:hidden">
                 {/* Deliberately NOT gated on allTimeFirstLoadInFlight -- an
                     earlier version of this branch swapped the entire
@@ -4502,7 +4527,7 @@ export const TransactionLedger = ({
                     };
                     if (e.type === 'shift-marker') {
                       return (
-                        <div key={e.id} data-index={virtualRow.index} ref={cardVirtualizer.measureElement} style={wrapperStyle}>
+                        <div key={e.id} data-index={virtualRow.index} ref={measureCard} style={wrapperStyle}>
                           <div className="bg-[rgba(251,191,36,0.1)] border border-[var(--color-accent-amber)] rounded-lg p-2.5 text-center font-bold text-[var(--color-accent-amber)] text-[11px] font-mono">
                             {e.name} — {e.detail}
                           </div>
@@ -4516,7 +4541,7 @@ export const TransactionLedger = ({
                     const statusColor = statusChipClass(e.status);
 
                     return (
-                      <div key={e.id} data-index={virtualRow.index} ref={cardVirtualizer.measureElement} style={wrapperStyle}>
+                      <div key={e.id} data-index={virtualRow.index} ref={measureCard} style={wrapperStyle}>
                       <div
                         onClick={() => e.raw?.is_debt_clearance ? handleJumpToOriginalDebt(e.raw?.related_tx_id) : setViewingDetail(e)}
                         className={`ehi-card p-3 rounded-xl border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] transition-all cursor-pointer space-y-2 ${
@@ -4719,8 +4744,10 @@ export const TransactionLedger = ({
                   </div>
                 )}
               </div>
+              )}
 
               {/* Desktop Virtualized Table (Visible on >= 640px) */}
+              {!isMobileView && (
               <div className="hidden sm:block ehi-card overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
                 <table className="w-full min-w-[720px] text-left font-mono text-[10px]">
@@ -4778,7 +4805,6 @@ export const TransactionLedger = ({
                   return (
                   <tr
                     key={e.id}
-                    ref={rowVirtualizer.measureElement}
                     data-index={virtualRow.index}
                     onClick={() => e.raw?.is_debt_clearance ? handleJumpToOriginalDebt(e.raw?.related_tx_id) : setViewingDetail(e)}
                     className={`border-b border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] transition-colors cursor-pointer group ${
@@ -5102,6 +5128,7 @@ export const TransactionLedger = ({
           </table>
           </div>
         </div>
+        )}
 
         {/* All Time pagination footer -- sits after both the mobile card
             list and desktop table above (both always mounted, one hidden
