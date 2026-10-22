@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import { LoginScreen } from './components/LoginScreen';
 import { ResetPasswordScreen } from './components/ResetPasswordScreen';
-import { EHIApp } from './components/EHIApp';
 import { UserProfile, getSession, signOut } from './lib/auth';
+
+const EHIApp = lazy(() => import('./components/EHIApp').then(m => ({ default: m.EHIApp })));
 import { supabase } from './lib/supabase';
 import { Loader2, PackageX } from 'lucide-react';
 import ehiLogoImg from './assets/branding/ehi-logo.png';
@@ -516,7 +517,9 @@ const AuthenticatedApp = () => {
 
   return (
     <ErrorBoundary>
-      <EHIApp user={user} onLogout={handleLogout} />
+      <Suspense fallback={<SplashScreen />}>
+        <EHIApp user={user} onLogout={handleLogout} />
+      </Suspense>
     </ErrorBoundary>
   );
 };

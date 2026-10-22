@@ -404,19 +404,10 @@ body {
   position: relative;
 }
 
-/* Film-grain noise overlay for realistic tactile depth. Opacity is per-theme
-   (--grain-opacity: 0.068 dark / 0.02 light) -- the same dark noise texture over
-   a near-white light canvas reads as dirt/banding, so it's dialled right back. */
+/* Film-grain noise overlay disabled globally to avoid continuous full-viewport
+   SVG feTurbulence compositing overhead on integrated/mobile GPUs. */
 body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  pointer-events: none;
-  opacity: var(--grain-opacity);
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-  background-repeat: repeat;
-  background-size: 180px 180px;
+  display: none;
 }
 
 /* Same grain recipe as body::before above, but scoped to a single
@@ -1076,41 +1067,23 @@ input[type="date"] {
   cursor: pointer !important;
 }
 
-/* ─── Ultra-Realistic Native Page Transitions ───────────────────────────── */
+/* ─── Fast Low-Overhead Page Transitions ────────────────────────────────── */
 @keyframes page-slide-in {
   0% {
     opacity: 0;
-    transform: translateY(14px) scale(0.988);
-    filter: blur(2px);
-  }
-  60% {
-    opacity: 1;
-    filter: blur(0px);
+    transform: translateY(6px);
   }
   100% {
     opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0px);
+    transform: translateY(0);
   }
 }
 
 .page-transition {
-  /* animation-fill-mode changed from "both" to "backwards": the entry
-     animation still plays identically, but the element no longer keeps a
-     non-"none" transform/filter applied forever after it finishes. A
-     lingering transform or filter (even an identity one like
-     translateY(0) or blur(0px)) makes this div a CSS containing block for
-     every `position: fixed` descendant, which breaks every modal rendered
-     inside any tab (it centers inside this div's full scrollable height
-     instead of the viewport, appearing to open at the bottom of the
-     page). will-change is removed for the same reason -- it forces the
-     same containing-block behavior even with no transform ever applied. */
-  /* Slowed from 0.32s and switched off the fast expo-out curve (which
-     would front-load all motion into the first fraction of a second and
-     then sit idle) to an evenly-paced ease so the full duration reads as
-     one continuous, subtle settle instead of a snap -- deliberately
-     gentle so switching tabs doesn't hit the eye with a sudden change. */
-  animation: page-slide-in 0.5s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+  /* animation-fill-mode "backwards" ensures no lingering transform remains
+     after the 150ms transition completes (preserving position:fixed modals).
+     CSS blur filters removed for 60fps transitions on low-end devices. */
+  animation: page-slide-in 0.15s cubic-bezier(0.2, 0, 0, 1) backwards;
 }
 
 /* ─── Spring-Physics Modal / Popup Animations ───────────────────────────── */
@@ -1136,22 +1109,15 @@ input[type="date"] {
   }
 }
 
-/* Spring mass overshoot for physical snap effect */
+/* Spring mass overshoot for physical snap effect (without GPU-heavy filter:blur) */
 @keyframes modal-slide-up-in {
   0% {
     opacity: 0;
-    transform: translateY(26px) scale(0.94);
-    filter: blur(4px);
-  }
-  75% {
-    opacity: 1;
-    transform: translateY(-2px) scale(1.003);
-    filter: blur(0px);
+    transform: translateY(16px) scale(0.97);
   }
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
-    filter: blur(0px);
   }
 }
 
@@ -1159,12 +1125,10 @@ input[type="date"] {
   0% {
     opacity: 1;
     transform: translateY(0) scale(1);
-    filter: blur(0px);
   }
   100% {
     opacity: 0;
-    transform: translateY(28px) scale(0.95);
-    filter: blur(3px);
+    transform: translateY(16px) scale(0.97);
   }
 }
 

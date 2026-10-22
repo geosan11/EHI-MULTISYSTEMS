@@ -41,7 +41,9 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
     let stream: MediaStream | null = null;
     
     if (isPhotoActive && videoRef.current) {
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
+      })
         .then((s) => {
           stream = s;
           if (videoRef.current) videoRef.current.srcObject = s;
@@ -62,15 +64,35 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
 
   const handleCapture = () => {
     if (!videoRef.current) return;
+    const rawW = videoRef.current.videoWidth || 640;
+    const rawH = videoRef.current.videoHeight || 480;
+    // Cap longest edge at 640px and encode JPEG at 0.55 quality (~12-18 KB
+    // instead of 150-400 KB raw camera frame) to preserve Supabase 500 MB DB storage.
+    const MAX_DIM = 640;
+    const scale = Math.min(1, MAX_DIM / Math.max(rawW, rawH));
     const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
+    canvas.width = Math.round(rawW * scale);
+    canvas.height = Math.round(rawH * scale);
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.drawImage(videoRef.current, 0, 0);
-      setCapturedPhoto(canvas.toDataURL('image/jpeg'));
+      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      setCapturedPhoto(canvas.toDataURL('image/jpeg', 0.55));
       setIsPhotoActive(false);
     }
+  };
+
+  const getCompressedSignature = (): string => {
+    const srcCanvas = signatureRef.current?.getCanvas();
+    if (!srcCanvas) return '';
+    const MAX_SIG_W = 400;
+    const scale = Math.min(1, MAX_SIG_W / (srcCanvas.width || 400));
+    const out = document.createElement('canvas');
+    out.width = Math.max(1, Math.round(srcCanvas.width * scale));
+    out.height = Math.max(1, Math.round(srcCanvas.height * scale));
+    const ctx = out.getContext('2d');
+    if (!ctx) return signatureRef.current?.toDataURL('image/png') || '';
+    ctx.drawImage(srcCanvas, 0, 0, out.width, out.height);
+    return out.toDataURL('image/png');
   };
 
   const clearSignature = () => {
@@ -99,7 +121,7 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
         receivedByPhone: receiverPhone || undefined,
         receivedByIdType: idType ? (idType as ProofOfDelivery['receivedByIdType']) : undefined,
         receivedByIdNumber: idNumber || undefined,
-        signatureData: signatureRef.current?.toDataURL('image/png') || '',
+        signatureData: getCompressedSignature(),
         photoData: capturedPhoto || undefined,
         deliveredAt: new Date().toISOString(),
         hubName: user.hub,

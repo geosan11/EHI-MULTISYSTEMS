@@ -1,136 +1,55 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { User, Transaction, Expense } from '../../lib/types';
-import { fmt, getShiftBoundary, normalizeAirlineName, sanitizeSpreadsheetRows, lagosBusinessDate } from '../../lib/helpers';
+import { fmt, getShiftBoundary, sanitizeSpreadsheetRows, lagosBusinessDate } from '../../lib/helpers';
 import { supabase } from '../../lib/supabase';
-import { fetchAllDebtAndRetrievalEntries, buildShadowRowExclusionCounts, extractPaymentHistoryEvents } from '../../lib/debt';
-import { isOfficeWorkEntry } from '../../lib/officeWork';
-import { AnimatedNumber } from '../ui/AnimatedNumber';
-import { Spinner, Tabs } from '../ui';
 import { useToast } from '../../lib/ToastContext';
-import { 
-  TrendingUp, 
-  Package, 
-  Plane, 
-  Sparkles, 
-  ChevronDown, 
-  AlertCircle, 
-  Loader2, 
+import {
+  TrendingUp,
+  Package,
+  Plane,
+  Sparkles,
+  ChevronDown,
+  AlertCircle,
+  Loader2,
   Calendar,
-  Layers,
-  Users,
   Download,
-  Scale,
   DollarSign,
-  AlertTriangle,
-  PieChart as PieIcon,
-  BarChart3,
-  Clock,
   Filter,
   FileSpreadsheet,
   CheckCircle2,
-  HelpCircle,
-  Radar
+  Radar,
+  Wallet,
+  CreditCard,
+  Banknote,
+  Building2,
 } from 'lucide-react';
-import { 
-  ResponsiveContainer, 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
-  BarChart, 
-  Bar, 
-  Cell, 
-  PieChart, 
-  Pie,
-  ComposedChart,
-  Line
-} from 'recharts';
-
-interface GeminiInsight {
-  title: string;
-  insight: string;
-  priority: 'high' | 'medium' | 'low';
-}
 
 export const Analytics = ({
   user,
   transactions,
   expenses = [],
-  dateRange,
   setDateRange,
-  dataLoading = false
+  dataLoading = false,
 }: {
   user: User;
   transactions: Transaction[];
   expenses?: Expense[];
   dateRange: { start: string; end: string };
   setDateRange: (range: { start: string; end: string }) => void;
-  // True while EHIApp's fetchInitial is re-pulling transactions/expenses for
-  // a new dateRange -- e.g. a period button here just called setDateRange.
-  // Without this, switching periods swapped dateRange instantly but the KPI
-  // tiles/charts kept showing the PREVIOUS period's numbers, computed from
-  // the still-stale transactions/expenses props, with nothing on screen
-  // saying a refetch was even in flight until it silently landed.
   dataLoading?: boolean;
 }) => {
   const [period, setPeriod] = useState<'shift' | 'today' | '7days' | 'month' | 'custom'>('shift');
   const [selectedHub, setSelectedHub] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'overview' | 'pareto' | 'cargo_types' | 'terminal_shifts' | 'cash_flow' | 'past_shifts'>(() => {
-    return (sessionStorage.getItem('ehi_analytics_tab') as any) || 'overview';
-  });
-
-  useEffect(() => {
-    sessionStorage.setItem('ehi_analytics_tab', activeTab);
-  }, [activeTab]);
-
-  // Cache-only count of today's tracked flights currently
-  // delayed/diverted/cancelled -- see Dashboard.tsx's matching effect for
-  // why this never triggers a live AeroDataBox call itself.
-  const [flightAttentionCount, setFlightAttentionCount] = useState(0);
-  useEffect(() => {
-    let cancelled = false;
-    Promise.resolve(
-      supabase
-        .from('flight_status_cache')
-        .select('status')
-        .eq('flight_date', lagosBusinessDate())
-        .in('status', ['delayed', 'diverted', 'cancelled'])
-    )
-      .then(({ data }) => { if (!cancelled) setFlightAttentionCount((data || []).length); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
-
-  const [pastShifts, setPastShifts] = useState<any[]>([]);
-  const [loadingShifts, setLoadingShifts] = useState(false);
-  const [selectedPastShift, setSelectedPastShift] = useState<any | null>(null);
-  const [shiftHistory, setShiftHistory] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (activeTab === 'past_shifts') {
-      const fetchShifts = async () => {
-        setLoadingShifts(true);
-        const { data } = await supabase
-          .from('hub_shifts')
-          .select('*')
-          .eq('status', 'closed')
-          .order('ended_at', { ascending: false })
-          .limit(50);
-        if (data) setPastShifts(data);
-        setLoadingShifts(false);
-      };
-      fetchShifts();
-    }
-  }, [activeTab]);
+  const [activeView, setActiveView] = useState<'summary' | 'customers' | 'past_shifts'>('summary');
   const [searchQuery, setSearchQuery] = useState('');
-  
+  const { showToast } = useToast();
+
   // Custom Date Range State
   const defaultShift = useMemo(() => {
     const b = getShiftBoundary((user as any).shift_start_hour ?? 18);
     return {
       start: b.start.toISOString().slice(0, 16),
-      end: b.end.toISOString().slice(0, 16)
+      end: b.end.toISOString().slice(0, 16),
     };
   }, [user]);
   const [customStart, setCustomStart] = useState(defaultShift.start);
@@ -139,15 +58,14 @@ export const Analytics = ({
   const handlePeriodChange = (newPeriod: typeof period) => {
     setPeriod(newPeriod);
     const now = new Date();
-    
-    // Ensure parent EHIApp fetches enough data to satisfy our internal exact filters
+
     if (newPeriod === 'today' || newPeriod === 'shift') {
-      const start = new Date(now.getTime() - 86400000 * 2).toISOString().split('T')[0]; // fetch extra day to cover 6pm boundary
-      const end = new Date().toISOString().split('T')[0];
+      const start = new Date(now.getTime() - 86400000 * 2).toISOString().split('T')[0];
+      const end = now.toISOString().split('T')[0];
       setDateRange({ start, end });
     } else if (newPeriod === '7days') {
       const start = new Date(now.getTime() - 7 * 86400000).toISOString().split('T')[0];
-      const end = new Date().toISOString().split('T')[0];
+      const end = now.toISOString().split('T')[0];
       setDateRange({ start, end });
     } else if (newPeriod === 'month') {
       const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
@@ -162,516 +80,280 @@ export const Analytics = ({
     setDateRange({ start, end });
   };
 
-  const { showToast } = useToast();
-
-  // AI Insights State
-  const [insights, setInsights] = useState<GeminiInsight[]>([
-    {
-      title: "Yield & Leakage Scanner Active",
-      insight: "Tap REFRESH AI to generate real-time revenue leakage signals & Pareto client breakdowns.",
-      priority: "low"
-    }
-  ]);
-  const [loadingInsights, setLoadingInsights] = useState(false);
-  const [insightError, setInsightError] = useState<string | null>(null);
-
-  // Load real hub list from Supabase
-  const [activeHubs, setActiveHubs] = useState<{ id: string; name: string; code: string; state: string }[]>([
-    { id: 'all', name: 'All Hubs & Terminals', code: 'ALL', state: 'Nigeria' }
-  ]);
+  // Load hub list (cached in sessionStorage to avoid refetching on every tab switch)
+  const [activeHubs, setActiveHubs] = useState<{ id: string; name: string; code: string; state: string }[]>(() => {
+    try {
+      const cached = sessionStorage.getItem('ehi_hubs_list');
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [{ id: 'all', name: 'All Hubs & Terminals', code: 'ALL', state: 'Nigeria' }];
+  });
 
   useEffect(() => {
-    supabase.from('hubs').select('id, name, code, state').order('name').then(({ data }) => {
-      if (data) {
-        setActiveHubs([
-          { id: 'all', name: 'All Hubs & Terminals', code: 'ALL', state: 'Nigeria' },
-          ...data.map((h: any) => ({ id: h.id, name: h.name, code: h.code, state: h.state }))
-        ]);
-      }
-    });
+    if (activeHubs.length > 1) return;
+    supabase
+      .from('hubs')
+      .select('id, name, code, state')
+      .order('name')
+      .then(({ data }) => {
+        if (data) {
+          const list = [
+            { id: 'all', name: 'All Hubs & Terminals', code: 'ALL', state: 'Nigeria' },
+            ...data.map((h: any) => ({ id: h.id, name: h.name, code: h.code, state: h.state })),
+          ];
+          setActiveHubs(list);
+          try {
+            sessionStorage.setItem('ehi_hubs_list', JSON.stringify(list));
+          } catch {}
+        }
+      });
+  }, [activeHubs.length]);
+
+  // Flight attention badge (cache-only read)
+  const [flightAttentionCount, setFlightAttentionCount] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.resolve(
+      supabase
+        .from('flight_status_cache')
+        .select('status')
+        .eq('flight_date', lagosBusinessDate())
+        .in('status', ['delayed', 'diverted', 'cancelled'])
+    )
+      .then(({ data }) => {
+        if (!cancelled) setFlightAttentionCount((data || []).length);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // Airline commission rates
-  const [airlineCommissions, setAirlineCommissions] = useState<Record<string, number>>({});
+  // Past Shifts (only loaded when user clicks "Past Shifts")
+  const [pastShifts, setPastShifts] = useState<any[]>([]);
+  const [loadingShifts, setLoadingShifts] = useState(false);
+  const [selectedPastShift, setSelectedPastShift] = useState<any | null>(null);
 
   useEffect(() => {
-    supabase.from('pricing_config').select('config_value').eq('config_key', 'airline_commissions').single().then(({ data }) => {
-      if (data?.config_value) {
-        const normalized: Record<string, number> = {};
-        Object.entries(data.config_value as Record<string, number>).forEach(([k, v]) => {
-          normalized[normalizeAirlineName(k)] = v;
-        });
-        setAirlineCommissions(normalized);
-      }
-    });
-  }, []);
+    if (activeView !== 'past_shifts') return;
+    let active = true;
+    setLoadingShifts(true);
+    supabase
+      .from('hub_shifts')
+      .select('*')
+      .eq('status', 'closed')
+      .order('ended_at', { ascending: false })
+      .limit(40)
+      .then(({ data }) => {
+        if (active && data) setPastShifts(data);
+        if (active) setLoadingShifts(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [activeView]);
 
-  // Selecting a hub shows every hub sharing its STATE, not just that exact
-  // hub_id -- Lagos Air Cargo Station and EHI Head Office Lagos are two
-  // separate hub rows sharing state='Lagos' (see sibling_hub_ids(),
-  // 20260817_state_visibility.sql onward, which already grants RLS
-  // visibility across them for the exact same reason). `transactions`
-  // already contains both hubs' rows once RLS allows it; without this, this
-  // screen's OWN exact-hub_id filter silently re-split them back apart,
-  // making a "Lagos" view of Analytics only ever show whichever single
-  // station happened to be selected -- exactly the gap that let office-work
-  // revenue at one Lagos station go unnoticed while checking the other.
   const hubIdToState = useMemo(() => {
     const m = new Map<string, string>();
-    activeHubs.forEach(h => { if (h.id !== 'all') m.set(h.id, h.state); });
+    activeHubs.forEach((h) => {
+      if (h.id !== 'all') m.set(h.id, h.state);
+    });
     return m;
   }, [activeHubs]);
 
-  // Filtered transactions by Hub (state-grouped)
-  const hubFilteredTxs = useMemo(() => {
-    if (selectedHub === 'all') return transactions;
-    const selectedState = hubIdToState.get(selectedHub);
-    if (!selectedState) return transactions.filter(t => t.hub_id === selectedHub);
-    return transactions.filter(t => t.hub_id === selectedHub || (t.hub_id && hubIdToState.get(t.hub_id) === selectedState));
-  }, [transactions, selectedHub, hubIdToState]);
-
-  // Same period-window test periodFilteredTxs applies to each transaction's
-  // created_at -- extracted so debt-collection events (dated by their own
-  // payment_history `at`, not any transaction's created_at) can be checked
-  // against the exact same window below.
-  const periodMatches = useCallback((d: Date): boolean => {
+  const periodBounds = useMemo(() => {
     const now = new Date();
-    // Same source EODReconciliation.tsx uses -- if this hub's
-    // shift_start_hour is ever configured away from the 18:00 default,
-    // Analytics' "This Shift" view must report the same window EOD
-    // reconciles against, not a silently different one.
     const shiftBoundary = getShiftBoundary((user as any).shift_start_hour ?? 18);
-
-    if (period === 'shift') {
-      return d >= shiftBoundary.start && d <= shiftBoundary.end;
-    }
+    if (period === 'shift') return { startMs: shiftBoundary.start.getTime(), endMs: shiftBoundary.end.getTime() };
     if (period === 'today') {
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-      return d >= todayStart;
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).getTime();
+      return { startMs: todayStart, endMs: Infinity };
     }
-    if (period === '7days') {
-      const weekAgo = new Date(now.getTime() - 7 * 86400000);
-      return d >= weekAgo;
-    }
+    if (period === '7days') return { startMs: now.getTime() - 7 * 86400000, endMs: Infinity };
     if (period === 'month') {
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
-      return d >= monthStart;
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0).getTime();
+      return { startMs: monthStart, endMs: Infinity };
     }
     if (period === 'custom') {
-      const start = new Date(customStart);
-      const end = new Date(customEnd);
-      return d >= start && d <= end;
+      return { startMs: new Date(customStart).getTime(), endMs: new Date(customEnd).getTime() };
     }
-    return true;
+    return { startMs: 0, endMs: Infinity };
   }, [period, customStart, customEnd, user]);
 
-  // Date/Time Filtered Transactions
+  // Single-pass filter for transactions in selected hub & time period
   const periodFilteredTxs = useMemo(() => {
-    return hubFilteredTxs.filter(t => {
-      const txDate = t.created_at ? new Date(t.created_at) : new Date();
-      return periodMatches(txDate);
-    }).filter(t => {
-      if (!searchQuery) return true;
-      const q = searchQuery.toLowerCase();
-      const text = `${t.id} ${t.name} ${t.detail} ${t.mode} ${t.airline || ''} ${t.route || ''} ${t.awb_tag_number || ''}`.toLowerCase();
-      return text.includes(q);
-    });
-  }, [hubFilteredTxs, periodMatches, searchQuery]);
-
-  // Debt-bearing/retrieved entries, unbounded by the `transactions` prop's
-  // own date window -- see src/lib/debt.ts. Feeds the payment_history-
-  // derived "liquid revenue" events below, replacing the old
-  // is_debt_clearance shadow-row scan for collections made after this
-  // view's data no longer includes new shadow rows.
-  const [debtBearingEntries, setDebtBearingEntries] = useState<Transaction[]>([]);
-  // A failed fetch here used to leave debtBearingEntries permanently at its
-  // initial `[]` for the rest of the session -- silently, since the catch
-  // did nothing -- which drops every debt-collection event out of
-  // periodCollectionPseudoTxs below and understates metrics.totalRevenue/
-  // collectionEfficiency (the two headline KPI tiles) with no indication
-  // anything is wrong. debtFetchError + the retry key make that visible
-  // (banner + toast below) and retryable, deliberately NOT auto-retried --
-  // a persistent RLS/permissions issue should stay visibly flagged, not
-  // get silently retried forever.
-  const [debtFetchError, setDebtFetchError] = useState<string | null>(null);
-  const [debtFetchRetryKey, setDebtFetchRetryKey] = useState(0);
-  useEffect(() => {
-    let active = true;
-    setDebtFetchError(null);
-    fetchAllDebtAndRetrievalEntries()
-      .then(entries => { if (active) setDebtBearingEntries(entries); })
-      .catch((err: any) => {
-        if (!active) return;
-        const message = err?.message || 'unknown error';
-        console.error('Failed to load debt-collection history:', err);
-        setDebtFetchError(message);
-        showToast({ message: `Failed to load debt-collection history -- Total Revenue and Collection Efficiency below may be understated: ${message}`, type: 'error' });
-      });
-    return () => { active = false; };
-  }, [debtFetchRetryKey, showToast]);
-
-  // Debt-collection events (payment_history-derived) that fall inside the
-  // current period + hub selection, packaged as pseudo-transactions so
-  // `metrics` below can fold them into validLiquidTxs through its existing
-  // reduce logic without a parallel set of formulas.
-  const periodCollectionPseudoTxs = useMemo((): Transaction[] => {
-    const exclusionCounts = buildShadowRowExclusionCounts(debtBearingEntries);
     const selectedState = selectedHub === 'all' ? null : hubIdToState.get(selectedHub);
-    return extractPaymentHistoryEvents(debtBearingEntries, exclusionCounts)
-      .filter(e => (
-        selectedHub === 'all'
-        || e.sourceHubId === selectedHub
-        || (selectedState != null && e.sourceHubId != null && hubIdToState.get(e.sourceHubId) === selectedState)
-      ) && periodMatches(new Date(e.at)))
-      .map(e => ({
-        id: `PH-${e.sourceTxId}-${e.at}`,
-        name: e.sourceTxName, detail: e.sourceDetail,
-        amount: e.amount, mode: e.mode, type: e.sourceTxType,
-        time: e.at, created_at: e.at, status: 'Intake',
-        hub_id: e.sourceHubId, hub: e.sourceHub,
-        is_debt_clearance: true,
-      } as Transaction));
-  }, [debtBearingEntries, selectedHub, periodMatches, hubIdToState]);
+    const q = searchQuery.trim().toLowerCase();
+    const { startMs, endMs } = periodBounds;
 
-  // Liquid Transactions (The actual real money we can count as Revenue).
-  // Hoisted to its own memo (used to be computed inline inside `metrics`
-  // only) so the Pareto/Category/Shift/Trend breakdowns below can share the
-  // exact same "what counts as revenue" definition the headline KPI uses,
-  // instead of each independently looping over the raw, un-deduplicated
-  // periodFilteredTxs and inflating for any period spanning a historical
-  // debt-clearance shadow row.
-  // We also consider 'is_debt_clearance' as liquid since it's money coming in today for past debts!
-  // 'Debt Paid' must be excluded here too, not just 'Debt' -- it's the
-  // synthetic mode EHIApp.tsx's fetchInitial computes for an original
-  // entry once fully cleared (receipt_mode stays 'Debt' in the DB;
-  // amount_paid >= amount just displays as 'Debt Paid'). Without this,
-  // a period spanning both the entry's original creation date and its
-  // later clearance date counted the SAME collected money twice: once
-  // via the original entry (mode !== 'Debt' now passes) and again via
-  // its is_debt_clearance shadow entry. EODReconciliation.tsx already
-  // keeps these two strictly separate (newSalesTx excludes
-  // is_debt_clearance entirely) -- this mirrors that.
-  // periodCollectionPseudoTxs (payment_history-derived, see above) is
-  // concatenated in rather than filtered from periodFilteredTxs -- these
-  // events aren't real rows in periodFilteredTxs at all going forward
-  // (no shadow row gets created for them), so they must be added
-  // explicitly to keep counting as liquid revenue/collected cash.
-  const validLiquidTxs = useMemo(() => {
-    return periodFilteredTxs.filter(t => (t.mode !== 'Debt' && t.mode !== 'Debt Paid' && !t.retrieved) || t.is_debt_clearance)
-      .concat(periodCollectionPseudoTxs);
-  }, [periodFilteredTxs, periodCollectionPseudoTxs]);
+    return transactions.filter((t) => {
+      if (selectedHub !== 'all') {
+        const matchesHub =
+          t.hub_id === selectedHub ||
+          (selectedState != null && t.hub_id != null && hubIdToState.get(t.hub_id) === selectedState);
+        if (!matchesHub) return false;
+      }
+      const txMs = t.created_at ? Date.parse(t.created_at) : Date.now();
+      if (txMs < startMs || txMs > endMs) return false;
 
-  // The physical-entry set for count/weight/debt-visibility metrics: real
-  // rows only, historical debt-clearance shadow rows excluded (a shadow row
-  // is a payment record, not a second shipment -- counting it toward
-  // shipment count/tonnage inflated both for any period containing one).
-  // Deliberately NOT the same set as validLiquidTxs -- a Debt-mode original
-  // still belongs here (it's real, physical, already-moved cargo) even
-  // though it's excluded from revenue until paid.
-  const realEntryTxs = useMemo(() => periodFilteredTxs.filter(t => !t.is_debt_clearance), [periodFilteredTxs]);
+      if (q) {
+        const text = `${t.id} ${t.name} ${t.detail} ${t.mode} ${t.airline || ''} ${t.route || ''} ${t.awb_tag_number || ''}`.toLowerCase();
+        if (!text.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [transactions, selectedHub, hubIdToState, periodBounds, searchQuery]);
 
-  // Core Cargo & Revenue Metrics
-  const metrics = useMemo(() => {
-    const cargo = periodFilteredTxs.filter(t => t.type === 'cargo');
-    const baggage = periodFilteredTxs.filter(t => t.type === 'baggage');
-    const marketing = periodFilteredTxs.filter(t => t.type === 'marketing');
-    const packages = periodFilteredTxs.filter(t => t.type === 'package');
+  // Filtered expenses in the same period & hub
+  const periodFilteredExpenses = useMemo(() => {
+    const selectedState = selectedHub === 'all' ? null : hubIdToState.get(selectedHub);
+    const { startMs, endMs } = periodBounds;
 
-    // Identify non-liquid/non-revenue transactions
-    const debtTxs = periodFilteredTxs.filter(t => t.mode === 'Debt');
-    // Shared classifier (src/lib/officeWork.ts), also used by
-    // TransactionLedger.tsx/DebtorsTab.tsx -- this used to be a bare
-    // `t.clientType === 'Corporate'` check, which always resolved to false
-    // (CargoForm.tsx's B2B/monthly-billed paths never actually set
-    // clientType to the literal 'Office Work' this compared against), so
-    // officeWorkTxs was permanently empty and every real B2B office-work
-    // debt fell into individualDebtTxs instead.
-    const officeWorkTxs = debtTxs.filter(t => isOfficeWorkEntry(t));
-    const individualDebtTxs = debtTxs.filter(t => !isOfficeWorkEntry(t));
-    const retrievedTxs = periodFilteredTxs.filter(t => t.retrieved === true);
+    return expenses.filter((e) => {
+      if (e.status === 'rejected') return false;
+      if (selectedHub !== 'all') {
+        const matchesHub =
+          e.hub_id === selectedHub ||
+          (selectedState != null && e.hub_id != null && hubIdToState.get(e.hub_id) === selectedState);
+        if (!matchesHub) return false;
+      }
+      const expMs = e.created_at ? Date.parse(e.created_at) : e.time ? Date.parse(e.time) : Date.now();
+      return expMs >= startMs && expMs <= endMs;
+    });
+  }, [expenses, selectedHub, hubIdToState, periodBounds]);
 
-    const totalRevenue = validLiquidTxs.reduce((sum, t) => sum + t.amount, 0); // Pure liquid
-    const cargoRevenue = validLiquidTxs.filter(t => t.type === 'cargo').reduce((sum, t) => sum + t.amount, 0);
-    const baggageRevenue = validLiquidTxs.filter(t => t.type === 'baggage').reduce((sum, t) => sum + t.amount, 0);
-    const marketingRevenue = validLiquidTxs.filter(t => t.type === 'marketing').reduce((sum, t) => sum + t.amount, 0);
-    const packagesRevenue = validLiquidTxs.filter(t => t.type === 'package').reduce((sum, t) => sum + t.amount, 0);
+  // Single-pass summary calculation (fast O(N) over filtered rows)
+  const summary = useMemo(() => {
+    let collectedTotal = 0;
+    let grossBooked = 0;
+    let unpaidDebt = 0;
+    let debtCount = 0;
 
-    const grossVolumeValue = periodFilteredTxs.reduce((sum, t) => sum + t.amount, 0);
+    let cashTotal = 0;
+    let transferTotal = 0;
+    let unconfirmedTransferTotal = 0;
+    let posTotal = 0;
+    let walletTotal = 0;
 
-    const totalKg = periodFilteredTxs.reduce((sum, t) => sum + (t.kg || 0), 0);
-    const cargoKg = cargo.reduce((sum, t) => sum + (t.kg || 0), 0);
-    const baggageKg = baggage.reduce((sum, t) => sum + (t.kg || 0), 0);
+    let totalShipments = 0;
+    let totalKg = 0;
 
-    const totalPcs = periodFilteredTxs.reduce((sum, t) => sum + (t.pieces || 1), 0);
-    const totalWaybills = periodFilteredTxs.length;
+    const depts = {
+      cargo: { label: 'Air Cargo', revenue: 0, count: 0, kg: 0 },
+      baggage: { label: 'Excess Baggage', revenue: 0, count: 0, kg: 0 },
+      marketing: { label: 'Field Marketing', revenue: 0, count: 0, kg: 0 },
+      package: { label: 'Package Desk', revenue: 0, count: 0, kg: 0 },
+    };
 
-    // Unit Economics Metrics
-    const avgYieldPerKg = totalKg > 0 ? totalRevenue / totalKg : 0;
-    const avgRevenuePerShipment = totalWaybills > 0 ? totalRevenue / totalWaybills : 0;
+    const customerMap = new Map<
+      string,
+      { name: string; dept: string; shipments: number; kg: number; paid: number; debt: number }
+    >();
 
-    // Payment Collection Breakdown -- scoped to validLiquidTxs (the same
-    // "real money" set totalRevenue uses), NOT the raw periodFilteredTxs.
-    // A retrieved (already-accounted-for) transaction's payment amount
-    // must not appear here while being excluded from totalRevenue above --
-    // that mismatch is exactly what let collectionEfficiency silently
-    // exceed 100% and get clamped instead of surfacing the real drift.
-    const cashRevenue = validLiquidTxs.filter(t => t.mode === 'Cash').reduce((sum, t) => sum + t.amount, 0);
-    // TransferCash ("paid by bank transfer, agent holds the cash") is a
-    // real, fully-collected mode -- schema-level CHECK constraints allow it
-    // on all four entry tables (see src/lib/salesAnalysis.ts's own bucket
-    // for it). Omitting it here made a fully-paid TransferCash sale count
-    // toward totalRevenue but not totalCollected below, showing a false
-    // shortfall (Collection Efficiency under 100% with money that was
-    // actually all collected).
-    const transferRevenue = validLiquidTxs.filter(t => t.mode === 'Transfer' || t.mode === 'TransferCash').reduce((sum, t) => sum + t.amount, 0);
-    const posRevenue = validLiquidTxs.filter(t => t.mode === 'POS').reduce((sum, t) => sum + t.amount, 0);
-    const walletDeductions = validLiquidTxs.reduce((sum, t) => sum + (t.wallet_deduction_amount || (t.mode === 'Wallet' ? t.amount : 0)), 0);
-    // Raw t.amount alone overstates outstanding debt -- it ignores both
-    // partial cash payments (amountPaid) and any portion already settled
-    // via a cargo retrieval (raw.retrieved_amount, credited against the
-    // debt by process_*_retrieval -- see executeRetrieval's own comment in
-    // TransactionLedger.tsx). Same balance formula DebtorsTab.tsx and
-    // handleClearDebt already use; floored at 0 per-entry so an overpaid
-    // or fully-retrieved debt can't drag the total negative.
-    const debtOutstanding = debtTxs.reduce((sum, t) => {
-      const remaining = t.amount - (t.amountPaid || 0) - ((t.raw as any)?.retrieved_amount || 0);
-      return sum + Math.max(0, remaining);
-    }, 0);
-    const officeWorkValue = officeWorkTxs.reduce((sum, t) => sum + t.amount, 0);
-    const retrievedValue = retrievedTxs.reduce((sum, t) => sum + t.amount, 0);
+    for (const t of periodFilteredTxs) {
+      const isDebtClearance = !!t.is_debt_clearance;
+      const isRetrieved = !!t.retrieved;
+      const isLiquid = (t.mode !== 'Debt' && t.mode !== 'Debt Paid' && !isRetrieved) || isDebtClearance;
 
-    const unconfirmedTransfers = validLiquidTxs.filter(t => (t.mode === 'Transfer' || t.mode === 'TransferCash') && !t.paymentConfirmed).reduce((sum, t) => sum + t.amount, 0);
-    const unverifiedCash = validLiquidTxs.filter(t => t.mode === 'Cash' && !t.paymentConfirmed).reduce((sum, t) => sum + t.amount, 0);
+      const custName = t.name?.trim() || 'Walk-in Customer';
+      let cust = customerMap.get(custName);
+      if (!cust) {
+        cust = {
+          name: custName,
+          dept:
+            t.type === 'cargo'
+              ? 'Cargo'
+              : t.type === 'baggage'
+                ? 'Baggage'
+                : t.type === 'marketing'
+                  ? 'Marketing'
+                  : 'Package',
+          shipments: 0,
+          kg: 0,
+          paid: 0,
+          debt: 0,
+        };
+        customerMap.set(custName, cust);
+      }
 
-    const totalCollected = cashRevenue + transferRevenue + posRevenue + walletDeductions - unconfirmedTransfers - unverifiedCash;
-    const collectionEfficiency = totalRevenue > 0 ? Math.min(100, Math.round((totalCollected / totalRevenue) * 100)) : 100;
+      // Count physical shipments (exclude debt-clearance payment rows so shipments aren't counted twice)
+      if (!isDebtClearance) {
+        totalShipments++;
+        totalKg += t.kg || 0;
+        grossBooked += t.amount || 0;
 
-    // Airline Payables (remittance)
-    const airlinePayables = cargo.reduce((sum, t) => {
-      if (!t.airline) return sum;
-      const normalizedAirline = normalizeAirlineName(t.airline);
-      const commRate = t.commissionRate ?? airlineCommissions[normalizedAirline] ?? 0;
-      return sum + (t.amount * (1 - commRate / 100));
-    }, 0);
+        cust.shipments++;
+        cust.kg += t.kg || 0;
+
+        const d = depts[t.type as keyof typeof depts];
+        if (d) {
+          d.count++;
+          d.kg += t.kg || 0;
+        }
+
+        if (t.mode === 'Debt') {
+          const remaining = Math.max(
+            0,
+            (t.amount || 0) - (t.amountPaid || 0) - ((t.raw as any)?.retrieved_amount || 0)
+          );
+          if (remaining > 0) {
+            unpaidDebt += remaining;
+            debtCount++;
+            cust.debt += remaining;
+          }
+        }
+      }
+
+      // Count actual collected money (including debt payments collected in this period)
+      if (isLiquid) {
+        const amt = t.amount || 0;
+        collectedTotal += amt;
+        cust.paid += amt;
+
+        const d = depts[t.type as keyof typeof depts];
+        if (d) d.revenue += amt;
+
+        if (t.mode === 'Cash') {
+          cashTotal += amt;
+        } else if (t.mode === 'Transfer' || t.mode === 'TransferCash') {
+          transferTotal += amt;
+          if (!t.paymentConfirmed) unconfirmedTransferTotal += amt;
+        } else if (t.mode === 'POS') {
+          posTotal += amt;
+        } else if (t.mode === 'Wallet' || (t.wallet_deduction_amount && t.wallet_deduction_amount > 0)) {
+          walletTotal += t.wallet_deduction_amount || amt;
+        }
+      }
+    }
+
+    const totalExpenses = periodFilteredExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+    const netCashAfterExpenses = collectedTotal - totalExpenses;
+
+    const topCustomers = Array.from(customerMap.values())
+      .sort((a, b) => b.paid + b.debt - (a.paid + a.debt))
+      .slice(0, 25);
 
     return {
-      totalRevenue,
-      grossVolumeValue,
-      cargoRevenue,
-      baggageRevenue,
-      marketingRevenue,
-      packagesRevenue,
+      collectedTotal,
+      grossBooked,
+      unpaidDebt,
+      debtCount,
+      cashTotal,
+      transferTotal,
+      unconfirmedTransferTotal,
+      posTotal,
+      walletTotal,
+      totalShipments,
       totalKg,
-      cargoKg,
-      baggageKg,
-      totalPcs,
-      totalWaybills,
-      avgYieldPerKg,
-      avgRevenuePerShipment,
-      cashRevenue,
-      transferRevenue,
-      posRevenue,
-      walletDeductions,
-      debtOutstanding,
-      officeWorkValue,
-      retrievedValue,
-      unconfirmedTransfers,
-      unverifiedCash,
-      totalCollected,
-      collectionEfficiency,
-      airlinePayables
+      totalExpenses,
+      expenseCount: periodFilteredExpenses.length,
+      netCashAfterExpenses,
+      depts,
+      topCustomers,
     };
-  }, [periodFilteredTxs, airlineCommissions, validLiquidTxs]);
+  }, [periodFilteredTxs, periodFilteredExpenses]);
 
-  // Client Pareto 80/20 Analysis
-  const clientParetoData = useMemo(() => {
-    const map: Record<string, { clientName: string; category: string; count: number; weightKg: number; revenue: number; debt: number }> = {};
-    const ensure = (t: Transaction) => {
-      const clientName = t.name?.trim() || 'Walk-in Customer';
-      const category = t.type === 'cargo' ? (t.clientType || 'Cargo Consignee') : t.type === 'baggage' ? 'Baggage Pax' : t.type === 'marketing' ? 'Field Agent Client' : 'Package Sender';
-      if (!map[clientName]) {
-        map[clientName] = { clientName, category, count: 0, weightKg: 0, revenue: 0, debt: 0 };
-      }
-      return map[clientName];
-    };
-
-    // Physical activity (shipment count, weight, outstanding-debt
-    // visibility) sourced from realEntryTxs (shadow rows excluded) --
-    // otherwise a historical debt-clearance row inflated count/weight for
-    // a shipment already counted once via its own original entry.
-    realEntryTxs.forEach(t => {
-      const entry = ensure(t);
-      entry.count++;
-      entry.weightKg += t.kg || 0;
-      if (t.mode === 'Debt') entry.debt += t.amount;
-    });
-
-    // Revenue sourced from validLiquidTxs -- the same liquid/collected
-    // definition metrics.totalRevenue uses, so a client's Pareto revenue
-    // can't disagree with the headline KPI above it (the bug this fixes:
-    // this pass used to run over raw periodFilteredTxs instead, inflating
-    // any client's revenue that had a historical shadow row in-period).
-    validLiquidTxs.forEach(t => {
-      ensure(t).revenue += t.amount;
-    });
-
-    const sorted = Object.values(map).sort((a, b) => b.revenue - a.revenue);
-    const grandTotal = sorted.reduce((sum, c) => sum + c.revenue, 0) || 1;
-
-    let runningTotal = 0;
-    return sorted.map((c, idx) => {
-      runningTotal += c.revenue;
-      const cumulativePct = Math.round((runningTotal / grandTotal) * 100);
-      const isTop20 = cumulativePct <= 80 || idx < Math.max(1, Math.ceil(sorted.length * 0.2));
-      const yieldPerKg = c.weightKg > 0 ? c.revenue / c.weightKg : 0;
-      return {
-        ...c,
-        sharePct: Math.round((c.revenue / grandTotal) * 100),
-        cumulativePct,
-        isTop20,
-        yieldPerKg
-      };
-    });
-  }, [realEntryTxs, validLiquidTxs]);
-
-  // Top 80/20 Summary
-  const top20ClientsCount = useMemo(() => clientParetoData.filter(c => c.isTop20).length, [clientParetoData]);
-  const top20RevenueShare = useMemo(() => {
-    const top20Rev = clientParetoData.filter(c => c.isTop20).reduce((sum, c) => sum + c.revenue, 0);
-    return metrics.totalRevenue > 0 ? Math.round((top20Rev / metrics.totalRevenue) * 100) : 0;
-  }, [clientParetoData, metrics.totalRevenue]);
-
-  // Cargo Category & Content Type Yield Matrix
-  const cargoCategoryData = useMemo(() => {
-    const map: Record<string, { category: string; count: number; weightKg: number; revenue: number }> = {};
-    const categoryFor = (t: Transaction): string => {
-      if (t.contentType) return t.contentType;
-      if (t.type === 'baggage') return 'Excess Passenger Baggage';
-      if (t.type === 'marketing') return 'Field Bags (BB/MB/SB)';
-      if (t.type === 'package') return 'Express Parcel';
-      if (t.detail?.toLowerCase().includes('electrical')) return 'Electrical Parts';
-      if (t.detail?.toLowerCase().includes('spares')) return 'Automotive Spares';
-      return 'General Package';
-    };
-    const ensure = (category: string) => {
-      if (!map[category]) map[category] = { category, count: 0, weightKg: 0, revenue: 0 };
-      return map[category];
-    };
-
-    // Same realEntryTxs/validLiquidTxs split as clientParetoData above --
-    // count/weight from real rows, revenue from the liquid/collected set,
-    // so this yield matrix can't disagree with the headline KPI on a period
-    // spanning a historical debt-clearance shadow row.
-    realEntryTxs.forEach(t => {
-      const entry = ensure(categoryFor(t));
-      entry.count++;
-      entry.weightKg += t.kg || 0;
-    });
-    validLiquidTxs.forEach(t => {
-      ensure(categoryFor(t)).revenue += t.amount;
-    });
-
-    const grandTotal = metrics.totalRevenue || 1;
-    return Object.values(map)
-      .map(c => ({
-        ...c,
-        pctShare: Math.round((c.revenue / grandTotal) * 100),
-        yieldPerKg: c.weightKg > 0 ? c.revenue / c.weightKg : 0
-      }))
-      .sort((a, b) => b.revenue - a.revenue);
-  }, [realEntryTxs, validLiquidTxs, metrics.totalRevenue]);
-
-  // Shift & Terminal Distribution
-  const shiftDistributionData = useMemo(() => {
-    const morning = { shift: 'Morning Shift (06:00 - 12:00)', revenue: 0, weightKg: 0, count: 0 };
-    const afternoon = { shift: 'Afternoon Shift (12:00 - 17:00)', revenue: 0, weightKg: 0, count: 0 };
-    const eveningNight = { shift: 'Evening / Night Shift (17:00 - 06:00)', revenue: 0, weightKg: 0, count: 0 };
-    const bucketFor = (t: Transaction) => {
-      const hour = t.created_at ? new Date(t.created_at).getHours() : 12;
-      if (hour >= 6 && hour < 12) return morning;
-      if (hour >= 12 && hour < 17) return afternoon;
-      return eveningNight;
-    };
-
-    // count/weight from real rows, revenue from the liquid/collected set --
-    // a payment-history pseudo-tx buckets by the collection's OWN
-    // timestamp here (its created_at is the payment's `at`), which is the
-    // correct shift to attribute the cash to, distinct from whichever
-    // shift the original sale happened in.
-    realEntryTxs.forEach(t => {
-      const target = bucketFor(t);
-      target.weightKg += t.kg || 0;
-      target.count++;
-    });
-    validLiquidTxs.forEach(t => {
-      bucketFor(t).revenue += t.amount;
-    });
-
-    return [morning, afternoon, eveningNight];
-  }, [realEntryTxs, validLiquidTxs]);
-
-  // Dual-Axis Volume (KG) vs Revenue Trend Chart Data (24-hour / Multi-day)
-  const dualAxisTrendData = useMemo(() => {
-    if (period === 'shift' || period === 'today') {
-      // 24 Hourly Bins -- weight from real rows, revenue from the
-      // liquid/collected set (a payment-history pseudo-tx's created_at is
-      // the collection's own timestamp, so it lands in the hour the cash
-      // actually came in, not the original sale's hour).
-      const bins = Array.from({ length: 24 }, (_, i) => {
-        const hourLabel = `${i < 10 ? '0' : ''}${i}:00`;
-        const weightKg = realEntryTxs
-          .filter(t => t.created_at && new Date(t.created_at).getHours() === i)
-          .reduce((s, t) => s + (t.kg || 0), 0);
-        const revenue = validLiquidTxs
-          .filter(t => t.created_at && new Date(t.created_at).getHours() === i)
-          .reduce((s, t) => s + t.amount, 0);
-        const yieldPerKg = weightKg > 0 ? Math.round(revenue / weightKg) : 0;
-        return { label: hourLabel, revenue, weightKg, yieldPerKg };
-      });
-      return bins;
-    } else {
-      // Daily Bins
-      const dateMap: Record<string, { label: string; revenue: number; weightKg: number }> = {};
-      const ensure = (dateStr: string) => {
-        if (!dateMap[dateStr]) dateMap[dateStr] = { label: dateStr, revenue: 0, weightKg: 0 };
-        return dateMap[dateStr];
-      };
-      realEntryTxs.forEach(t => {
-        const dateStr = t.created_at ? new Date(t.created_at).toISOString().slice(5, 10) : 'Today';
-        ensure(dateStr).weightKg += t.kg || 0;
-      });
-      validLiquidTxs.forEach(t => {
-        const dateStr = t.created_at ? new Date(t.created_at).toISOString().slice(5, 10) : 'Today';
-        ensure(dateStr).revenue += t.amount;
-      });
-
-      return Object.values(dateMap).map(d => ({
-        ...d,
-        yieldPerKg: d.weightKg > 0 ? Math.round(d.revenue / d.weightKg) : 0
-      }));
-    }
-  }, [realEntryTxs, validLiquidTxs, period]);
-
-  // Potential Revenue Leakage Anomaly Warning Signal
-  const leakageWarningSignal = useMemo(() => {
-    if (dualAxisTrendData.length < 2) return null;
-    const avgYield = metrics.avgYieldPerKg;
-    if (avgYield === 0) return null;
-
-    // Find any bin where Weight is > 1.5x average weight but yield drops below 60% of average yield
-    const anomalyBin = dualAxisTrendData.find(d => d.weightKg > 50 && d.yieldPerKg < avgYield * 0.6);
-    if (anomalyBin) {
-      return {
-        label: anomalyBin.label,
-        weightKg: anomalyBin.weightKg,
-        yieldPerKg: anomalyBin.yieldPerKg,
-        expectedYield: Math.round(avgYield)
-      };
-    }
-    return null;
-  }, [dualAxisTrendData, metrics.avgYieldPerKg]);
-
-  // Excel Export Handler
+  // Excel Export
   const exportExcelReport = useCallback(async () => {
     try {
       const [XLSX, { autoFitWorksheetColumns }] = await Promise.all([
@@ -679,191 +361,127 @@ export const Analytics = ({
         import('../../lib/excelExport'),
       ]);
       const summaryRows = [
-        { Metric: 'Total Handling Revenue', Value: `₦${metrics.totalRevenue.toLocaleString()}` },
-        { Metric: 'Total Handling Tonnage', Value: `${metrics.totalKg.toLocaleString()} KG` },
-        { Metric: 'Total Waybills Processed', Value: metrics.totalWaybills },
-        { Metric: 'Average Revenue per KG (Yield)', Value: `₦${metrics.avgYieldPerKg.toFixed(2)}/KG` },
-        { Metric: 'Average Revenue per Shipment', Value: `₦${metrics.avgRevenuePerShipment.toFixed(2)}` },
-        { Metric: 'Collection Efficiency Rate', Value: `${metrics.collectionEfficiency}%` },
-        { Metric: 'Outstanding Debt', Value: `₦${metrics.debtOutstanding.toLocaleString()}` },
-        { Metric: 'Owed to Airlines (Net Payables)', Value: `₦${metrics.airlinePayables.toLocaleString()}` },
+        { Metric: 'Total Money Collected', Value: `₦${summary.collectedTotal.toLocaleString()}` },
+        { Metric: 'Gross Sales Booked', Value: `₦${summary.grossBooked.toLocaleString()}` },
+        { Metric: 'Unpaid Credit / Debt', Value: `₦${summary.unpaidDebt.toLocaleString()}` },
+        { Metric: 'Total Expenses', Value: `₦${summary.totalExpenses.toLocaleString()}` },
+        { Metric: 'Net Position (Collected - Expenses)', Value: `₦${summary.netCashAfterExpenses.toLocaleString()}` },
+        { Metric: 'Total Shipments', Value: summary.totalShipments },
+        { Metric: 'Total Weight (KG)', Value: `${summary.totalKg.toLocaleString()} KG` },
       ];
 
-      const clientRows = clientParetoData.map(c => ({
-        'Client / Airline': c.clientName,
-        'Category': c.category,
-        'Shipments': c.count,
-        'Tonnage (KG)': c.weightKg,
-        'Revenue (NGN)': c.revenue,
-        'Yield (NGN/KG)': Math.round(c.yieldPerKg),
-        'Share %': `${c.sharePct}%`,
-        'Top 20% Driver': c.isTop20 ? 'YES' : 'NO',
-        'Outstanding Debt': c.debt
+      const customerRows = summary.topCustomers.map((c) => ({
+        Customer: c.name,
+        Department: c.dept,
+        Shipments: c.shipments,
+        'Weight (KG)': c.kg,
+        'Amount Paid (NGN)': c.paid,
+        'Unpaid Debt (NGN)': c.debt,
       }));
 
-      const entryRows = periodFilteredTxs.map(t => ({
+      const entryRows = periodFilteredTxs.map((t) => ({
         'Entry Ref': t.id,
-        'Type': t.type,
-        'Client / Consignee': t.name,
-        'Airline': t.airline || '',
-        'Route': t.route || '',
+        Department: t.type,
+        Customer: t.name,
+        Airline: t.airline || '',
+        Route: t.route || '',
         'AWB Tag': t.awb_tag_number || '',
         'Weight (KG)': t.kg || 0,
-        'Pieces': t.pieces || 1,
+        Pieces: t.pieces || 1,
         'Amount (NGN)': t.amount,
         'Payment Mode': t.mode,
-        'Confirmed': t.paymentConfirmed ? 'YES' : 'NO',
+        Confirmed: t.paymentConfirmed ? 'YES' : 'NO',
         'Date Time': t.created_at ? new Date(t.created_at).toLocaleString() : '',
-        'Agent': t.enteredByName || '',
+        Agent: t.enteredByName || '',
       }));
 
       const wb = XLSX.utils.book_new();
       const wsSummary = XLSX.utils.json_to_sheet(sanitizeSpreadsheetRows(summaryRows));
-      const wsClients = XLSX.utils.json_to_sheet(sanitizeSpreadsheetRows(clientRows));
+      const wsClients = XLSX.utils.json_to_sheet(sanitizeSpreadsheetRows(customerRows));
       const wsEntries = XLSX.utils.json_to_sheet(sanitizeSpreadsheetRows(entryRows));
       autoFitWorksheetColumns(wsSummary);
       autoFitWorksheetColumns(wsClients);
       autoFitWorksheetColumns(wsEntries);
 
-      XLSX.utils.book_append_sheet(wb, wsSummary, 'Sales Summary');
-      XLSX.utils.book_append_sheet(wb, wsClients, 'Top Clients & Pareto');
-      XLSX.utils.book_append_sheet(wb, wsEntries, 'Raw Handling Entries');
+      XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+      XLSX.utils.book_append_sheet(wb, wsClients, 'Top Customers');
+      XLSX.utils.book_append_sheet(wb, wsEntries, 'Transactions');
 
-      XLSX.writeFile(wb, `EHI_Sales_Revenue_Analysis_${period}_${new Date().toISOString().slice(0,10)}.xlsx`);
-      showToast({ message: 'Sales analysis exported to Excel successfully!', type: 'success' });
+      XLSX.writeFile(wb, `EHI_Summary_${period}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      showToast({ message: 'Excel report exported!', type: 'success' });
     } catch (err: any) {
-      showToast({ message: 'Failed to export Excel report: ' + err.message, type: 'error' });
+      showToast({ message: 'Failed to export Excel: ' + err.message, type: 'error' });
     }
-  }, [metrics, clientParetoData, periodFilteredTxs, period, showToast]);
-
-  // AI Insights Trigger
-  const fetchAIInsights = useCallback(async () => {
-    setLoadingInsights(true);
-    setInsightError(null);
-    try {
-      const { data: sess } = await supabase.auth.getSession();
-      const token = sess.session?.access_token || '';
-      const response = await fetch('/api/gemini/insights', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({
-          cargoRevenue: metrics.cargoRevenue,
-          marketingRevenue: metrics.marketingRevenue,
-          vjRevenue: metrics.baggageRevenue,
-          totalRevenue: metrics.totalRevenue,
-          avgYieldPerKg: metrics.avgYieldPerKg,
-          topClient: clientParetoData[0]?.clientName || 'N/A',
-          top20Share: top20RevenueShare,
-          outstandingDebt: metrics.debtOutstanding
-        })
-      });
-      let data: any = {};
-      try {
-        const text = await response.text();
-        if (text) data = JSON.parse(text);
-      } catch(e) {}
-      
-      if (data.success && Array.isArray(data.insights)) {
-        setInsights(data.insights);
-      } else {
-        setInsightError(data.error || "Could not retrieve analytical parsing.");
-      }
-    } catch (err: any) {
-      setInsightError("Connection offline / insight server unavailable.");
-    } finally {
-      setLoadingInsights(false);
-    }
-  }, [metrics, clientParetoData, top20RevenueShare]);
+  }, [summary, periodFilteredTxs, period, showToast]);
 
   const handleDownloadPDF = async () => {
     try {
-      if (!periodFilteredTxs || periodFilteredTxs.length === 0) {
-        showToast({ message: "No transactions available to download for this period.", type: "warning" });
+      if (!periodFilteredTxs.length) {
+        showToast({ message: 'No transactions in this period to export.', type: 'warning' });
         return;
       }
       const { downloadAnalyticsPDF } = await import('./AnalyticsPDF');
-      await downloadAnalyticsPDF({
-        period,
-        transactions: periodFilteredTxs,
-      });
+      await downloadAnalyticsPDF({ period, transactions: periodFilteredTxs });
     } catch (err: any) {
-      showToast({ message: "Error downloading PDF: " + err.message, type: "error" });
+      showToast({ message: 'Error downloading PDF: ' + err.message, type: 'error' });
     }
   };
 
   return (
-    <div className="flex flex-col p-4 md:p-6 space-y-6 pb-24 select-none animate-in fade-in duration-300">
-      
-      {/* ── Zone 1: Header & Control Bar ─────────────────────────────── */}
+    <div className="flex flex-col p-4 md:p-6 space-y-5 pb-24 select-none">
+      {/* ── 1. Simple Top Header & Actions ───────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[var(--color-border)] pb-3">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono text-[var(--color-accent-amber)] tracking-[0.15em] uppercase font-bold">
-              ▸ CARGO SALES & REVENUE INTELLIGENCE
-            </span>
-            <span className="px-2 py-0.5 rounded-full bg-[var(--color-amber-bg)] border border-[var(--color-amber-border)] text-[var(--color-accent-amber)] text-[10px] font-mono font-bold">
-              EHI PRO 2
-            </span>
-          </div>
-          <h2 className="text-[18px] font-bold font-sans text-[var(--color-foreground)] tracking-tight mt-0.5">
-            Handling Revenue & Yield Analytics
+          <span className="text-[10px] font-mono text-[var(--color-accent-amber)] tracking-[0.12em] uppercase font-bold">
+            ▸ BUSINESS OVERVIEW
+          </span>
+          <h2 className="text-[18px] font-bold font-sans text-[var(--color-foreground)] tracking-tight">
+            Sales &amp; Collections Summary
           </h2>
         </div>
-        
-        {/* Controls */}
+
         <div className="flex items-center gap-2 flex-wrap">
           {/* Hub Filter */}
           <div className="relative">
-            <select 
+            <select
               value={selectedHub}
               onChange={(e) => setSelectedHub(e.target.value)}
               className="bg-[var(--color-surface-1)] text-[var(--color-foreground)] text-[11px] font-mono h-8 pl-3 pr-7 rounded-lg border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent-amber)] appearance-none cursor-pointer"
             >
-              {activeHubs.map(hub => {
-                // Selecting this hub also pulls in every sibling sharing its
-                // state (see hubFilteredTxs above) -- label it so it's clear
-                // why e.g. "Lagos Air Cargo Station" shows combined figures,
-                // not just that one station's own.
-                const siblingCount = hub.id === 'all' ? 0 : activeHubs.filter(h => h.id !== 'all' && h.id !== hub.id && h.state === hub.state).length;
-                return (
-                  <option key={hub.id} value={hub.id}>
-                    {hub.name}{siblingCount > 0 ? ` (+${siblingCount} ${hub.state} station${siblingCount > 1 ? 's' : ''})` : ''}
-                  </option>
-                );
-              })}
+              {activeHubs.map((hub) => (
+                <option key={hub.id} value={hub.id}>
+                  {hub.name}
+                </option>
+              ))}
             </select>
             <ChevronDown className="absolute right-2 top-2.5 text-[var(--color-muted)] pointer-events-none" size={12} />
           </div>
 
-          {/* Flight Radar */}
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('ehi-nav', { detail: 'FlightRadar' }))}
-            className="h-8 px-3 border rounded-lg text-[11px] font-mono font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
-            style={flightAttentionCount > 0
-              ? { background: 'var(--color-error-bg)', borderColor: 'var(--color-error-border)', color: 'var(--color-error)' }
-              : { background: 'var(--color-surface-1)', borderColor: 'var(--color-border)', color: 'var(--color-foreground)' }}
-            title="Flight Radar"
+            className="h-8 px-3 border rounded-lg text-[11px] font-mono font-bold flex items-center gap-1.5 cursor-pointer"
+            style={
+              flightAttentionCount > 0
+                ? { background: 'var(--color-error-bg)', borderColor: 'var(--color-error-border)', color: 'var(--color-error)' }
+                : { background: 'var(--color-surface-1)', borderColor: 'var(--color-border)', color: 'var(--color-foreground)' }
+            }
           >
             <Radar size={14} />
-            <span className="hidden sm:inline">Flight Radar</span>
-            {flightAttentionCount > 0 && <span>{flightAttentionCount}</span>}
+            <span className="hidden sm:inline">Flights</span>
+            {flightAttentionCount > 0 && <span>({flightAttentionCount})</span>}
           </button>
 
-          {/* Excel Export */}
           <button
             onClick={exportExcelReport}
-            className="h-8 px-3 bg-[var(--color-success-bg)] hover:bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)] rounded-lg text-[11px] font-mono font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
-            title="Export Excel Worksheet"
+            className="h-8 px-3 bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)] rounded-lg text-[11px] font-mono font-bold flex items-center gap-1.5 cursor-pointer"
           >
             <FileSpreadsheet size={14} />
-            <span className="hidden sm:inline">Excel Export</span>
+            <span className="hidden sm:inline">Excel</span>
           </button>
 
-          {/* PDF Export */}
           <button
             onClick={handleDownloadPDF}
-            className="h-8 px-3 bg-[var(--color-surface-1)] hover:bg-[var(--color-surface-2)] text-[var(--color-foreground)] border border-[var(--color-border)] rounded-lg text-[11px] font-mono font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
-            title="Export PDF Report"
+            className="h-8 px-3 bg-[var(--color-surface-1)] text-[var(--color-foreground)] border border-[var(--color-border)] rounded-lg text-[11px] font-mono font-bold flex items-center gap-1.5 cursor-pointer"
           >
             <Download size={14} className="text-[var(--color-accent-amber)]" />
             <span className="hidden sm:inline">PDF</span>
@@ -871,81 +489,64 @@ export const Analytics = ({
         </div>
       </div>
 
-      {/* ── Zone 2: Time Range & Search Controls ─────────────────────── */}
+      {/* ── 2. Time Period & Search Bar ──────────────────────────────── */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-3">
-        {/* Period Buttons */}
         <div className="flex items-center gap-1 bg-[var(--color-surface-1)] p-1 rounded-lg border border-[var(--color-border)] flex-wrap">
-          <button
-            onClick={() => handlePeriodChange('shift')}
-            className={`px-3 py-1 text-[10px] font-mono font-bold uppercase rounded-md transition-all cursor-pointer ${period === 'shift' ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-sm' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
-          >
-            Current Shift
-          </button>
-          <button
-            onClick={() => handlePeriodChange('today')}
-            className={`px-3 py-1 text-[10px] font-mono font-bold uppercase rounded-md transition-all cursor-pointer ${period === 'today' ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-sm' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
-          >
-            Today
-          </button>
-          <button
-            onClick={() => handlePeriodChange('7days')}
-            className={`px-3 py-1 text-[10px] font-mono font-bold uppercase rounded-md transition-all cursor-pointer ${period === '7days' ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-sm' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
-          >
-            7 Days
-          </button>
-          <button
-            onClick={() => handlePeriodChange('month')}
-            className={`px-3 py-1 text-[10px] font-mono font-bold uppercase rounded-md transition-all cursor-pointer ${period === 'month' ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-sm' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
-          >
-            This Month
-          </button>
-          <button
-            onClick={() => handlePeriodChange('custom')}
-            className={`px-3 py-1 text-[10px] font-mono font-bold uppercase rounded-md transition-all cursor-pointer ${period === 'custom' ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-sm' : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'}`}
-          >
-            Custom Range
-          </button>
+          {([
+            ['shift', 'Current Shift'],
+            ['today', 'Today'],
+            ['7days', '7 Days'],
+            ['month', 'This Month'],
+            ['custom', 'Custom'],
+          ] as const).map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => handlePeriodChange(id)}
+              className={`px-3 py-1 text-[11px] font-mono font-bold rounded-md cursor-pointer ${
+                period === id
+                  ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]'
+                  : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
           {dataLoading && (
             <span className="flex items-center gap-1 pl-2 text-[10px] font-mono text-[var(--color-muted)]">
               <Loader2 size={11} className="animate-spin" />
-              Refreshing…
+              Loading…
             </span>
           )}
         </div>
 
-        {/* Custom Range Inputs if Active */}
         {period === 'custom' && (
-          <div className="flex items-center gap-2 text-[11px] font-mono text-[var(--color-muted)]">
+          <div className="flex items-center gap-2 text-[11px] font-mono text-[var(--color-muted)] flex-wrap">
             <input
               type="datetime-local"
               value={customStart}
               onChange={(e) => setCustomStart(e.target.value)}
-              className="bg-[var(--color-surface-1)] text-[var(--color-foreground)] px-2 py-1 rounded border border-[var(--color-border)] text-[10px]"
+              className="bg-[var(--color-surface-1)] text-[var(--color-foreground)] px-2 py-1 rounded border border-[var(--color-border)] text-[11px]"
             />
             <span>to</span>
             <input
               type="datetime-local"
               value={customEnd}
-              onChange={(e) => {
-                setCustomEnd(e.target.value);
-                handleCustomRangeApply();
-              }}
-              className="bg-[var(--color-surface-1)] text-[var(--color-foreground)] px-2 py-1 rounded border border-[var(--color-border)] text-[10px]"
+              onChange={(e) => setCustomEnd(e.target.value)}
+              className="bg-[var(--color-surface-1)] text-[var(--color-foreground)] px-2 py-1 rounded border border-[var(--color-border)] text-[11px]"
             />
-            <button 
+            <button
               onClick={handleCustomRangeApply}
-              className="ml-2 px-3 py-1 bg-[var(--color-surface-3)] text-[var(--color-foreground)] rounded border border-[var(--color-border)] hover:bg-[var(--color-surface-4)] text-[10px] font-bold cursor-pointer"
+              className="px-3 py-1 bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] rounded text-[11px] font-bold cursor-pointer"
             >
-              Apply Range
+              Apply
             </button>
           </div>
         )}
 
-        {/* Search */}
         <div className="relative flex-1 max-w-xs">
           <input
             type="text"
-            placeholder="Search client, route, waybill..."
+            placeholder="Filter by customer, route, AWB..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full h-8 pl-8 pr-3 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg text-[11px] font-sans text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
@@ -954,307 +555,222 @@ export const Analytics = ({
         </div>
       </div>
 
-      {/* ── Zone 3: Executive Yield & Handling KPI Cards ─────────────── */}
-      <div className="relative grid grid-cols-2 lg:grid-cols-5 gap-3">
-        {/* Non-destructive overlay, not a swap-out for the tiles below --
-            the previous period's figures stay visible (dimmed) underneath
-            rather than being replaced by a blank/spinner state, matching
-            the Ledger's "All Time" loading pattern elsewhere in the app. */}
-        {dataLoading && (
-          <div
-            className="absolute inset-0 z-10 flex items-center justify-center rounded-xl backdrop-blur-[1px]"
-            style={{ background: 'var(--color-overlay, rgba(0,0,0,0.35))' }}
-          >
-            <span className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--color-surface-card)] border border-[var(--color-border)] text-[11px] font-mono text-[var(--color-foreground)]">
-              <Loader2 size={13} className="animate-spin text-[var(--color-accent-amber)]" />
-              Loading {period === 'custom' ? 'range' : period}…
-            </span>
+      {/* ── 3. Four Simple Headline Cards ────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Card 1: Money Collected */}
+        <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-4 border-l-4 border-l-[var(--color-success)]">
+          <div className="text-[11px] font-mono text-[var(--color-muted)] uppercase">Money Collected (Paid)</div>
+          <div className="text-[22px] font-bold font-mono text-[var(--color-success)] my-1">
+            ₦{fmt(summary.collectedTotal)}
           </div>
-        )}
-        {/* KPI 1: Handling Revenue */}
-        <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-3.5 relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-[var(--color-accent-amber)]" />
-          <div className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Total Handling Revenue</div>
-          <div className="text-[20px] font-bold font-mono text-[var(--color-foreground)] my-1">
-            <AnimatedNumber value={metrics.totalRevenue} format={fmt} />
-          </div>
-          <div className="text-[10px] font-mono text-[var(--color-accent-amber)] flex items-center justify-between">
-            <span>{metrics.totalWaybills} waybills</span>
-            <span>{metrics.totalPcs} pcs</span>
+          <div className="text-[11px] font-mono text-[var(--color-muted)]">
+            {summary.totalShipments.toLocaleString()} shipments · {summary.totalKg.toLocaleString()} KG
           </div>
         </div>
 
-        {/* KPI 2: Total Tonnage Handled */}
-        <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-3.5 relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-[var(--color-accent-cobalt)]" />
-          <div className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Handling Tonnage</div>
-          <div className="text-[20px] font-bold font-mono text-[var(--color-accent-cobalt)] my-1">
-            {metrics.totalKg.toLocaleString()} <span className="text-[12px] font-normal">KG</span>
+        {/* Card 2: Total Sales Booked */}
+        <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-4 border-l-4 border-l-[var(--color-accent-amber)]">
+          <div className="text-[11px] font-mono text-[var(--color-muted)] uppercase">Total Sales Booked</div>
+          <div className="text-[22px] font-bold font-mono text-[var(--color-foreground)] my-1">
+            ₦{fmt(summary.grossBooked)}
           </div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">
-            {(metrics.totalKg / 1000).toFixed(2)} Metric Tons
-          </div>
-        </div>
-
-        {/* KPI 3: Unit Yield per KG (Revenue/KG) */}
-        <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-3.5 relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-[var(--color-success)]" />
-          <div className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Unit Yield Rate</div>
-          <div className="text-[20px] font-bold font-mono text-[var(--color-success)] my-1">
-            ₦{metrics.avgYieldPerKg.toFixed(1)} <span className="text-[11px] font-normal text-[var(--color-muted)]">/KG</span>
-          </div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">
-            Avg Ticket: ₦{Math.round(metrics.avgRevenuePerShipment).toLocaleString()}
+          <div className="text-[11px] font-mono text-[var(--color-muted)]">
+            Includes paid sales + credit bookings
           </div>
         </div>
 
-        {/* KPI 4: Collection Efficiency */}
-        <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-3.5 relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-[var(--color-purple)]" />
-          <div className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Collection Efficiency</div>
-          <div className="text-[20px] font-bold font-mono text-[var(--color-purple)] my-1">
-            {metrics.collectionEfficiency}%
+        {/* Card 3: Unpaid Credit / Debt */}
+        <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-4 border-l-4 border-l-[var(--color-error)]">
+          <div className="text-[11px] font-mono text-[var(--color-muted)] uppercase">Unpaid Credit (Debt)</div>
+          <div className="text-[22px] font-bold font-mono text-[var(--color-error)] my-1">
+            ₦{fmt(summary.unpaidDebt)}
           </div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">
-            Collected: ₦{metrics.totalCollected.toLocaleString()}
+          <div className="text-[11px] font-mono text-[var(--color-muted)]">
+            {summary.debtCount} unpaid credit {summary.debtCount === 1 ? 'entry' : 'entries'}
           </div>
         </div>
 
-        {/* KPI 5: Outstanding Debt & Receivables */}
-        <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-3.5 relative overflow-hidden flex flex-col justify-between col-span-2 lg:col-span-1">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-[var(--color-error)]" />
-          <div className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-wider">Outstanding Receivables</div>
-          <div className="text-[20px] font-bold font-mono text-[var(--color-error)] my-1">
-            ₦{metrics.debtOutstanding.toLocaleString()}
+        {/* Card 4: Expenses & Net */}
+        <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-4 border-l-4 border-l-[var(--color-accent-cobalt)]">
+          <div className="text-[11px] font-mono text-[var(--color-muted)] uppercase">Net After Expenses</div>
+          <div className="text-[22px] font-bold font-mono text-[var(--color-accent-cobalt)] my-1">
+            ₦{fmt(summary.netCashAfterExpenses)}
           </div>
-          <div className="text-[10px] font-mono text-[var(--color-muted)]">
-            Net Airline Payable: ₦{metrics.airlinePayables.toLocaleString()}
+          <div className="text-[11px] font-mono text-[var(--color-muted)]">
+            Expenses: ₦{fmt(summary.totalExpenses)} ({summary.expenseCount})
           </div>
         </div>
       </div>
 
-      {/* Debt-collection history failed to load -- persistent banner, not
-          just the toast fired when this happened, since a toast can be
-          missed/dismissed and this affects the two headline KPI tiles
-          above. Deliberately placed ahead of the leakage-anomaly banner
-          below: an incomplete revenue figure is a data-integrity problem,
-          not a business-insight flag. */}
-      {debtFetchError && (
-        <div className="bg-[var(--color-error-bg)] border border-[var(--color-error-border)] rounded-xl p-4 flex items-start gap-3">
-          <AlertCircle size={18} className="text-[var(--color-error)] shrink-0 mt-0.5" />
-          <div className="flex-1 text-[12px]">
-            <div className="font-bold text-[var(--color-error)] font-mono uppercase tracking-wider mb-0.5">
-              Debt-Collection History Failed to Load
-            </div>
-            <div className="text-[var(--color-foreground)]">
-              Total Handling Revenue and Collection Efficiency above may be understated until this succeeds -- debt-collection events aren't included right now. ({debtFetchError})
-            </div>
-          </div>
+      {/* ── 4. Simple 3-Button View Switcher ─────────────────────────── */}
+      <div className="flex items-center gap-2 border-b border-[var(--color-border)] pb-2">
+        {([
+          ['summary', 'Department & Payment Breakdown', DollarSign],
+          ['customers', `Top Customers (${summary.topCustomers.length})`, Building2],
+          ['past_shifts', 'Past Closed Shifts', Calendar],
+        ] as const).map(([id, label, Icon]) => (
           <button
-            onClick={() => setDebtFetchRetryKey(k => k + 1)}
-            className="shrink-0 h-8 px-3 bg-[var(--color-error)] text-[var(--color-on-accent-inverse)] rounded-lg text-[11px] font-mono font-bold hover:opacity-90 transition-opacity"
+            key={id}
+            onClick={() => setActiveView(id)}
+            className={`px-3.5 py-2 rounded-lg text-[12px] font-sans font-bold flex items-center gap-2 cursor-pointer ${
+              activeView === id
+                ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]'
+                : 'bg-[var(--color-surface-card)] text-[var(--color-muted)] hover:text-[var(--color-foreground)] border border-[var(--color-border)]'
+            }`}
           >
-            Retry
+            <Icon size={14} />
+            <span>{label}</span>
           </button>
-        </div>
-      )}
+        ))}
+      </div>
 
-      {/* ── Zone 4: Revenue Leakage Anomaly Warning Banner (if triggered) ─ */}
-      {leakageWarningSignal && (
-        <div className="bg-[var(--color-amber-bg)] border border-[var(--color-amber-border)] rounded-xl p-4 flex items-start gap-3 animate-in slide-in-from-top-2 duration-300">
-          <AlertTriangle size={18} className="text-[var(--color-accent-amber)] shrink-0 mt-0.5" />
-          <div className="flex-1 text-[12px]">
-            <div className="font-bold text-[var(--color-accent-amber)] font-mono uppercase tracking-wider mb-0.5">
-              ⚠️ Revenue Leakage Anomaly Detected ({leakageWarningSignal.label})
-            </div>
-            <div className="text-[var(--color-foreground)]">
-              Tonnage peaked at <span className="font-bold font-mono">{leakageWarningSignal.weightKg.toLocaleString()} KG</span>, but unit yield dropped to <span className="font-bold font-mono text-[var(--color-error)]">₦{leakageWarningSignal.yieldPerKg}/KG</span> (baseline average is ₦{leakageWarningSignal.expectedYield}/KG). Verify underbilled demurrage, uncaptured handling surcharges, or manual tariff overrides for this period.
+      {/* ── View 1: Department & Payment Method Breakdown ────────────── */}
+      {activeView === 'summary' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Left: Sales by Department */}
+          <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-4 space-y-3">
+            <h3 className="text-[14px] font-bold font-sans text-[var(--color-foreground)] border-b border-[var(--color-border)] pb-2">
+              1. Money Collected by Department
+            </h3>
+
+            <div className="space-y-2.5">
+              {([
+                { key: 'cargo', icon: Package, color: 'var(--color-accent-amber)' },
+                { key: 'baggage', icon: Plane, color: 'var(--color-accent-cobalt)' },
+                { key: 'marketing', icon: TrendingUp, color: 'var(--color-success)' },
+                { key: 'package', icon: Sparkles, color: 'var(--color-purple)' },
+              ] as const).map(({ key, icon: Icon, color }) => {
+                const d = summary.depts[key];
+                const pct = summary.collectedTotal > 0 ? Math.round((d.revenue / summary.collectedTotal) * 100) : 0;
+                return (
+                  <div
+                    key={key}
+                    className="p-3 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-[13px] font-bold text-[var(--color-foreground)]">
+                        <Icon size={15} style={{ color }} />
+                        {d.label}
+                      </span>
+                      <span className="text-[15px] font-bold font-mono" style={{ color }}>
+                        ₦{fmt(d.revenue)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] font-mono text-[var(--color-muted)]">
+                      <span>
+                        {d.count} {d.count === 1 ? 'entry' : 'entries'}
+                        {d.kg > 0 ? ` · ${d.kg.toLocaleString()} KG` : ''}
+                      </span>
+                      <span>{pct}% of total</span>
+                    </div>
+                    <div className="w-full bg-[var(--color-border)] h-1.5 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
-        </div>
-      )}
 
-      {/* ── Zone 5: Analysis Navigation Tabs ─────────────────────────── */}
-      <Tabs
-        variant="underline"
-        value={activeTab}
-        onChange={(id) => setActiveTab(id as typeof activeTab)}
-        className="overflow-x-auto no-scrollbar gap-2"
-        items={[
-          { id: 'overview', label: 'Revenue vs Volume Trend', icon: BarChart3 },
-          { id: 'pareto', label: 'Client Pareto 80/20', icon: Users },
-          { id: 'cargo_types', label: 'Cargo Categories & Yield', icon: Layers },
-          { id: 'terminal_shifts', label: 'Time Analysis', icon: Clock },
-          { id: 'past_shifts', label: 'Past Shifts', icon: Calendar },
-          { id: 'cash_flow', label: 'Cash Capture & Debts', icon: DollarSign },
-        ]}
-      />
+          {/* Right: How Customers Paid */}
+          <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-4 space-y-3">
+            <h3 className="text-[14px] font-bold font-sans text-[var(--color-foreground)] border-b border-[var(--color-border)] pb-2">
+              2. How Customers Paid
+            </h3>
 
-      {/* ── Tab 1: Overview Dual-Axis Trend ──────────────────────────── */}
-      {activeTab === 'overview' && (
-        <div className="space-y-6 animate-in fade-in duration-200">
-          {/* Dual Axis Chart */}
-          <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-4 md:p-5 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--color-border)] pb-2">
-              <div>
-                <h3 className="text-[14px] font-bold font-sans text-[var(--color-foreground)]">
-                  Dual-Axis Revenue (₦) vs Handling Volume (KG) Trend
-                </h3>
-                <p className="text-[11px] text-[var(--color-muted)] font-mono">
-                  Compares revenue captured against actual physical weight processed to isolate rate deviations.
-                </p>
-              </div>
-              <div className="flex items-center gap-4 text-[10px] font-mono text-[var(--color-muted)]">
-                <span className="flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 rounded bg-[var(--color-accent-amber)]" /> Revenue (₦)
+            <div className="space-y-2.5 font-mono text-[12px]">
+              <div className="flex items-center justify-between p-3 bg-[var(--color-surface-1)] rounded-lg border border-[var(--color-border)]">
+                <span className="flex items-center gap-2 text-[var(--color-foreground)] font-sans font-medium">
+                  <Banknote size={16} className="text-[var(--color-success)]" />
+                  Cash
                 </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 rounded bg-[var(--color-accent-cobalt)]" /> Weight (KG)
+                <span className="text-[15px] font-bold text-[var(--color-success)]">₦{fmt(summary.cashTotal)}</span>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-[var(--color-surface-1)] rounded-lg border border-[var(--color-border)]">
+                <div>
+                  <div className="flex items-center gap-2 text-[var(--color-foreground)] font-sans font-medium">
+                    <CheckCircle2 size={16} className="text-[var(--color-accent-cobalt)]" />
+                    Bank Transfer
+                  </div>
+                  {summary.unconfirmedTransferTotal > 0 && (
+                    <div className="text-[10px] text-[var(--color-warning)] mt-0.5">
+                      ₦{fmt(summary.unconfirmedTransferTotal)} awaiting bank confirmation
+                    </div>
+                  )}
+                </div>
+                <span className="text-[15px] font-bold text-[var(--color-accent-cobalt)]">
+                  ₦{fmt(summary.transferTotal)}
                 </span>
               </div>
-            </div>
 
-            <div className="w-full h-[260px] text-[10px] font-mono">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={dualAxisTrendData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
-                  <XAxis dataKey="label" stroke="var(--color-muted)" strokeWidth={0.5} tickLine={false} />
-                  <YAxis yAxisId="left" stroke="var(--color-accent-amber)" strokeWidth={0.5} tickLine={false} tickFormatter={(val) => `₦${val/1000}k`} />
-                  <YAxis yAxisId="right" orientation="right" stroke="var(--color-accent-cobalt)" strokeWidth={0.5} tickLine={false} tickFormatter={(val) => `${val}kg`} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-chart-tooltip-border)', color: 'var(--color-foreground)', fontSize: '11px', borderRadius: '8px' }}
-                    formatter={(val: any, name: any) => [
-                      name === 'revenue' ? `₦${Number(val).toLocaleString()}` : `${Number(val).toLocaleString()} KG`,
-                      name === 'revenue' ? 'Revenue' : 'Handling Weight'
-                    ]}
-                  />
-                  <Bar yAxisId="left" dataKey="revenue" fill="var(--color-accent-amber)" fillOpacity={0.2} stroke="var(--color-accent-amber)" radius={[4, 4, 0, 0]} />
-                  <Line yAxisId="right" type="monotone" dataKey="weightKg" stroke="var(--color-accent-cobalt)" strokeWidth={2} dot={{ r: 3, fill: 'var(--color-accent-cobalt)' }} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+              <div className="flex items-center justify-between p-3 bg-[var(--color-surface-1)] rounded-lg border border-[var(--color-border)]">
+                <span className="flex items-center gap-2 text-[var(--color-foreground)] font-sans font-medium">
+                  <CreditCard size={16} className="text-[var(--color-accent-amber)]" />
+                  POS Terminal
+                </span>
+                <span className="text-[15px] font-bold text-[var(--color-accent-amber)]">₦{fmt(summary.posTotal)}</span>
+              </div>
 
-          {/* Revenue Stream Breakdown Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Cargo Stream */}
-            <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-4 flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono text-[var(--color-muted)] uppercase">Air Cargo Stream</span>
-                <Package size={16} className="text-[var(--color-accent-amber)]" />
+              <div className="flex items-center justify-between p-3 bg-[var(--color-surface-1)] rounded-lg border border-[var(--color-border)]">
+                <span className="flex items-center gap-2 text-[var(--color-foreground)] font-sans font-medium">
+                  <Wallet size={16} className="text-[var(--color-purple)]" />
+                  Customer Wallet
+                </span>
+                <span className="text-[15px] font-bold text-[var(--color-purple)]">₦{fmt(summary.walletTotal)}</span>
               </div>
-              <div className="text-[22px] font-bold font-mono text-[var(--color-accent-amber)] my-2">
-                ₦{metrics.cargoRevenue.toLocaleString()}
-              </div>
-              <div className="text-[11px] font-mono text-[var(--color-muted)] space-y-0.5">
-                <div>Weight: {metrics.cargoKg.toLocaleString()} KG</div>
-                <div>Yield: ₦{metrics.cargoKg > 0 ? (metrics.cargoRevenue / metrics.cargoKg).toFixed(1) : 0}/KG</div>
-              </div>
-            </div>
 
-            {/* Field Marketing Stream */}
-            <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-4 flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono text-[var(--color-muted)] uppercase">Field Marketing</span>
-                <TrendingUp size={16} className="text-[var(--color-success)]" />
-              </div>
-              <div className="text-[22px] font-bold font-mono text-[var(--color-success)] my-2">
-                ₦{metrics.marketingRevenue.toLocaleString()}
-              </div>
-              <div className="text-[11px] font-mono text-[var(--color-muted)] space-y-0.5">
-                <div>Bag Sales (BB/MB/SB)</div>
-                <div>{periodFilteredTxs.filter(t => t.type === 'marketing').length} Entries</div>
-              </div>
-            </div>
-
-            {/* Excess Baggage Stream */}
-            <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-4 flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono text-[var(--color-muted)] uppercase">Excess Baggage</span>
-                <Plane size={16} className="text-[var(--color-accent-cobalt)]" />
-              </div>
-              <div className="text-[22px] font-bold font-mono text-[var(--color-accent-cobalt)] my-2">
-                ₦{metrics.baggageRevenue.toLocaleString()}
-              </div>
-              <div className="text-[11px] font-mono text-[var(--color-muted)] space-y-0.5">
-                <div>Weight: {metrics.baggageKg.toLocaleString()} KG</div>
-                <div>Pax Manifests: {periodFilteredTxs.filter(t => t.type === 'baggage').length}</div>
-              </div>
-            </div>
-
-            {/* Express Packages Stream */}
-            <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-4 flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono text-[var(--color-muted)] uppercase">Express Packages</span>
-                <Sparkles size={16} className="text-[var(--color-purple)]" />
-              </div>
-              <div className="text-[22px] font-bold font-mono text-[var(--color-purple)] my-2">
-                ₦{metrics.packagesRevenue.toLocaleString()}
-              </div>
-              <div className="text-[11px] font-mono text-[var(--color-muted)] space-y-0.5">
-                <div>Parcels & Envelopes</div>
-                <div>{periodFilteredTxs.filter(t => t.type === 'package').length} Waybills</div>
+              <div className="flex items-center justify-between p-3 bg-[var(--color-error-bg)] rounded-lg border border-[var(--color-error-border)]">
+                <span className="flex items-center gap-2 text-[var(--color-error)] font-sans font-bold">
+                  <AlertCircle size={16} />
+                  Unpaid Credit (Debt Owed)
+                </span>
+                <span className="text-[15px] font-bold text-[var(--color-error)]">₦{fmt(summary.unpaidDebt)}</span>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Tab 2: Client Pareto 80/20 Analysis ──────────────────────── */}
-      {activeTab === 'pareto' && (
-        <div className="space-y-4 animate-in fade-in duration-200">
-          <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <div className="text-[10px] font-mono text-[var(--color-accent-amber)] uppercase font-bold tracking-wider mb-0.5">
-                ● PARETO REVENUE PRINCIPLE (80/20 RULE)
-              </div>
-              <div className="text-[15px] font-bold font-sans text-[var(--color-foreground)]">
-                <span className="text-[var(--color-accent-amber)] font-mono">{top20ClientsCount} key clients</span> drive <span className="text-[var(--color-success)] font-mono">{top20RevenueShare}%</span> of total handling revenue.
-              </div>
-              <p className="text-[11px] text-[var(--color-muted)] mt-0.5">
-                Focus commercial priority and account relationship management on these top 20% accounts.
-              </p>
-            </div>
+      {/* ── View 2: Top Customers Table ──────────────────────────────── */}
+      {activeView === 'customers' && (
+        <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl overflow-hidden">
+          <div className="p-4 border-b border-[var(--color-border)]">
+            <h3 className="text-[14px] font-bold text-[var(--color-foreground)]">Top Customers in Selected Period</h3>
+            <p className="text-[11px] text-[var(--color-muted)]">Ranked by total business volume (paid + credit)</p>
           </div>
-
-          {/* Pareto Client Table */}
-          <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl overflow-hidden shadow-sm">
+          {summary.topCustomers.length === 0 ? (
+            <div className="p-8 text-center text-[12px] font-mono text-[var(--color-muted)]">
+              No customer records found for this period.
+            </div>
+          ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left font-mono text-[11px]">
+              <table className="w-full text-left font-mono text-[12px]">
                 <thead>
-                  <tr className="bg-[var(--color-surface-1)] text-[var(--color-muted)] border-b border-[var(--color-border)]">
-                    <th className="py-2.5 px-3">Rank & Client / Airline</th>
-                    <th className="py-2.5 px-3">Segment</th>
+                  <tr className="bg-[var(--color-surface-1)] text-[var(--color-muted)] border-b border-[var(--color-border)] text-[10px] uppercase">
+                    <th className="py-2.5 px-3">#</th>
+                    <th className="py-2.5 px-3">Customer</th>
+                    <th className="py-2.5 px-3">Dept</th>
                     <th className="py-2.5 px-3 text-center">Shipments</th>
-                    <th className="py-2.5 px-3 text-right">Tonnage (KG)</th>
-                    <th className="py-2.5 px-3 text-right">Revenue (₦)</th>
-                    <th className="py-2.5 px-3 text-right">Yield (₦/KG)</th>
-                    <th className="py-2.5 px-3 text-center">Share %</th>
-                    <th className="py-2.5 px-3 text-right">Outstanding Debt</th>
+                    <th className="py-2.5 px-3 text-right">Weight</th>
+                    <th className="py-2.5 px-3 text-right">Paid (₦)</th>
+                    <th className="py-2.5 px-3 text-right">Unpaid Debt (₦)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border)]">
-                  {clientParetoData.map((c, i) => (
-                    <tr key={i} className={c.isTop20 ? 'bg-[rgba(251,191,36,0.03)] hover:bg-[rgba(251,191,36,0.09)]' : 'hover:bg-[var(--color-surface-hover)]'}>
-                      <td className="py-2.5 px-3 font-sans font-medium text-[var(--color-foreground)]">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono font-bold ${i < 3 ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)]'}`}>
-                            {i + 1}
-                          </span>
-                          <span className="truncate max-w-[180px]">{c.clientName}</span>
-                          {c.isTop20 && (
-                            <span className="px-1.5 py-0.2 rounded bg-[var(--color-amber-bg)] text-[var(--color-accent-amber)] text-[9px] font-mono font-bold">
-                              TOP 20%
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-3 text-[var(--color-muted)] font-mono text-[10px]">{c.category}</td>
-                      <td className="py-2.5 px-3 text-center text-[var(--color-foreground)]">{c.count}</td>
-                      <td className="py-2.5 px-3 text-right text-[var(--color-foreground)]">{c.weightKg.toLocaleString()} KG</td>
-                      <td className="py-2.5 px-3 text-right font-bold text-[var(--color-accent-amber)]">₦{fmt(c.revenue)}</td>
-                      <td className="py-2.5 px-3 text-right text-[var(--color-success)] font-bold">₦{Math.round(c.yieldPerKg)}/KG</td>
-                      <td className="py-2.5 px-3 text-center font-bold text-[var(--color-foreground)]">{c.sharePct}%</td>
-                      <td className={`py-2.5 px-3 text-right font-bold ${c.debt > 0 ? 'text-[var(--color-error)]' : 'text-[var(--color-muted)]'}`}>
+                  {summary.topCustomers.map((c, i) => (
+                    <tr key={c.name} className="hover:bg-[var(--color-surface-hover)]">
+                      <td className="py-2.5 px-3 text-[var(--color-muted)]">{i + 1}</td>
+                      <td className="py-2.5 px-3 font-sans font-bold text-[var(--color-foreground)]">{c.name}</td>
+                      <td className="py-2.5 px-3 text-[var(--color-muted)]">{c.dept}</td>
+                      <td className="py-2.5 px-3 text-center text-[var(--color-foreground)]">{c.shipments}</td>
+                      <td className="py-2.5 px-3 text-right text-[var(--color-foreground)]">{c.kg.toLocaleString()} KG</td>
+                      <td className="py-2.5 px-3 text-right font-bold text-[var(--color-success)]">₦{fmt(c.paid)}</td>
+                      <td
+                        className={`py-2.5 px-3 text-right font-bold ${
+                          c.debt > 0 ? 'text-[var(--color-error)]' : 'text-[var(--color-muted)]'
+                        }`}
+                      >
                         {c.debt > 0 ? `₦${fmt(c.debt)}` : '—'}
                       </td>
                     </tr>
@@ -1262,273 +778,106 @@ export const Analytics = ({
                 </tbody>
               </table>
             </div>
-          </div>
+          )}
         </div>
       )}
 
-      {/* ── Tab 3: Cargo Categories & Yield Matrix ──────────────────── */}
-      {activeTab === 'cargo_types' && (
-        <div className="space-y-4 animate-in fade-in duration-200">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Cargo Category Table */}
-            <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-4 space-y-3">
-              <h3 className="text-[13px] font-bold font-sans text-[var(--color-foreground)] border-b border-[var(--color-border)] pb-2 flex items-center gap-2">
-                <Layers size={14} className="text-[var(--color-accent-amber)]" />
-                <span>Cargo Category Yield Breakdown</span>
-              </h3>
-
-              <div className="space-y-3">
-                {cargoCategoryData.map((cat, i) => (
-                  <div key={i} className="space-y-1 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg p-3">
-                    <div className="flex items-center justify-between text-[12px] font-sans font-bold text-[var(--color-foreground)]">
-                      <span>{cat.category}</span>
-                      <span className="text-[var(--color-accent-amber)] font-mono">₦{fmt(cat.revenue)}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-[10px] font-mono text-[var(--color-muted)]">
-                      <span>{cat.count} shipments · {cat.weightKg.toLocaleString()} KG</span>
-                      <span className="text-[var(--color-success)] font-bold">Yield: ₦{Math.round(cat.yieldPerKg)}/KG ({cat.pctShare}%)</span>
-                    </div>
-                    <div className="w-full bg-[var(--color-border)] h-1.5 rounded-full overflow-hidden mt-1">
-                      <div className="bg-[var(--color-accent-amber)] h-full rounded-full" style={{ width: `${cat.pctShare}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Cargo Category Distribution Pie Chart */}
-            <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-4 flex flex-col justify-between">
-              <h3 className="text-[13px] font-bold font-sans text-[var(--color-foreground)] border-b border-[var(--color-border)] pb-2 flex items-center gap-2">
-                <PieIcon size={14} className="text-[var(--color-accent-cobalt)]" />
-                <span>Revenue Share by Content Category</span>
-              </h3>
-
-              <div className="h-[240px] w-full flex items-center justify-center text-[10px] font-mono">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={cargoCategoryData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      paddingAngle={3}
-                      dataKey="revenue"
-                      nameKey="category"
-                    >
-                      {cargoCategoryData.map((_, idx) => (
-                        <Cell key={idx} fill={[`var(--color-chart-1)`, `var(--color-chart-2)`, `var(--color-chart-3)`, `var(--color-chart-4)`, `var(--color-chart-5)`, `var(--color-chart-6)`][idx % 6]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(val: any) => [`₦${fmt(Number(val))}`, 'Revenue']}
-                      contentStyle={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-chart-tooltip-border)', color: 'var(--color-foreground)', fontSize: '11px', borderRadius: '8px' }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 text-[10px] font-mono pt-2 border-t border-[var(--color-border)]">
-                {cargoCategoryData.slice(0, 4).map((cat, idx) => (
-                  <div key={idx} className="flex items-center gap-1.5 truncate">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: ['#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ef4444', '#14b8a6'][idx % 6] }} />
-                    <span className="truncate text-[var(--color-muted)]">{cat.category} ({cat.pctShare}%)</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Tab 4: Terminal & Operational Shift Matrix ──────────────── */}
-      {activeTab === 'terminal_shifts' && (
-        <div className="space-y-4 animate-in fade-in duration-200">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {shiftDistributionData.map((s, i) => (
-              <div key={i} className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-4 flex flex-col justify-between">
-                <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2">
-                  <span className="text-[12px] font-bold font-sans text-[var(--color-foreground)]">{s.shift}</span>
-                  <Clock size={16} className="text-[var(--color-accent-amber)]" />
-                </div>
-                <div className="text-[24px] font-bold font-mono text-[var(--color-accent-amber)] my-3">
-                  ₦{fmt(s.revenue)}
-                </div>
-                <div className="text-[11px] font-mono text-[var(--color-muted)] space-y-1">
-                  <div className="flex justify-between">
-                    <span>Handled Weight:</span>
-                    <span className="text-[var(--color-foreground)] font-bold">{s.weightKg.toLocaleString()} KG</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Transactions:</span>
-                    <span className="text-[var(--color-foreground)] font-bold">{s.count} entries</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Average Yield:</span>
-                    <span className="text-[var(--color-success)] font-bold">₦{s.weightKg > 0 ? Math.round(s.revenue / s.weightKg) : 0}/KG</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'past_shifts' && (
-        <div className="space-y-4 animate-in fade-in duration-200">
+      {/* ── View 3: Past Closed Shifts ───────────────────────────────── */}
+      {activeView === 'past_shifts' && (
+        <div className="space-y-4">
           {selectedPastShift ? (
             <div className="space-y-4">
-              <button 
-                onClick={() => setSelectedPastShift(null)} 
-                className="flex items-center gap-2 text-[12px] font-bold text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
+              <button
+                onClick={() => setSelectedPastShift(null)}
+                className="flex items-center gap-1.5 text-[12px] font-bold text-[var(--color-muted)] hover:text-[var(--color-foreground)] cursor-pointer"
               >
-                <ChevronDown className="rotate-90" size={16} /> Back to Shifts
+                <ChevronDown className="rotate-90" size={16} /> Back to Closed Shifts
               </button>
-              
-              <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-6">
-                <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--color-border)]">
+
+              <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-5 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[var(--color-border)]">
                   <div>
-                    <h2 className="text-[16px] font-bold text-[var(--color-foreground)] mb-1 flex items-center gap-2">
-                      Shift Sales Details
+                    <h3 className="text-[15px] font-bold text-[var(--color-foreground)] flex items-center gap-2">
+                      Shift Summary
                       {selectedPastShift.department && selectedPastShift.department !== 'all' && (
-                        <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-[var(--color-info-bg)] text-[var(--color-accent-cobalt)] border border-[var(--color-info-border)]">
+                        <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[var(--color-info-bg)] text-[var(--color-accent-cobalt)]">
                           {selectedPastShift.department}
                         </span>
                       )}
-                    </h2>
-                    <div className="text-[12px] font-mono text-[var(--color-muted)]">
-                      {new Date(selectedPastShift.started_at).toLocaleString()} — {new Date(selectedPastShift.ended_at).toLocaleString()}
+                    </h3>
+                    <div className="text-[11px] font-mono text-[var(--color-muted)]">
+                      {new Date(selectedPastShift.started_at).toLocaleString()} —{' '}
+                      {new Date(selectedPastShift.ended_at).toLocaleString()}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-[11px] text-[var(--color-muted)] mb-1">Opened by: {selectedPastShift.opened_by}</div>
-                    <div className="text-[11px] text-[var(--color-muted)]">Closed by: {selectedPastShift.closed_by}</div>
+                  <div className="text-[11px] font-mono text-[var(--color-muted)]">
+                    Opened: {selectedPastShift.opened_by} · Closed: {selectedPastShift.closed_by}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-                  <div className="bg-[var(--color-surface-1)] p-4 rounded-lg">
-                    <div className="text-[11px] text-[var(--color-muted)] mb-1">Total Sales</div>
-                    <div className="text-[18px] font-bold text-[var(--color-success)] font-mono">₦{fmt(selectedPastShift.sales_summary?.totalSales || 0)}</div>
-                  </div>
-                  <div className="bg-[var(--color-surface-1)] p-4 rounded-lg">
-                    <div className="text-[11px] text-[var(--color-muted)] mb-1">Cash</div>
-                    <div className="text-[18px] font-bold text-[var(--color-accent-amber)] font-mono">₦{fmt(selectedPastShift.sales_summary?.cashSales || 0)}</div>
-                  </div>
-                  <div className="bg-[var(--color-surface-1)] p-4 rounded-lg">
-                    <div className="text-[11px] text-[var(--color-muted)] mb-1">Transfer</div>
-                    <div className="text-[18px] font-bold text-[var(--color-accent-cobalt)] font-mono">₦{fmt(selectedPastShift.sales_summary?.transferSales || 0)}</div>
-                  </div>
-                  <div className="bg-[var(--color-surface-1)] p-4 rounded-lg">
-                    <div className="text-[11px] text-[var(--color-muted)] mb-1">POS</div>
-                    <div className="text-[18px] font-bold text-[var(--color-success)] font-mono">₦{fmt(selectedPastShift.sales_summary?.posSales || 0)}</div>
-                  </div>
-                  <div className="bg-[var(--color-surface-1)] p-4 rounded-lg">
-                    <div className="text-[11px] text-[var(--color-muted)] mb-1">Entries</div>
-                    <div className="text-[18px] font-bold text-[var(--color-foreground)] font-mono">{selectedPastShift.sales_summary?.totalTxCount || 0}</div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-[14px] font-bold text-[var(--color-foreground)] mb-4 border-b border-[var(--color-surface-2)] pb-2">Shift Transaction History</h3>
-                  {shiftHistory.length === 0 ? (
-                    <div className="text-center p-8 text-[var(--color-muted)] font-mono text-[12px]">No transactions found for this shift.</div>
-                  ) : (
-                    <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead className="sticky top-0 bg-[var(--color-surface-card)] z-10">
-                          <tr>
-                            <th className="p-2 border-b border-[var(--color-border)] text-[10px] font-mono text-[var(--color-muted)]">TIME</th>
-                            <th className="p-2 border-b border-[var(--color-border)] text-[10px] font-mono text-[var(--color-muted)]">TYPE</th>
-                            <th className="p-2 border-b border-[var(--color-border)] text-[10px] font-mono text-[var(--color-muted)]">CUSTOMER</th>
-                            <th className="p-2 border-b border-[var(--color-border)] text-[10px] font-mono text-[var(--color-muted)]">MODE</th>
-                            <th className="p-2 border-b border-[var(--color-border)] text-[10px] font-mono text-[var(--color-muted)] text-right">AMOUNT</th>
-                          </tr>
-                        </thead>
-                        <tbody className="text-[12px] font-mono">
-                          {shiftHistory.map((tx, i) => (
-                            <tr key={i} className="border-b border-[var(--color-surface-2)] hover:bg-[var(--color-surface-1)]">
-                              <td className="p-2 text-[var(--color-muted)]">{new Date(tx.created_at).toLocaleDateString([], {day:'2-digit', month:'short'})} {new Date(tx.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                              <td className="p-2 text-[var(--color-foreground)]">{tx.type}</td>
-                              <td className="p-2 text-[var(--color-foreground)]">{tx.name}</td>
-                              <td className="p-2 text-[var(--color-muted)]">{tx.mode}</td>
-                              <td className="p-2 text-right text-[var(--color-success)] font-bold">₦{fmt(tx.amount)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 font-mono">
+                  <div className="bg-[var(--color-surface-1)] p-3 rounded-lg">
+                    <div className="text-[10px] text-[var(--color-muted)]">Total Sales</div>
+                    <div className="text-[16px] font-bold text-[var(--color-success)]">
+                      ₦{fmt(selectedPastShift.sales_summary?.totalSales || 0)}
                     </div>
-                  )}
+                  </div>
+                  <div className="bg-[var(--color-surface-1)] p-3 rounded-lg">
+                    <div className="text-[10px] text-[var(--color-muted)]">Cash</div>
+                    <div className="text-[16px] font-bold text-[var(--color-accent-amber)]">
+                      ₦{fmt(selectedPastShift.sales_summary?.cashSales || 0)}
+                    </div>
+                  </div>
+                  <div className="bg-[var(--color-surface-1)] p-3 rounded-lg">
+                    <div className="text-[10px] text-[var(--color-muted)]">Transfer</div>
+                    <div className="text-[16px] font-bold text-[var(--color-accent-cobalt)]">
+                      ₦{fmt(selectedPastShift.sales_summary?.transferSales || 0)}
+                    </div>
+                  </div>
+                  <div className="bg-[var(--color-surface-1)] p-3 rounded-lg">
+                    <div className="text-[10px] text-[var(--color-muted)]">POS</div>
+                    <div className="text-[16px] font-bold text-[var(--color-success)]">
+                      ₦{fmt(selectedPastShift.sales_summary?.posSales || 0)}
+                    </div>
+                  </div>
+                  <div className="bg-[var(--color-surface-1)] p-3 rounded-lg">
+                    <div className="text-[10px] text-[var(--color-muted)]">Entries</div>
+                    <div className="text-[16px] font-bold text-[var(--color-foreground)]">
+                      {selectedPastShift.sales_summary?.totalTxCount || 0}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           ) : loadingShifts ? (
-            <div className="flex justify-center p-8"><Loader2 className="animate-spin text-[var(--color-muted)]" size={24} /></div>
+            <div className="flex justify-center p-8">
+              <Loader2 className="animate-spin text-[var(--color-muted)]" size={24} />
+            </div>
           ) : pastShifts.length === 0 ? (
             <div className="text-center p-8 text-[var(--color-muted)] font-mono text-[12px]">No closed shifts found.</div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {pastShifts.map((s, i) => (
-                <div 
-                  key={i} 
-                  onClick={() => {
-                    setSelectedPastShift(s);
-                    // Read the frozen line-item snapshot captured at close
-                    // time (EHIApp.tsx's handleEndShift) instead of
-                    // re-querying live data -- a live re-query could drift
-                    // from the summary totals shown above if any of these
-                    // transactions were edited, retrieved, or voided after
-                    // the shift closed, defeating the point of a locked
-                    // snapshot. Older shifts closed before this snapshot
-                    // field existed will just show an empty list here.
-                    setShiftHistory(s.sales_summary?.transactions || []);
-                  }}
-                  className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-4 flex flex-col justify-between cursor-pointer hover:border-[var(--color-accent-amber)] transition-all"
+                <div
+                  key={s.id || i}
+                  onClick={() => setSelectedPastShift(s)}
+                  className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-4 cursor-pointer hover:border-[var(--color-accent-amber)]"
                 >
-                  <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2 mb-3">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[12px] font-bold font-sans text-[var(--color-foreground)]">
-                        {new Date(s.started_at).toLocaleDateString()}
-                      </span>
-                      {/* Each department (Cargo/Package/Marketing/Baggage/GAT)
-                          now Starts/Ends its own shift independently, so this
-                          list can hold several open-at-once departments for
-                          the same hub/day -- the badge is what tells them apart. */}
-                      {s.department && s.department !== 'all' && (
-                        <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-[var(--color-info-bg)] text-[var(--color-accent-cobalt)] border border-[var(--color-info-border)]">
-                          {s.department}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-[10px] font-mono bg-[var(--color-surface-2)] px-2 py-0.5 rounded text-[var(--color-muted)]">
-                      {new Date(s.started_at).toLocaleDateString([], { day: '2-digit', month: 'short' })} {new Date(s.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(s.ended_at).toLocaleDateString([], { day: '2-digit', month: 'short' })} {new Date(s.ended_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2 mb-2">
+                    <span className="text-[12px] font-bold text-[var(--color-foreground)]">
+                      {new Date(s.started_at).toLocaleDateString()}
                     </span>
+                    {s.department && s.department !== 'all' && (
+                      <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-[var(--color-info-bg)] text-[var(--color-accent-cobalt)]">
+                        {s.department}
+                      </span>
+                    )}
                   </div>
-                  
-                  <div className="text-[20px] font-bold font-mono text-[var(--color-success)] mb-1">
+                  <div className="text-[18px] font-bold font-mono text-[var(--color-success)]">
                     ₦{fmt(s.sales_summary?.totalSales || 0)}
                   </div>
-                  <div className="text-[11px] font-mono text-[var(--color-muted)] space-y-1 mt-2">
-                    <div className="flex justify-between">
-                      <span>Total Tx:</span>
-                      <span className="text-[var(--color-foreground)] font-bold">{s.sales_summary?.totalTxCount || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Cash Sales:</span>
-                      <span className="text-[var(--color-accent-amber)] font-bold">₦{fmt(s.sales_summary?.cashSales || 0)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Transfer Sales:</span>
-                      <span className="text-[var(--color-accent-cobalt)] font-bold">₦{fmt(s.sales_summary?.transferSales || 0)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>POS Sales:</span>
-                      <span className="text-[var(--color-success)] font-bold">₦{fmt(s.sales_summary?.posSales || 0)}</span>
-                    </div>
-                  </div>
-                  <div className="mt-3 pt-3 border-t border-[var(--color-border)] text-[10px] font-mono text-[var(--color-muted)] flex justify-between">
-                    <span>Opened by: {s.opened_by}</span>
-                    <span>Closed by: {s.closed_by}</span>
+                  <div className="text-[11px] font-mono text-[var(--color-muted)] mt-1">
+                    {s.sales_summary?.totalTxCount || 0} entries · Closed by {s.closed_by}
                   </div>
                 </div>
               ))}
@@ -1536,101 +885,6 @@ export const Analytics = ({
           )}
         </div>
       )}
-
-      {/* ── Tab 5: Cash Capture & Debt Breakdown ───────────────────── */}
-      {activeTab === 'cash_flow' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-200">
-          {/* Collected Cash Flow */}
-          <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-4 space-y-3">
-            <h3 className="text-[13px] font-bold font-sans text-[var(--color-foreground)] border-b border-[var(--color-border)] pb-2 flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-[var(--color-success)]" />
-              <span>Collected & Settlement Instruments</span>
-            </h3>
-
-            <div className="space-y-2 font-mono text-[11px]">
-              <div className="flex justify-between p-2.5 bg-[var(--color-surface-1)] rounded-lg border border-[var(--color-border)]">
-                <span className="text-[var(--color-muted)]">Cash Receipts:</span>
-                <span className="text-[var(--color-success)] font-bold">₦{fmt(metrics.cashRevenue)}</span>
-              </div>
-              <div className="flex justify-between p-2.5 bg-[var(--color-surface-1)] rounded-lg border border-[var(--color-border)]">
-                <span className="text-[var(--color-muted)]">Bank Transfers (Confirmed):</span>
-                <span className="text-[var(--color-accent-cobalt)] font-bold">₦{fmt(metrics.transferRevenue)}</span>
-              </div>
-              <div className="flex justify-between p-2.5 bg-[var(--color-surface-1)] rounded-lg border border-[var(--color-border)]">
-                <span className="text-[var(--color-muted)]">POS Terminal Payments:</span>
-                <span className="text-[var(--color-accent-amber)] font-bold">₦{fmt(metrics.posRevenue)}</span>
-              </div>
-              <div className="flex justify-between p-2.5 bg-[var(--color-surface-1)] rounded-lg border border-[var(--color-border)]">
-                <span className="text-[var(--color-muted)]">Customer Wallet Deductions:</span>
-                <span className="text-[var(--color-purple)] font-bold">₦{fmt(metrics.walletDeductions)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Uncollected & Outstanding Debt */}
-          <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-4 space-y-3">
-            <h3 className="text-[13px] font-bold font-sans text-[var(--color-foreground)] border-b border-[var(--color-border)] pb-2 flex items-center gap-2">
-              <AlertCircle size={16} className="text-[var(--color-error)]" />
-              <span>Outstanding Debt & Pending Verification</span>
-            </h3>
-
-            <div className="space-y-2 font-mono text-[11px]">
-              <div className="flex justify-between p-2.5 bg-[var(--color-surface-1)] rounded-lg border border-[var(--color-border)]">
-                <span className="text-[var(--color-muted)]">Active Corporate / Waybill Debt:</span>
-                <span className="text-[var(--color-error)] font-bold">₦{fmt(metrics.debtOutstanding)}</span>
-              </div>
-              <div className="flex justify-between p-2.5 bg-[var(--color-surface-1)] rounded-lg border border-[var(--color-border)]">
-                <span className="text-[var(--color-muted)]">Unconfirmed Bank Transfers:</span>
-                <span className="text-[var(--color-accent-amber)] font-bold">₦{fmt(metrics.unconfirmedTransfers)}</span>
-              </div>
-              <div className="flex justify-between p-2.5 bg-[var(--color-surface-1)] rounded-lg border border-[var(--color-border)]">
-                <span className="text-[var(--color-muted)]">Unverified Cash Entries:</span>
-                <span className="text-[var(--color-accent-amber)] font-bold">₦{fmt(metrics.unverifiedCash)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Zone 6: AI Automated Revenue Insights ──────────────────── */}
-      <div className="bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl p-4 space-y-3">
-        <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2">
-          <div className="flex items-center gap-2">
-            <Sparkles size={16} className="text-[var(--color-accent-amber)]" />
-            <span className="text-[13px] font-bold font-sans text-[var(--color-foreground)]">AI Revenue & Anomaly Intelligence</span>
-          </div>
-          <button
-            onClick={fetchAIInsights}
-            disabled={loadingInsights}
-            className="px-3 py-1 bg-[var(--color-amber-bg)] hover:opacity-90 text-[var(--color-amber-fg)] border border-[var(--color-amber-border)] rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-opacity disabled:opacity-60"
-          >
-            {loadingInsights ? <Spinner size="xs" tone="current" /> : <span>↻ REFRESH AI</span>}
-          </button>
-        </div>
-
-        {insightError && (
-          <div className="text-[11px] font-mono text-[var(--color-error)] bg-[var(--color-error-bg)] p-2 rounded border border-[var(--color-error-bg)]">
-            {insightError}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {insights.map((ins, idx) => (
-            <div key={idx} className="bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg p-3 space-y-1">
-              <div className="text-[11px] font-bold font-sans text-[var(--color-foreground)] flex items-center justify-between">
-                <span>{ins.title}</span>
-                <span className={`px-1.5 py-0.2 rounded text-[8px] font-mono font-bold uppercase ${ins.priority === 'high' ? 'bg-[var(--color-error-bg)] text-[var(--color-error)]' : ins.priority === 'medium' ? 'bg-[var(--color-amber-bg)] text-[var(--color-accent-amber)]' : 'bg-[var(--color-success-bg)] text-[var(--color-success)]'}`}>
-                  {ins.priority}
-                </span>
-              </div>
-              <p className="text-[10px] font-mono text-[var(--color-muted)] leading-relaxed">
-                {ins.insight}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
-
     </div>
   );
 };

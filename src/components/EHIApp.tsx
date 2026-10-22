@@ -12,6 +12,26 @@ import { getCached, setCached } from '../lib/localCache';
 
 const CUSTOMER_WALLETS_CACHE_KEY = 'ehi_customer_wallets_v1';
 const TODAY_SHIFTS_CACHE_KEY = 'ehi_today_shifts_v1';
+const RECENT_TX_CACHE_KEY = (userId: string) => `ehi_recent_tx_v1_${userId}`;
+const RECENT_EXPENSES_CACHE_KEY = (userId: string) => `ehi_recent_expenses_v1_${userId}`;
+const USER_PROFILES_CACHE_KEY = 'ehi_user_profiles_cache_v1';
+const LAGOS_RATES_SYNC_KEY = 'ehi_lagos_rates_synced_at_v1';
+
+// O(N) Map-based deduplication (replaces O(N^2) filter+findIndex). Preserves first-seen order.
+function dedupById<T extends { id: string }>(rows: T[]): T[] {
+  const seen = new Map<string, T>();
+  for (const r of rows) {
+    if (r && r.id && !seen.has(r.id)) seen.set(r.id, r);
+  }
+  return Array.from(seen.values());
+}
+
+// Fast comparator for ISO-8601 timestamps without allocating Date objects per comparison.
+function compareIsoDesc(aIso?: string, bIso?: string): number {
+  const a = aIso || '';
+  const b = bIso || '';
+  return b < a ? -1 : b > a ? 1 : 0;
+}
 import { useTheme } from '../lib/useTheme';
 import { getAllowedTabs } from '../lib/permissions';
 import { Header as HeaderRaw } from './Header';
@@ -168,28 +188,34 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
   // every screen has a shareable link. setCurrentTab's signature is
   // unchanged -- every existing caller (SideNav, BottomNav, the 'ehi-nav'
   // window event, onBack={() => setCurrentTab('More')} etc.) keeps working.
-  const currentTab: TabView = useMemo(() => pathToTab(location.pathname), [location.pathname]);
-  const setCurrentTab = useCallback((tab: TabView) => {
-    const path = tabToPath(tab);
-    if (path !== location.pathname) navigate(path);
-  }, [navigate, location.pathname]);
-
-  // Bare "/" (fresh load, bookmark, PWA icon launch) has no tab encoded in
-  // the URL yet -- redirect once to the remembered tab, falling back to the
-  // role default, same fallback order the old useState initializer used.
-  // This is what used to live inside that initializer; preserved here so a
-  // fresh "/" load still restores the last-visited tab instead of always
-  // bouncing to Tower.
-  useEffect(() => {
-    if (location.pathname !== '/' && location.pathname !== '') return;
-    let target: TabView | null = null;
+  const resolveRootTab = useCallback((): TabView => {
     try {
       const saved = localStorage.getItem(CURRENT_TAB_KEY(user.id));
-      if (saved) target = saved as TabView;
+      if (saved) return saved as TabView;
     } catch { /* ignore -- fall through to role default */ }
-    if (!target) target = getDefaultTab(user.role);
-    navigate(tabToPath(target), { replace: true });
-  }, [location.pathname, navigate, user]);
+    return getDefaultTab(user.role);
+  }, [user.id, user.role, user.assigned_airline]);
+
+  // Resolve bare "/" synchronously on first render so EHIApp never renders
+  // 'Tower' for one frame before redirecting to the user's actual tab.
+  const currentTab: TabView = useMemo(() => {
+    if (location.pathname === '/' || location.pathname === '') {
+      return resolveRootTab();
+    }
+    return pathToTab(location.pathname);
+  }, [location.pathname, resolveRootTab]);
+
+  const setCurrentTab = useCallback((tab: TabView) => {
+    const path = tabToPath(tab);
+    if (typeof window === 'undefined' || path !== window.location.pathname) {
+      navigate(path);
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    if (location.pathname !== '/' && location.pathname !== '') return;
+    navigate(tabToPath(resolveRootTab()), { replace: true });
+  }, [location.pathname, navigate, resolveRootTab]);
 
   useEffect(() => {
     try {
@@ -261,8 +287,14 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     });
     return () => { active = false; };
   }, [user.hub_id]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  // Seed initial transactions and expenses from localStorage cache so cold
+  // launches render immediately (<100ms) while fetchInitial updates in the background.
+  const [transactions, setTransactions] = useState<Transaction[]>(() =>
+    getCached<Transaction[]>(RECENT_TX_CACHE_KEY(user.id), [])
+  );
+  const [expenses, setExpenses] = useState<Expense[]>(() =>
+    getCached<Expense[]>(RECENT_EXPENSES_CACHE_KEY(user.id), [])
+  );
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [initError, setInitError] = useState(false);
   // Distinct from initError: set when the ledger is populated from this
@@ -295,9 +327,21 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     } catch { return []; }
   });
 
+  // Gate syncLagosRates() to admin roles and at most once per 24h per browser
+  // so regular logins don't run 5-table pricing queries + sequential upserts.
   useEffect(() => {
-    syncLagosRates();
-  }, []);
+    if (user.role !== 'super_admin' && user.role !== 'admin') return;
+    try {
+      const lastSynced = Number(localStorage.getItem(LAGOS_RATES_SYNC_KEY) || 0);
+      if (Date.now() - lastSynced < 24 * 3600 * 1000) return;
+    } catch {}
+    const timer = window.setTimeout(() => {
+      syncLagosRates().then(() => {
+        try { localStorage.setItem(LAGOS_RATES_SYNC_KEY, String(Date.now())); } catch {}
+      }).catch(() => {});
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, [user.role]);
 
   // Restores the excess-baggage-airline rate fetch that commit c00b62d
   // ("mirror and sync all price... configurations") accidentally deleted
@@ -366,9 +410,34 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
   // already picked up, same pattern fetchEpochRef already uses for
   // fetchInitial just below.
   const walletsFetchEpochRef = useRef(0);
-  const fetchWallets = useCallback(async () => {
+  const lastWalletSyncIsoRef = useRef<string | null>(null);
+  const fetchWallets = useCallback(async (opts?: { deltaOnly?: boolean }) => {
+    const isDelta = opts?.deltaOnly === true && !!lastWalletSyncIsoRef.current;
+    if (isDelta && typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
     const myEpoch = ++walletsFetchEpochRef.current;
     try {
+      if (isDelta && lastWalletSyncIsoRef.current) {
+        const { data, error } = await supabase
+          .from('customer_wallets')
+          .select('*')
+          .gt('updated_at', lastWalletSyncIsoRef.current)
+          .order('updated_at', { ascending: false })
+          .limit(1000);
+        if (walletsFetchEpochRef.current !== myEpoch || error) return;
+        const deltaRows = (data || []) as CustomerWallet[];
+        if (deltaRows.length === 0) return;
+        lastWalletSyncIsoRef.current = (deltaRows[0] as any)?.updated_at || new Date().toISOString();
+        setCustomerWallets(prev => {
+          const byId = new Map<string, CustomerWallet>();
+          for (const w of deltaRows) byId.set(w.id, w);
+          for (const w of prev) if (!byId.has(w.id)) byId.set(w.id, w);
+          const merged = Array.from(byId.values());
+          setCached(CUSTOMER_WALLETS_CACHE_KEY, merged);
+          return merged;
+        });
+        return;
+      }
+
       // customer_wallets grows without bound (see CustomerWallets.tsx's own
       // identical comment) -- a plain .select() silently truncated at
       // PostgREST's implicit ~1000-row cap once the table passed that size.
@@ -377,21 +446,12 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         20000,
       );
       if (walletsFetchEpochRef.current !== myEpoch) return;
-      // Same rowsEqualById bail-out as fetchInitial's setTransactions/
-      // setExpenses/setTodayShifts below -- this fires on the same 5-minute
-      // self-heal cadence (see this effect's own interval further down) and
-      // was unconditionally replacing up to 20,000 wallets with a fresh
-      // array every tick even when nothing changed, forcing every open
-      // Cargo/Package/Marketing/Excess-Baggage form's activeWallet useMemo
-      // (each does its own linear customer-match scan over this array) to
-      // recompute for no reason.
+      lastWalletSyncIsoRef.current = (rows[0] as any)?.updated_at || new Date().toISOString();
       setCustomerWallets(prev => {
         if (rowsEqualById(prev, rows)) return prev;
         setCached(CUSTOMER_WALLETS_CACHE_KEY, rows);
         return rows;
       });
-      // Same "don't silently show an incomplete list" convention
-      // fetchInitial already uses below for cargo/baggage/marketing/package.
       if (capped) {
         showToast({
           message: 'Showing only the most recent 20,000 customer wallets. Some older wallets may not appear in search.',
@@ -401,38 +461,40 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     } catch (err) {
       console.error('Failed to fetch customer wallets', err);
     }
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     let active = true;
-    fetchWallets();
+    // Stagger initial wallet fetch by 3s so fetchInitial gets 100% of network
+    // bandwidth right after login (customerWallets is already seeded from localStorage).
+    const initialTimer = window.setTimeout(() => {
+      if (active) fetchWallets();
+    }, 3000);
 
-    // Realtime patches keep the cache current between fetches, but nothing
-    // here should be trusted as the SOLE way this cache ever updates --
-    // postgres_changes delivers nothing if customer_wallets/wallet_
-    // transactions were ever missing from the supabase_realtime publication
-    // (see 20260932_realtime_publication_membership.sql), and even with
-    // that fixed, a single dropped websocket event would otherwise corrupt
-    // wallet-charging for the rest of the session with no visible sign
-    // anything was wrong. This periodic refresh is the self-healing
-    // fallback for that.
-    const refreshInterval = setInterval(() => { if (active) fetchWallets(); }, 5 * 60 * 1000);
+    // Periodic self-heal uses deltaOnly: true so only wallets with
+    // updated_at > lastWalletSyncIsoRef are queried (0 rows when idle).
+    const refreshInterval = setInterval(() => {
+      if (active) fetchWallets({ deltaOnly: true });
+    }, 5 * 60 * 1000);
 
     const channel = supabase
       .channel('customer_wallets_realtime_global')
       // UPDATE: patch balance in-place — no full refetch needed
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'customer_wallets' }, payload => {
         const updated = payload.new as any;
+        if (updated?.updated_at) lastWalletSyncIsoRef.current = updated.updated_at;
         setCustomerWallets(prev => prev.map(w => w.id === updated.id ? { ...w, ...updated } : w));
       })
       // INSERT: prepend the new wallet row
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'customer_wallets' }, payload => {
-        setCustomerWallets(prev => [payload.new as any, ...prev]);
+        const inserted = payload.new as any;
+        if (inserted?.updated_at) lastWalletSyncIsoRef.current = inserted.updated_at;
+        setCustomerWallets(prev => prev.some(w => w.id === inserted.id) ? prev : [inserted, ...prev]);
       })
       // wallet_transactions: refresh only the affected wallet row
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_transactions' }, payload => {
         const walletId = (payload.new as any)?.wallet_id || (payload.old as any)?.wallet_id;
-        if (!walletId) { fetchWallets(); return; }
+        if (!walletId) { fetchWallets({ deltaOnly: true }); return; }
         supabase.from('customer_wallets').select('*').eq('id', walletId).single()
           .then(({ data }) => {
             if (active && data) setCustomerWallets(prev => prev.map(w => w.id === walletId ? { ...w, ...data } : w));
@@ -442,6 +504,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
     return () => {
       active = false;
+      window.clearTimeout(initialTimer);
       clearInterval(refreshInterval);
       supabase.removeChannel(channel);
     };
@@ -501,19 +564,25 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
   // Only ever reflects what THIS device itself wrote or has separately
   // synced down, never other devices' entries -- offlineFallbackActive
   // exists so the UI can say so honestly instead of implying a full fetch.
+  const hasRealFetchResolvedRef = useRef(false);
+
   const loadOfflineFallback = useCallback(async () => {
+    if (hasRealFetchResolvedRef.current) return;
     const { transactions: localTx, expenses: localExpenses } = await getAllLocalMirrorTransactions();
     if (localTx.length === 0 && localExpenses.length === 0) return;
     setTransactions(prev => {
-      if (prev.length > 0) return prev; // a real fetch already populated this
-      const localOnly = pendingTxRef.current.filter(p => !localTx.some((t: any) => t.id === p.id));
-      const combined = [...localOnly, ...localTx];
-      const unique = combined.filter((v, i, a) => a.findIndex((x: any) => x.id === v.id) === i);
-      return unique.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      if (hasRealFetchResolvedRef.current) return prev;
+      const localIds = new Set(localTx.map((t: any) => t.id));
+      const localOnly = pendingTxRef.current.filter(p => !localIds.has(p.id));
+      const unique = dedupById([...localOnly, ...localTx, ...prev]);
+      return unique.sort((a: any, b: any) => compareIsoDesc(a.created_at, b.created_at));
     });
-    setExpenses(prev => (prev.length > 0 ? prev : localExpenses));
+    setExpenses(prev => (hasRealFetchResolvedRef.current ? prev : dedupById([...localExpenses, ...prev])));
     setOfflineFallbackActive(true);
   }, []);
+
+  const lastSyncedAtRef = useRef<string | null>(null);
+  const profileLookupRef = useRef<Record<string, string>>({});
 
   const fetchInitial = useCallback(async () => {
     // globalDateRange changes on every filter click -- without this guard,
@@ -566,6 +635,25 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           return (data || []) as HubShift[];
         };
 
+        const fetchUserProfilesCached = async (): Promise<{ data: Array<{ id: string; name: string }> | null }> => {
+          try {
+            const raw = sessionStorage.getItem(USER_PROFILES_CACHE_KEY);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed && Array.isArray(parsed.data) && Date.now() - Number(parsed.ts || 0) < 10 * 60 * 1000) {
+                return { data: parsed.data };
+              }
+            }
+          } catch {}
+          const res = await supabase.from('user_profiles').select('id,name');
+          if (res.data) {
+            try {
+              sessionStorage.setItem(USER_PROFILES_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: res.data }));
+            } catch {}
+          }
+          return { data: res.data || null };
+        };
+
         const [shifts, cargoRes, baggageRes, mktRes, packageRes, expRes, profilesRes, debtCollectionRes] = await Promise.all([
           fetchShifts(),
           addHubFilter(supabase.from('cargo_entries').select('entry_ref,consignee_name,airline,flight_number,awb_tag_number,total_pcs,total_kg,size_inches,route,content_type,amount,receipt_mode,pickup_pin,status,created_at,commission_rate,bank,hub_id,terminal,remark,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,consignee_phone,client_type,corporate_client_id,linked_as_office_work,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(LEDGER_ROW_CAP)),
@@ -573,7 +661,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           addHubFilter(supabase.from('marketing_entries').select('entry_ref,awb_tag_number,customer_name,route,airline,qty_big_bag,qty_med_bag,qty_small_bag,bb_kg,mb_kg,sb_kg,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,last_edited_by,last_edited_at,debt_amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark,customer_phone,client_type,corporate_client_id,linked_as_office_work').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(LEDGER_ROW_CAP)),
           addHubFilter(supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,total_pcs,total_kg,contents,status,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,amount_paid,payment_history,created_at,hub_id,terminal,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark,customer_phone,client_type,corporate_client_id,linked_as_office_work').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(LEDGER_ROW_CAP)),
           addHubFilter(supabase.from('expenses').select('id,category,amount,description,created_at,hub_id,status,mode,bank,logged_by,approved_by,approved_at,rejected_by,rejected_at').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }).limit(LEDGER_ROW_CAP)),
-          supabase.from('user_profiles').select('id,name'),
+          fetchUserProfilesCached(),
           // Debt-collection events -- synthetic rows derived server-side
           // from payment_history, dated to when each payment actually
           // landed (not the original sale's created_at), so a debt from
@@ -651,6 +739,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           profilesRes.data.forEach(p => {
             if (p.id) profileLookup[p.id] = p.name || '';
           });
+          profileLookupRef.current = profileLookup;
         }
 
         const allTx: Transaction[] = [];
@@ -931,36 +1020,32 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             rejectedAt: e.rejected_at || undefined,
           }));
           setExpenses(prev => {
+            const fetchedIds = new Set(fetchedExpenses.map((f: any) => f.id));
             const stillPending = pendingExpenseRef.current.filter(
-              p => !fetchedExpenses.some((f: any) => f.id === p.id)
+              p => !fetchedIds.has(p.id)
             );
             pendingExpenseRef.current = stillPending;
-            const combined = [...stillPending, ...fetchedExpenses];
-            const unique = combined.filter((v, i, a) => a.findIndex(x => x.id === v.id) === i);
-            const sorted = unique.sort((a, b) => new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime());
-            // Same bail-out as setTodayShifts above -- this fetch reruns on
-            // every tab switch and 5-minute poll; without this, a poll that
-            // came back with byte-identical expenses still handed every
-            // consumer a brand-new array, cascading the same way into the
-            // Ledger's virtualizers.
-            return rowsEqualById(prev, sorted) ? prev : sorted;
+            const unique = dedupById([...stillPending, ...fetchedExpenses]);
+            const sorted = unique.sort((a, b) => compareIsoDesc(a.time, b.time));
+            if (rowsEqualById(prev, sorted)) return prev;
+            setCached(RECENT_EXPENSES_CACHE_KEY(user.id), sorted.slice(0, 50));
+            return sorted;
           });
         }
 
-        allTx.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        allTx.sort((a, b) => compareIsoDesc(a.created_at, b.created_at));
 
         setTransactions(prev => {
-          const localOnly = pendingTxRef.current.filter(p => !allTx.some(t => t.id === p.id));
-          const combined = [...localOnly, ...allTx];
-          const unique = combined.filter((v, i, a) => a.findIndex(x => x.id === v.id) === i);
-          const sorted = unique.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-          // Same bail-out as setTodayShifts/setExpenses above -- see their
-          // comments. This is the highest-volume of the three (up to
-          // ledgerRowCap x 4 tables), and the one most directly feeding the
-          // Ledger's mergedTransactions/entries/filteredEntries/
-          // displayEntries chain into the virtualizers.
-          return rowsEqualById(prev, sorted) ? prev : sorted;
+          const allTxIds = new Set(allTx.map(t => t.id));
+          const localOnly = pendingTxRef.current.filter(p => !allTxIds.has(p.id));
+          const unique = dedupById([...localOnly, ...allTx]);
+          const sorted = unique.sort((a, b) => compareIsoDesc(a.created_at, b.created_at));
+          if (rowsEqualById(prev, sorted)) return prev;
+          setCached(RECENT_TX_CACHE_KEY(user.id), sorted.slice(0, 200));
+          return sorted;
         });
+        hasRealFetchResolvedRef.current = true;
+        lastSyncedAtRef.current = new Date().toISOString();
         consecutiveFetchFailuresRef.current = 0;
         setOfflineFallbackActive(false);
       } catch (err) {
@@ -1189,43 +1274,37 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     autoRollShift('package');
   }, [user.hub_id, autoRollShift]);
 
-  // Separate periodic tick (not folded into the effect above, so it isn't
-  // torn down/recreated on every todayShifts change) -- the only thing that
-  // actually needs polling is the 18:00 boundary itself, for a tab left
-  // open across it with no other shift-state change to re-trigger the
-  // effect above.
+  // Schedule a single timeout for the exact 18:00 shift rollover boundary
+  // (plus a visibilitychange wakeup check) instead of polling every 5 minutes.
   useEffect(() => {
     if (!user.hub_id) return;
-    const interval = setInterval(() => {
-      autoRollShift('cargo');
-      autoRollShift('package');
-    }, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleNextBoundary = () => {
+      if (timer) clearTimeout(timer);
+      const { end } = getShiftBoundary(18);
+      const msUntilRollover = Math.max(1500, end.getTime() - Date.now() + 1500);
+      timer = setTimeout(() => {
+        autoRollShift('cargo');
+        autoRollShift('package');
+        scheduleNextBoundary();
+      }, msUntilRollover);
+    };
+    scheduleNextBoundary();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        autoRollShift('cargo');
+        autoRollShift('package');
+        scheduleNextBoundary();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      if (timer) clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [user.hub_id, autoRollShift]);
 
-  const handleForceSync = useCallback(async () => {
-    setIsOffline(false);
-    const queueCount = await db.sync_queue.where('synced').equals(0).count().catch(() => 0);
-    setPendingSyncCount(queueCount);
-    const { synced, errors } = await processSyncQueue();
-    if (synced > 0) {
-      showToast({ message: `${synced} transaction(s) synced to server`, type: 'success' });
-      const remaining = await db.sync_queue.where('synced').equals(0).count().catch(() => 0);
-      setPendingSyncCount(remaining);
-      fetchInitial();
-      if (errors.length > 0) {
-        setTimeout(() => showToast({ message: `${remaining} item(s) failed: ${errors[0]}`, type: 'error' }), 2000);
-      }
-    } else {
-      const remaining = await db.sync_queue.where('synced').equals(0).count().catch(() => 0);
-      setPendingSyncCount(remaining);
-      if (remaining === 0) {
-        showToast({ message: 'All local entries are fully synced', type: 'info' });
-      } else if (errors.length > 0) {
-        showToast({ message: `Sync failed for ${remaining} item(s): ${errors[0]}`, type: 'error' });
-      }
-    }
-
+  const refillUserTagPools = useCallback(() => {
     const hubCode = getHubCode(user.hub_code || user.hub);
     const allowedTabs = getAllowedTabs(user, excessBaggageAirlines);
     if (allowedTabs.includes('Cargo')) refillPoolIfLow(`${hubCode}-CG`);
@@ -1237,42 +1316,70 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       const airline = excessBaggageAirlines.find(a => a.name === airlineName);
       if (airline) refillPoolIfLow(`${hubCode}-${airline.tag_code}`);
     });
-  }, [showToast, fetchInitial, user.hub, user.hub_code, user.role, user.assigned_airline, user.view_overrides, excessBaggageAirlines]);
+  }, [user.hub, user.hub_code, user.role, user.assigned_airline, user.view_overrides, excessBaggageAirlines]);
+
+  const handleForceSync = useCallback(async (opts?: { silent?: boolean }) => {
+    const isSilent = opts?.silent === true;
+    if (isSilent && typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    setIsOffline(false);
+    const queueCount = await db.sync_queue.where('synced').equals(0).count().catch(() => 0);
+    setPendingSyncCount(queueCount);
+
+    // Silent background checks exit immediately when the queue is empty:
+    // no processSyncQueue lock, no every-60s info toast, no every-60s RPC pool check.
+    if (isSilent && queueCount === 0) return;
+
+    const { synced, errors } = await processSyncQueue();
+    if (synced > 0) {
+      showToast({ message: `${synced} transaction(s) synced to server`, type: 'success' });
+      const remaining = await db.sync_queue.where('synced').equals(0).count().catch(() => 0);
+      setPendingSyncCount(remaining);
+      if (errors.length > 0) {
+        setTimeout(() => showToast({ message: `${remaining} item(s) failed: ${errors[0]}`, type: 'error' }), 2000);
+      }
+    } else {
+      const remaining = await db.sync_queue.where('synced').equals(0).count().catch(() => 0);
+      setPendingSyncCount(remaining);
+      if (!isSilent && remaining === 0) {
+        showToast({ message: 'All local entries are fully synced', type: 'info' });
+      } else if (errors.length > 0) {
+        showToast({ message: `Sync failed for ${remaining} item(s): ${errors[0]}`, type: 'error' });
+      }
+    }
+
+    if (!isSilent) {
+      refillUserTagPools();
+    }
+  }, [showToast, refillUserTagPools]);
 
   useEffect(() => {
     cleanupOldQueue();
-    const handleOnline = () => handleForceSync();
+    const handleSilentSync = () => { handleForceSync({ silent: true }); };
+    const handleReconnectOnline = () => {
+      handleForceSync({ silent: true });
+      refillUserTagPools();
+    };
     const handleOffline = () => setIsOffline(true);
 
-    if (navigator.onLine) handleOnline();
+    // Stagger initial sync & tag-pool check by 3s so fetchInitial has
+    // uncontested network and CPU right after login.
+    const initialTimer = window.setTimeout(() => {
+      if (navigator.onLine) {
+        handleSilentSync();
+        refillUserTagPools();
+      }
+    }, 3000);
+
     const syncInterval = window.setInterval(() => {
-      // Same reasoning as the 5-minute self-heal interval above -- don't
-      // keep silently retrying a network that's proven dead repeatedly.
-      // Only gates this periodic poll, not the mount-time check above or
-      // the real 'online' event listener below.
       if (consecutiveFetchFailuresRef.current >= MAX_SILENT_AUTO_RETRY_FAILURES) return;
-      if (navigator.onLine) handleOnline();
+      if (navigator.onLine) handleSilentSync();
     }, 60000);
 
-    // autoRefreshToken manages its own internal timer independent of
-    // connectivity -- after a real offline stretch, the SDK's next
-    // scheduled refresh attempt could still be minutes away even though
-    // the network just came back. Nudging a refresh right at the
-    // reconnect moment closes that gap instead of leaving a
-    // soon-to-expire token sitting unrefreshed. Deliberately only on the
-    // actual browser 'online' event (a genuine reconnect), not folded
-    // into handleOnline above, which also fires from the 60s poll and a
-    // mount-time check -- refreshing the token every 60s while already
-    // online would be wasteful, not a reliability fix. Errors here are
-    // expected/harmless when the refresh token has genuinely expired --
-    // App.tsx's onAuthStateChange listener handles that as a real
-    // SIGNED_OUT; this is just a proactive nudge, not the thing
-    // responsible for reacting to failure.
     const handleOnlineRefreshNudge = () => {
       supabase.auth.refreshSession().catch(() => {});
     };
 
-    window.addEventListener('online', handleOnline);
+    window.addEventListener('online', handleReconnectOnline);
     window.addEventListener('online', handleOnlineRefreshNudge);
     window.addEventListener('offline', handleOffline);
 
@@ -1287,128 +1394,334 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     window.addEventListener('ehi-nav', handleEhiNav);
 
     return () => {
+      window.clearTimeout(initialTimer);
       window.clearInterval(syncInterval);
-      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('online', handleReconnectOnline);
       window.removeEventListener('online', handleOnlineRefreshNudge);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('ehi-nav', handleEhiNav);
     };
-  }, [handleForceSync, user, excessBaggageAirlines]);
+  }, [handleForceSync, refillUserTagPools, user, excessBaggageAirlines, setCurrentTab]);
 
   useEffect(() => {
     if (isOffline) return;
     fetchInitial();
   }, [isOffline, retryTrigger, fetchInitial]);
 
-  // Covers the case the effect above can't: a fully cold launch/reload
-  // while already offline never calls fetchInitial at all (guarded above),
-  // so its own catch-block fallback never gets a chance to run either --
-  // `transactions` would otherwise stay [] (its initial value) until a
-  // real 'online' event later triggers a real fetch.
   useEffect(() => {
-    if (!isOffline || transactions.length > 0) return;
+    if (!isOffline || hasRealFetchResolvedRef.current) return;
     loadOfflineFallback().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOffline]);
 
-  // Self-healing fallback for cargo/baggage/marketing/package, same
-  // reasoning as fetchWallets' own periodic refresh above: postgres_changes
-  // delivers nothing for a table missing from the supabase_realtime
-  // publication (see 20260932_realtime_publication_membership.sql), and
-  // even with that fixed, a single dropped websocket event on any of these
-  // 4 tables would otherwise leave the ledger silently incomplete for the
-  // rest of a long-running session -- handleForceSync's own 60s interval
-  // only refetches when THIS device has pending local writes to push, not
-  // to pick up entries made elsewhere. fetchInitial is already guarded by
-  // fetchEpochRef against an older call resolving after a newer one.
-  // Refs (not effect deps) for fetchInitial/currentTab -- fetchInitial's
-  // identity changes with globalDateRange, so depending on it directly
-  // would tear down and restart this interval on every filter click,
-  // indefinitely deferring the self-heal for anyone who filters more often
-  // than every 5 minutes (an accountant flipping between periods, say).
-  // Reading through refs lets the interval's own lifecycle stay stable
-  // while still always calling the current fetchInitial/tab at fire time.
-  const fetchInitialRef = useRef(fetchInitial);
-  fetchInitialRef.current = fetchInitial;
-  const currentTabRef = useRef(currentTab);
-  currentTabRef.current = currentTab;
+  // Lightweight Delta Sync: queries ONLY rows created or edited since
+  // lastSyncedAtRef.current (~0 rows when idle, ~1-3 rows on catch-up)
+  // instead of re-downloading 8 full tables every 5 minutes.
+  const fetchDelta = useCallback(async () => {
+    if (isOffline) return;
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    const since = lastSyncedAtRef.current;
+    if (!since) {
+      fetchInitial();
+      return;
+    }
+    try {
+      const isAdmin = ['super_admin', 'admin', 'accountant', 'auditor'].includes(user.role);
+      const canSeePin = ['admin', 'super_admin', 'accountant'].includes(user.role);
+      const addHubFilter = (q: any) =>
+        (!isAdmin && user.hub_id && !stateWideView) ? q.eq('hub_id', user.hub_id) : q;
+      const syncStartedIso = new Date().toISOString();
+
+      const [cargoRes, baggageRes, mktRes, packageRes, expRes] = await Promise.all([
+        addHubFilter(supabase.from('cargo_entries').select('entry_ref,consignee_name,airline,flight_number,awb_tag_number,total_pcs,total_kg,size_inches,route,content_type,amount,receipt_mode,pickup_pin,status,created_at,commission_rate,bank,hub_id,terminal,remark,amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,consignee_phone,client_type,corporate_client_id,linked_as_office_work,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id').or(`created_at.gte.${since},last_edited_at.gte.${since}`).limit(500)),
+        addHubFilter(supabase.from('manifests').select('transaction_id,passenger_name,flight_no,destination,excess_kg,amount,payment_mode,created_at,bank,hub_id,total_kg,pnr,passenger_phone,total_pcs,amount_paid,payment_history,airline,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark,client_type,corporate_client_id,linked_as_office_work').or(`created_at.gte.${since},last_edited_at.gte.${since}`).limit(500)),
+        addHubFilter(supabase.from('marketing_entries').select('entry_ref,awb_tag_number,customer_name,route,airline,qty_big_bag,qty_med_bag,qty_small_bag,bb_kg,mb_kg,sb_kg,amount_paid,payment_mode,created_at,hub_id,bank,entered_by,last_edited_by,last_edited_at,debt_amount_paid,payment_history,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,bank_reference,bank_sender,bank_alert_text,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark,customer_phone,client_type,corporate_client_id,linked_as_office_work').or(`created_at.gte.${since},last_edited_at.gte.${since}`).limit(500)),
+        addHubFilter(supabase.from('package_entries').select('entry_ref,customer_name,destination,content_type,total_pcs,total_kg,contents,status,amount,payment_mode,bank,payment_narration,debt_paid,debt_paid_at,amount_paid,payment_history,created_at,hub_id,terminal,payment_confirmed,pos_approval_code,confirmed_by,confirmed_at,entered_by,last_edited_by,last_edited_at,wallet_id,wallet_deduction_amount,retrieved,retrieved_amount,retrieved_pieces,retrieved_kg,retrieval_note,retrieved_at,retrieved_by,retrieval_approved,retrieval_approved_by,retrieval_approved_at,is_debt_clearance,related_tx_id,remark,customer_phone,client_type,corporate_client_id,linked_as_office_work').or(`created_at.gte.${since},last_edited_at.gte.${since}`).limit(500)),
+        addHubFilter(supabase.from('expenses').select('id,category,amount,description,created_at,hub_id,status,mode,bank,logged_by,approved_by,approved_at,rejected_by,rejected_at').or(`created_at.gte.${since},approved_at.gte.${since},rejected_at.gte.${since}`).limit(500)),
+      ]);
+
+      const profileLookup = profileLookupRef.current;
+      const deltaTx: Transaction[] = [];
+
+      (cargoRes.data || []).forEach((r: any) => {
+        const enteredByName = r.entered_by ? (profileLookup[r.entered_by] || r.entered_by) : undefined;
+        deltaTx.push({
+          id: r.entry_ref || r.id,
+          name: r.consignee_name || 'Cargo',
+          detail: `${r.airline || ''} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg · ${r.route || ''} · ${r.content_type || 'Package'}${r.size_inches ? ` · ${r.size_inches}in` : ''}`,
+          amount: r.amount || 0,
+          mode: computeDebtDisplayModeFromRow(r, 'cargo'),
+          time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+          type: 'cargo',
+          status: r.status || 'Intake',
+          awb_tag_number: r.awb_tag_number,
+          kg: r.total_kg,
+          sizeInches: r.size_inches ?? undefined,
+          pieces: r.total_pcs,
+          pickupPin: canSeePin ? (r.pickup_pin || undefined) : undefined,
+          created_at: r.created_at,
+          airline: r.airline,
+          flight: r.flight_number || undefined,
+          commissionRate: r.commission_rate ?? undefined,
+          bank: r.bank,
+          route: r.route,
+          hub_id: r.hub_id,
+          terminal: r.terminal,
+          contentType: r.content_type,
+          remarks: r.remark || undefined,
+          enteredByName: enteredByName || undefined,
+          editedBy: r.last_edited_by || undefined,
+          editedAt: r.last_edited_at || undefined,
+          amountPaid: r.amount_paid || 0,
+          paymentHistory: r.payment_history || [],
+          paymentConfirmed: r.payment_confirmed,
+          posApprovalCode: r.pos_approval_code || undefined,
+          confirmedBy: r.confirmed_by || undefined,
+          confirmedAt: r.confirmed_at || undefined,
+          consigneePhone: r.consignee_phone || undefined,
+          clientType: r.client_type || undefined,
+          corporate_client_id: r.corporate_client_id || undefined,
+          linked_as_office_work: r.linked_as_office_work ?? undefined,
+          bankReference: r.bank_reference || undefined,
+          bankSender: r.bank_sender || undefined,
+          bankAlertText: r.bank_alert_text || undefined,
+          wallet_id: r.wallet_id || undefined,
+          wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
+          retrieved: r.retrieved ?? undefined,
+          retrievalNote: r.retrieval_note ?? undefined,
+          retrievedAt: r.retrieved_at ?? undefined,
+          retrievedBy: r.retrieved_by ?? undefined,
+          retrievalApproved: r.retrieval_approved ?? undefined,
+          retrievalApprovedBy: r.retrieval_approved_by ?? undefined,
+          retrievalApprovedAt: r.retrieval_approved_at ?? undefined,
+          is_debt_clearance: r.is_debt_clearance || undefined,
+          related_tx_id: r.related_tx_id || undefined,
+          raw: r,
+        });
+      });
+
+      (baggageRes.data || []).forEach((r: any) => {
+        const enteredByName = r.entered_by ? (profileLookup[r.entered_by] || r.entered_by) : undefined;
+        deltaTx.push({
+          id: r.transaction_id || r.id,
+          name: r.passenger_name || 'Baggage Passenger',
+          detail: `${r.flight_no || ''} · ${r.destination || ''} · ${r.total_pcs || 1}pcs · +${r.excess_kg || 0}kg excess`,
+          amount: r.amount || 0,
+          mode: computeDebtDisplayModeFromRow(r, 'baggage'),
+          time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+          type: 'baggage',
+          status: 'Delivered',
+          created_at: r.created_at,
+          bank: r.bank,
+          hub_id: r.hub_id,
+          airline: r.airline,
+          destination: r.destination,
+          excessKg: r.excess_kg,
+          totalKg: r.total_kg,
+          flight: r.flight_no,
+          pnr: r.pnr || undefined,
+          kg: r.excess_kg,
+          pieces: r.total_pcs,
+          enteredByName: enteredByName || undefined,
+          editedBy: r.last_edited_by || undefined,
+          editedAt: r.last_edited_at || undefined,
+          amountPaid: r.amount_paid || 0,
+          paymentHistory: r.payment_history || [],
+          paymentConfirmed: r.payment_confirmed,
+          posApprovalCode: r.pos_approval_code || undefined,
+          confirmedBy: r.confirmed_by || undefined,
+          confirmedAt: r.confirmed_at || undefined,
+          bankReference: r.bank_reference || undefined,
+          bankSender: r.bank_sender || undefined,
+          bankAlertText: r.bank_alert_text || undefined,
+          wallet_id: r.wallet_id || undefined,
+          wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
+          retrieved: r.retrieved ?? undefined,
+          retrievalNote: r.retrieval_note ?? undefined,
+          retrievedAt: r.retrieved_at ?? undefined,
+          retrievedBy: r.retrieved_by ?? undefined,
+          retrievalApproved: r.retrieval_approved ?? undefined,
+          retrievalApprovedBy: r.retrieval_approved_by ?? undefined,
+          retrievalApprovedAt: r.retrieval_approved_at ?? undefined,
+          is_debt_clearance: r.is_debt_clearance || undefined,
+          related_tx_id: r.related_tx_id || undefined,
+          remarks: r.remark || undefined,
+          clientType: r.client_type || undefined,
+          corporate_client_id: r.corporate_client_id || undefined,
+          linked_as_office_work: r.linked_as_office_work ?? undefined,
+          raw: r,
+        });
+      });
+
+      (mktRes.data || []).forEach((r: any) => {
+        const enteredByName = r.entered_by ? (profileLookup[r.entered_by] || r.entered_by) : undefined;
+        deltaTx.push({
+          id: r.entry_ref || r.id,
+          awb_tag_number: r.awb_tag_number || undefined,
+          name: r.customer_name || 'Customer',
+          detail: `${r.route || ''} · ${r.qty_big_bag || 0}BB ${r.qty_med_bag || 0}MB ${r.qty_small_bag || 0}SB`,
+          amount: r.amount_paid || 0,
+          mode: computeDebtDisplayModeFromRow(r, 'marketing'),
+          time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+          type: 'marketing',
+          status: 'Intake',
+          created_at: r.created_at,
+          bank: r.bank,
+          hub_id: r.hub_id,
+          route: r.route,
+          airline: r.airline || undefined,
+          enteredByName: enteredByName || undefined,
+          editedBy: r.last_edited_by || undefined,
+          editedAt: r.last_edited_at || undefined,
+          amountPaid: r.debt_amount_paid || 0,
+          paymentHistory: r.payment_history || [],
+          paymentConfirmed: r.payment_confirmed,
+          posApprovalCode: r.pos_approval_code || undefined,
+          confirmedBy: r.confirmed_by || undefined,
+          confirmedAt: r.confirmed_at || undefined,
+          bankReference: r.bank_reference || undefined,
+          bankSender: r.bank_sender || undefined,
+          bankAlertText: r.bank_alert_text || undefined,
+          wallet_id: r.wallet_id || undefined,
+          wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
+          retrieved: r.retrieved ?? undefined,
+          retrievalNote: r.retrieval_note ?? undefined,
+          retrievedAt: r.retrieved_at ?? undefined,
+          retrievedBy: r.retrieved_by ?? undefined,
+          retrievalApproved: r.retrieval_approved ?? undefined,
+          retrievalApprovedBy: r.retrieval_approved_by ?? undefined,
+          retrievalApprovedAt: r.retrieval_approved_at ?? undefined,
+          consigneePhone: r.customer_phone || undefined,
+          is_debt_clearance: r.is_debt_clearance || undefined,
+          related_tx_id: r.related_tx_id || undefined,
+          remarks: r.remark || undefined,
+          clientType: r.client_type || undefined,
+          corporate_client_id: r.corporate_client_id || undefined,
+          linked_as_office_work: r.linked_as_office_work ?? undefined,
+          raw: r,
+        });
+      });
+
+      (packageRes.data || []).forEach((r: any) => {
+        const enteredByName = r.entered_by ? (profileLookup[r.entered_by] || r.entered_by) : undefined;
+        deltaTx.push({
+          id: r.entry_ref || r.id,
+          name: r.customer_name || 'Customer',
+          detail: `${r.destination || ''} · ${r.content_type || 'Package'} · ${r.total_pcs || 1}pcs · ${r.total_kg || 0}kg${r.contents ? ` · ${r.contents}` : ''}`,
+          amount: r.amount || 0,
+          mode: computeDebtDisplayModeFromRow(r, 'package'),
+          time: new Date(r.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }),
+          type: 'package',
+          status: r.status || 'Intake',
+          created_at: r.created_at,
+          bank: r.bank,
+          hub_id: r.hub_id,
+          terminal: r.terminal,
+          destination: r.destination,
+          contentType: r.content_type,
+          pieces: r.total_pcs || undefined,
+          kg: r.total_kg || undefined,
+          contents: r.contents || undefined,
+          paymentNarration: r.payment_narration || undefined,
+          debtPaid: r.debt_paid ?? undefined,
+          debtPaidAt: r.debt_paid_at || undefined,
+          enteredByName: enteredByName || undefined,
+          editedBy: r.last_edited_by || undefined,
+          editedAt: r.last_edited_at || undefined,
+          amountPaid: r.amount_paid || 0,
+          paymentHistory: r.payment_history || [],
+          paymentConfirmed: r.payment_confirmed,
+          posApprovalCode: r.pos_approval_code || undefined,
+          confirmedBy: r.confirmed_by || undefined,
+          confirmedAt: r.confirmed_at || undefined,
+          wallet_id: r.wallet_id || undefined,
+          wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
+          retrieved: r.retrieved ?? undefined,
+          retrievalNote: r.retrieval_note ?? undefined,
+          retrievedAt: r.retrieved_at ?? undefined,
+          retrievedBy: r.retrieved_by ?? undefined,
+          retrievalApproved: r.retrieval_approved ?? undefined,
+          retrievalApprovedBy: r.retrieval_approved_by ?? undefined,
+          retrievalApprovedAt: r.retrieval_approved_at ?? undefined,
+          consigneePhone: r.customer_phone || undefined,
+          is_debt_clearance: r.is_debt_clearance || undefined,
+          related_tx_id: r.related_tx_id || undefined,
+          remarks: r.remark || undefined,
+          clientType: r.client_type || undefined,
+          corporate_client_id: r.corporate_client_id || undefined,
+          linked_as_office_work: r.linked_as_office_work ?? undefined,
+          raw: r,
+        });
+      });
+
+      if (deltaTx.length > 0) {
+        setTransactions(prev => {
+          const merged = dedupById([...deltaTx, ...prev]);
+          merged.sort((a, b) => compareIsoDesc(a.created_at, b.created_at));
+          return rowsEqualById(prev, merged) ? prev : merged;
+        });
+      }
+
+      if (expRes.data && expRes.data.length > 0) {
+        const deltaExp: Expense[] = expRes.data.map((e: any) => ({
+          id: e.id,
+          type: e.category || 'General',
+          amount: e.amount,
+          description: e.description,
+          time: e.created_at,
+          created_at: e.created_at,
+          hub_id: e.hub_id,
+          status: e.status || 'pending',
+          mode: e.mode || undefined,
+          bank: e.bank || undefined,
+          logged_by: e.logged_by || undefined,
+          approvedBy: e.approved_by || undefined,
+          approvedAt: e.approved_at || undefined,
+          rejectedBy: e.rejected_by || undefined,
+          rejectedAt: e.rejected_at || undefined,
+        }));
+        setExpenses(prev => {
+          const merged = dedupById([...deltaExp, ...prev]);
+          merged.sort((a, b) => compareIsoDesc(a.time, b.time));
+          return rowsEqualById(prev, merged) ? prev : merged;
+        });
+      }
+
+      lastSyncedAtRef.current = syncStartedIso;
+    } catch (err) {
+      console.warn('Delta sync failed:', err);
+    }
+  }, [isOffline, user.role, user.hub_id, stateWideView, fetchInitial]);
+
+  const fetchDeltaRef = useRef(fetchDelta);
+  fetchDeltaRef.current = fetchDelta;
   useEffect(() => {
     if (isOffline) return;
     const refreshInterval = setInterval(() => {
-      // Stop silently retrying once the network has proven itself dead
-      // repeatedly -- navigator.onLine (the isOffline guard above) doesn't
-      // detect a DNS-only outage, so without this a fully unreachable
-      // Supabase host would otherwise get hit again every 5 minutes
-      // forever with no visible change. The Retry button (and a genuine
-      // browser 'online' event, handled elsewhere) are unaffected -- both
-      // are real recovery signals, not blind polling.
       if (consecutiveFetchFailuresRef.current >= MAX_SILENT_AUTO_RETRY_FAILURES) return;
-      const tab = currentTabRef.current;
-      const isDataTab =
-        tab === 'Cargo' || tab === 'Marketing' || tab === 'Packages' || tab === 'GAT' ||
-        tab.startsWith('Baggage:') || ['Tower', 'Scan', 'More'].includes(tab);
-      if (isDataTab) fetchInitialRef.current();
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      fetchDeltaRef.current();
     }, 5 * 60 * 1000);
-    return () => clearInterval(refreshInterval);
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible' && lastSyncedAtRef.current) {
+        const elapsed = Date.now() - Date.parse(lastSyncedAtRef.current);
+        if (elapsed > 60 * 1000) fetchDeltaRef.current();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      clearInterval(refreshInterval);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [isOffline]);
-
-  const prevTabRef = useRef(currentTab);
-  useEffect(() => {
-    const prevTab = prevTabRef.current;
-    prevTabRef.current = currentTab;
-    if (isOffline || prevTab === currentTab) return;
-
-    // Non-admin realtime channels (needsCargo/Baggage/Marketing/Package
-    // below) are always fully subscribed regardless of currentTab, so their
-    // in-memory transactions/expenses stay live without a fresh 5-table
-    // pull on every tab switch -- that pull was most of the egress driving
-    // 14 MAU past 5GB. Admins' channels ARE scoped to the active tab (see
-    // isAggregateView below): switching e.g. Cargo -> Marketing tears down
-    // the cargo channel, so a cargo entry made elsewhere while an admin sat
-    // on Marketing would otherwise stay invisible until the next full
-    // fetch. Refetching here is that catch-up, and only admins need it.
-    const isAdmin = ['super_admin','admin','accountant','auditor'].includes(user.role);
-    if (!isAdmin) return;
-
-    const isDataTab =
-      currentTab === 'Cargo' ||
-      currentTab === 'Marketing' ||
-      currentTab === 'Packages' ||
-      currentTab === 'GAT' ||
-      currentTab.startsWith('Baggage:') ||
-      ['Tower', 'Scan', 'More'].includes(currentTab);
-
-    if (isDataTab) fetchInitial();
-  }, [currentTab, isOffline, fetchInitial, user.role]);
 
   useEffect(() => {
     if (isOffline) return;
 
     const isAdmin = ['super_admin','admin','accountant','auditor'].includes(user.role);
     const canSeePin = ['admin', 'super_admin', 'accountant'].includes(user.role);
-    // Must stay in lockstep with fetchInitial's own addHubFilter: whichever
-    // rows the initial fetch scoped to is exactly what the live channel
-    // below needs to match, or the two go silently inconsistent -- either a
-    // channel filtered to one hub while the initial fetch was state-wide
-    // (live feed silently missing sibling-hub entries the initial load DID
-    // show), or the reverse (an unfiltered channel leaking sibling-hub rows
-    // into a hub-scoped view behind the user's back). hub_shifts stays
-    // hub-local below regardless (a shift is deliberately per-hub, not
-    // state-wide).
     const hubFilter = (!isAdmin && user.hub_id && !stateWideView) ? `hub_id=eq.${user.hub_id}` : undefined;
-
-    let needsCargo = true;
-    let needsBaggage = true;
-    let needsMarketing = true;
-    let needsPackage = true;
-
-    if (isAdmin) {
-      const isAggregateView = ['Tower', 'Scan', 'More'].includes(currentTab);
-      needsCargo = isAggregateView || currentTab === 'Cargo' || currentTab === 'GAT';
-      needsBaggage = isAggregateView || currentTab.startsWith('Baggage:');
-      needsMarketing = isAggregateView || currentTab === 'Marketing';
-      needsPackage = isAggregateView || currentTab === 'Packages' || currentTab === 'GAT';
-    }
 
     const pushUnique = (tx: Transaction) => {
       const exists =
@@ -1420,7 +1733,22 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       flushTimerRef.current = setTimeout(flushPendingTx, 300);
     };
 
-    const cargoChannel = needsCargo ? supabase
+    const mirrorLocalUpdate = (table: 'cargo_entries' | 'manifests' | 'marketing_entries' | 'package_entries', recId: string, row: any) => {
+      if (!recId) return;
+      (db[table] as Dexie.Table).get(recId).then(existing => {
+        if (existing) {
+          existing.data = { ...existing.data, ...row };
+          return (db[table] as Dexie.Table).put(existing);
+        }
+      }).catch(() => {});
+    };
+
+    const mirrorLocalDelete = (table: 'cargo_entries' | 'manifests' | 'marketing_entries' | 'package_entries', recId: string) => {
+      if (!recId) return;
+      (db[table] as Dexie.Table).delete(recId).catch(() => {});
+    };
+
+    const cargoChannel = supabase
       .channel('ehi-cargo-live')
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'cargo_entries', filter: hubFilter },
@@ -1437,22 +1765,29 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             status: r.status || 'Intake',
             awb_tag_number: r.awb_tag_number,
             kg: r.total_kg,
+            sizeInches: r.size_inches ?? undefined,
             pieces: r.total_pcs,
             created_at: r.created_at,
             hub_id: r.hub_id,
+            terminal: r.terminal,
+            contentType: r.content_type,
             route: r.route,
             airline: r.airline,
             flight: r.flight_number || undefined,
+            bank: r.bank,
+            amountPaid: r.amount_paid || 0,
+            paymentHistory: r.payment_history || [],
+            paymentConfirmed: r.payment_confirmed,
+            posApprovalCode: r.pos_approval_code || undefined,
+            confirmedBy: r.confirmed_by || undefined,
+            confirmedAt: r.confirmed_at || undefined,
             pickupPin: canSeePin ? (r.pickup_pin || undefined) : undefined,
             consigneePhone: r.consignee_phone || undefined,
             clientType: r.client_type || undefined,
+            corporate_client_id: r.corporate_client_id || undefined,
+            linked_as_office_work: r.linked_as_office_work ?? undefined,
             wallet_id: r.wallet_id || undefined,
             wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
-            // Brought to parity with baggage/marketing/package's own INSERT
-            // handlers below, which already carry these -- cargo's was
-            // missing raw entirely, so (t.raw as any)?.retrieved_amount
-            // read as undefined for a cargo entry until the next full
-            // refetch, same bug class already fixed for the other 3 types.
             retrieved: r.retrieved ?? undefined,
             retrievalNote: r.retrieval_note ?? undefined,
             retrievedAt: r.retrieved_at ?? undefined,
@@ -1471,26 +1806,54 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         { event: 'UPDATE', schema: 'public', table: 'cargo_entries', filter: hubFilter },
         payload => {
           const r = payload.new as any;
-          setTransactions(prev => prev.map(t =>
-            t.id === (r.entry_ref || r.id) ? {
+          const recId = r.entry_ref || r.id;
+          mirrorLocalUpdate('cargo_entries', recId, r);
+          setTransactions(prev => prev.map(t => {
+            if (t.id !== recId) return t;
+            const isClearance = r.is_debt_clearance ?? (t as any).is_debt_clearance;
+            const nextAirline = r.airline ?? t.airline;
+            const nextPcs = r.total_pcs ?? t.pieces;
+            const nextKg = r.total_kg ?? t.kg;
+            const nextRoute = r.route ?? t.route;
+            const nextContent = r.content_type ?? t.contentType;
+            const nextSize = r.size_inches !== undefined ? r.size_inches : t.sizeInches;
+            return {
               ...t,
+              name: r.consignee_name || t.name,
+              detail: isClearance
+                ? t.detail
+                : `${nextAirline || ''} · ${nextPcs || 1}pcs · ${nextKg || 0}kg · ${nextRoute || ''} · ${nextContent || 'Package'}${nextSize ? ` · ${nextSize}in` : ''}`,
+              amount: r.amount ?? t.amount,
               status: r.status || t.status,
               mode: computeDebtDisplayModeFromRealtimeMerge(r, t, 'cargo'),
-              paymentConfirmed: r.payment_confirmed,
-              posApprovalCode: r.pos_approval_code,
+              awb_tag_number: r.awb_tag_number ?? t.awb_tag_number,
+              kg: nextKg,
+              pieces: nextPcs,
+              sizeInches: nextSize ?? undefined,
+              route: nextRoute,
+              airline: nextAirline,
+              flight: r.flight_number !== undefined ? (r.flight_number || undefined) : t.flight,
+              terminal: r.terminal ?? t.terminal,
+              contentType: nextContent,
+              pickupPin: canSeePin ? (r.pickup_pin !== undefined ? (r.pickup_pin || undefined) : t.pickupPin) : undefined,
+              consigneePhone: r.consignee_phone !== undefined ? (r.consignee_phone || undefined) : t.consigneePhone,
+              amountPaid: r.amount_paid ?? t.amountPaid,
+              paymentHistory: r.payment_history ?? t.paymentHistory,
+              paymentConfirmed: r.payment_confirmed ?? t.paymentConfirmed,
+              posApprovalCode: r.pos_approval_code ?? t.posApprovalCode,
               bank: r.bank ?? t.bank,
               confirmedBy: r.confirmed_by ?? t.confirmedBy,
               confirmedAt: r.confirmed_at ?? t.confirmedAt,
+              bankReference: r.bank_reference ?? t.bankReference,
+              bankSender: r.bank_sender ?? t.bankSender,
+              bankAlertText: r.bank_alert_text ?? t.bankAlertText,
               editedBy: r.last_edited_by ?? t.editedBy,
               editedAt: r.last_edited_at ?? t.editedAt,
-              flight: r.flight_number ?? t.flight,
               wallet_id: r.wallet_id ?? t.wallet_id,
               wallet_deduction_amount: r.wallet_deduction_amount ?? t.wallet_deduction_amount,
-              // Without this, a retrieval processed on another device never
-              // shows up here until a full refetch -- DebtorsTab's balance
-              // and handleClearDebt's remaining-debt calc both read
-              // (t.raw as any)?.retrieved_amount, which stayed frozen at
-              // whatever it was on initial load.
+              clientType: r.client_type ?? t.clientType,
+              corporate_client_id: r.corporate_client_id ?? (t as any).corporate_client_id,
+              linked_as_office_work: r.linked_as_office_work ?? (t as any).linked_as_office_work,
               retrieved: r.retrieved ?? t.retrieved,
               retrievalNote: r.retrieval_note ?? t.retrievalNote,
               retrievedAt: r.retrieved_at ?? t.retrievedAt,
@@ -1498,17 +1861,27 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               retrievalApproved: r.retrieval_approved ?? t.retrievalApproved,
               retrievalApprovedBy: r.retrieval_approved_by ?? t.retrievalApprovedBy,
               retrievalApprovedAt: r.retrieval_approved_at ?? t.retrievalApprovedAt,
-              is_debt_clearance: r.is_debt_clearance ?? (t as any).is_debt_clearance,
+              is_debt_clearance: isClearance,
               related_tx_id: r.related_tx_id ?? (t as any).related_tx_id,
               remarks: r.remark ?? t.remarks,
               raw: { ...(t.raw || {}), ...r },
-            } : t
-          ));
+            };
+          }));
         }
       )
-      .subscribe() : null;
+      .on('postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'cargo_entries' },
+        payload => {
+          const oldRow = payload.old as any;
+          const delId = oldRow?.entry_ref || oldRow?.id;
+          if (!delId) return;
+          mirrorLocalDelete('cargo_entries', delId);
+          setTransactions(prev => prev.filter(t => t.id !== delId && (t.raw as any)?.id !== oldRow?.id));
+        }
+      )
+      .subscribe();
 
-    const baggageChannel = needsBaggage ? supabase
+    const baggageChannel = supabase
       .channel('ehi-baggage-live')
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'manifests', filter: hubFilter },
@@ -1524,14 +1897,22 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             type: 'baggage',
             status: 'Delivered',
             created_at: r.created_at,
+            bank: r.bank,
             hub_id: r.hub_id,
             airline: r.airline,
             destination: r.destination,
             excessKg: r.excess_kg,
             totalKg: r.total_kg,
             flight: r.flight_no,
+            pnr: r.pnr || undefined,
             kg: r.excess_kg,
             pieces: r.total_pcs,
+            amountPaid: r.amount_paid || 0,
+            paymentHistory: r.payment_history || [],
+            paymentConfirmed: r.payment_confirmed,
+            posApprovalCode: r.pos_approval_code || undefined,
+            confirmedBy: r.confirmed_by || undefined,
+            confirmedAt: r.confirmed_at || undefined,
             wallet_id: r.wallet_id || undefined,
             wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
             retrieved: r.retrieved ?? undefined,
@@ -1544,6 +1925,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             is_debt_clearance: r.is_debt_clearance ?? undefined,
             related_tx_id: r.related_tx_id ?? undefined,
             remarks: r.remark ?? undefined,
+            clientType: r.client_type || undefined,
+            corporate_client_id: r.corporate_client_id || undefined,
+            linked_as_office_work: r.linked_as_office_work ?? undefined,
             raw: r,
           });
         }
@@ -1552,16 +1936,48 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         { event: 'UPDATE', schema: 'public', table: 'manifests', filter: hubFilter },
         payload => {
           const r = payload.new as any;
-          setTransactions(prev => prev.map(t =>
-            t.id === (r.transaction_id || r.id) ? {
+          const recId = r.transaction_id || r.id;
+          mirrorLocalUpdate('manifests', recId, r);
+          setTransactions(prev => prev.map(t => {
+            if (t.id !== recId) return t;
+            const isClearance = r.is_debt_clearance ?? (t as any).is_debt_clearance;
+            const nextFlight = r.flight_no ?? t.flight;
+            const nextDest = r.destination ?? t.destination;
+            const nextPcs = r.total_pcs ?? t.pieces;
+            const nextExcess = r.excess_kg ?? t.excessKg;
+            return {
               ...t,
+              name: r.passenger_name || t.name,
+              detail: isClearance
+                ? t.detail
+                : `${nextFlight || ''} · ${nextDest || ''} · ${nextPcs || 1}pcs · +${nextExcess || 0}kg excess`,
+              amount: r.amount ?? t.amount,
               mode: computeDebtDisplayModeFromRealtimeMerge(r, t, 'baggage'),
-              paymentConfirmed: r.payment_confirmed,
-              posApprovalCode: r.pos_approval_code,
+              airline: r.airline ?? t.airline,
+              destination: nextDest,
+              flight: nextFlight,
+              pnr: r.pnr ?? t.pnr,
+              excessKg: nextExcess,
+              totalKg: r.total_kg ?? t.totalKg,
+              kg: nextExcess ?? t.kg,
+              pieces: nextPcs,
+              bank: r.bank ?? t.bank,
+              amountPaid: r.amount_paid ?? t.amountPaid,
+              paymentHistory: r.payment_history ?? t.paymentHistory,
+              paymentConfirmed: r.payment_confirmed ?? t.paymentConfirmed,
+              posApprovalCode: r.pos_approval_code ?? t.posApprovalCode,
+              confirmedBy: r.confirmed_by ?? t.confirmedBy,
+              confirmedAt: r.confirmed_at ?? t.confirmedAt,
+              bankReference: r.bank_reference ?? t.bankReference,
+              bankSender: r.bank_sender ?? t.bankSender,
+              bankAlertText: r.bank_alert_text ?? t.bankAlertText,
               editedBy: r.last_edited_by ?? t.editedBy,
               editedAt: r.last_edited_at ?? t.editedAt,
               wallet_id: r.wallet_id ?? t.wallet_id,
               wallet_deduction_amount: r.wallet_deduction_amount ?? t.wallet_deduction_amount,
+              clientType: r.client_type ?? t.clientType,
+              corporate_client_id: r.corporate_client_id ?? (t as any).corporate_client_id,
+              linked_as_office_work: r.linked_as_office_work ?? (t as any).linked_as_office_work,
               retrieved: r.retrieved ?? t.retrieved,
               retrievalNote: r.retrieval_note ?? t.retrievalNote,
               retrievedAt: r.retrieved_at ?? t.retrievedAt,
@@ -1569,17 +1985,27 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               retrievalApproved: r.retrieval_approved ?? t.retrievalApproved,
               retrievalApprovedBy: r.retrieval_approved_by ?? t.retrievalApprovedBy,
               retrievalApprovedAt: r.retrieval_approved_at ?? t.retrievalApprovedAt,
-              is_debt_clearance: r.is_debt_clearance ?? (t as any).is_debt_clearance,
+              is_debt_clearance: isClearance,
               related_tx_id: r.related_tx_id ?? (t as any).related_tx_id,
               remarks: r.remark ?? t.remarks,
               raw: { ...(t.raw || {}), ...r },
-            } : t
-          ));
+            };
+          }));
         }
       )
-      .subscribe() : null;
+      .on('postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'manifests' },
+        payload => {
+          const oldRow = payload.old as any;
+          const delId = oldRow?.transaction_id || oldRow?.id;
+          if (!delId) return;
+          mirrorLocalDelete('manifests', delId);
+          setTransactions(prev => prev.filter(t => t.id !== delId && (t.raw as any)?.id !== oldRow?.id));
+        }
+      )
+      .subscribe();
 
-    const marketingChannel = needsMarketing ? supabase
+    const marketingChannel = supabase
       .channel('ehi-marketing-live')
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'marketing_entries', filter: hubFilter },
@@ -1596,9 +2022,17 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             type: 'marketing',
             status: 'Intake',
             created_at: r.created_at,
+            bank: r.bank,
             hub_id: r.hub_id,
             route: r.route,
             airline: r.airline || undefined,
+            amountPaid: r.debt_amount_paid || 0,
+            paymentHistory: r.payment_history || [],
+            paymentConfirmed: r.payment_confirmed,
+            posApprovalCode: r.pos_approval_code || undefined,
+            confirmedBy: r.confirmed_by || undefined,
+            confirmedAt: r.confirmed_at || undefined,
+            consigneePhone: r.customer_phone || undefined,
             wallet_id: r.wallet_id || undefined,
             wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
             retrieved: r.retrieved ?? undefined,
@@ -1611,6 +2045,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             is_debt_clearance: r.is_debt_clearance ?? undefined,
             related_tx_id: r.related_tx_id ?? undefined,
             remarks: r.remark ?? undefined,
+            clientType: r.client_type || undefined,
+            corporate_client_id: r.corporate_client_id || undefined,
+            linked_as_office_work: r.linked_as_office_work ?? undefined,
             raw: r,
           });
         }
@@ -1619,16 +2056,46 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         { event: 'UPDATE', schema: 'public', table: 'marketing_entries', filter: hubFilter },
         payload => {
           const r = payload.new as any;
-          setTransactions(prev => prev.map(t =>
-            t.id === (r.entry_ref || r.id) ? {
+          const recId = r.entry_ref || r.id;
+          mirrorLocalUpdate('marketing_entries', recId, r);
+          setTransactions(prev => prev.map(t => {
+            if (t.id !== recId) return t;
+            const isClearance = r.is_debt_clearance ?? (t as any).is_debt_clearance;
+            const nextRoute = r.route ?? t.route;
+            const prevRaw = (t.raw as any) || {};
+            const bb = r.qty_big_bag ?? prevRaw.qty_big_bag ?? 0;
+            const mb = r.qty_med_bag ?? prevRaw.qty_med_bag ?? 0;
+            const sb = r.qty_small_bag ?? prevRaw.qty_small_bag ?? 0;
+            return {
               ...t,
+              name: r.customer_name || t.name,
+              awb_tag_number: r.awb_tag_number ?? t.awb_tag_number,
+              detail: isClearance
+                ? t.detail
+                : `${nextRoute || ''} · ${bb}BB ${mb}MB ${sb}SB`,
+              amount: r.amount_paid ?? t.amount,
               mode: computeDebtDisplayModeFromRealtimeMerge(r, t, 'marketing'),
-              paymentConfirmed: r.payment_confirmed,
               status: r.status || t.status,
+              route: nextRoute,
+              airline: r.airline !== undefined ? (r.airline || undefined) : t.airline,
+              bank: r.bank ?? t.bank,
+              amountPaid: r.debt_amount_paid ?? t.amountPaid,
+              paymentHistory: r.payment_history ?? t.paymentHistory,
+              paymentConfirmed: r.payment_confirmed ?? t.paymentConfirmed,
+              posApprovalCode: r.pos_approval_code ?? t.posApprovalCode,
+              confirmedBy: r.confirmed_by ?? t.confirmedBy,
+              confirmedAt: r.confirmed_at ?? t.confirmedAt,
+              bankReference: r.bank_reference ?? t.bankReference,
+              bankSender: r.bank_sender ?? t.bankSender,
+              bankAlertText: r.bank_alert_text ?? t.bankAlertText,
+              consigneePhone: r.customer_phone !== undefined ? (r.customer_phone || undefined) : t.consigneePhone,
               editedBy: r.last_edited_by ?? t.editedBy,
               editedAt: r.last_edited_at ?? t.editedAt,
               wallet_id: r.wallet_id ?? t.wallet_id,
               wallet_deduction_amount: r.wallet_deduction_amount ?? t.wallet_deduction_amount,
+              clientType: r.client_type ?? t.clientType,
+              corporate_client_id: r.corporate_client_id ?? (t as any).corporate_client_id,
+              linked_as_office_work: r.linked_as_office_work ?? (t as any).linked_as_office_work,
               retrieved: r.retrieved ?? t.retrieved,
               retrievalNote: r.retrieval_note ?? t.retrievalNote,
               retrievedAt: r.retrieved_at ?? t.retrievedAt,
@@ -1636,17 +2103,27 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               retrievalApproved: r.retrieval_approved ?? t.retrievalApproved,
               retrievalApprovedBy: r.retrieval_approved_by ?? t.retrievalApprovedBy,
               retrievalApprovedAt: r.retrieval_approved_at ?? t.retrievalApprovedAt,
-              is_debt_clearance: r.is_debt_clearance ?? (t as any).is_debt_clearance,
+              is_debt_clearance: isClearance,
               related_tx_id: r.related_tx_id ?? (t as any).related_tx_id,
               remarks: r.remark ?? t.remarks,
-              raw: { ...(t.raw || {}), ...r },
-            } : t
-          ));
+              raw: { ...prevRaw, ...r },
+            };
+          }));
         }
       )
-      .subscribe() : null;
+      .on('postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'marketing_entries' },
+        payload => {
+          const oldRow = payload.old as any;
+          const delId = oldRow?.entry_ref || oldRow?.id;
+          if (!delId) return;
+          mirrorLocalDelete('marketing_entries', delId);
+          setTransactions(prev => prev.filter(t => t.id !== delId && (t.raw as any)?.id !== oldRow?.id));
+        }
+      )
+      .subscribe();
 
-    const packageChannel = needsPackage ? supabase
+    const packageChannel = supabase
       .channel('ehi-package-live')
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'package_entries', filter: hubFilter },
@@ -1662,6 +2139,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             type: 'package',
             status: r.status || 'Intake',
             created_at: r.created_at,
+            bank: r.bank,
             hub_id: r.hub_id,
             terminal: r.terminal,
             destination: r.destination,
@@ -1669,6 +2147,16 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             pieces: r.total_pcs,
             kg: r.total_kg,
             contents: r.contents || undefined,
+            paymentNarration: r.payment_narration || undefined,
+            debtPaid: r.debt_paid ?? undefined,
+            debtPaidAt: r.debt_paid_at || undefined,
+            amountPaid: r.amount_paid || 0,
+            paymentHistory: r.payment_history || [],
+            paymentConfirmed: r.payment_confirmed,
+            posApprovalCode: r.pos_approval_code || undefined,
+            confirmedBy: r.confirmed_by || undefined,
+            confirmedAt: r.confirmed_at || undefined,
+            consigneePhone: r.customer_phone || undefined,
             wallet_id: r.wallet_id || undefined,
             wallet_deduction_amount: r.wallet_deduction_amount ?? undefined,
             retrieved: r.retrieved ?? undefined,
@@ -1681,6 +2169,9 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
             is_debt_clearance: r.is_debt_clearance ?? undefined,
             related_tx_id: r.related_tx_id ?? undefined,
             remarks: r.remark ?? undefined,
+            clientType: r.client_type || undefined,
+            corporate_client_id: r.corporate_client_id || undefined,
+            linked_as_office_work: r.linked_as_office_work ?? undefined,
             raw: r,
           });
         }
@@ -1689,23 +2180,49 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         { event: 'UPDATE', schema: 'public', table: 'package_entries', filter: hubFilter },
         payload => {
           const r = payload.new as any;
-          setTransactions(prev => prev.map(t =>
-            t.id === (r.entry_ref || r.id) ? {
+          const recId = r.entry_ref || r.id;
+          mirrorLocalUpdate('package_entries', recId, r);
+          setTransactions(prev => prev.map(t => {
+            if (t.id !== recId) return t;
+            const isClearance = r.is_debt_clearance ?? (t as any).is_debt_clearance;
+            const nextDest = r.destination ?? t.destination;
+            const nextContent = r.content_type ?? t.contentType;
+            const nextPcs = r.total_pcs ?? t.pieces;
+            const nextKg = r.total_kg ?? t.kg;
+            const nextContents = r.contents !== undefined ? (r.contents || undefined) : (t as any).contents;
+            return {
               ...t,
+              name: r.customer_name || t.name,
+              detail: isClearance
+                ? t.detail
+                : `${nextDest || ''} · ${nextContent || 'Package'} · ${nextPcs || 1}pcs · ${nextKg || 0}kg${nextContents ? ` · ${nextContents}` : ''}`,
+              amount: r.amount ?? t.amount,
               status: r.status || t.status,
               mode: computeDebtDisplayModeFromRealtimeMerge(r, t, 'package'),
-              paymentConfirmed: r.payment_confirmed,
-              posApprovalCode: r.pos_approval_code,
+              terminal: r.terminal ?? t.terminal,
+              destination: nextDest,
+              contentType: nextContent,
+              pieces: nextPcs,
+              kg: nextKg,
+              contents: nextContents,
+              paymentNarration: r.payment_narration ?? t.paymentNarration,
+              paymentConfirmed: r.payment_confirmed ?? t.paymentConfirmed,
+              posApprovalCode: r.pos_approval_code ?? t.posApprovalCode,
               bank: r.bank ?? t.bank,
               confirmedBy: r.confirmed_by ?? t.confirmedBy,
               confirmedAt: r.confirmed_at ?? t.confirmedAt,
               debtPaid: r.debt_paid ?? t.debtPaid,
               debtPaidAt: r.debt_paid_at ?? t.debtPaidAt,
               amountPaid: r.amount_paid ?? t.amountPaid,
+              paymentHistory: r.payment_history ?? t.paymentHistory,
+              consigneePhone: r.customer_phone !== undefined ? (r.customer_phone || undefined) : t.consigneePhone,
               editedBy: r.last_edited_by ?? t.editedBy,
               editedAt: r.last_edited_at ?? t.editedAt,
               wallet_id: r.wallet_id ?? t.wallet_id,
               wallet_deduction_amount: r.wallet_deduction_amount ?? t.wallet_deduction_amount,
+              clientType: r.client_type ?? t.clientType,
+              corporate_client_id: r.corporate_client_id ?? (t as any).corporate_client_id,
+              linked_as_office_work: r.linked_as_office_work ?? (t as any).linked_as_office_work,
               retrieved: r.retrieved ?? t.retrieved,
               retrievalNote: r.retrieval_note ?? t.retrievalNote,
               retrievedAt: r.retrieved_at ?? t.retrievedAt,
@@ -1713,24 +2230,85 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               retrievalApproved: r.retrieval_approved ?? t.retrievalApproved,
               retrievalApprovedBy: r.retrieval_approved_by ?? t.retrievalApprovedBy,
               retrievalApprovedAt: r.retrieval_approved_at ?? t.retrievalApprovedAt,
-              is_debt_clearance: r.is_debt_clearance ?? (t as any).is_debt_clearance,
+              is_debt_clearance: isClearance,
               related_tx_id: r.related_tx_id ?? (t as any).related_tx_id,
               remarks: r.remark ?? t.remarks,
               raw: { ...(t.raw || {}), ...r },
-            } : t
+            };
+          }));
+        }
+      )
+      .on('postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'package_entries' },
+        payload => {
+          const oldRow = payload.old as any;
+          const delId = oldRow?.entry_ref || oldRow?.id;
+          if (!delId) return;
+          mirrorLocalDelete('package_entries', delId);
+          setTransactions(prev => prev.filter(t => t.id !== delId && (t.raw as any)?.id !== oldRow?.id));
+        }
+      )
+      .subscribe();
+
+    const expensesChannel = supabase
+      .channel('ehi-expenses-live')
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'expenses', filter: hubFilter },
+        payload => {
+          const e = payload.new as any;
+          const mapped: Expense = {
+            id: e.id,
+            type: e.category || 'General',
+            amount: e.amount,
+            description: e.description,
+            time: e.created_at,
+            created_at: e.created_at,
+            hub_id: e.hub_id,
+            status: e.status || 'pending',
+            mode: e.mode || undefined,
+            bank: e.bank || undefined,
+            logged_by: e.logged_by || undefined,
+            approvedBy: e.approved_by || undefined,
+            approvedAt: e.approved_at || undefined,
+            rejectedBy: e.rejected_by || undefined,
+            rejectedAt: e.rejected_at || undefined,
+          };
+          setExpenses(prev => prev.some(x => x.id === mapped.id) ? prev : [mapped, ...prev]);
+        }
+      )
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'expenses', filter: hubFilter },
+        payload => {
+          const e = payload.new as any;
+          setExpenses(prev => prev.map(x =>
+            x.id === e.id
+              ? {
+                  ...x,
+                  type: e.category || x.type,
+                  amount: e.amount ?? x.amount,
+                  description: e.description ?? x.description,
+                  status: e.status || x.status,
+                  mode: e.mode ?? x.mode,
+                  bank: e.bank ?? x.bank,
+                  approvedBy: e.approved_by ?? x.approvedBy,
+                  approvedAt: e.approved_at ?? x.approvedAt,
+                  rejectedBy: e.rejected_by ?? x.rejectedBy,
+                  rejectedAt: e.rejected_at ?? x.rejectedAt,
+                }
+              : x
           ));
         }
       )
-      .subscribe() : null;
+      .on('postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'expenses' },
+        payload => {
+          const oldRow = payload.old as any;
+          if (!oldRow?.id) return;
+          setExpenses(prev => prev.filter(x => x.id !== oldRow.id));
+        }
+      )
+      .subscribe();
 
-    // hub_shifts only ever loads this device's own hub (fetchShifts above
-    // does .eq('hub_id', user.hub_id) unconditionally, unlike the
-    // admin-sees-everything cargo/baggage/marketing channels above) --
-    // matched here so a shift started/ended on another device/tab for this
-    // hub updates todayShifts (and, via activeShiftsByDept, every
-    // department's derived active shift) immediately instead of waiting
-    // for the next full fetchInitial (tab switch, date change, or the 60s
-    // sync interval).
     const shiftsChannel = user.hub_id ? supabase
       .channel('ehi-shifts-live')
       .on('postgres_changes',
@@ -1746,13 +2324,6 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           const r = payload.new as HubShift;
           setTodayShifts(prev => {
             const existing = prev.find(s => s.id === r.id);
-            // Bail out with the SAME array reference (React then skips the
-            // re-render entirely) when this is a no-op replay of a row
-            // that's already exactly reflected -- a realtime reconnect
-            // replays recent events, and .map() always allocates a new
-            // array even when nothing actually changed, which cascades
-            // into activeShiftsByDept -> autoRollShift's identity ->
-            // its own effect re-firing for no real reason.
             if (existing && JSON.stringify(existing) === JSON.stringify(r)) return prev;
             return prev.map(s => s.id === r.id ? r : s);
           });
@@ -1761,14 +2332,15 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       .subscribe() : null;
 
     return () => {
-      if (cargoChannel) supabase.removeChannel(cargoChannel);
-      if (baggageChannel) supabase.removeChannel(baggageChannel);
-      if (marketingChannel) supabase.removeChannel(marketingChannel);
-      if (packageChannel) supabase.removeChannel(packageChannel);
+      supabase.removeChannel(cargoChannel);
+      supabase.removeChannel(baggageChannel);
+      supabase.removeChannel(marketingChannel);
+      supabase.removeChannel(packageChannel);
+      supabase.removeChannel(expensesChannel);
       if (shiftsChannel) supabase.removeChannel(shiftsChannel);
       if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
     };
-  }, [isOffline, flushPendingTx, user.hub_id, user.role, currentTab, stateWideView]);
+  }, [isOffline, flushPendingTx, user.hub_id, user.role, stateWideView]);
 
   const handleAddTx = useCallback(async (tx: Transaction) => {
     const tableName = tx.type === 'marketing' ? 'marketing_entries'
@@ -2290,9 +2862,21 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
   // Called after TransactionLedger's delete_transaction RPC call has
   // already succeeded server-side (see confirmDeleteTransaction) -- this
   // only removes the row from local state, it doesn't itself touch the DB.
-  const handleDeleteTx = useCallback((_type: string, id: string) => {
-    setTransactions(prev => prev.filter(t => t.id !== id));
-  }, []);
+  const handleDeleteTx = useCallback((type: string, id: string) => {
+    setTransactions(prev => {
+      const next = prev.filter(t => t.id !== id);
+      setCached(RECENT_TX_CACHE_KEY(user.id), next.slice(0, 200));
+      return next;
+    });
+    const table = type === 'cargo' ? 'cargo_entries'
+      : type === 'baggage' ? 'manifests'
+      : type === 'package' ? 'package_entries'
+      : type === 'marketing' ? 'marketing_entries'
+      : null;
+    if (table) {
+      (db[table] as Dexie.Table).delete(id).catch(() => {});
+    }
+  }, [user.id]);
 
   const handleAddExpense = useCallback(async (expense: Expense) => {
     // Callers (CargoForm/PackageForm/etc.) build the Expense object without

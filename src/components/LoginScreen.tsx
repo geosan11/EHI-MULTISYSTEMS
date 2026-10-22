@@ -64,6 +64,13 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
     testSupabaseConnection().then(result => {
       setConnStatus(result.ok ? 'live' : 'offline');
     }).catch(() => setConnStatus('offline'));
+
+    // Preload EHIApp in the background after the login screen paints so
+    // clicking "Get Started" transitions immediately without waiting for bundle download.
+    const preloadTimer = setTimeout(() => {
+      import('./EHIApp').catch(() => {});
+    }, 300);
+    return () => clearTimeout(preloadTimer);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -155,7 +162,7 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
       </aside>
 
       {/* Main Glassmorphic Login Card */}
-      <main className="relative z-10 w-full max-w-[420px] rounded-[34px] p-7 sm:p-9 border border-white/90 shadow-[0_25px_60px_-15px_rgba(20,50,90,0.12),0_0_0_1px_rgba(255,255,255,0.8)_inset] bg-white/75 backdrop-blur-2xl transition-all">
+      <main className="relative z-10 w-full max-w-[420px] rounded-[34px] p-7 sm:p-9 border border-white/90 shadow-[0_25px_60px_-15px_rgba(20,50,90,0.12),0_0_0_1px_rgba(255,255,255,0.8)_inset] bg-white/85 backdrop-blur-md transition-all">
         {/* Top squircle icon badge with arrow enter glyph */}
         <div className="mx-auto mb-5 w-12 h-12 rounded-2xl bg-white/90 border border-white shadow-[0_4px_16px_rgba(15,23,42,0.06)] flex items-center justify-center text-slate-800">
           <svg className="w-5 h-5 text-slate-800 stroke-[2.2]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">

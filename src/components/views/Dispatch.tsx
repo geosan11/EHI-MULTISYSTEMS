@@ -34,6 +34,7 @@ export const Dispatch = ({ onBack }: { onBack: () => void }) => {
 
   useEffect(() => {
     const fetchTrips = async () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       try {
         const { data, error } = await supabase
           .from('driver_trips')
@@ -43,18 +44,27 @@ export const Dispatch = ({ onBack }: { onBack: () => void }) => {
           .order('created_at', { ascending: false });
 
         if (data && !error) {
-          const tripsWithPings = await Promise.all(data.map(async (t: any) => {
-            let pings: TripPing[] = [];
-            try { pings = await db.trip_pings.where('tripId').equals(t.id).sortBy('timestamp'); } catch {}
-            return {
-              id: t.id, driverName: t.driver_name || 'Driver',
-              vehiclePlate: t.vehicle_plate || '', origin: t.origin || '',
-              destination: t.destination || '', status: t.status,
-              departureTime: t.departure_time || t.created_at,
-              cargoRefs: t.cargo_refs || [], gpsTrackingEnabled: t.gps_enabled,
-              createdAt: t.created_at, userId: t.user_id,
-              pings
-            };
+          const tripIds = data.map((t: any) => t.id).filter(Boolean);
+          const pingsByTrip = new Map<string, TripPing[]>();
+          if (tripIds.length > 0) {
+            try {
+              const allPings = await db.trip_pings.where('tripId').anyOf(tripIds).toArray();
+              allPings.sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
+              for (const p of allPings) {
+                const arr = pingsByTrip.get(p.tripId);
+                if (arr) arr.push(p);
+                else pingsByTrip.set(p.tripId, [p]);
+              }
+            } catch {}
+          }
+          const tripsWithPings: TripWithPings[] = data.map((t: any) => ({
+            id: t.id, driverName: t.driver_name || 'Driver',
+            vehiclePlate: t.vehicle_plate || '', origin: t.origin || '',
+            destination: t.destination || '', status: t.status,
+            departureTime: t.departure_time || t.created_at,
+            cargoRefs: t.cargo_refs || [], gpsTrackingEnabled: t.gps_enabled,
+            createdAt: t.created_at, userId: t.user_id,
+            pings: pingsByTrip.get(t.id) || [],
           }));
           setActiveTrips(tripsWithPings);
         }
@@ -64,8 +74,15 @@ export const Dispatch = ({ onBack }: { onBack: () => void }) => {
     };
 
     fetchTrips();
-    const interval = setInterval(fetchTrips, 15000); // refresh every 15s
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchTrips, 15000); // refresh every 15s when visible
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') fetchTrips();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, []);
 
   return (
