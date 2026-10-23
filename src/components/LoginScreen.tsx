@@ -5,7 +5,7 @@ import { UserProfile, signIn } from '../lib/auth';
 import skyBg from '../assets/login-sky-bg.jpg';
 import ehiLogo from '../assets/branding/ehi-logo.png';
 import { getConnectionMode, testSupabaseConnection, supabase } from '../lib/supabase';
-import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle, Sun, Moon, PackageSearch, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle, PackageSearch } from 'lucide-react';
 
 type ConnStatus = 'checking' | 'live' | 'offline' | 'unconfigured';
 
@@ -22,25 +22,6 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
   const [resetSent, setResetSent]     = useState(false);
   const [resetSending, setResetSending] = useState(false);
   const [resetError, setResetError]   = useState('');
-  const [isDark, setIsDark]           = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('ehi-theme') || localStorage.getItem('ehi_theme');
-      if (saved === 'dark' || saved === 'light') return saved === 'dark';
-      return document.documentElement.classList.contains('dark');
-    } catch {
-      return false;
-    }
-  });
-
-  const toggleLoginTheme = () => {
-    const next = !isDark;
-    setIsDark(next);
-    try {
-      localStorage.setItem('ehi-theme', next ? 'dark' : 'light');
-      document.documentElement.classList.toggle('dark', next);
-      document.documentElement.classList.toggle('light', !next);
-    } catch {}
-  };
 
   const closeForgotPasswordModal = () => {
     if (isClosingReset) return;
@@ -131,136 +112,96 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
 
   return (
     <div
-      className={`relative min-h-[100dvh] w-full flex flex-col items-center justify-between p-4 sm:p-6 overflow-y-auto overflow-x-hidden select-none antialiased font-sans transition-colors duration-300 ${
-        isDark ? 'bg-[#0f1117] text-slate-100' : 'bg-[#90c5f9] text-slate-900'
-      }`}
+      className="relative min-h-[100dvh] w-full flex flex-col items-center justify-between p-4 sm:p-6 overflow-y-auto overflow-x-hidden select-none bg-[#90c5f9] text-slate-900 antialiased"
+      style={{ fontFamily: 'var(--font-display, "Plus Jakarta Sans", "Inter", sans-serif)' }}
     >
-      {/* Daylight sky backdrop (dimmed automatically in Night-Shift Dark Mode to prevent glare) */}
+      {/* Photorealistic serene daylight cloudy sky backdrop */}
       <div
         aria-hidden="true"
-        className={`fixed inset-0 pointer-events-none bg-cover bg-center bg-no-repeat transition-opacity duration-500 ${
-          isDark ? 'opacity-10' : 'opacity-100'
-        }`}
+        className="fixed inset-0 pointer-events-none bg-cover bg-center bg-no-repeat transition-opacity duration-700"
         style={{ backgroundImage: `url(${skyBg})` }}
       />
 
-      {/* Atmospheric light bloom / night-shift radial vignette */}
+      {/* Subtle atmospheric light bloom */}
       <div
         aria-hidden="true"
         className="fixed inset-0 pointer-events-none"
         style={{
-          background: isDark
-            ? 'radial-gradient(circle at 50% 35%, rgba(251,191,36,0.07) 0%, rgba(15,17,23,0.92) 70%)'
-            : 'radial-gradient(circle at 50% 35%, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 65%)',
+          background: 'radial-gradient(circle at 50% 35%, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 65%)',
         }}
       />
 
-      {/* Subtle concentric radar guide arcs */}
+      {/* Subtle ethereal concentric orbital guide arcs */}
       <div
         aria-hidden="true"
         className="fixed inset-0 pointer-events-none flex items-center justify-center overflow-hidden"
       >
-        <div className={`w-[640px] h-[640px] rounded-full border ${isDark ? 'border-white/5' : 'border-white/50 shadow-[0_0_90px_rgba(255,255,255,0.45)]'}`} />
-        <div className={`absolute w-[960px] h-[960px] rounded-full border ${isDark ? 'border-white/[0.03]' : 'border-white/30'}`} />
-        <div className={`absolute w-[1280px] h-[1280px] rounded-full border ${isDark ? 'border-white/[0.02]' : 'border-white/20'}`} />
+        <div className="w-[640px] h-[640px] rounded-full border border-white/50 shadow-[0_0_90px_rgba(255,255,255,0.45)]" />
+        <div className="absolute w-[960px] h-[960px] rounded-full border border-white/30" />
+        <div className="absolute w-[1280px] h-[1280px] rounded-full border border-white/20" />
       </div>
 
       {/* Top Bar: Flows naturally in document order so it never overlaps the login card on short screens */}
       <div className="relative z-20 w-full max-w-6xl mx-auto flex items-center justify-between gap-3 pb-4 sm:pb-6 shrink-0">
-        {/* Top Left Brand Emblem */}
-        <header className="flex items-center gap-2.5">
+        {/* Top Left Brand Emblem with Rounded Logo */}
+        <header className="flex items-center gap-3">
           <img
             src={ehiLogo}
             alt="EHI Multisystems"
-            className="h-9 w-auto object-contain shrink-0"
+            className="h-10 w-10 sm:h-11 sm:w-11 rounded-2xl object-cover shadow-md border border-white/80 bg-white/90 p-0.5 shrink-0"
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
           <div>
-            <div className={`text-sm sm:text-base font-bold tracking-tight font-sans leading-tight ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
+            <div className="text-[15px] sm:text-[17px] font-extrabold text-slate-900 tracking-[-0.02em] leading-tight">
               EHI Multisystems
             </div>
-            <div className={`text-[10px] font-mono uppercase tracking-wider ${isDark ? 'text-amber-400/90' : 'text-slate-600'}`}>
-              Aviation &amp; Cargo Ops
+            <div className="text-[11px] font-medium text-slate-600 tracking-tight">
+              Logistics &amp; Aviation Operations
             </div>
           </div>
         </header>
 
-        {/* Top Right Telemetry + Day/Night Shift Toggle */}
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={toggleLoginTheme}
-            title={isDark ? 'Switch to Daylight Mode' : 'Switch to Night-Shift Dark Mode'}
-            aria-label="Toggle day or night shift display mode"
-            className={`h-8 w-8 rounded-full flex items-center justify-center border backdrop-blur-md transition-colors cursor-pointer ${
-              isDark
-                ? 'bg-slate-800/80 border-slate-700 text-amber-400 hover:bg-slate-700'
-                : 'bg-white/75 border-white/80 text-slate-700 hover:bg-white shadow-sm'
-            }`}
-          >
-            {isDark ? <Sun size={14} /> : <Moon size={14} />}
-          </button>
-
-          <aside
-            aria-label="System status"
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md border text-xs ${
-              isDark
-                ? 'bg-slate-900/80 border-slate-700/80 text-slate-200'
-                : 'bg-white/75 border-white/80 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-slate-700'
-            }`}
-          >
-            <span className="relative flex h-2 w-2">
-              {status.pulse && (
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: status.dot }} />
-              )}
-              <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: status.dot }} />
-            </span>
-            <span className="font-semibold tracking-wide font-mono text-[11px]">{status.label}</span>
-          </aside>
-        </div>
+        {/* Top Right Live Telemetry Badge */}
+        <aside
+          aria-label="System status"
+          className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/75 backdrop-blur-md border border-white/85 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-xs shrink-0"
+        >
+          <span className="relative flex h-2 w-2">
+            {status.pulse && (
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: status.dot }} />
+            )}
+            <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: status.dot }} />
+          </span>
+          <span className="font-semibold text-slate-700 tracking-[-0.01em] text-[11px]">{status.label}</span>
+        </aside>
       </div>
 
-      {/* Main Operations Terminal Login Card */}
-      <main
-        className={`relative z-10 my-auto w-full max-w-[420px] rounded-[28px] p-7 sm:p-9 border backdrop-blur-md transition-all ${
-          isDark
-            ? 'bg-[#1a1f2e]/90 border-white/10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)]'
-            : 'bg-white/88 border-white/90 shadow-[0_25px_60px_-15px_rgba(20,50,90,0.12),0_0_0_1px_rgba(255,255,255,0.8)_inset]'
-        }`}
-      >
-        {/* Top operational badge */}
-        <div
-          className={`mx-auto mb-4 w-12 h-12 rounded-2xl border flex items-center justify-center ${
-            isDark
-              ? 'bg-amber-400/10 border-amber-400/25 text-amber-400'
-              : 'bg-white/95 border-slate-200/80 shadow-[0_4px_16px_rgba(15,23,42,0.06)] text-slate-800'
-          }`}
-        >
-          <ShieldCheck size={22} />
+      {/* Main Glassmorphic Login Card */}
+      <main className="relative z-10 my-auto w-full max-w-[420px] rounded-[32px] p-7 sm:p-9 border border-white/90 shadow-[0_25px_60px_-15px_rgba(20,50,90,0.12),0_0_0_1px_rgba(255,255,255,0.8)_inset] bg-white/85 backdrop-blur-md transition-all">
+        {/* Top Rounded Logo Badge */}
+        <div className="mx-auto mb-5 w-14 h-14 rounded-2xl bg-white/95 border border-white shadow-[0_6px_20px_rgba(15,23,42,0.08)] p-1.5 flex items-center justify-center overflow-hidden">
+          <img
+            src={ehiLogo}
+            alt="EHI Logo"
+            className="w-full h-full rounded-xl object-contain"
+          />
         </div>
 
         {/* Heading & Subtitle */}
         <div className="text-center mb-6">
-          <div className={`text-[10px] font-mono uppercase tracking-[0.14em] font-bold mb-1 ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>
-            ▸ STATION TERMINAL ACCESS
-          </div>
-          <h1 className={`text-[22px] sm:text-2xl font-bold tracking-tight mb-1.5 ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
+          <h1 className="text-[22px] sm:text-[25px] font-extrabold text-slate-900 tracking-[-0.03em] mb-1.5">
             Operator Sign In
           </h1>
-          <p className={`text-xs sm:text-[13px] leading-relaxed max-w-[310px] mx-auto ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-            Enter your station credentials to access flight manifests, cargo ledgers, and dispatch operations.
+          <p className="text-[13px] font-medium text-slate-500 leading-relaxed max-w-[300px] mx-auto tracking-[-0.01em]">
+            Sign in with your station credentials to manage flights, cargo manifests, and ledgers.
           </p>
         </div>
 
         {notice && (
           <div
-            className={`w-full flex items-center gap-2.5 backdrop-blur-md rounded-xl px-3.5 py-2.5 mb-4 animate-in fade-in border text-xs ${
-              isDark
-                ? 'bg-amber-500/15 border-amber-400/30 text-amber-200'
-                : 'bg-amber-500/10 border-amber-500/25 text-amber-900'
-            }`}
+            className="w-full flex items-center gap-2.5 backdrop-blur-md rounded-xl px-3.5 py-2.5 mb-4 animate-in fade-in bg-amber-500/10 border border-amber-500/25 text-amber-900 text-xs"
           >
-            <AlertCircle size={15} className="shrink-0 text-amber-500" />
+            <AlertCircle size={15} className="shrink-0 text-amber-600" />
             <p className="leading-snug font-medium">{notice.message}</p>
           </div>
         )}
@@ -268,13 +209,7 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
         {/* Authentication Form */}
         <form onSubmit={handleSubmit} className="space-y-3.5">
           {/* Email input field */}
-          <div
-            className={`relative rounded-xl border transition-all ${
-              isDark
-                ? 'bg-[#141720] border-white/10 focus-within:border-amber-400/60 focus-within:ring-2 focus-within:ring-amber-400/15'
-                : 'bg-[#eef3f8]/80 hover:bg-[#eaf0f6] focus-within:bg-white focus-within:ring-2 focus-within:ring-slate-900/15 border-slate-200/60'
-            }`}
-          >
+          <div className="relative rounded-xl bg-[#eef3f8]/85 hover:bg-[#eaf0f6] focus-within:bg-white focus-within:ring-2 focus-within:ring-slate-900/15 border border-slate-200/60 transition-all">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
               <Mail size={17} />
             </div>
@@ -284,23 +219,15 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Operator Email"
+              placeholder="Operator email address"
               autoComplete="email"
               required
-              className={`w-full bg-transparent text-sm py-3 pl-10 pr-4 outline-none font-sans ${
-                isDark ? 'text-slate-100 placeholder-slate-500' : 'text-slate-800 placeholder-slate-400'
-              }`}
+              className="w-full bg-transparent text-slate-800 placeholder-slate-400 text-[14px] font-medium py-3 pl-10 pr-4 outline-none tracking-[-0.01em]"
             />
           </div>
 
           {/* Password input field */}
-          <div
-            className={`relative rounded-xl border transition-all ${
-              isDark
-                ? 'bg-[#141720] border-white/10 focus-within:border-amber-400/60 focus-within:ring-2 focus-within:ring-amber-400/15'
-                : 'bg-[#eef3f8]/80 hover:bg-[#eaf0f6] focus-within:bg-white focus-within:ring-2 focus-within:ring-slate-900/15 border-slate-200/60'
-            }`}
-          >
+          <div className="relative rounded-xl bg-[#eef3f8]/85 hover:bg-[#eaf0f6] focus-within:bg-white focus-within:ring-2 focus-within:ring-slate-900/15 border border-slate-200/60 transition-all">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
               <Lock size={17} />
             </div>
@@ -313,9 +240,7 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
               placeholder="Password"
               autoComplete="current-password"
               required
-              className={`w-full bg-transparent text-sm py-3 pl-10 pr-10 outline-none font-sans ${
-                isDark ? 'text-slate-100 placeholder-slate-500' : 'text-slate-800 placeholder-slate-400'
-              }`}
+              className="w-full bg-transparent text-slate-800 placeholder-slate-400 text-[14px] font-medium py-3 pl-10 pr-10 outline-none tracking-[-0.01em]"
             />
             <button
               type="button"
@@ -332,18 +257,14 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
             <button
               type="button"
               onClick={() => { setShowForgotPassword(true); setResetEmail(email); setResetSent(false); setResetError(''); }}
-              className={`text-xs transition-colors font-medium cursor-pointer ${
-                isDark ? 'text-slate-400 hover:text-amber-400' : 'text-slate-500 hover:text-slate-800'
-              }`}
+              className="text-xs text-slate-500 hover:text-slate-800 transition-colors font-semibold tracking-[-0.01em] cursor-pointer"
             >
               Forgot password?
             </button>
           </div>
 
           {error && (
-            <div className={`flex items-center gap-2 border rounded-xl px-3.5 py-2.5 text-xs animate-in fade-in ${
-              isDark ? 'bg-red-500/15 border-red-500/30 text-red-300' : 'bg-red-500/10 border-red-500/20 text-red-700'
-            }`}>
+            <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-3.5 py-2.5 text-xs text-red-700 animate-in fade-in">
               <AlertCircle size={15} className="text-red-500 shrink-0" />
               <p className="leading-snug font-medium">{error}</p>
             </div>
@@ -360,37 +281,31 @@ export const LoginScreen = ({ onLogin, notice }: { onLogin: (user: UserProfile) 
             <button
               type="submit"
               disabled={isLoading || connStatus === 'unconfigured'}
-              className={`w-full py-3.5 px-6 rounded-xl font-bold text-sm tracking-wide active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 ${
-                isDark
-                  ? 'bg-[#fbbf24] hover:bg-[#f59e0b] text-slate-950 shadow-[0_4px_16px_rgba(251,191,36,0.25)]'
-                  : 'bg-[#1e2029] hover:bg-[#12131a] active:bg-black text-white shadow-[0_4px_14px_rgba(30,32,41,0.22)]'
-              }`}
+              className="w-full py-3.5 px-6 rounded-xl bg-[#1e2029] hover:bg-[#12131a] active:bg-black text-white font-semibold text-[14px] tracking-[-0.01em] shadow-[0_4px_14px_rgba(30,32,41,0.22)] active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {isLoading ? (
                 <>
-                  <Loader2 size={16} className="animate-spin" />
-                  <span>Authenticating…</span>
+                  <Loader2 size={16} className="animate-spin text-white" />
+                  <span>Signing in…</span>
                 </>
               ) : (
-                <span>Sign In to Terminal</span>
+                <span>Sign In</span>
               )}
             </button>
           </div>
         </form>
 
         {/* Customer Self-Service Waybill Lookup + Security Footer */}
-        <div className={`mt-6 pt-4 border-t flex flex-col items-center gap-2.5 text-center ${isDark ? 'border-white/10' : 'border-slate-200/70'}`}>
+        <div className="mt-6 pt-4 border-t border-slate-200/70 flex flex-col items-center gap-2 text-center">
           <Link
             to="/track"
-            className={`inline-flex items-center gap-1.5 text-xs font-semibold transition-colors ${
-              isDark ? 'text-amber-400 hover:text-amber-300' : 'text-slate-700 hover:text-slate-950'
-            }`}
+            className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-slate-600 hover:text-slate-900 transition-colors tracking-[-0.01em]"
           >
             <PackageSearch size={14} />
             <span>Track a Shipment or Waybill →</span>
           </Link>
-          <p className={`text-[10px] font-mono tracking-wide uppercase ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-            Authorized Personnel Only · All Logins Audited
+          <p className="text-[11px] font-medium text-slate-400 tracking-[-0.01em]">
+            Authorized personnel only · EHI Command Portal
           </p>
         </div>
       </main>
