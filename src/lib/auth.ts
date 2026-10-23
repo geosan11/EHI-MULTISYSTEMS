@@ -28,21 +28,46 @@ export interface UserProfile {
 // passes, and only when the cached id matches the current session's user.
 const CACHED_PROFILE_KEY = 'ehi_cached_profile';
 
+// Lightweight integrity fingerprint so casual DevTools edits to role/permissions
+// in localStorage (`ehi_cached_profile`) are rejected on offline fallback.
+function computeProfileIntegrity(p: UserProfile): string {
+  const payload = `${p.id}|${p.email}|${p.role}|${p.hub_id || ''}|${p.active}|${!!p.can_edit_ledger}|${!!p.can_approve_retrievals}|ehi-v1`;
+  let h = 2166136261;
+  for (let i = 0; i < payload.length; i++) {
+    h ^= payload.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
+
 function cacheProfile(profile: UserProfile): void {
   try {
-    localStorage.setItem(CACHED_PROFILE_KEY, JSON.stringify(profile));
+    const sig = computeProfileIntegrity(profile);
+    localStorage.setItem(CACHED_PROFILE_KEY, JSON.stringify({ ...profile, _sig: sig }));
   } catch {
     // Best-effort only -- a full/unavailable localStorage just means the
     // next offline reload falls through to the login screen as before.
   }
 }
 
+function clearCachedProfile(): void {
+  try {
+    localStorage.removeItem(CACHED_PROFILE_KEY);
+  } catch {}
+}
+
 function readCachedProfile(userId: string): UserProfile | null {
   try {
     const raw = localStorage.getItem(CACHED_PROFILE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as UserProfile;
-    return parsed && parsed.id === userId ? parsed : null;
+    const parsed = JSON.parse(raw) as UserProfile & { _sig?: string };
+    if (!parsed || parsed.id !== userId || !parsed.active) return null;
+    if (parsed._sig && parsed._sig !== computeProfileIntegrity(parsed)) {
+      clearCachedProfile();
+      return null;
+    }
+    const { _sig, ...clean } = parsed;
+    return clean;
   } catch {
     return null;
   }
@@ -131,6 +156,7 @@ export async function signIn(email: string, password: string): Promise<UserProfi
 }
 
 export async function signOut() {
+  clearCachedProfile();
   try {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
@@ -352,6 +378,7 @@ async function getSessionInner(): Promise<UserProfile | null> {
   // deactivated staffer straight back in, no fresh sign-in required. Tear
   // the session down here too, matching signIn()'s handling.
   if (!profile.active) {
+    clearCachedProfile();
     await supabase.auth.signOut();
     return null;
   }

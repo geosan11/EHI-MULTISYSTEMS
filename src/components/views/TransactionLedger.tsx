@@ -4815,7 +4815,9 @@ export const TransactionLedger = ({
                             <button
                               onClick={(evt) => {
                                 evt.stopPropagation();
-                                navigator.clipboard?.writeText(e.id).catch(() => {});
+                                navigator.clipboard?.writeText(e.id)
+                                  .then(() => showToast({ message: `Copied ${e.id}`, type: 'info' }))
+                                  .catch(() => {});
                               }}
                               title="Copy Reference"
                               className="h-8 w-8 flex items-center justify-center rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] transition-colors cursor-pointer shrink-0"

@@ -255,7 +255,7 @@ export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => 
                     ) : selectedPod.signatureData ? (
                       <img src={selectedPod.signatureData} alt="Signature" className="max-h-full object-contain" />
                     ) : (
-                      <span className="text-[11px] font-mono text-slate-400">No signature recorded</span>
+                      <span className="text-[11px] font-mono font-medium text-slate-600">No signature recorded</span>
                     )}
                   </div>
                 </div>

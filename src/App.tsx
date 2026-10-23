@@ -40,6 +40,16 @@ const PublicTrackingPage = () => {
   };
 
   const searchTracking = async (query: string) => {
+    // Sanitize tracking reference to prevent PostgREST .or() filter injection
+    const safeQuery = query.replace(/[^A-Z0-9\-_/]/gi, '').trim();
+    if (!safeQuery) {
+      setSearched(true);
+      setResult(null);
+      setTimeline([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setSearched(true);
     setTimeline([]);
@@ -52,7 +62,7 @@ const PublicTrackingPage = () => {
     const { data: cargo } = await supabase
       .from('cargo_entries')
       .select('entry_ref, awb_tag_number, consignee_name, route, content_type, total_kg, total_pcs, status')
-      .or(`entry_ref.eq."${query}",awb_tag_number.eq."${query}"`)
+      .or(`entry_ref.eq."${safeQuery}",awb_tag_number.eq."${safeQuery}"`)
       .limit(1);
 
     if (cargo && cargo.length > 0) {
@@ -79,7 +89,7 @@ const PublicTrackingPage = () => {
     const { data: marketing } = await supabase
       .from('marketing_entries')
       .select('entry_ref, awb_tag_number, customer_name, route, status')
-      .or(`entry_ref.eq."${query}",awb_tag_number.eq."${query}"`)
+      .or(`entry_ref.eq."${safeQuery}",awb_tag_number.eq."${safeQuery}"`)
       .limit(1);
 
     if (marketing && marketing.length > 0) {
@@ -100,7 +110,7 @@ const PublicTrackingPage = () => {
     const { data: manifest } = await supabase
       .from('manifests')
       .select('transaction_id, passenger_name, destination, excess_kg, total_kg, total_pcs, status')
-      .eq('transaction_id', query)
+      .eq('transaction_id', safeQuery)
       .limit(1);
 
     if (manifest && manifest.length > 0) {
@@ -122,7 +132,7 @@ const PublicTrackingPage = () => {
     const { data: pkg } = await supabase
       .from('package_entries')
       .select('entry_ref, customer_name, destination, content_type, total_pcs, total_kg, contents, status')
-      .eq('entry_ref', query)
+      .eq('entry_ref', safeQuery)
       .limit(1);
 
     if (pkg && pkg.length > 0) {

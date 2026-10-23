@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Theme } from '../lib/useTheme';
 import { getHubCode } from '../lib/helpers';
+import { useConfirm } from '../lib/ConfirmContext';
 
 import ehiLogo from '../assets/branding/ehi-logo.png';
 
@@ -42,6 +43,7 @@ export const Header = ({
   docked?: boolean;
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
+  const confirm = useConfirm();
 
   const getRoleDisplay = (role: string) => {
     switch (role) {
@@ -184,11 +186,15 @@ export const Header = ({
 
           {/* Wifi — Frosted Glass Lens Orb */}
           <button
-            onClick={() => {
+            onClick={async () => {
               if (!isOffline) {
-                if (!window.confirm('Switch to Offline Mode? Live network sync will pause and new entries will queue locally until you reconnect.')) {
-                  return;
-                }
+                const ok = await confirm({
+                  title: 'Switch to Offline Mode?',
+                  message: 'Live network sync will pause and new entries will queue locally on this device until you reconnect.',
+                  confirmLabel: 'Switch Offline',
+                  tone: 'danger',
+                });
+                if (!ok) return;
               }
               onToggleWifi();
             }}

@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import axios from 'axios';
 import { CARGO_ROUTES } from '../src/lib/constants.js';
 import { lagosBusinessDate } from '../src/lib/helpers.js';
@@ -384,6 +385,9 @@ router.get('/departures', async (req, res) => {
   const admin = await getAdminClient();
   if (!admin) { res.status(503).json({ error: 'Server not configured' }); return; }
 
+  const profile = await getCallerProfile(req, admin);
+  if (!profile) { res.status(401).json({ error: 'Invalid session' }); return; }
+
   const flights = await getOrFetchDeparturesBoard(admin, originIata, date, false);
   res.json({ originIata, date, flights });
 });
@@ -397,6 +401,9 @@ router.get('/national-board', async (req, res) => {
   if (!date) { res.status(400).json({ error: 'date is required' }); return; }
   const admin = await getAdminClient();
   if (!admin) { res.status(503).json({ error: 'Server not configured' }); return; }
+
+  const profile = await getCallerProfile(req, admin);
+  if (!profile) { res.status(401).json({ error: 'Invalid session' }); return; }
 
   const { data: cachedRows, error: cachedRowsError } = await admin
     .from('flight_departures_board_cache')
@@ -448,6 +455,11 @@ router.get('/status', async (req, res) => {
     res.status(400).json({ error: 'flightNumber and date are required' });
     return;
   }
+  const admin = await getAdminClient();
+  if (!admin) { res.status(503).json({ error: 'Server not configured' }); return; }
+  const profile = await getCallerProfile(req, admin);
+  if (!profile) { res.status(401).json({ error: 'Invalid session' }); return; }
+
   const result = await getOrRefresh(flightNumber, date, false);
   if (result.error) { res.status(result.code || 500).json({ error: result.error }); return; }
   res.json(result.data);
@@ -460,6 +472,27 @@ router.post('/refresh', async (req, res) => {
     res.status(400).json({ error: 'flightNumber and date are required' });
     return;
   }
+  const admin = await getAdminClient();
+  if (!admin) { res.status(503).json({ error: 'Server not configured' }); return; }
+  const profile = await getCallerProfile(req, admin);
+  if (!profile) { res.status(401).json({ error: 'Invalid session' }); return; }
+
+  // Protect metered AeroDataBox quota: non-admin forced refreshes respect a
+  // 2-minute minimum cooldown if a recent cache row already exists.
+  const isAdmin = ['super_admin', 'admin'].includes(profile.role);
+  if (!isAdmin) {
+    const { data: recent } = await admin
+      .from('flight_status_cache')
+      .select(FLIGHT_STATUS_CACHE_COLUMNS)
+      .eq('flight_number', flightNumber)
+      .eq('flight_date', date)
+      .maybeSingle();
+    if (recent && Date.now() - new Date(recent.fetched_at).getTime() < 2 * 60 * 1000) {
+      res.json(recent);
+      return;
+    }
+  }
+
   const result = await getOrRefresh(flightNumber, date, true);
   if (result.error) { res.status(result.code || 500).json({ error: result.error }); return; }
   res.json(result.data);
@@ -633,7 +666,12 @@ cronRouter.get('/refresh', async (req, res) => {
   const configured = process.env.CRON_SECRET;
   if (!configured) { res.status(503).json({ error: 'Cron not configured' }); return; }
   const supplied = (req.headers['authorization'] || '').replace('Bearer ', '').trim();
-  if (supplied !== configured) { res.status(401).json({ error: 'Unauthorized' }); return; }
+  const bufSupplied = Buffer.from(supplied, 'utf8');
+  const bufConfigured = Buffer.from(configured, 'utf8');
+  if (bufSupplied.length !== bufConfigured.length || !crypto.timingSafeEqual(bufSupplied, bufConfigured)) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
 
   const admin = await getAdminClient();
   if (!admin) { res.status(503).json({ error: 'Server not configured' }); return; }

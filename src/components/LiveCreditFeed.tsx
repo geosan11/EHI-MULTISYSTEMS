@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CustomerWallet, Transaction } from '../lib/types';
 import { fmt, tnow } from '../lib/helpers';
 import { Wallet, RefreshCw, ArrowUpRight, ArrowDownLeft, Sparkles, ChevronRight, ChevronLeft, Plus, History, X, Search } from 'lucide-react';
@@ -29,6 +29,18 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
   const [collapsed, setCollapsed] = useState(true);
   const [activeTab, setActiveTab] = useState<'wallets' | 'activity'>('wallets');
   const [drawerWallet, setDrawerWallet] = useState<CustomerWallet | null>(null);
+
+  useEffect(() => {
+    if (collapsed) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (drawerWallet) setDrawerWallet(null);
+        else setCollapsed(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [collapsed, drawerWallet]);
 
   // Totals stay unfiltered -- "Total Customer Credit Liability" and "Active
   // Wallets" must keep meaning the true company-wide figures regardless of
