@@ -3757,7 +3757,7 @@ export const TransactionLedger = ({
                 <select
                   value={vjFlightFilter}
                   onChange={e => setVjFlightFilter(e.target.value)}
-                  className="h-8 px-2 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full text-[10px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                  className="h-9 sm:h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full text-[10px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
                 >
                   <option value="All">All Flights</option>
                   {vjFlights.map(f => <option key={f} value={f}>{f}</option>)}
@@ -3765,7 +3765,7 @@ export const TransactionLedger = ({
                 <select
                   value={vjDestFilter}
                   onChange={e => setVjDestFilter(e.target.value)}
-                  className="h-8 px-2 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full text-[10px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
+                  className="h-9 sm:h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full text-[10px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
                 >
                   <option value="All">All Dests</option>
                   {vjDests.map(d => <option key={d} value={d}>{d}</option>)}
@@ -3780,7 +3780,7 @@ export const TransactionLedger = ({
               value={destFilter}
               onChange={e => setDestFilter(e.target.value)}
               title="Filter by destination"
-              className="h-8 px-2 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full text-[10px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
+              className="h-9 sm:h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full text-[10px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
             >
               <option value="All">All Destinations</option>
               {allDests.map(r => <option key={r} value={r}>{r}</option>)}
@@ -3798,7 +3798,7 @@ export const TransactionLedger = ({
                     setShowExportOptions(prev => !prev);
                   }
                 }}
-                className={`relative overflow-hidden h-8 px-2.5 flex items-center gap-1.5 bg-[var(--color-surface-1)] border rounded-full backdrop-blur-md transition-all cursor-pointer ${
+                className={`relative overflow-hidden h-9 sm:h-8 px-2.5 flex items-center gap-1.5 bg-[var(--color-surface-1)] border rounded-full backdrop-blur-md transition-all cursor-pointer ${
                   isExportingAll
                     ? 'border-[var(--color-accent-amber)] text-[var(--color-accent-amber)] animate-pulse'
                     : 'border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-success)] hover:border-[var(--color-success)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-success)] active:translate-y-0 active:scale-95'
@@ -4382,7 +4382,7 @@ export const TransactionLedger = ({
                 )}
 
                 {/* Type filter */}
-                <div className="relative flex items-center h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-full font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
+                <div className="relative flex items-center h-9 sm:h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-full font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
                   <Filter size={10} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] mr-2 shrink-0 transition-colors" />
                   <select
                     value={normalizeType(typeFilter)}
@@ -4401,7 +4401,7 @@ export const TransactionLedger = ({
                 </div>
 
                 {/* Mode filter */}
-                <div className="relative flex items-center h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-full font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
+                <div className="relative flex items-center h-9 sm:h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-full font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
                   <HandCoins size={10} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] mr-2 shrink-0 transition-colors" />
                   <select
                     value={modeFilter}
@@ -4426,12 +4426,12 @@ export const TransactionLedger = ({
 
                 {/* Terminal filter */}
                 {(userHubCode === 'LOS' || hasGat) && (
-                  <div className="flex items-center gap-1.5 h-8 p-1 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full font-mono text-[10px]">
+                  <div className="flex items-center gap-1.5 h-9 sm:h-8 p-1 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full font-mono text-[10px]">
                     {(['All', 'MMA2', 'GAT'] as const).map((t) => (
                       <button
                         key={t}
                         onClick={() => setTerminalFilter(t)}
-                        className={`h-6 px-3 rounded-full text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                        className={`h-7 sm:h-6 px-3 rounded-full text-[10px] font-mono font-bold transition-all cursor-pointer ${
                           terminalFilter === t
                             ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-sm'
                             : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-hover)]'
@@ -4444,7 +4444,7 @@ export const TransactionLedger = ({
                 )}
 
                 {/* Time filter */}
-                <div className="relative flex items-center h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-full font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
+                <div className="relative flex items-center h-9 sm:h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-full font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
                   <Clock size={10} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] mr-2 shrink-0 transition-colors" />
                   <select
                     value={timeFilter}
@@ -4810,7 +4810,7 @@ export const TransactionLedger = ({
                             )}
                           </div>
 
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-2">
                             {/* Quick-copy reference */}
                             <button
                               onClick={(evt) => {
@@ -4818,9 +4818,9 @@ export const TransactionLedger = ({
                                 navigator.clipboard?.writeText(e.id).catch(() => {});
                               }}
                               title="Copy Reference"
-                              className="h-6 w-6 flex items-center justify-center rounded bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] transition-colors cursor-pointer shrink-0"
+                              className="h-8 w-8 flex items-center justify-center rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] transition-colors cursor-pointer shrink-0"
                             >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
                             </button>
                             {/* QR code */}
                             {e.source === 'transaction' && (
@@ -4830,9 +4830,9 @@ export const TransactionLedger = ({
                                   setViewingQrTx(e);
                                 }}
                                 title="Show QR Code"
-                                className="h-6 w-6 flex items-center justify-center rounded bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] transition-colors cursor-pointer shrink-0"
+                                className="h-8 w-8 flex items-center justify-center rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] transition-colors cursor-pointer shrink-0"
                               >
-                                <QrCode size={10} />
+                                <QrCode size={12} />
                               </button>
                             )}
                             <div className="text-right">
@@ -4969,7 +4969,7 @@ export const TransactionLedger = ({
                               <button
                                 disabled={confirmingIds.has(e.id)}
                                 onClick={(evt) => toggleConfirm(e, evt)}
-                                className="flex items-center justify-center text-[var(--color-accent-amber)] hover:text-[var(--color-amber-fg)] disabled:opacity-50"
+                                className="w-7 h-7 rounded flex items-center justify-center text-[var(--color-accent-amber)] hover:text-[var(--color-amber-fg)] hover:bg-[var(--color-surface-hover)] disabled:opacity-50"
                               >
                                 {e.raw.paymentConfirmed ? (
                                   <div className="w-4 h-4 bg-[var(--color-accent-amber)] rounded flex items-center justify-center">

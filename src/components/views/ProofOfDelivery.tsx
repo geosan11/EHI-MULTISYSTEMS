@@ -31,11 +31,41 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
   const { showToast } = useToast();
 
   const signatureRef = useRef<SignatureCanvas>(null);
+  const sigContainerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   // One POD id per mount (per physical delivery). A retry after a failed
   // finalization must reuse it so the local Dexie write is an idempotent
   // .put, not a second row.
   const podIdRef = useRef<string | null>(null);
+
+  // Sync the HTML <canvas> intrinsic pixel dimensions with its CSS container
+  // so touch/stylus coordinates never drift from the user's finger on mobile.
+  useEffect(() => {
+    const container = sigContainerRef.current;
+    if (!container) return;
+
+    let lastWidth = 0;
+    const syncCanvasSize = () => {
+      const canvas = signatureRef.current?.getCanvas();
+      if (!canvas || !container) return;
+      const w = Math.floor(container.clientWidth);
+      const h = Math.floor(container.clientHeight);
+      if (w > 0 && h > 0 && Math.abs(w - lastWidth) > 2) {
+        const existingData = !signatureRef.current?.isEmpty() ? signatureRef.current?.toData() : null;
+        canvas.width = w;
+        canvas.height = h;
+        lastWidth = w;
+        if (existingData && existingData.length > 0) {
+          signatureRef.current?.fromData(existingData);
+        }
+      }
+    };
+
+    syncCanvasSize();
+    const ro = new ResizeObserver(syncCanvasSize);
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -273,11 +303,11 @@ export const ProofOfDeliveryForm = ({ awbNumber, consigneeName, user, onComplete
               <label className="text-[10px] text-[var(--color-muted)] font-mono uppercase">Sign here to confirm receipt <span className="text-[var(--color-error-fg)]">*</span></label>
               <button onClick={clearSignature} className="text-[10px] font-mono text-[var(--color-accent-amber)] hover:text-[var(--color-accent-amber-hover)] bg-transparent border-none cursor-pointer">Clear</button>
             </div>
-            <div className="w-full h-[200px] bg-white rounded border-2 border-dashed border-[var(--color-accent-amber)] overflow-hidden">
+            <div ref={sigContainerRef} className="w-full h-[200px] bg-white rounded border-2 border-dashed border-[var(--color-accent-amber)] overflow-hidden touch-none">
               <SignatureCanvas
                 ref={signatureRef}
                 penColor="black"
-                canvasProps={{ className: 'sigCanvas w-full h-full' }}
+                canvasProps={{ className: 'sigCanvas w-full h-full touch-none cursor-crosshair' }}
                 onEnd={() => setHasSignature(!signatureRef.current?.isEmpty())}
               />
             </div>

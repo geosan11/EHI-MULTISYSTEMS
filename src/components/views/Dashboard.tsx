@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Package, Plane, TrendingUp, Package2, QrCode, X, Clock, Radar } from "lucide-react";
 import { User, Transaction } from "../../lib/types";
 import { fmt, lagosBusinessDate } from "../../lib/helpers";
@@ -232,6 +233,15 @@ export const Dashboard = ({
 
     const [newestId, setNewestId] = useState<string>("");
     const [viewingQrTx, setViewingQrTx] = useState<Transaction | null>(null);
+
+    useEffect(() => {
+      if (!viewingQrTx) return;
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') setViewingQrTx(null);
+      };
+      window.addEventListener('keydown', onKey);
+      return () => window.removeEventListener('keydown', onKey);
+    }, [viewingQrTx]);
     // Read-only count of today's tracked flights currently
     // delayed/diverted/cancelled -- cache-only (flight_status_cache), never
     // triggers a live AeroDataBox call itself, so this badge is free no
@@ -513,13 +523,21 @@ export const Dashboard = ({
           )}
         </div>
 
-        {/* QR Modal */}
-        {viewingQrTx && (
-          <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-4 animate-in fade-in">
-            <div className="bg-[var(--color-surface-card)] border border-[var(--color-surface-2)] rounded-xl w-full max-w-sm shadow-xl flex flex-col overflow-hidden">
+        {/* QR Modal — Portaled to document.body with click-outside & Escape support */}
+        {viewingQrTx && createPortal(
+          <div
+            className="fixed inset-0 z-50 ehi-scrim flex items-center justify-center p-4 animate-in fade-in"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setViewingQrTx(null);
+            }}
+          >
+            <div
+              className="bg-[var(--color-surface-card)] border border-[var(--color-border-strong)] rounded-xl w-full max-w-sm shadow-[var(--shadow-modal)] flex flex-col overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="p-4 border-b border-[var(--color-border)] flex justify-between items-center bg-[var(--color-surface-card)]">
                 <h3 className="font-bold font-sans text-[var(--color-foreground)]">Scan to View</h3>
-                <button onClick={() => setViewingQrTx(null)} className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] p-1 cursor-pointer">
+                <button onClick={() => setViewingQrTx(null)} className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] p-1.5 rounded-lg hover:bg-[var(--color-surface-hover)] cursor-pointer">
                   <X size={16} />
                 </button>
               </div>
@@ -528,12 +546,13 @@ export const Dashboard = ({
                   <QRCode id={viewingQrTx.id} size={200} />
                 </div>
                 <div className="text-center">
-                  <p className="text-[14px] font-bold text-[var(--color-foreground)] mb-1">{viewingQrTx.id}</p>
+                  <p className="text-[14px] font-bold font-mono text-[var(--color-foreground)] mb-1">{viewingQrTx.id}</p>
                   <p className="text-[12px] text-[var(--color-muted)]">{viewingQrTx.name}</p>
                 </div>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     );

@@ -108,7 +108,7 @@ export const Header = ({
 
         {/* Right controls -- sit in the sticky top bar on desktop
             (.ehi-header-controls is in-flow; see index.css). */}
-        <div className="ehi-header-controls flex items-center gap-1.5 ml-auto">
+        <div className="ehi-header-controls flex items-center gap-2 ml-auto">
 
           {/* User info */}
           <div className="text-right mr-0.5 hidden sm:block">
@@ -126,7 +126,7 @@ export const Header = ({
             className="group relative transition-all duration-200 hover:scale-105 active:scale-95 active:translate-y-0.5 cursor-pointer"
             title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             style={{
-              width: 28, height: 28,
+              width: 32, height: 32,
               borderRadius: 'var(--radius-full)',
               // Light nav bar is near-white -- a white frosted orb with a white
               // border vanished on it, so light mode gets a tinted fill + a dark
@@ -148,7 +148,7 @@ export const Header = ({
             <div
               className="transition-all duration-300 group-hover:scale-110"
               style={{
-                position: 'absolute', width: 17, height: 17, borderRadius: '50%',
+                position: 'absolute', width: 19, height: 19, borderRadius: '50%',
                 background: theme === 'dark'
                   ? 'radial-gradient(circle at 40% 35%, #fde68a 0%, #fbbf24 60%, #b45309 100%)'
                   : 'radial-gradient(circle at 40% 35%, #60a5fa 0%, #3b82f6 60%, #1d4ed8 100%)',
@@ -163,8 +163,8 @@ export const Header = ({
               borderRadius: '50%', filter: 'blur(0.4px)', pointerEvents: 'none',
             }} />
             {theme === 'dark'
-              ? <Sun size={12} strokeWidth={2} style={{ color: '#451a03', position: 'relative', zIndex: 1 }} className="group-hover:rotate-45 transition-transform duration-300" />
-              : <Moon size={12} strokeWidth={2} style={{ color: '#ffffff', position: 'relative', zIndex: 1 }} className="group-hover:-rotate-12 transition-transform duration-300" />
+              ? <Sun size={13} strokeWidth={2} style={{ color: '#451a03', position: 'relative', zIndex: 1 }} className="group-hover:rotate-45 transition-transform duration-300" />
+              : <Moon size={13} strokeWidth={2} style={{ color: '#ffffff', position: 'relative', zIndex: 1 }} className="group-hover:-rotate-12 transition-transform duration-300" />
             }
           </button>
 
@@ -184,10 +184,18 @@ export const Header = ({
 
           {/* Wifi — Frosted Glass Lens Orb */}
           <button
-            onClick={onToggleWifi}
+            onClick={() => {
+              if (!isOffline) {
+                if (!window.confirm('Switch to Offline Mode? Live network sync will pause and new entries will queue locally until you reconnect.')) {
+                  return;
+                }
+              }
+              onToggleWifi();
+            }}
+            title={isOffline ? 'Offline Mode Active — Tap to Reconnect' : 'Network Online — Tap to Switch to Offline Mode'}
             className="group relative transition-all duration-200 hover:scale-105 active:scale-95 active:translate-y-0.5 cursor-pointer"
             style={{
-              width: 28, height: 28,
+              width: 32, height: 32,
               borderRadius: 'var(--radius-full)',
               background: theme === 'dark'
                 ? 'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.08) 60%, rgba(100,110,130,0.18) 100%)'
@@ -206,7 +214,7 @@ export const Header = ({
             <div
               className="transition-all duration-300 group-hover:scale-110"
               style={{
-                position: 'absolute', width: 17, height: 17, borderRadius: '50%',
+                position: 'absolute', width: 19, height: 19, borderRadius: '50%',
                 background: isOffline
                   ? 'radial-gradient(circle at 40% 35%, #fca5a5 0%, #ef4444 60%, #991b1b 100%)'
                   : 'radial-gradient(circle at 40% 35%, #86efac 0%, #22c55e 60%, #15803d 100%)',
@@ -221,8 +229,8 @@ export const Header = ({
               borderRadius: '50%', filter: 'blur(0.4px)', pointerEvents: 'none',
             }} />
             {isOffline
-              ? <WifiOff size={11} strokeWidth={2.5} style={{ color: '#ffffff', position: 'relative', zIndex: 1 }} className="group-hover:scale-110 transition-transform duration-200" />
-              : <Wifi size={11} strokeWidth={2.5} style={{ color: '#052e16', position: 'relative', zIndex: 1 }} className="group-hover:scale-110 transition-transform duration-200" />
+              ? <WifiOff size={12} strokeWidth={2.5} style={{ color: '#ffffff', position: 'relative', zIndex: 1 }} className="group-hover:scale-110 transition-transform duration-200" />
+              : <Wifi size={12} strokeWidth={2.5} style={{ color: '#052e16', position: 'relative', zIndex: 1 }} className="group-hover:scale-110 transition-transform duration-200" />
             }
           </button>
 
@@ -232,7 +240,7 @@ export const Header = ({
               onClick={() => setShowDropdown(!showDropdown)}
               className="group relative transition-all duration-200 hover:scale-105 active:scale-95 active:translate-y-0.5 cursor-pointer"
               style={{
-                width: 30, height: 30,
+                width: 32, height: 32,
                 borderRadius: 'var(--radius-full)',
                 background: 'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.35) 0%, rgba(251,191,36,0.2) 60%, rgba(180,83,9,0.3) 100%)',
                 border: showDropdown

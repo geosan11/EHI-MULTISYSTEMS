@@ -446,7 +446,7 @@ export const Analytics = ({
             <select
               value={selectedHub}
               onChange={(e) => setSelectedHub(e.target.value)}
-              className="bg-[var(--color-surface-1)] text-[var(--color-foreground)] text-[11px] font-mono h-8 pl-3 pr-7 rounded-lg border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent-amber)] appearance-none cursor-pointer"
+              className="bg-[var(--color-surface-1)] text-[var(--color-foreground)] text-[11px] font-mono h-9 sm:h-8 pl-3 pr-7 rounded-lg border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-accent-amber)] appearance-none cursor-pointer"
             >
               {activeHubs.map((hub) => (
                 <option key={hub.id} value={hub.id}>
@@ -454,12 +454,12 @@ export const Analytics = ({
                 </option>
               ))}
             </select>
-            <ChevronDown className="absolute right-2 top-2.5 text-[var(--color-muted)] pointer-events-none" size={12} />
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-muted)] pointer-events-none" size={12} />
           </div>
 
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('ehi-nav', { detail: 'FlightRadar' }))}
-            className="h-8 px-3 border rounded-lg text-[11px] font-mono font-bold flex items-center gap-1.5 cursor-pointer"
+            className="h-9 sm:h-8 px-3 border rounded-lg text-[11px] font-mono font-bold flex items-center gap-1.5 cursor-pointer"
             style={
               flightAttentionCount > 0
                 ? { background: 'var(--color-error-bg)', borderColor: 'var(--color-error-border)', color: 'var(--color-error)' }
@@ -473,7 +473,7 @@ export const Analytics = ({
 
           <button
             onClick={exportExcelReport}
-            className="h-8 px-3 bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)] rounded-lg text-[11px] font-mono font-bold flex items-center gap-1.5 cursor-pointer"
+            className="h-9 sm:h-8 px-3 bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)] rounded-lg text-[11px] font-mono font-bold flex items-center gap-1.5 cursor-pointer"
           >
             <FileSpreadsheet size={14} />
             <span className="hidden sm:inline">Excel</span>
@@ -481,7 +481,7 @@ export const Analytics = ({
 
           <button
             onClick={handleDownloadPDF}
-            className="h-8 px-3 bg-[var(--color-surface-1)] text-[var(--color-foreground)] border border-[var(--color-border)] rounded-lg text-[11px] font-mono font-bold flex items-center gap-1.5 cursor-pointer"
+            className="h-9 sm:h-8 px-3 bg-[var(--color-surface-1)] text-[var(--color-foreground)] border border-[var(--color-border)] rounded-lg text-[11px] font-mono font-bold flex items-center gap-1.5 cursor-pointer"
           >
             <Download size={14} className="text-[var(--color-accent-amber)]" />
             <span className="hidden sm:inline">PDF</span>
@@ -549,9 +549,9 @@ export const Analytics = ({
             placeholder="Filter by customer, route, AWB..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-8 pl-8 pr-3 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg text-[11px] font-sans text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
+            className="w-full h-9 sm:h-8 pl-8 pr-3 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-lg text-[11px] font-sans text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
           />
-          <Filter size={12} className="absolute left-2.5 top-2.5 text-[var(--color-muted)]" />
+          <Filter size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-muted)] pointer-events-none" />
         </div>
       </div>
 
@@ -603,7 +603,7 @@ export const Analytics = ({
       </div>
 
       {/* ── 4. Simple 3-Button View Switcher ─────────────────────────── */}
-      <div className="flex items-center gap-2 border-b border-[var(--color-border)] pb-2">
+      <div className="flex items-center gap-2 border-b border-[var(--color-border)] pb-2 overflow-x-auto no-scrollbar">
         {([
           ['summary', 'Department & Payment Breakdown', DollarSign],
           ['customers', `Top Customers (${summary.topCustomers.length})`, Building2],
@@ -612,13 +612,13 @@ export const Analytics = ({
           <button
             key={id}
             onClick={() => setActiveView(id)}
-            className={`px-3.5 py-2 rounded-lg text-[12px] font-sans font-bold flex items-center gap-2 cursor-pointer ${
+            className={`px-3 sm:px-3.5 py-2 rounded-lg text-[11px] sm:text-[12px] font-sans font-bold flex items-center gap-1.5 sm:gap-2 cursor-pointer shrink-0 whitespace-nowrap ${
               activeView === id
                 ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)]'
                 : 'bg-[var(--color-surface-card)] text-[var(--color-muted)] hover:text-[var(--color-foreground)] border border-[var(--color-border)]'
             }`}
           >
-            <Icon size={14} />
+            <Icon size={14} className="shrink-0" />
             <span>{label}</span>
           </button>
         ))}

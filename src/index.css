@@ -88,32 +88,29 @@
   }
 }
 
-/* Smooth View Transitions API animations for Dark / Light theme toggle --
-   deliberately slower than .page-transition below (1.5s vs 1s) so a theme
-   switch reads as a distinct, unhurried settle rather than a quick flash,
-   giving the eyes time to adjust to the new light/dark palette. */
+/* Smooth View Transitions API animations for Dark / Light theme toggle */
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: 1.5s;
+  animation-duration: 0.3s;
   animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 ::view-transition-old(root) {
-  animation: fade-out-theme 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: fade-out-theme 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 ::view-transition-new(root) {
-  animation: fade-in-theme 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: fade-in-theme 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 @keyframes fade-out-theme {
-  from { opacity: 1; transform: scale(1); }
-  to { opacity: 0; transform: scale(0.985); }
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 @keyframes fade-in-theme {
-  from { opacity: 0; transform: scale(1.015); }
-  to { opacity: 1; transform: scale(1); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* ===========================================================================
@@ -1035,10 +1032,10 @@ select {
 }
 select:not([class*="appearance-none"]) {
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'%3E%3Cpath stroke='%235b6675' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
-  background-position: right 14px center !important;
+  background-position: right 8px center !important;
   background-repeat: no-repeat !important;
-  background-size: 15px !important;
-  padding-right: 38px !important;
+  background-size: 14px !important;
+  padding-right: 28px !important;
   cursor: pointer;
 }
 :root.dark select:not([class*="appearance-none"]) {

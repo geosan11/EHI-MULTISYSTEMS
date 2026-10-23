@@ -213,10 +213,10 @@ const PublicTrackingPage = () => {
             disabled={!ref.trim() || loading}
             style={{
               height: 44, padding: '0 22px',
-              background: 'var(--color-navy)', border: 'none',
-              borderRadius: 10, color: '#FFFFFF',
-              fontWeight: 500, fontSize: 13, cursor: 'pointer',
-              opacity: loading ? 0.7 : 1,
+              background: 'var(--color-accent-amber)', border: 'none',
+              borderRadius: 10, color: 'var(--color-on-accent)',
+              fontWeight: 700, fontSize: 13, cursor: 'pointer',
+              opacity: !ref.trim() || loading ? 0.6 : 1,
             }}
           >
             Track
@@ -277,7 +277,7 @@ const PublicTrackingPage = () => {
                     { label: 'Pieces', value: result.pieces || '—' },
                   ].map(({ label, value }) => (
                     <div key={label}>
-                      <div style={{ fontSize: 9, color: 'var(--color-light-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      <div style={{ fontSize: 11, color: 'var(--color-light-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         {label}
                       </div>
                       <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-foreground)', marginTop: 2, fontFamily: 'monospace' }}>
@@ -289,7 +289,7 @@ const PublicTrackingPage = () => {
 
                 {/* Progress steps */}
                 <div style={{ marginTop: 12 }}>
-                  <div style={{ fontSize: 9, color: 'var(--color-light-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, color: 'var(--color-light-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
                     Journey
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
@@ -306,7 +306,7 @@ const PublicTrackingPage = () => {
                             position: 'relative', flexShrink: 0,
                           }}>
                             {isReached && !isCurrent && (
-                              <span style={{ color: '#fff', fontSize: 9, fontWeight: 700 }}>✓</span>
+                              <span style={{ color: '#fff', fontSize: 10, fontWeight: 700 }}>✓</span>
                             )}
                             {isCurrent && (
                               <div style={{ width: 8, height: 8, borderRadius: '50%', background: statusColor(result.status) }} />
@@ -322,12 +322,13 @@ const PublicTrackingPage = () => {
                       );
                     })}
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, gap: 4 }}>
                     {canonicalSteps.map((step, i) => (
                       <div key={step} style={{
-                        fontSize: 9,
+                        fontSize: 11,
+                        lineHeight: 1.2,
                         color: i === currentStepIndex ? statusColor(result.status) : 'var(--color-light-muted)',
-                        fontWeight: i === currentStepIndex ? 500 : 400,
+                        fontWeight: i === currentStepIndex ? 600 : 400,
                         textAlign: 'center', flex: 1,
                       }}>
                         {step}
@@ -339,7 +340,7 @@ const PublicTrackingPage = () => {
 
               {timeline.length > 0 && (
                 <div style={{ padding: '16px 20px', borderTop: '1px solid var(--color-border)' }}>
-                  <div style={{ fontSize: 9, color: 'var(--color-light-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, color: 'var(--color-light-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
                     Shipment history
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

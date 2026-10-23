@@ -192,7 +192,7 @@ export const Dispatch = ({ onBack }: { onBack: () => void }) => {
                   />
                   <Polyline 
                     positions={selectedTrip.pings.map(p => [p.latitude, p.longitude])} 
-                    color="var(--color-accent-amber)" 
+                    color="#fbbf24" 
                     weight={4} 
                     opacity={0.8} 
                   />

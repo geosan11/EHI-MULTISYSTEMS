@@ -65,27 +65,17 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
     // side panel below).
     return (
       <div className="select-none" style={{ position: 'fixed', top: '50%', right: 0, transform: 'translateY(-50%)', zIndex: 20 }}>
-        <div className="w-9 rounded-l-xl rounded-r-none bg-[var(--color-surface-card)] border border-r-0 border-[var(--color-border-strong)] shadow-[var(--shadow-sm)] flex flex-col items-center py-2.5 gap-2.5 transition-colors hover:border-[var(--color-accent-amber)]">
+        <div className="w-7 sm:w-9 rounded-l-xl rounded-r-none bg-[var(--color-surface-card)]/95 backdrop-blur-sm border border-r-0 border-[var(--color-border-strong)] shadow-[var(--shadow-sm)] flex flex-col items-center py-2 sm:py-2.5 gap-2 transition-colors hover:border-[var(--color-accent-amber)]">
           <button
             type="button"
             onClick={() => setCollapsed(false)}
-            className="p-1.5 text-[var(--color-accent-amber)] hover:bg-[var(--color-surface-2)] rounded-lg transition-colors cursor-pointer"
+            className="p-1 sm:p-1.5 text-[var(--color-accent-amber)] hover:bg-[var(--color-surface-2)] rounded-lg transition-colors cursor-pointer"
             title="Expand Live Customer Credit Feed"
           >
             <ChevronLeft size={16} />
           </button>
           <div className="flex flex-col items-center gap-2 max-h-[calc(100vh-220px)] overflow-hidden">
             <span className="w-2 h-2 rounded-full bg-[var(--color-accent-amber)] animate-pulse shrink-0" />
-            {/* `writing-mode-vertical` was a made-up class -- it doesn't exist
-                in Tailwind or anywhere in this codebase's CSS, so this label
-                was never actually vertical: it laid out as one long
-                whitespace-nowrap line inside a 40px-wide box, got hard-clipped
-                by `truncate`, and the surviving fragment was flipped upside
-                down by rotate-180, producing garbled text. Real vertical
-                typesetting needs the actual `writing-mode` CSS property
-                (no Tailwind utility for it), applied here via inline style;
-                `truncate` is dropped since it's a horizontal-line clip that
-                fights vertical text, not a fix for it. */}
             <span
               className="text-[10px] font-mono font-bold tracking-widest text-[var(--color-accent-amber)] uppercase whitespace-nowrap"
               style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
@@ -99,7 +89,13 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
   }
 
   return (
-    <div className="ehi-credit-feed w-64 bg-[var(--color-surface-1)] border-l border-[var(--color-border)] flex flex-col h-full shrink-0 shadow-2xl transition-all">
+    <>
+      {/* Mobile/Tablet Scrim Backdrop so expanded feed slides over instead of crushing the flex viewport */}
+      <div
+        className="fixed inset-0 bg-black/45 backdrop-blur-[2px] z-40 lg:hidden"
+        onClick={() => setCollapsed(true)}
+      />
+      <div className="ehi-credit-feed fixed inset-y-0 right-0 z-50 w-72 sm:w-80 lg:static lg:z-auto lg:w-64 bg-[var(--color-surface-1)] border-l border-[var(--color-border)] flex flex-col h-full shrink-0 shadow-2xl transition-all">
       {/* Feed Header */}
       <div className="p-2 bg-[var(--color-surface-2)] border-b border-[var(--color-border)] flex items-center justify-between">
         <div className="flex items-center gap-1.5 min-w-0">
@@ -387,6 +383,7 @@ export const LiveCreditFeed: React.FC<LiveCreditFeedProps> = ({
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 };

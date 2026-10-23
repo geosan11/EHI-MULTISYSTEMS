@@ -32,6 +32,15 @@ export const AIChatBuddy = ({ user }: { user: User }) => {
     if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [messages, loading, open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [open]);
+
   const send = async () => {
     const text = input.trim();
     if (!text || loading) return;
@@ -77,7 +86,7 @@ export const AIChatBuddy = ({ user }: { user: User }) => {
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
-          zIndex: 70,
+          zIndex: open ? 60 : 35,
         }}
       >
         {open ? <X size={22} /> : <Sparkles size={22} />}
@@ -86,27 +95,32 @@ export const AIChatBuddy = ({ user }: { user: User }) => {
       {createPortal(
         <AnimatePresence>
           {open && (
-            <motion.div
-              initial={{ opacity: 0, y: 24, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 24, scale: 0.96 }}
-              transition={{ duration: 0.18 }}
-              className="ehi-ai-chat-panel"
-              style={{
-                position: 'fixed',
-                right: '16px',
-                width: 'min(360px, calc(100vw - 32px))',
-                height: 'min(520px, calc(100vh - 160px))',
-                background: 'var(--color-surface-1)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-md)',
-                boxShadow: '0 12px 40px rgba(0,0,0,0.45)',
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-                zIndex: 70,
-              }}
-            >
+            <>
+              <div
+                className="fixed inset-0 z-[58] sm:hidden"
+                onClick={() => setOpen(false)}
+              />
+              <motion.div
+                initial={{ opacity: 0, y: 24, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 24, scale: 0.96 }}
+                transition={{ duration: 0.18 }}
+                className="ehi-ai-chat-panel"
+                style={{
+                  position: 'fixed',
+                  right: '16px',
+                  width: 'min(360px, calc(100vw - 32px))',
+                  height: 'min(520px, calc(100vh - 160px))',
+                  background: 'var(--color-surface-1)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: '0 12px 40px rgba(0,0,0,0.45)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden',
+                  zIndex: 60,
+                }}
+              >
               <div style={{
                 display: 'flex', alignItems: 'center', gap: '8px',
                 padding: '12px 14px', borderBottom: '1px solid var(--color-border)',
@@ -191,6 +205,7 @@ export const AIChatBuddy = ({ user }: { user: User }) => {
                 </button>
               </div>
             </motion.div>
+            </>
           )}
         </AnimatePresence>,
         document.body

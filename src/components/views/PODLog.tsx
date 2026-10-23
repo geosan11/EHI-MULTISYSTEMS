@@ -250,10 +250,12 @@ export const PODLog = ({ user, onBack }: { user: User; onBack: () => void }) => 
                 <div>
                   <h4 className="text-[10px] font-mono text-[var(--color-muted)] uppercase tracking-widest mb-2">Recipient Signature</h4>
                   <div className="bg-white rounded-lg p-2 border border-[var(--color-border)] overflow-hidden flex justify-center items-center h-[120px]">
-                    {selectedPod.signatureData ? (
+                    {loadingMedia ? (
+                      <Spinner size="lg" tone="muted" />
+                    ) : selectedPod.signatureData ? (
                       <img src={selectedPod.signatureData} alt="Signature" className="max-h-full object-contain" />
                     ) : (
-                      <Spinner size="lg" tone="muted" />
+                      <span className="text-[11px] font-mono text-slate-400">No signature recorded</span>
                     )}
                   </div>
                 </div>
