@@ -3724,200 +3724,241 @@ export const TransactionLedger = ({
     }
   };
 
+  const [headerSlots, setHeaderSlots] = useState<{ left: Element | null; right: Element | null }>({
+    left: null,
+    right: null,
+  });
+
+  useEffect(() => {
+    const leftNodes = document.querySelectorAll('[data-ehi-header-left-slot]');
+    const rightNodes = document.querySelectorAll('[data-ehi-header-right-slot]');
+    const left = leftNodes.length > 0 ? leftNodes[leftNodes.length - 1] : null;
+    const right = rightNodes.length > 0 ? rightNodes[rightNodes.length - 1] : null;
+    setHeaderSlots({ left, right });
+  }, []);
+
+  const ledgerHeaderLeft = (
+    <div className="flex items-center gap-2.5 min-w-0">
+      <BackButton onClick={onBack} label="Back" />
+      <div className="min-w-0">
+        <div className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)] tracking-widest uppercase leading-tight truncate">
+          {defaultTypeFilter === 'cargo' ? 'Cargo Ledger'
+           : defaultTypeFilter === 'baggage' ? 'Excess Baggage Ledger'
+           : defaultTypeFilter === 'marketing' ? 'Marketing Ledger'
+           : defaultTypeFilter === 'package' ? 'Package Ledger'
+           : defaultTerminalFilter === 'GAT' ? 'GAT Ledger'
+           : 'Master Ledger'}
+        </div>
+        <div className="text-[10px] font-mono text-[var(--color-muted)] leading-tight mt-0.5 truncate">
+          {filteredEntries.length} {filteredEntries.length === 1 ? 'entry' : 'entries'}
+          {viewOnly && <span className="ml-1.5 text-[var(--color-muted)] opacity-60">· read only</span>}
+        </div>
+      </div>
+    </div>
+  );
+
+  const ledgerHeaderRight = (
+    <div className="flex items-center gap-1.5 flex-wrap justify-end">
+      {defaultTypeFilter === 'baggage' && (
+        <>
+          <select
+            value={vjFlightFilter}
+            onChange={e => setVjFlightFilter(e.target.value)}
+            className="h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full text-[10px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
+          >
+            <option value="All">All Flights</option>
+            {vjFlights.map(f => <option key={f} value={f}>{f}</option>)}
+          </select>
+          <select
+            value={vjDestFilter}
+            onChange={e => setVjDestFilter(e.target.value)}
+            className="h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full text-[10px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
+          >
+            <option value="All">All Dests</option>
+            {vjDests.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+        </>
+      )}
+
+      {/* General Destination filter -- every entry type, unlike the
+          baggage-only vjDestFilter above. Replaces route/destination
+          as a free-text search field (see filteredEntries). */}
+      <select
+        value={destFilter}
+        onChange={e => setDestFilter(e.target.value)}
+        title="Filter by destination"
+        className="h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full text-[10px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
+      >
+        <option value="All">All Destinations</option>
+        {allDests.map(r => <option key={r} value={r}>{r}</option>)}
+      </select>
+
+      {/* Download (Progressive Disclosure on Hover) */}
+      <div className="relative" ref={exportMenuRef}>
+        <button
+          title="Download Options (Current View or All-Time Complete History)"
+          disabled={isExportingAll}
+          onClick={() => {
+            if (defaultTypeFilter === 'baggage') {
+              handleExportExcel(false);
+            } else {
+              setShowExportOptions(prev => !prev);
+            }
+          }}
+          className={`group relative overflow-hidden h-8 px-2.5 flex items-center bg-[var(--color-surface-1)] border rounded-full backdrop-blur-md transition-all duration-300 cursor-pointer ${
+            isExportingAll
+              ? 'border-[var(--color-accent-amber)] text-[var(--color-accent-amber)] animate-pulse'
+              : 'border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-success)] hover:border-[var(--color-success)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-success)] active:translate-y-0 active:scale-95'
+          }`}
+        >
+          <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+          {isExportingAll ? <Loader2 size={13} className="relative animate-spin shrink-0" /> : <Download size={13} className="relative shrink-0" />}
+          <span
+            className={`relative font-mono text-[10px] font-bold whitespace-nowrap overflow-hidden transition-all duration-300 ease-out ${
+              isExportingAll || showExportOptions
+                ? 'max-w-[90px] opacity-100 ml-1.5'
+                : 'max-w-0 opacity-0 ml-0 group-hover:max-w-[90px] group-hover:opacity-100 group-hover:ml-1.5'
+            }`}
+          >
+            {isExportingAll ? 'Exporting...' : 'Excel'}
+          </span>
+          <ChevronDown size={11} className={`relative ml-1 shrink-0 transition-transform duration-200 ${showExportOptions ? 'rotate-180' : ''}`} />
+        </button>
+
+        {showExportOptions && (
+          <div className="absolute right-0 top-full mt-1.5 w-64 bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl shadow-2xl p-1.5 z-50 flex flex-col gap-1 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-2.5 py-1.5 text-[9px] font-mono uppercase tracking-wider text-[var(--color-muted)] border-b border-[var(--color-border)]">
+              Export Options (Zero Idle Egress)
+            </div>
+            <button
+              onClick={() => handleExportExcel(false)}
+              className="flex flex-col items-start px-2.5 py-2 rounded-lg hover:bg-[var(--color-surface-hover)] text-left transition-colors cursor-pointer group"
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="text-[11px] font-mono font-bold text-[var(--color-foreground)] group-hover:text-[var(--color-success)]">
+                  Current View Only
+                </span>
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[var(--color-surface-2)] text-[var(--color-muted)]">
+                  {filteredEntries.length} entries
+                </span>
+              </div>
+              <span className="text-[9px] text-[var(--color-muted)] mt-0.5">
+                Fast in-memory export of entries currently on screen.
+              </span>
+            </button>
+
+            <button
+              onClick={() => handleExportExcel(true)}
+              className="flex flex-col items-start px-2.5 py-2 rounded-lg hover:bg-[var(--color-surface-hover)] text-left transition-colors cursor-pointer group border-t border-[var(--color-border)]"
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)] flex items-center gap-1">
+                  All Time (Day 1 till Now)
+                </span>
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[rgba(251,191,36,0.15)] text-[var(--color-accent-amber)] font-bold">
+                  {allTimeTotals?.rowCount ? `${allTimeTotals.rowCount}` : 'Complete'}
+                </span>
+              </div>
+              <span className="text-[9px] text-[var(--color-muted)] mt-0.5">
+                One-time on-demand download of full database history.
+              </span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Debt & Retrievals (Progressive Disclosure on Hover) */}
+      {canAccessTab(user, 'More:DebtCollectionLog', []) && (
+        <button
+          title="Every debt payment and cargo retrieval, one line each"
+          onClick={() => { onBack(); navigate('/more/debt-collection-log'); }}
+          className="group relative overflow-hidden h-8 px-2.5 flex items-center bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full text-[var(--color-muted)] backdrop-blur-md hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-amber)] active:translate-y-0 active:scale-95 font-mono text-[10px] font-bold transition-all duration-300 cursor-pointer"
+        >
+          <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+          <HandCoins size={13} className="relative shrink-0" />
+          <span className="relative whitespace-nowrap overflow-hidden max-w-0 opacity-0 ml-0 group-hover:max-w-[120px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out">
+            Debt &amp; Retrievals
+          </span>
+        </button>
+      )}
+
+      {/* 80mm Print Summary (Progressive Disclosure on Hover) */}
+      <button
+        title="Print Compact 80mm Ledger Summary"
+        onClick={handlePrint80mmLedger}
+        className="group relative overflow-hidden h-8 px-2.5 flex items-center bg-[rgba(251,191,36,0.12)] border border-[rgba(251,191,36,0.3)] rounded-full text-[var(--color-accent-amber)] backdrop-blur-md hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-amber)] active:translate-y-0 active:scale-95 font-mono text-[10px] font-bold transition-all duration-300 cursor-pointer"
+      >
+        <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/15 to-transparent pointer-events-none" />
+        <Printer size={13} className="relative shrink-0" />
+        <span className="relative whitespace-nowrap overflow-hidden max-w-0 opacity-0 ml-0 group-hover:max-w-[70px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out">
+          80mm Print
+        </span>
+      </button>
+
+      {/* Airline Excel Manifest (Progressive Disclosure on Hover) */}
+      {airlineManifestSummary.length > 0 && (
+        <button
+          title="Download per-airline manifest Excel file (tag number, content, kg, route, amount — grouped and ordered by airline)"
+          onClick={() => {
+            import('../../lib/excelExport').then(async ({ downloadAirlineManifestExcel }) => {
+              const txs = filteredEntries
+                .filter(e => e.source === 'transaction')
+                .map(e => e.raw as Transaction);
+              await downloadAirlineManifestExcel(txs, user.hub || 'EHI Hub');
+            });
+          }}
+          className="group relative overflow-hidden h-8 px-2.5 flex items-center bg-[rgba(59,130,246,0.12)] border border-[rgba(59,130,246,0.3)] rounded-full text-[var(--color-accent-cobalt)] backdrop-blur-md hover:bg-[var(--color-accent-cobalt)] hover:text-white hover:-translate-y-0.5 hover:shadow-[var(--shadow-cobalt)] active:translate-y-0 active:scale-95 font-mono text-[10px] font-bold transition-all duration-300 cursor-pointer"
+        >
+          <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/15 to-transparent pointer-events-none" />
+          <Plane size={13} className="relative shrink-0" />
+          <span className="relative whitespace-nowrap overflow-hidden max-w-0 opacity-0 ml-0 group-hover:max-w-[90px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out">
+            Airline Excel
+          </span>
+        </button>
+      )}
+
+      {/* Print Logs Toggle (Progressive Disclosure on Hover) */}
+      {(user.role === 'super_admin' || user.role === 'admin' || user.role === 'accountant' || user.role === 'auditor') && (
+        <button
+          title={showPrintHistory ? 'Close Print Logs' : 'Print Logs'}
+          onClick={() => setShowPrintHistory(!showPrintHistory)}
+          className={`group relative overflow-hidden h-8 px-2.5 flex items-center justify-center border rounded-full backdrop-blur-md hover:-translate-y-0.5 active:translate-y-0 active:scale-95 font-mono text-[10px] font-bold transition-all duration-300 cursor-pointer ${
+            showPrintHistory
+              ? 'bg-[var(--color-accent-amber)] border-[var(--color-accent-amber)] text-[var(--color-on-accent)] hover:shadow-[var(--shadow-amber)]'
+              : 'bg-[var(--color-surface-1)] border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] hover:shadow-[var(--shadow-amber)]'
+          }`}
+        >
+          <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+          <Printer size={13} className="relative shrink-0" />
+          <span
+            className={`relative whitespace-nowrap overflow-hidden transition-all duration-300 ease-out ${
+              showPrintHistory
+                ? 'max-w-[80px] opacity-100 ml-1.5'
+                : 'max-w-0 opacity-0 ml-0 group-hover:max-w-[80px] group-hover:opacity-100 group-hover:ml-1.5'
+            }`}
+          >
+            Print Logs
+          </span>
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <div className="ehi-ledger-textured flex flex-row h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] relative animate-in slide-in-from-right overflow-hidden">
       <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
-
-        {/* ── Top Bar ─────────────────────────────────────── */}
-        {/* Flush strip under the app shell top bar -- square corners, no
-            floating inset card. Keeps ledger chrome attached to the shell
-            instead of stacking a second rounded glass panel under it. */}
-        <div className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap shrink-0 bg-[var(--color-surface-card)] border-b border-[var(--color-border)]">
-          <div className="flex items-center gap-3 min-w-0">
-            <BackButton onClick={onBack} label="Back" />
-            <div className="min-w-0">
-              <div className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)] tracking-widest uppercase leading-tight">
-                {defaultTypeFilter === 'cargo' ? 'Cargo Ledger'
-                 : defaultTypeFilter === 'baggage' ? 'Excess Baggage Ledger'
-                 : defaultTypeFilter === 'marketing' ? 'Marketing Ledger'
-                 : defaultTypeFilter === 'package' ? 'Package Ledger'
-                 : defaultTerminalFilter === 'GAT' ? 'GAT Ledger'
-                 : 'Master Ledger'}
-              </div>
-              <div className="text-[10px] font-mono text-[var(--color-muted)] leading-tight mt-0.5">
-                {filteredEntries.length} {filteredEntries.length === 1 ? 'entry' : 'entries'}
-                {viewOnly && <span className="ml-1.5 text-[var(--color-muted)] opacity-60">· read only</span>}
-              </div>
-            </div>
+        {headerSlots.left && headerSlots.right ? (
+          <>
+            {createPortal(ledgerHeaderLeft, headerSlots.left)}
+            {createPortal(ledgerHeaderRight, headerSlots.right)}
+          </>
+        ) : (
+          /* Fallback inline Top Bar if Header slots are not mounted */
+          <div className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap shrink-0 bg-[var(--color-surface-card)] border-b border-[var(--color-border)]">
+            {ledgerHeaderLeft}
+            {ledgerHeaderRight}
           </div>
-
-          <div className="flex items-center gap-2 flex-wrap justify-end ml-auto">
-            {defaultTypeFilter === 'baggage' && (
-              <>
-                <select
-                  value={vjFlightFilter}
-                  onChange={e => setVjFlightFilter(e.target.value)}
-                  className="h-9 sm:h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full text-[10px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
-                >
-                  <option value="All">All Flights</option>
-                  {vjFlights.map(f => <option key={f} value={f}>{f}</option>)}
-                </select>
-                <select
-                  value={vjDestFilter}
-                  onChange={e => setVjDestFilter(e.target.value)}
-                  className="h-9 sm:h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full text-[10px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
-                >
-                  <option value="All">All Dests</option>
-                  {vjDests.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
-              </>
-            )}
-
-            {/* General Destination filter -- every entry type, unlike the
-                baggage-only vjDestFilter above. Replaces route/destination
-                as a free-text search field (see filteredEntries). */}
-            <select
-              value={destFilter}
-              onChange={e => setDestFilter(e.target.value)}
-              title="Filter by destination"
-              className="h-9 sm:h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full text-[10px] font-mono text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
-            >
-              <option value="All">All Destinations</option>
-              {allDests.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
-
-            {/* Download */}
-            <div className="relative" ref={exportMenuRef}>
-              <button
-                title="Download Options (Current View or All-Time Complete History)"
-                disabled={isExportingAll}
-                onClick={() => {
-                  if (defaultTypeFilter === 'baggage') {
-                    handleExportExcel(false);
-                  } else {
-                    setShowExportOptions(prev => !prev);
-                  }
-                }}
-                className={`relative overflow-hidden h-9 sm:h-8 px-2.5 flex items-center gap-1.5 bg-[var(--color-surface-1)] border rounded-full backdrop-blur-md transition-all cursor-pointer ${
-                  isExportingAll
-                    ? 'border-[var(--color-accent-amber)] text-[var(--color-accent-amber)] animate-pulse'
-                    : 'border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-success)] hover:border-[var(--color-success)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-success)] active:translate-y-0 active:scale-95'
-                }`}
-              >
-                <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
-                {isExportingAll ? <Loader2 size={13} className="relative animate-spin" /> : <Download size={13} className="relative" />}
-                <span className="relative font-mono text-[10px] font-bold">
-                  {isExportingAll ? 'Exporting...' : 'Excel'}
-                </span>
-                <ChevronDown size={11} className={`relative transition-transform duration-200 ${showExportOptions ? 'rotate-180' : ''}`} />
-              </button>
-
-              {showExportOptions && (
-                <div className="absolute right-0 top-full mt-1.5 w-64 bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl shadow-2xl p-1.5 z-50 flex flex-col gap-1 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
-                  <div className="px-2.5 py-1.5 text-[9px] font-mono uppercase tracking-wider text-[var(--color-muted)] border-b border-[var(--color-border)]">
-                    Export Options (Zero Idle Egress)
-                  </div>
-                  <button
-                    onClick={() => handleExportExcel(false)}
-                    className="flex flex-col items-start px-2.5 py-2 rounded-lg hover:bg-[var(--color-surface-hover)] text-left transition-colors cursor-pointer group"
-                  >
-                    <div className="flex items-center justify-between w-full">
-                      <span className="text-[11px] font-mono font-bold text-[var(--color-foreground)] group-hover:text-[var(--color-success)]">
-                        Current View Only
-                      </span>
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[var(--color-surface-2)] text-[var(--color-muted)]">
-                        {filteredEntries.length} entries
-                      </span>
-                    </div>
-                    <span className="text-[9px] text-[var(--color-muted)] mt-0.5">
-                      Fast in-memory export of entries currently on screen.
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => handleExportExcel(true)}
-                    className="flex flex-col items-start px-2.5 py-2 rounded-lg hover:bg-[var(--color-surface-hover)] text-left transition-colors cursor-pointer group border-t border-[var(--color-border)]"
-                  >
-                    <div className="flex items-center justify-between w-full">
-                      <span className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)] flex items-center gap-1">
-                        All Time (Day 1 till Now)
-                      </span>
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[rgba(251,191,36,0.15)] text-[var(--color-accent-amber)] font-bold">
-                        {allTimeTotals?.rowCount ? `${allTimeTotals.rowCount}` : 'Complete'}
-                      </span>
-                    </div>
-                    <span className="text-[9px] text-[var(--color-muted)] mt-0.5">
-                      One-time on-demand download of full database history.
-                    </span>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Gated the same way More.tsx's own menu entry is -- every role
-                has More:DebtCollectionLog by default, but a super_admin can
-                revoke it per-user via view_overrides (StaffManagement.tsx);
-                an ungated button here would let a specifically-denied user
-                reach the screen anyway. airlines: [] is safe -- canAccessTab
-                only consults it for airline-scoped Baggage:<name> keys, not
-                this static role-based one (see getAllowedTabs). */}
-            {canAccessTab(user, 'More:DebtCollectionLog', []) && (
-              <button
-                title="Every debt payment and cargo retrieval, one line each"
-                onClick={() => { onBack(); navigate('/more/debt-collection-log'); }}
-                className="relative overflow-hidden h-8 px-2 flex items-center gap-1.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full text-[var(--color-muted)] backdrop-blur-md hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-amber)] active:translate-y-0 active:scale-95 font-mono text-[10px] font-bold transition-all cursor-pointer"
-              >
-                <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
-                <HandCoins size={13} className="relative" />
-                <span className="relative">Debt &amp; Retrievals</span>
-              </button>
-            )}
-
-            <button
-              title="Print Compact 80mm Ledger Summary"
-              onClick={handlePrint80mmLedger}
-              className="relative overflow-hidden h-8 px-2 flex items-center gap-1.5 bg-[rgba(251,191,36,0.12)] border border-[rgba(251,191,36,0.3)] rounded-full text-[var(--color-accent-amber)] backdrop-blur-md hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-amber)] active:translate-y-0 active:scale-95 font-mono text-[10px] font-bold transition-all cursor-pointer"
-            >
-              <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/15 to-transparent pointer-events-none" />
-              <Printer size={13} className="relative" />
-              <span className="relative">80mm</span>
-            </button>
-
-            {airlineManifestSummary.length > 0 && (
-              <button
-                title="Download per-airline manifest Excel file (tag number, content, kg, route, amount — grouped and ordered by airline)"
-                onClick={() => {
-                  import('../../lib/excelExport').then(async ({ downloadAirlineManifestExcel }) => {
-                    const txs = filteredEntries
-                      .filter(e => e.source === 'transaction')
-                      .map(e => e.raw as Transaction);
-                    await downloadAirlineManifestExcel(txs, user.hub || 'EHI Hub');
-                  });
-                }}
-                className="relative overflow-hidden h-8 px-2 flex items-center gap-1.5 bg-[rgba(59,130,246,0.12)] border border-[rgba(59,130,246,0.3)] rounded-full text-[var(--color-accent-cobalt)] backdrop-blur-md hover:bg-[var(--color-accent-cobalt)] hover:text-white hover:-translate-y-0.5 hover:shadow-[var(--shadow-cobalt)] active:translate-y-0 active:scale-95 font-mono text-[10px] font-bold transition-all cursor-pointer"
-              >
-                <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/15 to-transparent pointer-events-none" />
-                <Plane size={13} className="relative" />
-                <span className="relative">Airline Excel</span>
-              </button>
-            )}
-
-            {(user.role === 'super_admin' || user.role === 'admin' || user.role === 'accountant' || user.role === 'auditor') && (
-              <button
-                title={showPrintHistory ? 'Close Print Logs' : 'Print Logs'}
-                onClick={() => setShowPrintHistory(!showPrintHistory)}
-                className={`relative overflow-hidden h-8 w-8 flex items-center justify-center border rounded-full backdrop-blur-md hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all ${
-                  showPrintHistory
-                    ? 'bg-[var(--color-accent-amber)] border-[var(--color-accent-amber)] text-[var(--color-on-accent)] hover:shadow-[var(--shadow-amber)]'
-                    : 'bg-[var(--color-surface-1)] border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] hover:shadow-[var(--shadow-amber)]'
-                }`}
-              >
-                <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
-                <Printer size={13} className="relative" />
-              </button>
-            )}
-          </div>
-        </div>
+        )}
 
         {/* Always-visible shift controls — no longer buried in the row-detail
             popup. Shown on any station ledger where a shift handler is wired

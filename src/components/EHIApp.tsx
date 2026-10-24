@@ -3333,6 +3333,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
                   : undefined
               }
               docked
+              onCloseOverlay={handleCloseLedger}
             />
           <div className="flex-1 flex flex-col">
             {/* This overlay is portaled to document.body as a SIBLING of the

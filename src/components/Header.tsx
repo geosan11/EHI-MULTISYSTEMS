@@ -1,11 +1,29 @@
-import { Wifi, WifiOff, LogOut, Sun, Moon, ChevronDown, RefreshCw, Building2 } from 'lucide-react';
+import {
+  Wifi,
+  WifiOff,
+  LogOut,
+  Sun,
+  Moon,
+  ChevronDown,
+  RefreshCw,
+  Building2,
+  LayoutDashboard,
+  BookOpen,
+  HandCoins,
+  Wallet,
+  Radar,
+  QrCode,
+  ShieldCheck,
+} from 'lucide-react';
 import { User } from '../lib/types';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Theme } from '../lib/useTheme';
 import { getHubCode } from '../lib/helpers';
 import { useConfirm } from '../lib/ConfirmContext';
+import { canAccessTab } from '../lib/permissions';
 
 import ehiLogo from '../assets/branding/ehi-logo.png';
 
@@ -21,6 +39,7 @@ export const Header = ({
   stateWideView,
   onToggleStateWideView,
   docked = false,
+  onCloseOverlay,
 }: {
   user: User;
   isOffline: boolean;
@@ -41,9 +60,67 @@ export const Header = ({
   // layer that needs its own header row -- `docked` keeps the same controls
   // inline there without relying on the shell sticky bar.
   docked?: boolean;
+  onCloseOverlay?: () => void;
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const confirm = useConfirm();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const quickNavItems = useMemo(() => {
+    const candidates = [
+      {
+        id: 'tower',
+        label: 'Overview',
+        path: '/tower',
+        perm: 'Tower',
+        icon: LayoutDashboard,
+      },
+      {
+        id: 'ledger',
+        label: 'Master Ledger',
+        path: '/more/ledger',
+        perm: 'More:TransactionLedger',
+        icon: BookOpen,
+      },
+      {
+        id: 'debt',
+        label: 'Debt & Retrievals',
+        path: '/more/debt-collection-log',
+        perm: 'More:DebtCollectionLog',
+        icon: HandCoins,
+      },
+      {
+        id: 'wallets',
+        label: 'Wallets',
+        path: '/more/customer-wallets',
+        perm: 'More:CustomerWallets',
+        icon: Wallet,
+      },
+      {
+        id: 'radar',
+        label: 'Flight Radar',
+        path: '/flight-radar',
+        perm: 'FlightRadar',
+        icon: Radar,
+      },
+      {
+        id: 'scan',
+        label: 'QR Scanner',
+        path: '/scan',
+        perm: 'Scan',
+        icon: QrCode,
+      },
+      {
+        id: 'pod',
+        label: 'POD Log',
+        path: '/more/pod-log',
+        perm: 'More:PODLog',
+        icon: ShieldCheck,
+      },
+    ];
+    return candidates.filter((item) => canAccessTab(user, item.perm, []));
+  }, [user]);
 
   const getRoleDisplay = (role: string) => {
     switch (role) {
@@ -78,54 +155,105 @@ export const Header = ({
       className="flex flex-col w-full shrink-0 z-40 relative"
     >
       <div
-        className="ehi-header-row flex items-center justify-between px-4 py-3 min-h-[60px]"
+        className="ehi-header-row flex items-center justify-between gap-3 px-4 py-2.5 min-h-[56px] flex-wrap"
         style={{
           background: 'var(--color-nav-bg)',
           borderBottom: '1px solid var(--color-border)',
         }}
       >
-
-        {/* Brand -- the real logo asset (same file SideNav uses on desktop) */}
-        <div className="flex items-center gap-2.5 ehi-header-brand">
-          <img
-            src={ehiLogo}
-            alt="EHI Multisystems"
-            style={{ height: 40, width: 'auto', objectFit: 'contain' }}
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-          />
-          <div>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              background: getRoleColor(user.role).bg,
-              border: `1px solid ${getRoleColor(user.role).border}`,
-              borderRadius: 'var(--radius-full)',
-              padding: '1px 8px', marginTop: 2,
-            }}>
-              <span style={{ fontSize: 10, fontWeight: 600, color: getRoleColor(user.role).text }}>
-                {getRoleDisplay(user.role)}
-              </span>
+        {/* Left & Center Navigation Area */}
+        <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
+          {/* Brand -- the real logo asset (same file SideNav uses on desktop) */}
+          <div className="flex items-center gap-2.5 ehi-header-brand shrink-0">
+            <img
+              src={ehiLogo}
+              alt="EHI Multisystems"
+              className="rounded-xl shadow-sm"
+              style={{ height: 36, width: 'auto', objectFit: 'contain' }}
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+            <div>
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                background: getRoleColor(user.role).bg,
+                border: `1px solid ${getRoleColor(user.role).border}`,
+                borderRadius: 'var(--radius-full)',
+                padding: '1px 8px', marginTop: 2,
+              }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: getRoleColor(user.role).text }}>
+                  {getRoleDisplay(user.role)}
+                </span>
+              </div>
             </div>
           </div>
+
+          {/* Dynamic Slot for Ledger Left Controls (Back button + Title & Entry count) */}
+          <div
+            data-ehi-header-left-slot
+            className="flex items-center gap-2.5 min-w-0 empty:hidden"
+          />
+
+          {/* Progressive-Disclosure Quick Navigation Rail */}
+          {quickNavItems.length > 0 && (
+            <nav
+              aria-label="Quick Navigation"
+              className="hidden md:flex items-center gap-1 p-1 rounded-full bg-[var(--color-surface-1)] border border-[var(--color-border)] shadow-inner"
+            >
+              {quickNavItems.map((item) => {
+                const Icon = item.icon;
+                const isActive =
+                  !docked &&
+                  (location.pathname === item.path ||
+                    location.pathname.startsWith(item.path + '/'));
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    title={item.label}
+                    onClick={() => {
+                      if (onCloseOverlay) onCloseOverlay();
+                      navigate(item.path);
+                    }}
+                    className={`group relative h-7 px-2.5 rounded-full flex items-center justify-center transition-all duration-300 ease-out cursor-pointer select-none ${
+                      isActive
+                        ? 'bg-[rgba(251,191,36,0.16)] text-[var(--color-accent-amber)] border border-[rgba(251,191,36,0.38)] shadow-sm'
+                        : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-hover)] border border-transparent'
+                    }`}
+                  >
+                    <Icon
+                      size={13}
+                      strokeWidth={isActive ? 2.2 : 1.8}
+                      className="shrink-0 transition-transform duration-200 group-hover:scale-110"
+                    />
+                    <span
+                      className={`font-mono text-[10px] font-bold tracking-tight whitespace-nowrap overflow-hidden transition-all duration-300 ease-out ${
+                        isActive
+                          ? 'max-w-[140px] opacity-100 ml-1.5'
+                          : 'max-w-0 opacity-0 ml-0 group-hover:max-w-[140px] group-hover:opacity-100 group-hover:ml-1.5 group-focus-visible:max-w-[140px] group-focus-visible:opacity-100 group-focus-visible:ml-1.5'
+                      }`}
+                    >
+                      {item.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </nav>
+          )}
         </div>
 
         {/* Right controls -- sit in the sticky top bar on desktop
             (.ehi-header-controls is in-flow; see index.css). */}
-        <div className="ehi-header-controls flex items-center gap-2 ml-auto">
-
-          {/* User info */}
-          <div className="text-right mr-0.5 hidden sm:block">
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-foreground)' }}>
-              {user.name}
-            </div>
-            <div style={{ fontSize: 9, color: 'var(--color-muted)' }}>
-              {getHubCode(user.hub)}
-            </div>
-          </div>
+        <div className="ehi-header-controls flex items-center gap-2 ml-auto flex-wrap justify-end">
+          {/* Dynamic Slot for Ledger Secondary Navigation Controls (Filters, Export, Debt Log, 80mm, Manifest) */}
+          <div
+            data-ehi-header-right-slot
+            className="flex items-center gap-1.5 flex-wrap justify-end empty:hidden pr-1 border-r border-[var(--color-border)]"
+          />
 
           {/* Theme toggle — Frosted Glass Lens Orb */}
           <button
             onClick={onToggleTheme}
-            className="group relative transition-all duration-200 hover:scale-105 active:scale-95 active:translate-y-0.5 cursor-pointer"
+            className="group relative transition-all duration-200 hover:scale-105 active:scale-95 active:translate-y-0.5 cursor-pointer shrink-0"
             title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             style={{
               width: 32, height: 32,
@@ -177,7 +305,7 @@ export const Header = ({
                 if (onManualSync) onManualSync();
               }}
               title="Click to force sync offline entries"
-              className="px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 bg-[rgba(251,191,36,0.15)] border border-[rgba(251,191,36,0.35)] text-[var(--color-accent-amber)] font-mono text-[10px] font-bold animate-pulse cursor-pointer hover:bg-[rgba(251,191,36,0.30)] hover:scale-105 active:scale-95 transition-all shadow-md"
+              className="px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 bg-[rgba(251,191,36,0.15)] border border-[rgba(251,191,36,0.35)] text-[var(--color-accent-amber)] font-mono text-[10px] font-bold animate-pulse cursor-pointer hover:bg-[rgba(251,191,36,0.30)] hover:scale-105 active:scale-95 transition-all shadow-md shrink-0"
             >
               <RefreshCw size={11} className="animate-spin" />
               <span>{pendingCount} Queued</span>
@@ -199,7 +327,7 @@ export const Header = ({
               onToggleWifi();
             }}
             title={isOffline ? 'Offline Mode Active — Tap to Reconnect' : 'Network Online — Tap to Switch to Offline Mode'}
-            className="group relative transition-all duration-200 hover:scale-105 active:scale-95 active:translate-y-0.5 cursor-pointer"
+            className="group relative transition-all duration-200 hover:scale-105 active:scale-95 active:translate-y-0.5 cursor-pointer shrink-0"
             style={{
               width: 32, height: 32,
               borderRadius: 'var(--radius-full)',
@@ -240,44 +368,73 @@ export const Header = ({
             }
           </button>
 
-          {/* Avatar — Frosted Amber Glass Lens Orb */}
-          <div className="relative">
+          {/* User Logo / Avatar Icon with Progressive Disclosure that Expands on Hover */}
+          <div className="relative shrink-0">
             <button
+              type="button"
               onClick={() => setShowDropdown(!showDropdown)}
-              className="group relative transition-all duration-200 hover:scale-105 active:scale-95 active:translate-y-0.5 cursor-pointer"
+              title={`${user.name} (${getRoleDisplay(user.role)} · ${getHubCode(user.hub)})`}
+              className="group relative h-8 p-1 rounded-full flex items-center transition-all duration-300 ease-out active:scale-95 cursor-pointer select-none"
               style={{
-                width: 32, height: 32,
-                borderRadius: 'var(--radius-full)',
-                background: 'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.35) 0%, rgba(251,191,36,0.2) 60%, rgba(180,83,9,0.3) 100%)',
+                background: theme === 'dark'
+                  ? 'linear-gradient(135deg, rgba(255,255,255,0.14) 0%, rgba(251,191,36,0.12) 100%)'
+                  : 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(254,243,199,0.75) 100%)',
                 border: showDropdown
-                  ? '1.5px solid rgba(253,230,138,0.9)'
-                  : theme === 'dark' ? '1px solid rgba(255,255,255,0.45)' : '1px solid rgba(180,83,9,0.4)',
+                  ? '1.5px solid rgba(251,191,36,0.9)'
+                  : theme === 'dark' ? '1px solid rgba(255,255,255,0.28)' : '1px solid rgba(180,83,9,0.3)',
                 boxShadow: showDropdown
-                  ? '0 0 0 3px rgba(251,191,36,0.35), 0 5px 14px rgba(251,191,36,0.6)'
-                  : '0 3px 11px rgba(251,191,36,0.45), inset 0 0 0 1px rgba(255,255,255,0.3)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                position: 'relative', overflow: 'hidden', backdropFilter: 'blur(8px)',
+                  ? '0 0 0 3px rgba(251,191,36,0.25), 0 4px 12px rgba(251,191,36,0.4)'
+                  : '0 2px 8px rgba(0,0,0,0.18), inset 0 0 0 1px rgba(255,255,255,0.2)',
+                backdropFilter: 'blur(8px)',
               }}
             >
-              {/* Inner Amber Glowing Core */}
+              {/* Frosted Amber Glass Orb */}
               <div
-                className="transition-all duration-300 group-hover:scale-110"
+                className="relative w-6 h-6 rounded-full flex items-center justify-center shrink-0 overflow-hidden transition-transform duration-300 group-hover:scale-105"
                 style={{
-                  position: 'absolute', width: 20, height: 20, borderRadius: '50%',
                   background: 'radial-gradient(circle at 40% 35%, #fde68a 0%, #fbbf24 60%, #b45309 100%)',
-                  boxShadow: '0 0 11px rgba(251,191,36,0.8)',
+                  boxShadow: '0 0 10px rgba(251,191,36,0.75)',
                 }}
-              />
-              {/* Top specular lens highlight */}
-              <div style={{
-                position: 'absolute', top: '10%', left: '18%',
-                width: '50%', height: '26%',
-                background: 'radial-gradient(ellipse, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 100%)',
-                borderRadius: '50%', filter: 'blur(0.4px)', pointerEvents: 'none',
-              }} />
-              <span style={{ fontSize: 11, fontWeight: 800, color: '#451a03', position: 'relative', zIndex: 1 }} className="group-hover:scale-110 transition-transform duration-200">
-                {user.name.charAt(0).toUpperCase()}
-              </span>
+              >
+                {/* Top specular lens highlight */}
+                <div style={{
+                  position: 'absolute', top: '10%', left: '18%',
+                  width: '50%', height: '26%',
+                  background: 'radial-gradient(ellipse, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 100%)',
+                  borderRadius: '50%', filter: 'blur(0.4px)', pointerEvents: 'none',
+                }} />
+                <span style={{ fontSize: 11, fontWeight: 800, color: '#451a03', position: 'relative', zIndex: 1 }}>
+                  {user.name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+
+              {/* Progressive Disclosure User Details (Expands on Hover or Dropdown Open) */}
+              <div
+                className={`flex items-center overflow-hidden whitespace-nowrap transition-all duration-300 ease-out ${
+                  showDropdown
+                    ? 'max-w-[200px] opacity-100 pl-2 pr-1.5'
+                    : 'max-w-0 opacity-0 pl-0 pr-0 group-hover:max-w-[200px] group-hover:opacity-100 group-hover:pl-2 group-hover:pr-1.5 group-focus-visible:max-w-[200px] group-focus-visible:opacity-100 group-focus-visible:pl-2 group-focus-visible:pr-1.5'
+                }`}
+              >
+                <div className="text-left leading-tight mr-1.5">
+                  <div className="text-[11px] font-bold text-[var(--color-foreground)] truncate max-w-[130px]">
+                    {user.name}
+                  </div>
+                  <div className="flex items-center gap-1 text-[9px] font-mono text-[var(--color-muted)]">
+                    <span style={{ color: getRoleColor(user.role).text, fontWeight: 700 }}>
+                      {getRoleDisplay(user.role)}
+                    </span>
+                    <span>·</span>
+                    <span>{getHubCode(user.hub)}</span>
+                  </div>
+                </div>
+                <ChevronDown
+                  size={12}
+                  className={`text-[var(--color-muted)] shrink-0 transition-transform duration-200 ${
+                    showDropdown ? 'rotate-180 text-[var(--color-accent-amber)]' : ''
+                  }`}
+                />
+              </div>
             </button>
 
             {showDropdown && (
