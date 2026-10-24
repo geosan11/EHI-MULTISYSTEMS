@@ -3098,12 +3098,16 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
         />
 
         <main
-          className="flex-1 overflow-y-auto overflow-x-hidden"
+          className={`flex-1 min-h-0 overflow-x-hidden ${
+            location.pathname.startsWith('/more/ledger') ? 'overflow-hidden' : 'overflow-y-auto'
+          }`}
           style={{ display: 'flex', flexDirection: 'column' }}
         >
           <div
             key={currentTab}
-            className="page-transition mx-auto w-full flex-1 flex flex-col"
+            className={`page-transition mx-auto w-full flex-1 flex flex-col ${
+              location.pathname.startsWith('/more/ledger') ? 'min-h-0 overflow-hidden' : ''
+            }`}
             style={{ maxWidth: 'var(--content-max-width)' }}
           >
             <ErrorBoundary>
@@ -3316,7 +3320,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               deep inside TransactionLedger's own h-full row) drifted lower
               as more rows loaded -- it was centering against an
               ever-growing total height, not a stable viewport-bound one. */}
-          <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-y-auto overflow-x-hidden">
+          <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
             <Header
               user={user}
               isOffline={isOffline}
@@ -3335,7 +3339,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               docked
               onCloseOverlay={handleCloseLedger}
             />
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
             {/* This overlay is portaled to document.body as a SIBLING of the
                 <ErrorBoundary> above (in the React tree, not just the DOM) --
                 a crash here would otherwise bypass that boundary entirely and

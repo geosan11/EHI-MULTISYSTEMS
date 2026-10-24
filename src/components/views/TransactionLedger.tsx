@@ -47,6 +47,7 @@ import {
   ShieldCheck,
   Truck,
   ChevronDown,
+  ChevronUp,
   Calendar,
   Trash2,
   LayoutGrid,
@@ -858,18 +859,42 @@ export const TransactionLedger = ({
   const [isExportingAll, setIsExportingAll] = useState(false);
   const [showExportOptions, setShowExportOptions] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+  const [showPrintOptions, setShowPrintOptions] = useState(false);
+  const printMenuRef = useRef<HTMLDivElement>(null);
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('ehi_ledger_summary_expanded_v1') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSummaryExpanded = useCallback(() => {
+    setIsSummaryExpanded((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('ehi_ledger_summary_expanded_v1', String(next));
+      } catch {
+        /* ignore storage errors */
+      }
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
         setShowExportOptions(false);
       }
+      if (printMenuRef.current && !printMenuRef.current.contains(e.target as Node)) {
+        setShowPrintOptions(false);
+      }
     };
-    if (showExportOptions) {
+    if (showExportOptions || showPrintOptions) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [showExportOptions]);
+  }, [showExportOptions, showPrintOptions]);
   // Guards fetchAllTimeFirstPage/fetchAllTimeNextPage against an
   // out-of-order response -- e.g. a user searches "abc", then clears the
   // search before that request resolves; without this, the stale "abc"
@@ -3780,9 +3805,7 @@ export const TransactionLedger = ({
         </>
       )}
 
-      {/* General Destination filter -- every entry type, unlike the
-          baggage-only vjDestFilter above. Replaces route/destination
-          as a free-text search field (see filteredEntries). */}
+      {/* General Destination filter */}
       <select
         value={destFilter}
         onChange={e => setDestFilter(e.target.value)}
@@ -3793,151 +3816,192 @@ export const TransactionLedger = ({
         {allDests.map(r => <option key={r} value={r}>{r}</option>)}
       </select>
 
-      {/* Download (Progressive Disclosure on Hover) */}
+      {/* Metrics / Summary Drawer Toggle */}
+      <button
+        type="button"
+        onClick={toggleSummaryExpanded}
+        title={isSummaryExpanded ? 'Collapse KPI Cards & Manifest' : 'Expand Full KPI Cards, Debt Split & Airline Manifest'}
+        className={`h-8 px-2.5 rounded-full flex items-center gap-1.5 font-mono text-[10px] font-bold border transition-all cursor-pointer ${
+          isSummaryExpanded
+            ? 'bg-[rgba(251,191,36,0.16)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)] shadow-[var(--shadow-amber)]'
+            : 'bg-[var(--color-surface-1)] border-[rgba(251,191,36,0.35)] text-[var(--color-accent-amber)] hover:bg-[rgba(251,191,36,0.1)]'
+        }`}
+      >
+        <LayoutGrid size={12} className="shrink-0" />
+        <span>Metrics</span>
+        {isSummaryExpanded ? <ChevronUp size={12} className="shrink-0" /> : <ChevronDown size={12} className="shrink-0" />}
+      </button>
+
+      {/* Grouped Export Dropdown Menu (Excel Current View, Excel All-Time, Airline Manifest Excel) */}
       <div className="relative" ref={exportMenuRef}>
         <button
-          title="Download Options (Current View or All-Time Complete History)"
+          type="button"
+          title="Export Options (Ledger Excel & Airline Manifest)"
           disabled={isExportingAll}
-          onClick={() => {
-            if (defaultTypeFilter === 'baggage') {
-              handleExportExcel(false);
-            } else {
-              setShowExportOptions(prev => !prev);
-            }
-          }}
-          className={`group relative overflow-hidden h-8 px-2.5 flex items-center bg-[var(--color-surface-1)] border rounded-full backdrop-blur-md transition-all duration-300 cursor-pointer ${
+          onClick={() => setShowExportOptions(prev => !prev)}
+          className={`h-8 px-2.5 flex items-center gap-1.5 bg-[var(--color-surface-1)] border rounded-full font-mono text-[10px] font-bold transition-all cursor-pointer ${
             isExportingAll
               ? 'border-[var(--color-accent-amber)] text-[var(--color-accent-amber)] animate-pulse'
-              : 'border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-success)] hover:border-[var(--color-success)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-success)] active:translate-y-0 active:scale-95'
+              : showExportOptions
+              ? 'border-[var(--color-success)] text-[var(--color-success)]'
+              : 'border-[var(--color-border)] text-[var(--color-foreground)] hover:text-[var(--color-success)] hover:border-[var(--color-success)]'
           }`}
         >
-          <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
-          {isExportingAll ? <Loader2 size={13} className="relative animate-spin shrink-0" /> : <Download size={13} className="relative shrink-0" />}
-          <span
-            className={`relative font-mono text-[10px] font-bold whitespace-nowrap overflow-hidden transition-all duration-300 ease-out ${
-              isExportingAll || showExportOptions
-                ? 'max-w-[90px] opacity-100 ml-1.5'
-                : 'max-w-0 opacity-0 ml-0 group-hover:max-w-[90px] group-hover:opacity-100 group-hover:ml-1.5'
-            }`}
-          >
-            {isExportingAll ? 'Exporting...' : 'Excel'}
-          </span>
-          <ChevronDown size={11} className={`relative ml-1 shrink-0 transition-transform duration-200 ${showExportOptions ? 'rotate-180' : ''}`} />
+          {isExportingAll ? <Loader2 size={12} className="animate-spin shrink-0" /> : <Download size={12} className="shrink-0" />}
+          <span>{isExportingAll ? 'Exporting...' : 'Export'}</span>
+          <ChevronDown size={11} className={`shrink-0 transition-transform duration-200 ${showExportOptions ? 'rotate-180' : ''}`} />
         </button>
 
         {showExportOptions && (
           <div className="absolute right-0 top-full mt-1.5 w-64 bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl shadow-2xl p-1.5 z-50 flex flex-col gap-1 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
             <div className="px-2.5 py-1.5 text-[9px] font-mono uppercase tracking-wider text-[var(--color-muted)] border-b border-[var(--color-border)]">
-              Export Options (Zero Idle Egress)
+              Export Options
             </div>
             <button
-              onClick={() => handleExportExcel(false)}
+              type="button"
+              onClick={() => {
+                setShowExportOptions(false);
+                handleExportExcel(false);
+              }}
               className="flex flex-col items-start px-2.5 py-2 rounded-lg hover:bg-[var(--color-surface-hover)] text-left transition-colors cursor-pointer group"
             >
               <div className="flex items-center justify-between w-full">
                 <span className="text-[11px] font-mono font-bold text-[var(--color-foreground)] group-hover:text-[var(--color-success)]">
-                  Current View Only
+                  Excel Ledger (Current View)
                 </span>
                 <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[var(--color-surface-2)] text-[var(--color-muted)]">
-                  {filteredEntries.length} entries
+                  {filteredEntries.length} rows
                 </span>
               </div>
               <span className="text-[9px] text-[var(--color-muted)] mt-0.5">
-                Fast in-memory export of entries currently on screen.
+                Fast export of entries currently filtered on screen.
               </span>
             </button>
 
-            <button
-              onClick={() => handleExportExcel(true)}
-              className="flex flex-col items-start px-2.5 py-2 rounded-lg hover:bg-[var(--color-surface-hover)] text-left transition-colors cursor-pointer group border-t border-[var(--color-border)]"
-            >
-              <div className="flex items-center justify-between w-full">
-                <span className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)] flex items-center gap-1">
-                  All Time (Day 1 till Now)
+            {defaultTypeFilter !== 'baggage' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowExportOptions(false);
+                  handleExportExcel(true);
+                }}
+                className="flex flex-col items-start px-2.5 py-2 rounded-lg hover:bg-[var(--color-surface-hover)] text-left transition-colors cursor-pointer group border-t border-[var(--color-border)]"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)] flex items-center gap-1">
+                    Excel Ledger (All Time)
+                  </span>
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[rgba(251,191,36,0.15)] text-[var(--color-accent-amber)] font-bold">
+                    {allTimeTotals?.rowCount ? `${allTimeTotals.rowCount}` : 'Complete'}
+                  </span>
+                </div>
+                <span className="text-[9px] text-[var(--color-muted)] mt-0.5">
+                  Full database history from Day 1 till now.
                 </span>
-                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[rgba(251,191,36,0.15)] text-[var(--color-accent-amber)] font-bold">
-                  {allTimeTotals?.rowCount ? `${allTimeTotals.rowCount}` : 'Complete'}
+              </button>
+            )}
+
+            {airlineManifestSummary.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowExportOptions(false);
+                  import('../../lib/excelExport').then(async ({ downloadAirlineManifestExcel }) => {
+                    const txs = filteredEntries
+                      .filter(e => e.source === 'transaction')
+                      .map(e => e.raw as Transaction);
+                    await downloadAirlineManifestExcel(txs, user.hub || 'EHI Hub');
+                  });
+                }}
+                className="flex flex-col items-start px-2.5 py-2 rounded-lg hover:bg-[var(--color-surface-hover)] text-left transition-colors cursor-pointer group border-t border-[var(--color-border)]"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-[11px] font-mono font-bold text-[var(--color-accent-cobalt)] flex items-center gap-1">
+                    <Plane size={11} /> Airline Manifest Excel
+                  </span>
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] font-bold">
+                    {airlineManifestSummary.length} airlines
+                  </span>
+                </div>
+                <span className="text-[9px] text-[var(--color-muted)] mt-0.5">
+                  Per-airline weight, tag, route &amp; amount manifest.
                 </span>
-              </div>
-              <span className="text-[9px] text-[var(--color-muted)] mt-0.5">
-                One-time on-demand download of full database history.
-              </span>
-            </button>
+              </button>
+            )}
           </div>
         )}
       </div>
 
-      {/* Debt & Retrievals (Progressive Disclosure on Hover) */}
-      {canAccessTab(user, 'More:DebtCollectionLog', []) && (
+      {/* Grouped Print Dropdown Menu (80mm Thermal Summary + Print Logs History) */}
+      <div className="relative" ref={printMenuRef}>
         <button
-          title="Every debt payment and cargo retrieval, one line each"
-          onClick={() => { onBack(); navigate('/more/debt-collection-log'); }}
-          className="group relative overflow-hidden h-8 px-2.5 flex items-center bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full text-[var(--color-muted)] backdrop-blur-md hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-amber)] active:translate-y-0 active:scale-95 font-mono text-[10px] font-bold transition-all duration-300 cursor-pointer"
-        >
-          <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
-          <HandCoins size={13} className="relative shrink-0" />
-          <span className="relative whitespace-nowrap overflow-hidden max-w-0 opacity-0 ml-0 group-hover:max-w-[120px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out">
-            Debt &amp; Retrievals
-          </span>
-        </button>
-      )}
-
-      {/* 80mm Print Summary (Progressive Disclosure on Hover) */}
-      <button
-        title="Print Compact 80mm Ledger Summary"
-        onClick={handlePrint80mmLedger}
-        className="group relative overflow-hidden h-8 px-2.5 flex items-center bg-[rgba(251,191,36,0.12)] border border-[rgba(251,191,36,0.3)] rounded-full text-[var(--color-accent-amber)] backdrop-blur-md hover:bg-[var(--color-accent-amber)] hover:text-[var(--color-on-accent)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-amber)] active:translate-y-0 active:scale-95 font-mono text-[10px] font-bold transition-all duration-300 cursor-pointer"
-      >
-        <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/15 to-transparent pointer-events-none" />
-        <Printer size={13} className="relative shrink-0" />
-        <span className="relative whitespace-nowrap overflow-hidden max-w-0 opacity-0 ml-0 group-hover:max-w-[70px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out">
-          80mm Print
-        </span>
-      </button>
-
-      {/* Airline Excel Manifest (Progressive Disclosure on Hover) */}
-      {airlineManifestSummary.length > 0 && (
-        <button
-          title="Download per-airline manifest Excel file (tag number, content, kg, route, amount — grouped and ordered by airline)"
-          onClick={() => {
-            import('../../lib/excelExport').then(async ({ downloadAirlineManifestExcel }) => {
-              const txs = filteredEntries
-                .filter(e => e.source === 'transaction')
-                .map(e => e.raw as Transaction);
-              await downloadAirlineManifestExcel(txs, user.hub || 'EHI Hub');
-            });
-          }}
-          className="group relative overflow-hidden h-8 px-2.5 flex items-center bg-[rgba(59,130,246,0.12)] border border-[rgba(59,130,246,0.3)] rounded-full text-[var(--color-accent-cobalt)] backdrop-blur-md hover:bg-[var(--color-accent-cobalt)] hover:text-white hover:-translate-y-0.5 hover:shadow-[var(--shadow-cobalt)] active:translate-y-0 active:scale-95 font-mono text-[10px] font-bold transition-all duration-300 cursor-pointer"
-        >
-          <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/15 to-transparent pointer-events-none" />
-          <Plane size={13} className="relative shrink-0" />
-          <span className="relative whitespace-nowrap overflow-hidden max-w-0 opacity-0 ml-0 group-hover:max-w-[90px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out">
-            Airline Excel
-          </span>
-        </button>
-      )}
-
-      {/* Print Logs Toggle (Progressive Disclosure on Hover) */}
-      {(user.role === 'super_admin' || user.role === 'admin' || user.role === 'accountant' || user.role === 'auditor') && (
-        <button
-          title={showPrintHistory ? 'Close Print Logs' : 'Print Logs'}
-          onClick={() => setShowPrintHistory(!showPrintHistory)}
-          className={`group relative overflow-hidden h-8 px-2.5 flex items-center justify-center border rounded-full backdrop-blur-md hover:-translate-y-0.5 active:translate-y-0 active:scale-95 font-mono text-[10px] font-bold transition-all duration-300 cursor-pointer ${
-            showPrintHistory
-              ? 'bg-[var(--color-accent-amber)] border-[var(--color-accent-amber)] text-[var(--color-on-accent)] hover:shadow-[var(--shadow-amber)]'
-              : 'bg-[var(--color-surface-1)] border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] hover:shadow-[var(--shadow-amber)]'
+          type="button"
+          title="Print Options & Logs"
+          onClick={() => setShowPrintOptions(prev => !prev)}
+          className={`h-8 px-2.5 flex items-center gap-1.5 border rounded-full font-mono text-[10px] font-bold transition-all cursor-pointer ${
+            showPrintHistory || showPrintOptions
+              ? 'bg-[rgba(251,191,36,0.16)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]'
+              : 'bg-[var(--color-surface-1)] border-[var(--color-border)] text-[var(--color-foreground)] hover:border-[var(--color-accent-amber)] hover:text-[var(--color-accent-amber)]'
           }`}
         >
-          <span className="absolute inset-x-0.5 top-0 h-1/2 rounded-t-[inherit] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
-          <Printer size={13} className="relative shrink-0" />
-          <span
-            className={`relative whitespace-nowrap overflow-hidden transition-all duration-300 ease-out ${
-              showPrintHistory
-                ? 'max-w-[80px] opacity-100 ml-1.5'
-                : 'max-w-0 opacity-0 ml-0 group-hover:max-w-[80px] group-hover:opacity-100 group-hover:ml-1.5'
-            }`}
-          >
-            Print Logs
+          <Printer size={12} className="shrink-0" />
+          <span>Print</span>
+          <ChevronDown size={11} className={`shrink-0 transition-transform duration-200 ${showPrintOptions ? 'rotate-180' : ''}`} />
+        </button>
+
+        {showPrintOptions && (
+          <div className="absolute right-0 top-full mt-1.5 w-60 bg-[var(--color-surface-card)] border border-[var(--color-border)] rounded-xl shadow-2xl p-1.5 z-50 flex flex-col gap-1 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-2.5 py-1.5 text-[9px] font-mono uppercase tracking-wider text-[var(--color-muted)] border-b border-[var(--color-border)]">
+              Print &amp; Thermal Actions
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowPrintOptions(false);
+                handlePrint80mmLedger();
+              }}
+              className="flex flex-col items-start px-2.5 py-2 rounded-lg hover:bg-[var(--color-surface-hover)] text-left transition-colors cursor-pointer group"
+            >
+              <span className="text-[11px] font-mono font-bold text-[var(--color-accent-amber)] flex items-center gap-1.5">
+                <Printer size={11} /> Thermal Receipt (80mm)
+              </span>
+              <span className="text-[9px] text-[var(--color-muted)] mt-0.5">
+                Print compact 80mm shift/ledger summary receipt.
+              </span>
+            </button>
+
+            {(user.role === 'super_admin' || user.role === 'admin' || user.role === 'accountant' || user.role === 'auditor') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPrintOptions(false);
+                  setShowPrintHistory(prev => !prev);
+                }}
+                className="flex flex-col items-start px-2.5 py-2 rounded-lg hover:bg-[var(--color-surface-hover)] text-left transition-colors cursor-pointer group border-t border-[var(--color-border)]"
+              >
+                <span className="text-[11px] font-mono font-bold text-[var(--color-foreground)] group-hover:text-[var(--color-accent-amber)]">
+                  {showPrintHistory ? '← Back to Ledger Rows' : 'Tag Print History Logs'}
+                </span>
+                <span className="text-[9px] text-[var(--color-muted)] mt-0.5">
+                  {showPrintHistory ? 'Close print audit logs and return to ledger.' : 'Inspect printed tag audit history.'}
+                </span>
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Debt & Retrievals Shortcut (Progressive Disclosure on Hover) */}
+      {canAccessTab(user, 'More:DebtCollectionLog', []) && (
+        <button
+          type="button"
+          title="Every debt payment and cargo retrieval, one line each"
+          onClick={() => { onBack(); navigate('/more/debt-collection-log'); }}
+          className="group relative overflow-hidden h-8 px-2.5 flex items-center bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] hover:border-[var(--color-accent-amber)] font-mono text-[10px] font-bold transition-all duration-300 cursor-pointer"
+        >
+          <HandCoins size={12} className="relative shrink-0" />
+          <span className="relative whitespace-nowrap overflow-hidden max-w-0 opacity-0 ml-0 group-hover:max-w-[120px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-300 ease-out">
+            Debt &amp; Retrievals
           </span>
         </button>
       )}
@@ -3960,18 +4024,6 @@ export const TransactionLedger = ({
           </div>
         )}
 
-        {/* Always-visible shift controls — no longer buried in the row-detail
-            popup. Shown on any station ledger where a shift handler is wired
-            (or where the shift is auto-managed, see shiftAutoManaged below).
-            The status text itself is read-only information, not a
-            permission-sensitive action -- it's shown to viewOnly users too
-            (e.g. a Cargo agent without can_edit_ledger opening History
-            should still be able to see "Cargo shift open"); only the
-            Start/End Day buttons below are gated on viewOnly.
-            Standalone here (own rounded glass panel) only when
-            showPrintHistory is hiding everything that would normally follow
-            it -- otherwise it's the first section inside the single unified
-            panel below, alongside KPI/chips/manifest. */}
         {showPrintHistory && (onStartShift || onEndShift || shiftAutoManaged) && (
           <div className="mx-3 mt-2.5 px-4 py-2.5 rounded-2xl bg-[var(--color-surface-card-glass)] backdrop-blur-xl border border-[var(--color-border)] shadow-[0_8px_24px_rgba(0,0,0,0.25)] flex items-center justify-between gap-3 shrink-0 relative z-10">
             {shiftBarContent}
@@ -3984,376 +4036,620 @@ export const TransactionLedger = ({
           </div>
         ) : (
           <>
-            {/* Unified rounded glass panel: shift status + KPI + quick-filter
-                chips + airline manifest all in one continuous rounded
-                containment, instead of separate flush strips -- matches the
-                Top Bar/Filter Strip's glass treatment above/below it. */}
-            <div className="mx-3 mt-2.5 rounded-2xl bg-[var(--color-surface-card-glass)] backdrop-blur-xl border border-[var(--color-border)] shadow-[0_8px_24px_rgba(0,0,0,0.25)] overflow-hidden shrink-0">
-              {(onStartShift || onEndShift || shiftAutoManaged) && (
-                <div className="px-4 py-2.5 border-b border-[var(--color-border)] flex items-center justify-between gap-3 relative z-10">
+            {/* ── TIER 2: Collapsible KPI Ribbon & Progressive Disclosure Drawer ── */}
+            <div className="shrink-0 bg-[var(--color-surface-card)] border-b border-[var(--color-border)]">
+              {/* Slim Always-Visible KPI Strip */}
+              <div className="px-3 py-1.5 flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                  {/* Total Pill */}
+                  <button
+                    type="button"
+                    onClick={() => setModeFilter('All')}
+                    className={`shrink-0 h-7 px-2.5 rounded-lg border flex items-center gap-1.5 font-mono text-[10px] transition-all cursor-pointer ${
+                      modeFilter === 'All'
+                        ? 'bg-[rgba(251,191,36,0.14)] border-[var(--color-accent-amber)] text-[var(--color-foreground)] font-bold shadow-sm'
+                        : 'bg-[var(--color-surface-1)] border-[rgba(251,191,36,0.3)] text-[var(--color-muted)] hover:border-[var(--color-accent-amber)]'
+                    }`}
+                  >
+                    <span className="text-[var(--color-accent-amber)] font-bold uppercase">Total:</span>
+                    <span className="font-bold text-[var(--color-foreground)]">
+                      {allTimeFirstLoadInFlight ? '…' : `₦${fmt(displayTotals.totalAmount)}`}
+                    </span>
+                  </button>
+
+                  {/* Cash Pill */}
+                  <button
+                    type="button"
+                    onClick={() => setModeFilter(modeFilter === 'Cash' ? 'All' : 'Cash')}
+                    className={`shrink-0 h-7 px-2.5 rounded-lg border flex items-center gap-1.5 font-mono text-[10px] transition-all cursor-pointer ${
+                      modeFilter === 'Cash'
+                        ? 'bg-[rgba(16,185,129,0.14)] border-[var(--color-success)] text-[var(--color-success)] font-bold shadow-sm'
+                        : 'bg-[var(--color-surface-1)] border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-success)]'
+                    }`}
+                  >
+                    <span className="text-[var(--color-success)] font-bold uppercase">Cash:</span>
+                    <span className="font-bold text-[var(--color-success)]">
+                      {allTimeFirstLoadInFlight ? '…' : `₦${fmt(displayTotals.cashAmount)}`}
+                    </span>
+                    {isAccountantOrAdmin && unverifiedCash.length > 0 && (
+                      <span className="text-[9px] font-bold bg-[rgba(251,191,36,0.2)] text-[var(--color-accent-amber)] px-1 rounded">
+                        !{unverifiedCash.length}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Transfer Pill */}
+                  <button
+                    type="button"
+                    onClick={() => setModeFilter(modeFilter === 'Transfer' ? 'All' : 'Transfer')}
+                    className={`shrink-0 h-7 px-2.5 rounded-lg border flex items-center gap-1.5 font-mono text-[10px] transition-all cursor-pointer ${
+                      modeFilter === 'Transfer'
+                        ? 'bg-[rgba(59,130,246,0.14)] border-[var(--color-accent-cobalt)] text-[var(--color-accent-cobalt)] font-bold shadow-sm'
+                        : 'bg-[var(--color-surface-1)] border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-accent-cobalt)]'
+                    }`}
+                  >
+                    <span className="text-[var(--color-accent-cobalt)] font-bold uppercase">Transfer:</span>
+                    <span className="font-bold text-[var(--color-accent-cobalt)]">
+                      {allTimeFirstLoadInFlight ? '…' : `₦${fmt(displayTotals.transferAmount)}`}
+                    </span>
+                    {isAccountantOrAdmin && unconfirmedTransfer.length > 0 && (
+                      <span className="text-[9px] font-bold bg-[rgba(251,191,36,0.2)] text-[var(--color-accent-amber)] px-1 rounded">
+                        !{unconfirmedTransfer.length}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* POS Pill */}
+                  <button
+                    type="button"
+                    onClick={() => setModeFilter(modeFilter === 'POS' ? 'All' : 'POS')}
+                    className={`shrink-0 h-7 px-2.5 rounded-lg border flex items-center gap-1.5 font-mono text-[10px] transition-all cursor-pointer ${
+                      modeFilter === 'POS'
+                        ? 'bg-[rgba(251,191,36,0.14)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)] font-bold shadow-sm'
+                        : 'bg-[var(--color-surface-1)] border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-accent-amber)]'
+                    }`}
+                  >
+                    <span className="text-[var(--color-accent-amber)] font-bold uppercase">POS:</span>
+                    <span className="font-bold text-[var(--color-accent-amber)]">
+                      {allTimeFirstLoadInFlight ? '…' : `₦${fmt(displayTotals.posAmount)}`}
+                    </span>
+                    {isAccountantOrAdmin && unconfirmedPOS.length > 0 && (
+                      <span className="text-[9px] font-bold bg-[rgba(251,191,36,0.2)] text-[var(--color-accent-amber)] px-1 rounded">
+                        !{unconfirmedPOS.length}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Debt Pill */}
+                  <button
+                    type="button"
+                    onClick={() => setModeFilter(modeFilter === 'Debt' ? 'All' : 'Debt')}
+                    className={`shrink-0 h-7 px-2.5 rounded-lg border flex items-center gap-1.5 font-mono text-[10px] transition-all cursor-pointer ${
+                      modeFilter === 'Debt'
+                        ? 'bg-[rgba(239,68,68,0.14)] border-[var(--color-error)] text-[var(--color-error)] font-bold shadow-sm'
+                        : 'bg-[var(--color-surface-1)] border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-error)]'
+                    }`}
+                  >
+                    <span className="text-[var(--color-error)] font-bold uppercase">
+                      Debt{displayTotals.unpaidDebtCount > 0 ? ` (${displayTotals.unpaidDebtCount})` : ''}:
+                    </span>
+                    <span className="font-bold text-[var(--color-error)]">
+                      {allTimeFirstLoadInFlight ? '…' : `₦${fmt(displayTotals.debtAmount)}`}
+                    </span>
+                  </button>
+
+                  {/* Wallet Pill */}
+                  <button
+                    type="button"
+                    onClick={() => setModeFilter(modeFilter === 'Wallet' ? 'All' : 'Wallet')}
+                    className={`shrink-0 h-7 px-2.5 rounded-lg border flex items-center gap-1.5 font-mono text-[10px] transition-all cursor-pointer ${
+                      modeFilter === 'Wallet'
+                        ? 'bg-[rgba(168,85,247,0.14)] border-[var(--color-purple-border)] text-[var(--color-purple-fg)] font-bold shadow-sm'
+                        : 'bg-[var(--color-surface-1)] border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-purple-border)]'
+                    }`}
+                  >
+                    <span className="text-[var(--color-purple-fg)] font-bold uppercase">Wallet:</span>
+                    <span className="font-bold text-[var(--color-purple-fg)]">
+                      {allTimeFirstLoadInFlight ? '…' : `₦${fmt(displayTotals.walletAmount)}`}
+                    </span>
+                  </button>
+                </div>
+
+                {/* Right-side Toggle Button for Progressive Disclosure Drawer */}
+                <button
+                  type="button"
+                  onClick={toggleSummaryExpanded}
+                  className="shrink-0 h-7 px-2.5 rounded-lg bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] font-mono text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer ml-auto"
+                >
+                  <span>{isSummaryExpanded ? 'Hide Breakdown' : 'Breakdown & Manifest'}</span>
+                  {isSummaryExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                </button>
+              </div>
+
+              {/* Compact Shift Bar when Drawer is Collapsed (if department shift controls exist) */}
+              {!isSummaryExpanded && (onStartShift || onEndShift || shiftAutoManaged) && (
+                <div className="px-3 py-1.5 border-t border-[var(--color-border)] bg-[var(--color-surface-1)]/60 flex items-center justify-between gap-3">
                   {shiftBarContent}
                 </div>
               )}
 
-              {/* ── KPI Summary Cards ───────────────────────────── */}
-              <div className="px-4 py-3 border-b border-[var(--color-border)]">
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-                {/* Total */}
-                <div
-                  onClick={() => setModeFilter('All')}
-                  className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all cursor-pointer ${
-                    modeFilter === 'All'
-                      ? 'bg-[rgba(251,191,36,0.06)] border-[var(--color-accent-amber)] shadow-[var(--shadow-amber)]'
-                      // Hero tile -- carries a soft amber corona at rest (not
-                      // just on selection), so Total reads as the standout
-                      // tile the way it does in the reference design, without
-                      // competing with the stronger shadow-amber glow above.
-                      : 'bg-[var(--color-surface-card)] border-[rgba(251,191,36,0.35)] hover:border-[var(--color-accent-amber)] shadow-[var(--shadow-sm),0_0_18px_-6px_rgba(251,191,36,0.35)]'
-                  }`}
-                >
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'All' ? 'bg-[rgba(251,191,36,0.22)]' : 'bg-[rgba(251,191,36,0.12)]'}`}>
-                    <LayoutGrid size={16} className="text-[var(--color-accent-amber)]" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[10px] font-mono text-[var(--color-accent-amber)] uppercase tracking-wider truncate">Total</div>
-                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-foreground)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.totalAmount)}`}</div>
-                  </div>
-                </div>
-
-                {/* Cash */}
-                <button
-                  onClick={() => setModeFilter(modeFilter === 'Cash' ? 'All' : 'Cash')}
-                  className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
-                    modeFilter === 'Cash'
-                      ? 'bg-[rgba(16,185,129,0.06)] border-[var(--color-success)] shadow-[var(--shadow-success)]'
-                      : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-success)] shadow-[var(--shadow-sm)]'
-                  }`}
-                >
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'Cash' ? 'bg-[rgba(16,185,129,0.22)]' : 'bg-[rgba(16,185,129,0.12)]'}`}>
-                    <Banknote size={16} className="text-[var(--color-success)]" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-1">
-                      <div className="text-[10px] font-mono text-[var(--color-success)] uppercase tracking-wider truncate">Cash</div>
-                      {isAccountantOrAdmin && unverifiedCash.length > 0 && (
-                        <span className="text-[10px] font-mono font-bold bg-[rgba(251,191,36,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unverifiedCash.length}</span>
-                      )}
+              {/* Progressive Disclosure Expanded Drawer (Full KPI Cards, Debt Breakdown & Airline Manifest) */}
+              {isSummaryExpanded && (
+                <div className="px-3 py-3 border-t border-[var(--color-border)] bg-[var(--color-surface-1)]/40 space-y-2.5 animate-in fade-in duration-200">
+                  {(onStartShift || onEndShift || shiftAutoManaged) && (
+                    <div className="px-3 py-2 rounded-xl bg-[var(--color-surface-card)] border border-[var(--color-border)] flex items-center justify-between gap-3">
+                      {shiftBarContent}
                     </div>
-                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-success)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.cashAmount)}`}</div>
-                  </div>
-                </button>
+                  )}
 
-                {/* Transfer */}
-                <button
-                  onClick={() => setModeFilter(modeFilter === 'Transfer' ? 'All' : 'Transfer')}
-                  className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
-                    modeFilter === 'Transfer'
-                      ? 'bg-[rgba(59,130,246,0.06)] border-[var(--color-accent-cobalt)] shadow-[var(--shadow-cobalt)]'
-                      : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-accent-cobalt)] shadow-[var(--shadow-sm)]'
-                  }`}
-                >
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'Transfer' ? 'bg-[rgba(59,130,246,0.22)]' : 'bg-[rgba(59,130,246,0.12)]'}`}>
-                    <ArrowLeftRight size={16} className="text-[var(--color-accent-cobalt)]" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-1">
-                      <div className="text-[10px] font-mono text-[var(--color-accent-cobalt)] uppercase tracking-wider truncate">Transfer</div>
-                      {isAccountantOrAdmin && unconfirmedTransfer.length > 0 && (
-                        <span className="text-[10px] font-mono font-bold bg-[rgba(251,191,36,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unconfirmedTransfer.length}</span>
-                      )}
-                    </div>
-                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-accent-cobalt)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.transferAmount)}`}</div>
-                  </div>
-                </button>
-
-                {/* POS */}
-                <button
-                  onClick={() => setModeFilter(modeFilter === 'POS' ? 'All' : 'POS')}
-                  className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
-                    modeFilter === 'POS'
-                      ? 'bg-[rgba(251,191,36,0.06)] border-[var(--color-accent-amber)] shadow-[var(--shadow-amber)]'
-                      : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-accent-amber)] shadow-[var(--shadow-sm)]'
-                  }`}
-                >
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'POS' ? 'bg-[rgba(251,191,36,0.22)]' : 'bg-[rgba(251,191,36,0.12)]'}`}>
-                    <CreditCard size={16} className="text-[var(--color-accent-amber)]" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-1">
-                      <div className="text-[10px] font-mono text-[var(--color-accent-amber)] uppercase tracking-wider truncate">POS</div>
-                      {isAccountantOrAdmin && unconfirmedPOS.length > 0 && (
-                        <span className="text-[10px] font-mono font-bold bg-[rgba(251,191,36,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unconfirmedPOS.length}</span>
-                      )}
-                    </div>
-                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-accent-amber)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.posAmount)}`}</div>
-                  </div>
-                </button>
-
-                {/* Debt */}
-                <button
-                  onClick={() => setModeFilter(modeFilter === 'Debt' ? 'All' : 'Debt')}
-                  className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
-                    modeFilter === 'Debt'
-                      ? 'bg-[rgba(239,68,68,0.06)] border-[var(--color-error)] shadow-[var(--shadow-error)]'
-                      : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-error)] shadow-[var(--shadow-sm)]'
-                  }`}
-                >
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'Debt' ? 'bg-[rgba(239,68,68,0.22)]' : 'bg-[rgba(239,68,68,0.12)]'}`}>
-                    <AlertTriangle size={16} className="text-[var(--color-error)]" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-1">
-                      <div className="text-[10px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Debt</div>
-                      {displayTotals.unpaidDebtCount > 0 && (
-                        <span className="text-[10px] font-mono font-bold bg-[rgba(239,68,68,0.2)] text-[var(--color-error)] px-1 py-0.5 rounded shrink-0">{displayTotals.unpaidDebtCount}</span>
-                      )}
-                    </div>
-                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.debtAmount)}`}</div>
-                  </div>
-                </button>
-
-                {/* Wallet */}
-                <button
-                  onClick={() => setModeFilter(modeFilter === 'Wallet' ? 'All' : 'Wallet')}
-                  className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
-                    modeFilter === 'Wallet'
-                      ? 'bg-[rgba(168,85,247,0.06)] border-[var(--color-purple-border)] shadow-[var(--shadow-purple)]'
-                      : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-purple-border)] shadow-[var(--shadow-sm)]'
-                  }`}
-                >
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'Wallet' ? 'bg-[rgba(168,85,247,0.22)]' : 'bg-[rgba(168,85,247,0.12)]'}`}>
-                    <Wallet size={16} className="text-[var(--color-purple-fg)]" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[10px] font-mono text-[var(--color-purple-fg)] uppercase tracking-wider truncate">Wallet</div>
-                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-purple-fg)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.walletAmount)}`}</div>
-                  </div>
-                </button>
-              </div>
-
-              {/* Office Work (B2B) vs Individual split for unpaid Debt --
-                  labeled per DebtorsTab.tsx's existing "Office Work (B2B)"
-                  wording. Selecting one narrows the ledger to unpaid Debt
-                  entries of that class (implies Debt regardless of
-                  modeFilter); the two totals themselves are computed from
-                  filteredEntries just like the KPI tiles above, so they
-                  narrow together with every other active filter. */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-                <button
-                  onClick={() => {
-                    const next = debtClassFilter === 'Office' ? 'All' : 'Office';
-                    setDebtClassFilter(next);
-                    // Selecting a debt-class filter implies mode==='Debt' --
-                    // without forcing modeFilter to match, an unrelated
-                    // active mode filter (e.g. 'Cash') would combine with
-                    // this one to silently produce zero rows.
-                    if (next !== 'All') setModeFilter('Debt');
-                  }}
-                  className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
-                    debtClassFilter === 'Office'
-                      ? 'bg-[rgba(239,68,68,0.06)] border-[var(--color-error)] shadow-[var(--shadow-error)]'
-                      : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-error)] shadow-[var(--shadow-sm)]'
-                  }`}
-                >
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${debtClassFilter === 'Office' ? 'bg-[rgba(239,68,68,0.22)]' : 'bg-[rgba(239,68,68,0.12)]'}`}>
-                    <Building2 size={14} className="text-[var(--color-error)]" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[10px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Office Debt (B2B)</div>
-                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={11} className="animate-spin" /> : `₦${fmt(displayTotals.officeDebtAmount)}`}</div>
-                  </div>
-                </button>
-                <button
-                  onClick={() => {
-                    const next = debtClassFilter === 'Individual' ? 'All' : 'Individual';
-                    setDebtClassFilter(next);
-                    if (next !== 'All') setModeFilter('Debt');
-                  }}
-                  className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
-                    debtClassFilter === 'Individual'
-                      ? 'bg-[rgba(239,68,68,0.06)] border-[var(--color-error)] shadow-[var(--shadow-error)]'
-                      : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-error)] shadow-[var(--shadow-sm)]'
-                  }`}
-                >
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${debtClassFilter === 'Individual' ? 'bg-[rgba(239,68,68,0.22)]' : 'bg-[rgba(239,68,68,0.12)]'}`}>
-                    <UserIcon size={14} className="text-[var(--color-error)]" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[10px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Individual Debt</div>
-                    <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={11} className="animate-spin" /> : `₦${fmt(displayTotals.individualDebtAmount)}`}</div>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-              {/* ── Type Quick-Filter Chips ──────────────────────── */}
-              <div className="px-4 py-2 border-b border-[var(--color-border)]">
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-                {([
-                  { label: 'All',        value: 'All',        activeClass: 'bg-[var(--color-surface-2)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
-                  { label: 'Cargo',      value: 'Cargo',      activeClass: 'bg-[rgba(59,130,246,0.15)] border-[var(--color-accent-cobalt)] text-[var(--color-accent-cobalt)]' },
-                  { label: 'Baggage',    value: 'Baggage',    activeClass: 'bg-[rgba(251,191,36,0.15)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
-                  { label: 'Marketing',  value: 'Marketing',  activeClass: 'bg-[rgba(16,185,129,0.15)] border-[var(--color-success)] text-[var(--color-success)]' },
-                  { label: 'Package',    value: 'Package',    activeClass: 'bg-[rgba(168,85,247,0.15)] border-[var(--color-purple-border)] text-[var(--color-purple-fg)]' },
-                  { label: 'Expense',    value: 'Expense',    activeClass: 'bg-[rgba(239,68,68,0.15)] border-[var(--color-error)] text-[var(--color-error)]' },
-                  { label: 'Office Work',value: 'Office Work',activeClass: 'bg-[var(--color-surface-2)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
-                ] as const).map(({ label, value, activeClass }) => {
-                  const count = typeChipCounts[value] ?? 0;
-                  const isActive = normalizeType(typeFilter) === value;
-                  return (
-                    <button
-                      key={value}
-                      onClick={() => setTypeFilter(value)}
-                      className={`shrink-0 h-7 px-2.5 rounded-full text-[10px] font-mono font-bold border transition-all cursor-pointer flex items-center gap-1 ${
-                        isActive
-                          ? activeClass
-                          : 'bg-[var(--color-surface-1)] border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-muted)]'
+                  {/* 6-Card KPI Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                    {/* Total */}
+                    <div
+                      onClick={() => setModeFilter('All')}
+                      className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all cursor-pointer ${
+                        modeFilter === 'All'
+                          ? 'bg-[rgba(251,191,36,0.06)] border-[var(--color-accent-amber)] shadow-[var(--shadow-amber)]'
+                          : 'bg-[var(--color-surface-card)] border-[rgba(251,191,36,0.35)] hover:border-[var(--color-accent-amber)] shadow-[var(--shadow-sm),0_0_18px_-6px_rgba(251,191,36,0.35)]'
                       }`}
                     >
-                      {label}
-                      <span className={`text-[10px] px-1 py-0 rounded-full min-w-[16px] text-center ${
-                        isActive ? 'bg-[rgba(255,255,255,0.15)]' : 'bg-[var(--color-surface-2)]'
-                      }`}>
-                        {count}
-                      </span>
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'All' ? 'bg-[rgba(251,191,36,0.22)]' : 'bg-[rgba(251,191,36,0.12)]'}`}>
+                        <LayoutGrid size={16} className="text-[var(--color-accent-amber)]" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[10px] font-mono text-[var(--color-accent-amber)] uppercase tracking-wider truncate">Total</div>
+                        <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-foreground)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.totalAmount)}`}</div>
+                      </div>
+                    </div>
+
+                    {/* Cash */}
+                    <button
+                      onClick={() => setModeFilter(modeFilter === 'Cash' ? 'All' : 'Cash')}
+                      className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
+                        modeFilter === 'Cash'
+                          ? 'bg-[rgba(16,185,129,0.06)] border-[var(--color-success)] shadow-[var(--shadow-success)]'
+                          : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-success)] shadow-[var(--shadow-sm)]'
+                      }`}
+                    >
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'Cash' ? 'bg-[rgba(16,185,129,0.22)]' : 'bg-[rgba(16,185,129,0.12)]'}`}>
+                        <Banknote size={16} className="text-[var(--color-success)]" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <div className="text-[10px] font-mono text-[var(--color-success)] uppercase tracking-wider truncate">Cash</div>
+                          {isAccountantOrAdmin && unverifiedCash.length > 0 && (
+                            <span className="text-[10px] font-mono font-bold bg-[rgba(251,191,36,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unverifiedCash.length}</span>
+                          )}
+                        </div>
+                        <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-success)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.cashAmount)}`}</div>
+                      </div>
                     </button>
-                  );
-                })}
-              </div>
+
+                    {/* Transfer */}
+                    <button
+                      onClick={() => setModeFilter(modeFilter === 'Transfer' ? 'All' : 'Transfer')}
+                      className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
+                        modeFilter === 'Transfer'
+                          ? 'bg-[rgba(59,130,246,0.06)] border-[var(--color-accent-cobalt)] shadow-[var(--shadow-cobalt)]'
+                          : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-accent-cobalt)] shadow-[var(--shadow-sm)]'
+                      }`}
+                    >
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'Transfer' ? 'bg-[rgba(59,130,246,0.22)]' : 'bg-[rgba(59,130,246,0.12)]'}`}>
+                        <ArrowLeftRight size={16} className="text-[var(--color-accent-cobalt)]" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <div className="text-[10px] font-mono text-[var(--color-accent-cobalt)] uppercase tracking-wider truncate">Transfer</div>
+                          {isAccountantOrAdmin && unconfirmedTransfer.length > 0 && (
+                            <span className="text-[10px] font-mono font-bold bg-[rgba(251,191,36,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unconfirmedTransfer.length}</span>
+                          )}
+                        </div>
+                        <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-accent-cobalt)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.transferAmount)}`}</div>
+                      </div>
+                    </button>
+
+                    {/* POS */}
+                    <button
+                      onClick={() => setModeFilter(modeFilter === 'POS' ? 'All' : 'POS')}
+                      className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
+                        modeFilter === 'POS'
+                          ? 'bg-[rgba(251,191,36,0.06)] border-[var(--color-accent-amber)] shadow-[var(--shadow-amber)]'
+                          : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-accent-amber)] shadow-[var(--shadow-sm)]'
+                      }`}
+                    >
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'POS' ? 'bg-[rgba(251,191,36,0.22)]' : 'bg-[rgba(251,191,36,0.12)]'}`}>
+                        <CreditCard size={16} className="text-[var(--color-accent-amber)]" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <div className="text-[10px] font-mono text-[var(--color-accent-amber)] uppercase tracking-wider truncate">POS</div>
+                          {isAccountantOrAdmin && unconfirmedPOS.length > 0 && (
+                            <span className="text-[10px] font-mono font-bold bg-[rgba(251,191,36,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unconfirmedPOS.length}</span>
+                          )}
+                        </div>
+                        <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-accent-amber)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.posAmount)}`}</div>
+                      </div>
+                    </button>
+
+                    {/* Debt */}
+                    <button
+                      onClick={() => setModeFilter(modeFilter === 'Debt' ? 'All' : 'Debt')}
+                      className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
+                        modeFilter === 'Debt'
+                          ? 'bg-[rgba(239,68,68,0.06)] border-[var(--color-error)] shadow-[var(--shadow-error)]'
+                          : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-error)] shadow-[var(--shadow-sm)]'
+                      }`}
+                    >
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'Debt' ? 'bg-[rgba(239,68,68,0.22)]' : 'bg-[rgba(239,68,68,0.12)]'}`}>
+                        <AlertTriangle size={16} className="text-[var(--color-error)]" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <div className="text-[10px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Debt</div>
+                          {displayTotals.unpaidDebtCount > 0 && (
+                            <span className="text-[10px] font-mono font-bold bg-[rgba(239,68,68,0.2)] text-[var(--color-error)] px-1 py-0.5 rounded shrink-0">{displayTotals.unpaidDebtCount}</span>
+                          )}
+                        </div>
+                        <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.debtAmount)}`}</div>
+                      </div>
+                    </button>
+
+                    {/* Wallet */}
+                    <button
+                      onClick={() => setModeFilter(modeFilter === 'Wallet' ? 'All' : 'Wallet')}
+                      className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
+                        modeFilter === 'Wallet'
+                          ? 'bg-[rgba(168,85,247,0.06)] border-[var(--color-purple-border)] shadow-[var(--shadow-purple)]'
+                          : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-purple-border)] shadow-[var(--shadow-sm)]'
+                      }`}
+                    >
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'Wallet' ? 'bg-[rgba(168,85,247,0.22)]' : 'bg-[rgba(168,85,247,0.12)]'}`}>
+                        <Wallet size={16} className="text-[var(--color-purple-fg)]" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[10px] font-mono text-[var(--color-purple-fg)] uppercase tracking-wider truncate">Wallet</div>
+                        <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-purple-fg)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.walletAmount)}`}</div>
+                      </div>
+                    </button>
+                  </div>
+
+                  {/* Office Work (B2B) vs Individual Debt Split */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      onClick={() => {
+                        const next = debtClassFilter === 'Office' ? 'All' : 'Office';
+                        setDebtClassFilter(next);
+                        if (next !== 'All') setModeFilter('Debt');
+                      }}
+                      className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
+                        debtClassFilter === 'Office'
+                          ? 'bg-[rgba(239,68,68,0.06)] border-[var(--color-error)] shadow-[var(--shadow-error)]'
+                          : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-error)] shadow-[var(--shadow-sm)]'
+                      }`}
+                    >
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${debtClassFilter === 'Office' ? 'bg-[rgba(239,68,68,0.22)]' : 'bg-[rgba(239,68,68,0.12)]'}`}>
+                        <Building2 size={14} className="text-[var(--color-error)]" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[10px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Office Debt (B2B)</div>
+                        <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={11} className="animate-spin" /> : `₦${fmt(displayTotals.officeDebtAmount)}`}</div>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => {
+                        const next = debtClassFilter === 'Individual' ? 'All' : 'Individual';
+                        setDebtClassFilter(next);
+                        if (next !== 'All') setModeFilter('Debt');
+                      }}
+                      className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
+                        debtClassFilter === 'Individual'
+                          ? 'bg-[rgba(239,68,68,0.06)] border-[var(--color-error)] shadow-[var(--shadow-error)]'
+                          : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-error)] shadow-[var(--shadow-sm)]'
+                      }`}
+                    >
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${debtClassFilter === 'Individual' ? 'bg-[rgba(239,68,68,0.22)]' : 'bg-[rgba(239,68,68,0.12)]'}`}>
+                        <UserIcon size={14} className="text-[var(--color-error)]" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[10px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Individual Debt</div>
+                        <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={11} className="animate-spin" /> : `₦${fmt(displayTotals.individualDebtAmount)}`}</div>
+                      </div>
+                    </button>
+                  </div>
+
+                  {/* Airline Weight Manifest Summary */}
+                  {airlineManifestSummary.length > 0 && (
+                    <div className="pt-1 overflow-x-auto">
+                      <div className="flex items-center gap-2 flex-nowrap min-w-max">
+                        <span className="text-[10px] font-mono font-bold text-[var(--color-muted)] uppercase tracking-wider shrink-0">
+                          Airline Weight Manifest:
+                        </span>
+                        {airlineManifestSummary.map((a) => (
+                          <div
+                            key={a.airline}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--color-surface-card)] border border-[var(--color-border)] shrink-0"
+                            title={`${a.entries} entries`}
+                          >
+                            <span className="text-[10px] font-bold font-mono text-[var(--color-foreground)]">{a.airline}</span>
+                            <span className="text-[10px] font-mono text-[var(--color-accent-cobalt)]">{a.kg.toFixed(0)}KG</span>
+                            <span className="text-[10px] font-mono text-[var(--color-muted)]">{a.pieces}PC</span>
+                            <span className="text-[10px] font-mono text-[var(--color-success)] font-bold">₦{fmt(a.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
-              {/* ── Airline Weight Manifest Summary ──────────────────────
-                  Read-only roll-up of whatever's currently filtered above --
-                  not the manually-entered cargo_weight_manifests tool
-                  (that's a separate feature, unchanged). Last section in the
-                  unified panel, so no bottom border of its own. */}
-              {airlineManifestSummary.length > 0 && (
-                <div className="px-4 py-2.5 overflow-x-auto">
-                  <div className="flex items-center gap-2 flex-nowrap min-w-max">
-                    <span className="text-[10px] font-mono font-bold text-[var(--color-muted)] uppercase tracking-wider shrink-0">
-                      Airline Weight Manifest:
-                    </span>
-                    {airlineManifestSummary.map((a) => (
-                      <div
-                        key={a.airline}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--color-surface-card)] border border-[var(--color-border)] shrink-0"
-                        title={`${a.entries} entries`}
+            {/* ── TIER 3: Pinned / Sticky Ledger Controller (Category Tabs + Compact Filter Bar) ── */}
+            <div className="shrink-0 sticky top-0 z-30 bg-[var(--color-obsidian)]/95 backdrop-blur-md border-b border-[var(--color-border)] px-3 py-2 space-y-2 shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
+              {/* Row 1: Category Quick-Filter Tabs + Active Filter Reset */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                  {([
+                    { label: 'All',        value: 'All',        activeClass: 'bg-[var(--color-surface-2)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
+                    { label: 'Cargo',      value: 'Cargo',      activeClass: 'bg-[rgba(59,130,246,0.15)] border-[var(--color-accent-cobalt)] text-[var(--color-accent-cobalt)]' },
+                    { label: 'Baggage',    value: 'Baggage',    activeClass: 'bg-[rgba(251,191,36,0.15)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
+                    { label: 'Marketing',  value: 'Marketing',  activeClass: 'bg-[rgba(16,185,129,0.15)] border-[var(--color-success)] text-[var(--color-success)]' },
+                    { label: 'Package',    value: 'Package',    activeClass: 'bg-[rgba(168,85,247,0.15)] border-[var(--color-purple-border)] text-[var(--color-purple-fg)]' },
+                    { label: 'Expense',    value: 'Expense',    activeClass: 'bg-[rgba(239,68,68,0.15)] border-[var(--color-error)] text-[var(--color-error)]' },
+                    { label: 'Office Work',value: 'Office Work',activeClass: 'bg-[var(--color-surface-2)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)]' },
+                  ] as const).map(({ label, value, activeClass }) => {
+                    const count = typeChipCounts[value] ?? 0;
+                    const isActive = normalizeType(typeFilter) === value;
+                    return (
+                      <button
+                        key={value}
+                        onClick={() => setTypeFilter(value)}
+                        className={`shrink-0 h-7 px-2.5 rounded-full text-[10px] font-mono font-bold border transition-all cursor-pointer flex items-center gap-1 ${
+                          isActive
+                            ? activeClass
+                            : 'bg-[var(--color-surface-1)] border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-muted)]'
+                        }`}
                       >
-                        <span className="text-[10px] font-bold font-mono text-[var(--color-foreground)]">{a.airline}</span>
-                        <span className="text-[10px] font-mono text-[var(--color-accent-cobalt)]">{a.kg.toFixed(0)}KG</span>
-                        <span className="text-[10px] font-mono text-[var(--color-muted)]">{a.pieces}PC</span>
-                        <span className="text-[10px] font-mono text-[var(--color-success)] font-bold">₦{fmt(a.amount)}</span>
-                      </div>
+                        {label}
+                        <span className={`text-[10px] px-1 py-0 rounded-full min-w-[16px] text-center ${
+                          isActive ? 'bg-[rgba(255,255,255,0.15)]' : 'bg-[var(--color-surface-2)]'
+                        }`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Inline Filter Status & Reset */}
+                <div className="flex items-center gap-2 shrink-0 ml-auto">
+                  {shiftFilter === 'current' && !hasNonDefaultFilters && (
+                    <span className="hidden lg:inline-flex items-center gap-1 text-[10px] font-mono text-[var(--color-muted)]">
+                      <Clock size={10} />
+                      <span>Shift scope</span>
+                    </span>
+                  )}
+                  {hasNonDefaultFilters && (
+                    <div className="flex items-center gap-2 font-mono text-[10px]">
+                      <span className="text-[var(--color-accent-amber)] flex items-center gap-1 font-bold">
+                        <Filter size={10} />
+                        <span>{activeFilterCount} active</span>
+                      </span>
+                      <button
+                        onClick={resetAllFilters}
+                        className="px-2 py-0.5 rounded bg-[var(--color-surface-2)] text-[var(--color-foreground)] hover:text-[var(--color-accent-amber)] font-bold transition-colors cursor-pointer"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Row 2: Unified Search + Shift Toggle + Date / Mode / Terminal / Time Filters */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                {/* Search + Shift Scope */}
+                <div className="flex items-center gap-2 flex-1 min-w-[260px]">
+                  <div className="flex-1 relative group">
+                    <button
+                      type="button"
+                      onClick={() => commitSearch(searchInput)}
+                      aria-label="Search"
+                      title="Search"
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 p-0.5 bg-transparent border-none cursor-pointer text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] transition-colors group-focus-within:text-[var(--color-accent-amber)]"
+                    >
+                      <Search size={13} />
+                    </button>
+                    <input
+                      id="ledger-search"
+                      name="search"
+                      type="text"
+                      placeholder="Search name, amount, ref... (Enter)"
+                      value={searchInput}
+                      onChange={(e) => handleSearchInputChange(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') commitSearch(searchInput); }}
+                      className="w-full h-8 pl-8 pr-7 bg-[var(--color-surface-1)] border border-[var(--color-border)] focus:border-[var(--color-accent-amber)] rounded-full text-[11px] font-sans text-[var(--color-foreground)] focus:outline-none focus:shadow-[0_0_12px_rgba(251,191,36,0.15)] transition-all placeholder-[var(--color-muted)] font-medium"
+                    />
+                    {searchInput && (
+                      <button
+                        type="button"
+                        onClick={clearSearch}
+                        aria-label="Clear search"
+                        title="Clear search"
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 bg-transparent border-none cursor-pointer text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Shift scope pills */}
+                  <div className="flex items-center gap-0.5 p-0.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full shrink-0">
+                    {(['current', 'all'] as const).map((scope) => (
+                      <button
+                        key={scope}
+                        onClick={() => {
+                          setShiftFilter(scope);
+                          if (scope === 'all' && !allTimeEngaged) {
+                            fetchAllTimeFirstPage();
+                          }
+                        }}
+                        className={`h-7 px-3 rounded-full text-[10px] font-mono font-bold transition-all cursor-pointer inline-flex items-center justify-center gap-1 ${
+                          shiftFilter === scope
+                            ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-sm'
+                            : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-hover)]'
+                        }`}
+                      >
+                        {scope === 'all' && allTimeFirstLoadInFlight && <Loader2 size={10} className="animate-spin" />}
+                        {scope === 'current' ? 'Current Shift' : 'All Time'}
+                      </button>
                     ))}
                   </div>
                 </div>
-              )}
-            </div>
 
-            {/* ── Filter Strip ─────────────────────────────────── */}
-            {/* Same frosted-glass treatment as the Top Bar above -- see its
-                comment. */}
-            <div className="mx-3 mt-2.5 px-4 py-3 rounded-2xl space-y-2.5 shrink-0 bg-[var(--color-surface-card-glass)] backdrop-blur-xl border border-[var(--color-border)] shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
-              {/* Row 1: Search + Shift Scope */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
-                <div className="w-full sm:flex-1 relative group">
-                  <button
-                    type="button"
-                    onClick={() => commitSearch(searchInput)}
-                    aria-label="Search"
-                    title="Search"
-                    className="absolute left-2.5 top-1/2 -translate-y-1/2 p-0.5 bg-transparent border-none cursor-pointer text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] transition-colors group-focus-within:text-[var(--color-accent-amber)]"
-                  >
-                    <Search size={13} />
-                  </button>
-                  <input
-                    id="ledger-search"
-                    name="search"
-                    type="text"
-                    placeholder="Search name, amount, reference... (press Enter)"
-                    value={searchInput}
-                    onChange={(e) => handleSearchInputChange(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') commitSearch(searchInput); }}
-                    className="w-full h-9 pl-9 pr-8 bg-[var(--color-surface-1)] border border-[var(--color-border)] focus:border-[var(--color-accent-amber)] rounded-full text-[11px] font-sans text-[var(--color-foreground)] focus:outline-none focus:shadow-[0_0_12px_rgba(251,191,36,0.15)] transition-all placeholder-[var(--color-muted)] font-medium"
-                  />
-                  {searchInput && (
-                    <button
-                      type="button"
-                      onClick={clearSearch}
-                      aria-label="Clear search"
-                      title="Clear search"
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 bg-transparent border-none cursor-pointer text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
+                {/* Filter Dropdowns (Date Range, Mode, Terminal, Time) */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {/* Date range */}
+                  {dateRange && onDateRangeChange && (
+                    <div
+                      className="flex items-center gap-1.5 h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-full font-mono text-[10px] text-[var(--color-foreground)] transition-colors group"
+                      title="Select a custom date range to filter transactions"
                     >
-                      <X size={13} />
-                    </button>
+                      <Calendar size={11} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors shrink-0" />
+                      <input
+                        id="ledger-date-start"
+                        name="date-start"
+                        type="date"
+                        value={dateRange.start}
+                        max={dateRange.end || undefined}
+                        onChange={(e) => {
+                          const newStart = e.target.value;
+                          if (shiftFilter === 'current') {
+                            setShiftFilter('all');
+                            if (!allTimeEngaged) fetchAllTimeFirstPage();
+                          }
+                          onDateRangeChange({ ...dateRange, start: newStart });
+                        }}
+                        className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none h-full w-[96px] font-bold cursor-pointer"
+                      />
+                      <span className="text-[var(--color-muted)] font-sans">→</span>
+                      <input
+                        id="ledger-date-end"
+                        name="date-end"
+                        type="date"
+                        value={dateRange.end}
+                        min={dateRange.start || undefined}
+                        onChange={(e) => {
+                          const newEnd = e.target.value;
+                          if (shiftFilter === 'current') {
+                            setShiftFilter('all');
+                            if (!allTimeEngaged) fetchAllTimeFirstPage();
+                          }
+                          onDateRangeChange({ ...dateRange, end: newEnd });
+                        }}
+                        className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none h-full w-[96px] font-bold cursor-pointer"
+                      />
+                      {(dateRange.start || dateRange.end) && (
+                        <button
+                          title="Clear Date Range"
+                          onClick={() => {
+                            onDateRangeChange({ start: '', end: '' });
+                            if (shiftFilter === 'current') {
+                              setShiftFilter('all');
+                              if (!allTimeEngaged) fetchAllTimeFirstPage();
+                            }
+                          }}
+                          className="text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] transition-colors p-0.5 cursor-pointer"
+                        >
+                          <X size={10} />
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Mode filter */}
+                  <div className="relative flex items-center h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-full font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
+                    <HandCoins size={10} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] mr-1.5 shrink-0 transition-colors" />
+                    <select
+                      value={modeFilter}
+                      onChange={(e) => setModeFilter(e.target.value)}
+                      className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none cursor-pointer h-full appearance-none font-bold pr-1"
+                    >
+                      <option value="All" className="bg-[var(--color-surface-card)]">All Modes</option>
+                      <option value="Revenue" className="bg-[var(--color-surface-card)]">Revenue Only</option>
+                      <option value="Expense" className="bg-[var(--color-surface-card)]">Expense Only</option>
+                      <option value="Cash" className="bg-[var(--color-surface-card)]">Cash</option>
+                      <option value="Transfer" className="bg-[var(--color-surface-card)]">Transfer</option>
+                      <option value="POS" className="bg-[var(--color-surface-card)]">POS</option>
+                      <option value="Wallet" className="bg-[var(--color-surface-card)]">Wallet</option>
+                      <option value="Debt" className="bg-[var(--color-surface-card)]">Debt</option>
+                      <option value="Unverified" className="bg-[var(--color-surface-card)]">Unverified</option>
+                      <option value="Retrieved" className="bg-[var(--color-surface-card)]">Retrieved</option>
+                      <option value="Debt Paid" className="bg-[var(--color-surface-card)]">Debt Cleared</option>
+                      <option value="Debt Clearance" className="bg-[var(--color-surface-card)]">Debt Clearance</option>
+                    </select>
+                    <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-muted)] pointer-events-none group-hover:text-[var(--color-accent-amber)] transition-colors" />
+                  </div>
+
+                  {/* Terminal filter */}
+                  {(userHubCode === 'LOS' || hasGat) && (
+                    <div className="flex items-center gap-0.5 h-8 p-0.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full font-mono text-[10px]">
+                      {(['All', 'MMA2', 'GAT'] as const).map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setTerminalFilter(t)}
+                          className={`h-7 px-2.5 rounded-full text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                            terminalFilter === t
+                              ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-sm'
+                              : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-hover)]'
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Time filter */}
+                  <div className="relative flex items-center h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-full font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
+                    <Clock size={10} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] mr-1.5 shrink-0 transition-colors" />
+                    <select
+                      value={timeFilter}
+                      onChange={(e) => setTimeFilter(e.target.value as any)}
+                      className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none cursor-pointer h-full appearance-none font-bold pr-1"
+                    >
+                      <option value="All" className="bg-[var(--color-surface-card)]">All Hours</option>
+                      <option value="Morning" className="bg-[var(--color-surface-card)]">Morning (06–12)</option>
+                      <option value="Afternoon" className="bg-[var(--color-surface-card)]">Afternoon (12–17)</option>
+                      <option value="Evening" className="bg-[var(--color-surface-card)]">Evening (17–24)</option>
+                      <option value="Custom" className="bg-[var(--color-surface-card)]">Custom…</option>
+                    </select>
+                    <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-muted)] pointer-events-none group-hover:text-[var(--color-accent-amber)] transition-colors" />
+                  </div>
+
+                  {/* Custom Time range */}
+                  {timeFilter === "Custom" && (
+                    <div className="flex items-center gap-1.5 h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-full font-mono text-[10px] text-[var(--color-foreground)] transition-colors">
+                      <input
+                        id="ledger-time-start"
+                        name="time-start"
+                        type="time"
+                        value={timeStart}
+                        onChange={(e) => setTimeStart(e.target.value)}
+                        className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none h-full w-[72px] cursor-pointer"
+                      />
+                      <span className="text-[var(--color-muted)] font-sans">–</span>
+                      <input
+                        id="ledger-time-end"
+                        name="time-end"
+                        type="time"
+                        value={timeEnd}
+                        onChange={(e) => setTimeEnd(e.target.value)}
+                        className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none h-full w-[72px] cursor-pointer"
+                      />
+                    </div>
                   )}
                 </div>
-                {/* Shift scope pills */}
-                <div className="flex items-center gap-1 p-0.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full shrink-0 w-full sm:w-auto">
-                  {(['current', 'all'] as const).map((scope) => (
-                    <button
-                      key={scope}
-                      onClick={() => {
-                        setShiftFilter(scope);
-                        // First engagement only -- kicks off the paginated
-                        // fetch (see allTimeFilterParams/fetchAllTimeFirstPage
-                        // above). Subsequent search/filter changes while
-                        // already engaged are picked up by their own effect
-                        // instead of here, so switching tabs and back doesn't
-                        // force a wasted refetch.
-                        //
-                        // This used to also call onDateRangeChange to widen
-                        // globalDateRange to 5 years on 'all' (and narrow it
-                        // back to 14 days on 'current') -- a leftover from
-                        // before pagination existed, when that widening was
-                        // what fed the old eager fetch. It's gone: neither
-                        // mode's own data depends on globalDateRange anymore
-                        // (All Time is fully served by the RPC, not
-                        // date-bounded at all; Current Shift already sources
-                        // from the transactions/expenses props via the real
-                        // shift-boundary logic above, independent of
-                        // globalDateRange). Keeping the call was firing
-                        // EHIApp.tsx's fetchInitial (5 queries, up to 5000
-                        // rows each) on every click, at the same instant as
-                        // the new ~500-row RPC page -- the actual cause of
-                        // "All Time feels slow," not the RPC itself. It also
-                        // meant switching tabs afterward showed Tower/
-                        // Analytics a 5-year window as a side effect of a
-                        // Ledger-only toggle, which is gone too now.
-                        if (scope === 'all' && !allTimeEngaged) {
-                          fetchAllTimeFirstPage();
-                        }
-                      }}
-                      className={`h-7 px-3.5 rounded-full text-[10px] font-mono font-bold transition-all cursor-pointer flex-1 sm:flex-initial text-center inline-flex items-center justify-center gap-1.5 ${
-                        shiftFilter === scope
-                          ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-md'
-                          : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-hover)]'
-                      }`}
-                    >
-                      {/* Confirms the click registered immediately -- the
-                          click itself was never slow (setShiftFilter is
-                          synchronous), but nothing here used to show that
-                          before allTimeTotals/allTimeTxRows actually arrived. */}
-                      {scope === 'all' && allTimeFirstLoadInFlight && <Loader2 size={10} className="animate-spin" />}
-                      {scope === 'current' ? 'Current Shift' : 'All Time'}
-                    </button>
-                  ))}
-                </div>
               </div>
-
-              {/* Static reminder, not tied to result count -- shiftFilter is a
-                  real, always-on narrowing filter (hides anything outside the
-                  active/most-recent shift window) but was previously excluded
-                  from the "N filters active" banner below and from Reset
-                  Filters, so an entry outside the current shift could look
-                  like it doesn't exist with zero on-screen explanation. */}
-              {shiftFilter === 'current' && (
-                <div className="text-[10px] font-mono text-[var(--color-muted)] flex items-center gap-1">
-                  <Clock size={10} />
-                  <span>Only this shift's entries — switch to "All Time" for older results.</span>
-                </div>
-              )}
-
 
               {allTimeTotalsExcludeSomeActiveFilters && (
                 <div className="text-[10px] font-mono text-[var(--color-muted)] flex items-center gap-1">
@@ -4361,190 +4657,11 @@ export const TransactionLedger = ({
                   <span>Totals above don't account for Time/Flight/Dest filters or this Mode filter yet — they only narrow what's currently loaded on screen.</span>
                 </div>
               )}
-
-              {/* Row 2: Filter dropdowns */}
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* Date range */}
-                {dateRange && onDateRangeChange && (
-                  <div
-                    className="flex items-center gap-2 h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-full font-mono text-[10px] text-[var(--color-foreground)] transition-colors group"
-                    title="Select a custom date range to filter transactions"
-                  >
-                    <Calendar size={11} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] transition-colors" />
-                    <input
-                      id="ledger-date-start"
-                      name="date-start"
-                      type="date"
-                      value={dateRange.start}
-                      max={dateRange.end || undefined}
-                      onChange={(e) => {
-                        const newStart = e.target.value;
-                        if (shiftFilter === 'current') {
-                          setShiftFilter('all');
-                          if (!allTimeEngaged) fetchAllTimeFirstPage();
-                        }
-                        onDateRangeChange({ ...dateRange, start: newStart });
-                      }}
-                      className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none h-full w-[100px] font-bold cursor-pointer"
-                    />
-                    <span className="text-[var(--color-muted)] font-sans">→</span>
-                    <input
-                      id="ledger-date-end"
-                      name="date-end"
-                      type="date"
-                      value={dateRange.end}
-                      min={dateRange.start || undefined}
-                      onChange={(e) => {
-                        const newEnd = e.target.value;
-                        if (shiftFilter === 'current') {
-                          setShiftFilter('all');
-                          if (!allTimeEngaged) fetchAllTimeFirstPage();
-                        }
-                        onDateRangeChange({ ...dateRange, end: newEnd });
-                      }}
-                      className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none h-full w-[100px] font-bold cursor-pointer"
-                    />
-                    {(dateRange.start || dateRange.end) && (
-                      <button
-                        title="Clear Date Range (View All Historical Dates)"
-                        onClick={() => {
-                          onDateRangeChange({ start: '', end: '' });
-                          if (shiftFilter === 'current') {
-                            setShiftFilter('all');
-                            if (!allTimeEngaged) fetchAllTimeFirstPage();
-                          }
-                        }}
-                        className="text-[var(--color-muted)] hover:text-[var(--color-accent-amber)] transition-colors p-0.5 ml-0.5 cursor-pointer"
-                      >
-                        <X size={10} />
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* Type filter */}
-                <div className="relative flex items-center h-9 sm:h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-full font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
-                  <Filter size={10} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] mr-2 shrink-0 transition-colors" />
-                  <select
-                    value={normalizeType(typeFilter)}
-                    onChange={(e) => setTypeFilter(e.target.value)}
-                    className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none cursor-pointer h-full appearance-none font-bold pr-1"
-                  >
-                    <option value="All" className="bg-[var(--color-surface-card)]">All Types</option>
-                    <option value="Cargo" className="bg-[var(--color-surface-card)]">Cargo</option>
-                    <option value="Baggage" className="bg-[var(--color-surface-card)]">Baggage</option>
-                    <option value="Marketing" className="bg-[var(--color-surface-card)]">Marketing</option>
-                    <option value="Package" className="bg-[var(--color-surface-card)]">Package</option>
-                    <option value="Expense" className="bg-[var(--color-surface-card)]">Expense</option>
-                    <option value="Office Work" className="bg-[var(--color-surface-card)]">Office Work</option>
-                  </select>
-                  <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-muted)] pointer-events-none group-hover:text-[var(--color-accent-amber)] transition-colors" />
-                </div>
-
-                {/* Mode filter */}
-                <div className="relative flex items-center h-9 sm:h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-full font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
-                  <HandCoins size={10} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] mr-2 shrink-0 transition-colors" />
-                  <select
-                    value={modeFilter}
-                    onChange={(e) => setModeFilter(e.target.value)}
-                    className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none cursor-pointer h-full appearance-none font-bold pr-1"
-                  >
-                    <option value="All" className="bg-[var(--color-surface-card)]">All Modes</option>
-                    <option value="Revenue" className="bg-[var(--color-surface-card)]">Revenue Only</option>
-                    <option value="Expense" className="bg-[var(--color-surface-card)]">Expense Only</option>
-                    <option value="Cash" className="bg-[var(--color-surface-card)]">Cash</option>
-                    <option value="Transfer" className="bg-[var(--color-surface-card)]">Transfer</option>
-                    <option value="POS" className="bg-[var(--color-surface-card)]">POS</option>
-                    <option value="Wallet" className="bg-[var(--color-surface-card)]">Wallet</option>
-                    <option value="Debt" className="bg-[var(--color-surface-card)]">Debt</option>
-                    <option value="Unverified" className="bg-[var(--color-surface-card)]">Unverified</option>
-                    <option value="Retrieved" className="bg-[var(--color-surface-card)]">Retrieved</option>
-                    <option value="Debt Paid" className="bg-[var(--color-surface-card)]">Debt Cleared</option>
-                    <option value="Debt Clearance" className="bg-[var(--color-surface-card)]">Debt Clearance</option>
-                  </select>
-                  <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-muted)] pointer-events-none group-hover:text-[var(--color-accent-amber)] transition-colors" />
-                </div>
-
-                {/* Terminal filter */}
-                {(userHubCode === 'LOS' || hasGat) && (
-                  <div className="flex items-center gap-1.5 h-9 sm:h-8 p-1 bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-full font-mono text-[10px]">
-                    {(['All', 'MMA2', 'GAT'] as const).map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => setTerminalFilter(t)}
-                        className={`h-7 sm:h-6 px-3 rounded-full text-[10px] font-mono font-bold transition-all cursor-pointer ${
-                          terminalFilter === t
-                            ? 'bg-[var(--color-accent-amber)] text-[var(--color-on-accent)] shadow-sm'
-                            : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-hover)]'
-                        }`}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Time filter */}
-                <div className="relative flex items-center h-9 sm:h-8 pl-2.5 pr-6 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-full font-mono text-[10px] text-[var(--color-foreground)] transition-colors group">
-                  <Clock size={10} className="text-[var(--color-muted)] group-hover:text-[var(--color-accent-amber)] mr-2 shrink-0 transition-colors" />
-                  <select
-                    value={timeFilter}
-                    onChange={(e) => setTimeFilter(e.target.value as any)}
-                    className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none cursor-pointer h-full appearance-none font-bold pr-1"
-                  >
-                    <option value="All" className="bg-[var(--color-surface-card)]">All Hours (24h)</option>
-                    <option value="Morning" className="bg-[var(--color-surface-card)]">Morning (06–12)</option>
-                    <option value="Afternoon" className="bg-[var(--color-surface-card)]">Afternoon (12–17)</option>
-                    <option value="Evening" className="bg-[var(--color-surface-card)]">Evening (17–24)</option>
-                    <option value="Custom" className="bg-[var(--color-surface-card)]">Custom…</option>
-                  </select>
-                  <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-muted)] pointer-events-none group-hover:text-[var(--color-accent-amber)] transition-colors" />
-                </div>
-
-                {/* Custom Time range */}
-                {timeFilter === "Custom" && (
-                  <div className="flex items-center gap-1.5 h-8 px-2.5 bg-[var(--color-surface-1)] border border-[var(--color-border)] hover:border-[var(--color-accent-amber)] rounded-full font-mono text-[10px] text-[var(--color-foreground)] transition-colors">
-                    <input
-                      id="ledger-time-start"
-                      name="time-start"
-                      type="time"
-                      value={timeStart}
-                      onChange={(e) => setTimeStart(e.target.value)}
-                      className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none h-full w-[72px] cursor-pointer"
-                    />
-                    <span className="text-[var(--color-muted)] font-sans">–</span>
-                    <input
-                      id="ledger-time-end"
-                      name="time-end"
-                      type="time"
-                      value={timeEnd}
-                      onChange={(e) => setTimeEnd(e.target.value)}
-                      className="bg-transparent text-[var(--color-foreground)] border-none focus:outline-none h-full w-[72px] cursor-pointer"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Active Filter Banner & Reset Button */}
-              {hasNonDefaultFilters && (
-                <div className="flex items-center justify-between pt-1 font-mono text-[10px]">
-                  <span className="text-[var(--color-accent-amber)] flex items-center gap-1.5 font-bold">
-                    <Filter size={11} />
-                    <span>{activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''} active</span>
-                  </span>
-                  <button
-                    onClick={resetAllFilters}
-                    className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] underline font-medium transition-colors cursor-pointer"
-                  >
-                    Reset Filters
-                  </button>
-                </div>
-              )}
             </div>
 
             {/* ── Bulk Cash Verification Banner ─────────────── */}
             {modeFilter === 'Cash' && unverifiedCash.length > 0 && isAccountantOrAdmin && (
-              <div className="px-4 py-2.5 bg-[rgba(251,191,36,0.05)] border-b border-[rgba(251,191,36,0.15)] flex items-center gap-3 shrink-0">
+              <div className="px-4 py-2 bg-[rgba(251,191,36,0.05)] border-b border-[rgba(251,191,36,0.15)] flex items-center gap-3 shrink-0">
                 <CheckSquare size={13} className={`text-[var(--color-accent-amber)] ${bulkConfirming ? 'opacity-50' : 'cursor-pointer'}`} onClick={bulkConfirming ? undefined : selectAllCash} />
                 <span className="text-[10px] font-mono text-[var(--color-accent-amber)] flex-1">{unverifiedCash.length} unverified cash {unverifiedCash.length === 1 ? 'entry' : 'entries'}</span>
                 <button
@@ -4559,7 +4676,7 @@ export const TransactionLedger = ({
 
             {/* ── Batch Select/Print Bar -- every mode; Clear is Debt-only ── */}
             {debtEntriesInView.length > 0 && (
-              <div className="px-4 py-2.5 bg-[rgba(251,191,36,0.06)] border-b border-[rgba(251,191,36,0.2)] flex flex-col sm:flex-row sm:items-center gap-2 shrink-0">
+              <div className="px-4 py-2 bg-[rgba(251,191,36,0.06)] border-b border-[rgba(251,191,36,0.2)] flex flex-col sm:flex-row sm:items-center gap-2 shrink-0">
                 <label className="flex items-center gap-2 text-[10px] font-mono font-semibold text-[var(--color-accent-amber)] cursor-pointer select-none shrink-0">
                   <input
                     type="checkbox"
@@ -4621,17 +4738,8 @@ export const TransactionLedger = ({
               </div>
             )}
 
-            {/* Table / Mobile Cards Container */}
-            <div ref={tableRef} className="flex-1 overflow-auto p-3 sm:p-4 sm:pr-16 pb-4 relative">
-              {/* Loading overlay for All Time's first fetch -- sits on top
-                  of whatever's already rendered underneath (stale Current
-                  Shift rows, or a briefly-unscoped intermediate state)
-                  rather than replacing/unmounting the actual row list, so
-                  rowVirtualizer/cardVirtualizer never experience an abrupt
-                  0-to-many remount. See this file's own history (the
-                  shiftsToMark comment above) for why an abrupt large batch
-                  of first-time measurements is exactly the shape of thing
-                  that's crashed this component before. */}
+            {/* ── TIER 4: Bounded Virtualized Table / Mobile Cards Container ── */}
+            <div ref={tableRef} className="flex-1 min-h-0 overflow-auto p-3 sm:p-4 sm:pr-16 pb-4 relative">
               {allTimeFirstLoadInFlight && (
                 <div
                   className="absolute inset-0 flex flex-col items-center justify-center gap-2 z-20"
@@ -4641,30 +4749,9 @@ export const TransactionLedger = ({
                   <span className="text-[12px] font-mono text-[var(--color-foreground)]">Loading full history…</span>
                 </div>
               )}
-              {/* Mobile Card List View (Visible on < 640px) -- virtualized via
-                  cardVirtualizer (see its declaration above): only the
-                  cards actually in/near the viewport are ever mounted,
-                  positioned with translateY against the sizer div's total
-                  height instead of relying on document flow. */}
+              {/* Mobile Card List View (Visible on < 640px) */}
               {isMobileView && (
               <div className="block sm:hidden">
-                {/* Deliberately NOT gated on allTimeFirstLoadInFlight -- an
-                    earlier version of this branch swapped the entire
-                    virtualized card list out for a single unrelated <div>
-                    while loading, then swapped hundreds of brand-new
-                    cardVirtualizer.measureElement refs back in the instant
-                    the fetch completed. That abrupt unmount/remount of the
-                    virtualized subtree landed on a component with a
-                    documented history of virtualizer/render-loop fragility
-                    under "a large All Time page lands at once" (see
-                    shiftsToMark's comment above) and is the most likely
-                    cause of a real "Maximum update depth exceeded" (React
-                    error #185) crash on a broad search against a large
-                    dataset. The overlay below (over the whole table
-                    container) covers the loading UX need instead, without
-                    ever unmounting these rows -- the virtualizer keeps
-                    incrementally tracking a continuously-existing set of
-                    DOM nodes exactly like it does the rest of the time. */}
                 {displayEntries.length === 0 ? (
                   <div className="py-8 text-center text-[var(--color-muted)] text-[12px] font-mono">
                     No entries found matching filters.
@@ -4676,10 +4763,6 @@ export const TransactionLedger = ({
                     const wrapperStyle: React.CSSProperties = {
                       position: 'absolute', top: 0, left: 0, width: '100%',
                       transform: `translateY(${virtualRow.start}px)`,
-                      // Reproduces the gap the old space-y-2.5 wrapper gave
-                      // sibling cards -- padding on the measured element
-                      // (not a sibling margin, which doesn't apply to
-                      // absolutely-positioned/reordered virtual items).
                       paddingBottom: 10,
                     };
                     if (e.type === 'shift-marker') {
@@ -4785,17 +4868,9 @@ export const TransactionLedger = ({
                           </div>
                         </div>
 
-                        {/* Badges -- airline/destination sit beside the name
-                            above instead: they're already spelled out in the
-                            detail line right under it, so a separate badge
-                            for them here would just repeat the same facts. */}
+                        {/* Badges */}
                         <div className="flex flex-wrap gap-1">
                           {e.raw?.is_debt_clearance && (
-                            // Plain label, not a button -- the whole row's
-                            // onClick already jumps to the original debt
-                            // (this row isn't its own editable/viewable
-                            // entity), so a separate nested click target
-                            // here would just be redundant.
                             <span
                               title="Tap this row to view the original debt this collection cleared"
                               className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono bg-[rgba(59,130,246,0.15)] text-[var(--color-accent-cobalt)] border border-[rgba(59,130,246,0.3)]"
@@ -4882,10 +4957,6 @@ export const TransactionLedger = ({
                               <div className={`font-mono font-bold text-[13px] ${e.source === "expense" ? "text-[var(--color-error)]" : "text-[var(--color-success)]"}`}>
                                 {e.source === "expense" ? "-" : ""}<span className="font-sans font-normal">₦</span>{fmt(e.source === "expense" ? e.amount : Math.max(0, e.amount - ((e.raw as any)?.raw?.retrieved_amount || 0)))}
                               </div>
-                              {/* Struck-through original once anything's been retrieved -- the
-                                  bold figure above is what's still un-retrieved (see the PARTIAL
-                                  badge above for how much was already taken), matching this row's
-                                  own retrieved_amount reads elsewhere in this file. */}
                               {((e.raw as any)?.raw?.retrieved_amount || 0) > 0 && (
                                 <div className="text-[10px] font-mono text-[var(--color-muted)] line-through">
                                   ₦{fmt(e.amount)}
@@ -4905,12 +4976,12 @@ export const TransactionLedger = ({
               </div>
               )}
 
-              {/* Desktop Virtualized Table (Visible on >= 640px) */}
+              {/* Desktop Virtualized Table (Visible on >= 640px) with Sticky Header */}
               {!isMobileView && (
-              <div className="hidden sm:block ehi-card overflow-hidden shadow-sm">
+              <div className="hidden sm:block ehi-card shadow-sm">
                 <div className="overflow-x-auto">
-                <table className="w-full min-w-[720px] text-left font-mono text-[10px]">
-            <thead className="bg-[var(--color-surface-card)]">
+                <table className="w-full min-w-[720px] text-left font-mono text-[10px] border-collapse">
+            <thead className="sticky top-0 z-10 bg-[var(--color-surface-card)] shadow-[0_1px_0_var(--color-border)]">
               <tr className="text-[var(--color-muted)] border-b border-[var(--color-border)] uppercase">
                 {(isAccountantOrAdmin || !viewOnly) && <th className="py-3 px-3 w-[36px]"></th>}
                 {canSeePin && <th className="py-3 px-2 w-[64px] font-medium">PIN</th>}
