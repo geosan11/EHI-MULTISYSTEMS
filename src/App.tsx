@@ -11,7 +11,9 @@ import ehiLogoImg from './assets/branding/ehi-logo.png';
 import { SplashScreen } from './components/SplashScreen';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastProvider } from './lib/ToastContext';
-import { ConfirmProvider } from './lib/ConfirmContext';
+import { ConfirmProvider, useConfirm } from './lib/ConfirmContext';
+import { getPendingSyncSummary, type PendingSyncSummary } from './lib/deviceSync';
+import { PendingSyncBanner } from './components/PendingSyncBanner';
 import { statusMeta, statusColorVar } from './lib/status';
 
 const PublicTrackingPage = () => {
@@ -418,9 +420,17 @@ const PublicTrackingPage = () => {
 };
 
 const AuthenticatedApp = () => {
+  const confirm = useConfirm();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
+  const [pendingSummary, setPendingSummary] = useState<PendingSyncSummary>({
+    pending_total: 0,
+    pending_by_table: {},
+    quarantined_count: 0,
+    quarantined_by_table: {},
+    oldest_pending_at: null,
+  });
   // Distinguishes *why* the login screen is showing, so a genuine
   // "your session expired" or "you're offline" case doesn't just look
   // like an unexplained blank login form (previously indistinguishable
@@ -496,6 +506,12 @@ const AuthenticatedApp = () => {
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  // Only needed for the signed-out banner; EHIApp owns the summary while signed in.
+  useEffect(() => {
+    if (user) return;
+    getPendingSyncSummary().then(setPendingSummary).catch(() => {});
+  }, [user]);
+
   if (authLoading) {
     return <SplashScreen />;
   }
@@ -512,10 +528,34 @@ const AuthenticatedApp = () => {
   }
 
   if (!user) {
-    return <LoginScreen onLogin={(u) => { setLoginNotice(null); setUser(u); }} notice={loginNotice} />;
+    return (
+      <div className="relative min-h-screen flex flex-col">
+        {(pendingSummary.pending_total > 0 || pendingSummary.quarantined_count > 0) && (
+          <PendingSyncBanner
+            summary={pendingSummary}
+            isSessionExpired={true}
+          />
+        )}
+        <div className="flex-1 flex flex-col">
+          <LoginScreen onLogin={(u) => { setLoginNotice(null); setUser(u); }} notice={loginNotice} />
+        </div>
+      </div>
+    );
   }
 
   const handleLogout = async () => {
+    const summary = await getPendingSyncSummary();
+    if (summary.pending_total > 0) {
+      const ok = await confirm({
+        title: 'Unsynced Records on Device',
+        message: `This counter device currently holds ${summary.pending_total} unsynced record${summary.pending_total === 1 ? '' : 's'}${summary.quarantined_count > 0 ? ` (${summary.quarantined_count} quarantined)` : ''} stored locally in Dexie. Data will remain safely on this device, but won't reach the server until someone signs in to sync. Are you sure you want to log out?`,
+        confirmLabel: 'Log Out Anyway',
+        cancelLabel: 'Stay Signed In',
+        tone: 'danger',
+      });
+      if (!ok) return;
+    }
+
     isDeliberateSignOutRef.current = true;
     await signOut();
     setUser(null);

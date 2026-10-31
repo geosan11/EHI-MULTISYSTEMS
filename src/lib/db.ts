@@ -42,6 +42,11 @@ export interface TagPoolItem {
   number: number;
 }
 
+export interface DeviceMetaItem {
+  key: string;
+  value: string;
+}
+
 class EHILocalDB extends Dexie {
   // NOTE: `shipments` was dropped in Dexie schema v3. Do NOT re-declare it --
   // a declared-but-undefined table property throws "not a constructor" at
@@ -55,6 +60,7 @@ class EHILocalDB extends Dexie {
   trip_pings!: Table<TripPing>;
   sync_queue!: Table<SyncQueueItem>;
   tag_pools!: Table<TagPoolItem>;
+  device_meta!: Table<DeviceMetaItem, string>;
 
   constructor() {
     super('EHILocalDB');
@@ -114,6 +120,17 @@ class EHILocalDB extends Dexie {
       trip_pings: '++id, tripId, timestamp, synced',
       sync_queue: '++id, table_name, record_id, synced, created_at',
       tag_pools: '++id, pool_key, number',
+    });
+    this.version(8).stores({
+      cargo_entries: 'id, synced, created_at',
+      manifests: 'id, synced, created_at',
+      marketing_entries: 'id, synced, created_at',
+      package_entries: 'id, synced, created_at',
+      proof_of_delivery: 'id, awbNumber, synced, deliveredAt',
+      trip_pings: '++id, tripId, timestamp, synced',
+      sync_queue: '++id, table_name, record_id, synced, created_at',
+      tag_pools: '++id, pool_key, number',
+      device_meta: 'key',
     });
   }
 }

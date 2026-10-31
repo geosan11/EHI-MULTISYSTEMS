@@ -113,6 +113,11 @@ window.addEventListener('wheel', () => {
 // Run data retention policies
 cleanupOldPings();
 
+// Request persistent storage so IndexedDB offline queues are protected from browser eviction
+if (typeof navigator !== 'undefined' && navigator.storage && typeof navigator.storage.persist === 'function') {
+  navigator.storage.persist().catch(() => {});
+}
+
 // CRITICAL: Await Supabase config BEFORE mounting React.
 // Without this, getSession() fires against the dummy URL (race condition)
 // and users are shown the login screen even with a valid session.
