@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { User, TabView, Transaction, Expense, ExcessBaggageAirline, CustomerWallet, HubShift, ShiftDepartment } from '../lib/types';
 import { processSyncQueue, writeWithOfflineSupport, cleanupOldQueue, getUnsyncedLocalTransactions, getAllLocalMirrorTransactions } from '../lib/sync';
+import { getPendingSyncSummary, reportDeviceSyncHeartbeat, type PendingSyncSummary } from '../lib/deviceSync';
+import { PendingSyncBanner } from './PendingSyncBanner';
 import { db } from '../lib/db';
 import Dexie from 'dexie';
 import { refillPoolIfLow } from '../lib/tagPool';
@@ -315,7 +317,22 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     setRetryTrigger(p => p + 1);
     window.setTimeout(() => setRetryOnCooldown(false), 5000);
   };
-  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [pendingSummary, setPendingSummary] = useState<PendingSyncSummary>({
+    pending_total: 0,
+    pending_by_table: {},
+    quarantined_count: 0,
+    oldest_pending_at: null,
+  });
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isSessionExpired, setIsSessionExpired] = useState(false);
+  const pendingSyncCount = pendingSummary.pending_total;
+
+  const refreshPendingSummary = useCallback(async () => {
+    try {
+      const summary = await getPendingSyncSummary();
+      setPendingSummary(summary);
+    } catch {}
+  }, []);
   // Drives one nav tab per active row -- fetched once here and passed down
   // to SideNav/BottomNav/More/the tab dispatch below, so every one of them
   // stays in sync with whatever's configured in ExcessBaggageAirlines.tsx
@@ -1322,42 +1339,70 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     const isSilent = opts?.silent === true;
     if (isSilent && typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
     setIsOffline(false);
-    const queueCount = await db.sync_queue.where('synced').equals(0).count().catch(() => 0);
-    setPendingSyncCount(queueCount);
+
+    const summaryBefore = await getPendingSyncSummary();
+    setPendingSummary(summaryBefore);
 
     // Silent background checks exit immediately when the queue is empty:
     // no processSyncQueue lock, no every-60s info toast, no every-60s RPC pool check.
-    if (isSilent && queueCount === 0) return;
+    if (isSilent && summaryBefore.pending_total === 0) return;
 
-    const { synced, errors } = await processSyncQueue();
-    if (synced > 0) {
-      showToast({ message: `${synced} transaction(s) synced to server`, type: 'success' });
-      const remaining = await db.sync_queue.where('synced').equals(0).count().catch(() => 0);
-      setPendingSyncCount(remaining);
-      if (errors.length > 0) {
-        setTimeout(() => showToast({ message: `${remaining} item(s) failed: ${errors[0]}`, type: 'error' }), 2000);
-      }
-    } else {
-      const remaining = await db.sync_queue.where('synced').equals(0).count().catch(() => 0);
-      setPendingSyncCount(remaining);
-      if (!isSilent && remaining === 0) {
-        showToast({ message: 'All local entries are fully synced', type: 'info' });
-      } else if (errors.length > 0) {
-        showToast({ message: `Sync failed for ${remaining} item(s): ${errors[0]}`, type: 'error' });
-      }
-    }
+    setIsSyncing(true);
+    try {
+      const { synced, errors } = await processSyncQueue();
+      const summaryAfter = await getPendingSyncSummary();
+      setPendingSummary(summaryAfter);
 
-    if (!isSilent) {
-      refillUserTagPools();
+      if (synced > 0) {
+        showToast({ message: `${synced} transaction(s) synced to server`, type: 'success' });
+        if (errors.length > 0) {
+          setTimeout(() => showToast({ message: `${summaryAfter.pending_total} item(s) failed: ${errors[0]}`, type: 'error' }), 2000);
+        }
+      } else {
+        if (!isSilent && summaryAfter.pending_total === 0) {
+          showToast({ message: 'All local entries are fully synced', type: 'info' });
+        } else if (errors.length > 0) {
+          showToast({ message: `Sync failed for ${summaryAfter.pending_total} item(s): ${errors[0]}`, type: 'error' });
+        }
+      }
+    } finally {
+      setIsSyncing(false);
+      if (!isSilent) {
+        refillUserTagPools();
+      }
     }
   }, [showToast, refillUserTagPools]);
 
   useEffect(() => {
     cleanupOldQueue();
+    refreshPendingSummary();
+
+    // Heartbeat on app open (throttled to at most once per 90s)
+    reportDeviceSyncHeartbeat({ hubId: user.hub_id }).catch(() => {});
+
+    // Check session status periodically for on-device banner
+    const checkSessionExpiry = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session || (session.expires_at && session.expires_at * 1000 < Date.now())) {
+          setIsSessionExpired(true);
+        } else {
+          setIsSessionExpired(false);
+        }
+      } catch {
+        setIsSessionExpired(true);
+      }
+    };
+    checkSessionExpiry();
+    const sessionTimer = window.setInterval(checkSessionExpiry, 30_000);
+
     const handleSilentSync = () => { handleForceSync({ silent: true }); };
     const handleReconnectOnline = () => {
       handleForceSync({ silent: true });
       refillUserTagPools();
+      refreshPendingSummary();
+      // Heartbeat on reconnect
+      reportDeviceSyncHeartbeat({ hubId: user.hub_id }).catch(() => {});
     };
     const handleOffline = () => setIsOffline(true);
 
@@ -1372,7 +1417,10 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
 
     const syncInterval = window.setInterval(() => {
       if (consecutiveFetchFailuresRef.current >= MAX_SILENT_AUTO_RETRY_FAILURES) return;
-      if (navigator.onLine) handleSilentSync();
+      if (navigator.onLine) {
+        handleSilentSync();
+        refreshPendingSummary();
+      }
     }, 60000);
 
     const handleOnlineRefreshNudge = () => {
@@ -1396,12 +1444,13 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     return () => {
       window.clearTimeout(initialTimer);
       window.clearInterval(syncInterval);
+      window.clearInterval(sessionTimer);
       window.removeEventListener('online', handleReconnectOnline);
       window.removeEventListener('online', handleOnlineRefreshNudge);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('ehi-nav', handleEhiNav);
     };
-  }, [handleForceSync, refillUserTagPools, user, excessBaggageAirlines, setCurrentTab]);
+  }, [handleForceSync, refillUserTagPools, refreshPendingSummary, user, excessBaggageAirlines, setCurrentTab]);
 
   useEffect(() => {
     if (isOffline) return;
@@ -2613,7 +2662,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     const { offline, error } = await writeWithOfflineSupport(tableName, payload);
     
     if (offline) {
-      setPendingSyncCount(prev => prev + 1);
+      refreshPendingSummary();
       showToast({ message: error ? `Error: ${error}` : 'Saved offline — syncs when reconnected', type: 'warning' });
     }
     writeAuditLog({
@@ -2794,7 +2843,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           synced: 0,
           created_at: new Date().toISOString(),
         });
-        setPendingSyncCount(prev => prev + 1);
+        refreshPendingSummary();
       } catch (qErr) {
         console.error('Failed to queue update', qErr);
       }
@@ -2906,7 +2955,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     };
     const { offline, error } = await writeWithOfflineSupport('expenses', payload);
     if (offline) {
-      setPendingSyncCount(prev => prev + 1);
+      refreshPendingSummary();
       showToast({ message: 'Expense saved offline — syncs when reconnected', type: 'warning' });
     } else if (error) {
       showToast({ message: `Failed to save expense: ${error}`, type: 'error' });
@@ -2942,25 +2991,25 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           synced: 0,
           created_at: new Date().toISOString(),
         });
-        setPendingSyncCount(prev => prev + 1);
+        refreshPendingSummary();
         showToast({ message: 'Saved offline — decision queued to sync', type: 'warning' });
       } catch (qErr) {
         console.error('Failed to queue expense decision', qErr);
         showToast({ message: `Failed to save decision: ${error.message}`, type: 'error' });
       }
     }
-  }, [user.name, showToast]);
+  }, [user.name, showToast, refreshPendingSummary]);
 
   const handleToggleWifi = useCallback(() => {
     setIsOffline(prev => {
       const offline = !prev;
       if (!offline && pendingSyncCount > 0) {
         showToast({ message: `${pendingSyncCount} transaction(s) synced to Supabase`, type: 'success' });
-        setPendingSyncCount(0);
+        refreshPendingSummary();
       }
       return offline;
     });
-  }, [pendingSyncCount, showToast]);
+  }, [pendingSyncCount, showToast, refreshPendingSummary]);
 
   const handleShowCargoHistory = useCallback(() => setStreamLedger({ streams: ['cargo'] }), []);
   const handleShowMarketingHistory = useCallback(() => setStreamLedger({ streams: ['marketing'] }), []);
@@ -3095,6 +3144,14 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
               ? () => setStateWideView(v => !v)
               : undefined
           }
+        />
+
+        <PendingSyncBanner
+          summary={pendingSummary}
+          isSyncing={isSyncing}
+          isSessionExpired={isSessionExpired}
+          onSyncNow={() => handleForceSync()}
+          onSignIn={onLogout}
         />
 
         <main

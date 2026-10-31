@@ -3,6 +3,10 @@ import { supabase, fetchRowsCapped } from './supabase';
 import Dexie from 'dexie';
 import { appLogger } from './logger';
 import type { ProofOfDelivery } from './types';
+import { reportDeviceSyncHeartbeat } from './deviceSync';
+
+export { getPendingSyncSummary, getDeviceId, reportDeviceSyncHeartbeat } from './deviceSync';
+export type { PendingSyncSummary, DeviceSyncStatusRow } from './deviceSync';
 
 // Postgres error codes that a retry can never fix — the payload or schema is
 // wrong, not the network. Quarantine these instead of retrying forever.
@@ -464,21 +468,28 @@ export async function getAllLocalMirrorTransactions(): Promise<{ transactions: a
 let syncQueueInFlight = false;
 
 export async function processSyncQueue(): Promise<{ synced: number; errors: string[] }> {
+  let result: { synced: number; errors: string[] } = { synced: 0, errors: [] };
   if (typeof navigator !== 'undefined' && 'locks' in navigator) {
-    let result: { synced: number; errors: string[] } = { synced: 0, errors: [] };
     await (navigator as any).locks.request('ehi-sync-queue', { ifAvailable: true }, async (lock: unknown) => {
       if (!lock) return; // another tab already holds it -- skip this pass
       result = await processSyncQueueInner();
     });
-    return result;
+  } else {
+    if (syncQueueInFlight) return { synced: 0, errors: [] };
+    syncQueueInFlight = true;
+    try {
+      result = await processSyncQueueInner();
+    } finally {
+      syncQueueInFlight = false;
+    }
   }
-  if (syncQueueInFlight) return { synced: 0, errors: [] };
-  syncQueueInFlight = true;
-  try {
-    return await processSyncQueueInner();
-  } finally {
-    syncQueueInFlight = false;
-  }
+
+  // Requirement 3: After each sync attempt (throttled to at most once per 90s), report device sync status heartbeat
+  reportDeviceSyncHeartbeat({
+    lastSuccessfulSyncAt: result.synced > 0 ? new Date().toISOString() : undefined,
+  }).catch(() => {});
+
+  return result;
 }
 
 async function processSyncQueueInner(): Promise<{ synced: number; errors: string[] }> {
