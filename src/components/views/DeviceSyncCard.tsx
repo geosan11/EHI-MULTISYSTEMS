@@ -74,52 +74,15 @@ export const DeviceSyncCard = ({ onRefreshTrigger }: DeviceSyncCardProps) => {
 
   const fetchDeviceStatuses = useCallback(async () => {
     try {
-      // 1. Fetch devices
-      const { data: deviceRows, error: devErr } = await supabase
-        .from('device_sync_status')
-        .select('*')
-        .order('last_seen_at', { ascending: false });
-
+      // One server-side call: hub/staff names are resolved in the RPC so auditors
+      // don't depend on RLS access to user_profiles/hubs.
+      const { data: deviceRows, error: devErr } = await supabase.rpc('list_device_sync_status');
       if (devErr) throw devErr;
 
-      const rawDevices = (deviceRows || []) as DeviceSyncStatusRow[];
-      if (rawDevices.length === 0) {
-        setDevices([]);
-        setLoading(false);
-        setRefreshing(false);
-        return;
-      }
-
-      // 2. Fetch hub and staff details for readable presentation
-      const hubIds = Array.from(new Set(rawDevices.map((d) => d.hub_id).filter(Boolean)));
-      const staffIds = Array.from(new Set(rawDevices.map((d) => d.last_staff_id).filter(Boolean)));
-
-      const [hubsRes, staffRes] = await Promise.all([
-        hubIds.length > 0
-          ? supabase.from('hubs').select('id, name, code').in('id', hubIds)
-          : Promise.resolve({ data: [] }),
-        staffIds.length > 0
-          ? supabase.from('user_profiles').select('id, name, email').in('id', staffIds)
-          : Promise.resolve({ data: [] }),
-      ]);
-
-      const hubMap = new Map<string, { name: string; code: string }>();
-      (hubsRes.data || []).forEach((h: any) => hubMap.set(h.id, { name: h.name, code: h.code }));
-
-      const staffMap = new Map<string, { name: string; email: string }>();
-      (staffRes.data || []).forEach((s: any) => staffMap.set(s.id, { name: s.name, email: s.email }));
-
-      const resolved = rawDevices.map((dev) => {
-        const hub = dev.hub_id ? hubMap.get(dev.hub_id) : undefined;
-        const staff = dev.last_staff_id ? staffMap.get(dev.last_staff_id) : undefined;
-        return {
-          ...dev,
-          hub_name: hub?.name,
-          hub_code: hub?.code,
-          staff_name: staff?.name || staff?.email,
-          staff_email: staff?.email,
-        };
-      });
+      const resolved = ((deviceRows || []) as any[]).map((dev) => ({
+        ...dev,
+        staff_name: dev.staff_name || dev.staff_email || undefined,
+      })) as DeviceSyncStatusRow[];
 
       setDevices(resolved);
       setError(null);
@@ -136,13 +99,16 @@ export const DeviceSyncCard = ({ onRefreshTrigger }: DeviceSyncCardProps) => {
     fetchDeviceStatuses();
 
     // Realtime listener for status changes
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const channel = supabase
       .channel('device_sync_status_channel')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'device_sync_status' },
         () => {
-          fetchDeviceStatuses();
+          // Debounce bursts of realtime events into a single refetch
+          if (debounceTimer) clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => fetchDeviceStatuses(), 2000);
         }
       )
       .subscribe();
@@ -155,6 +121,7 @@ export const DeviceSyncCard = ({ onRefreshTrigger }: DeviceSyncCardProps) => {
     return () => {
       supabase.removeChannel(channel);
       clearInterval(interval);
+      if (debounceTimer) clearTimeout(debounceTimer);
     };
   }, [fetchDeviceStatuses]);
 

@@ -5,6 +5,9 @@ export interface PendingSyncSummary {
   pending_total: number;
   pending_by_table: Record<string, number>;
   quarantined_count: number;
+  /** Local-only breakdown of quarantined (synced=2) records; not sent to the server. */
+  quarantined_by_table: Record<string, number>;
+  /** Oldest record in the retryable queue only; quarantined records never count. */
   oldest_pending_at: string | null;
 }
 
@@ -37,11 +40,14 @@ export const QUARANTINED_TABLES = ['cargo_entries', 'manifests', 'marketing_entr
 export const DEVICE_ID_STORAGE_KEY = 'ehi_device_id';
 export const LAST_SUCCESSFUL_SYNC_KEY = 'ehi_last_successful_sync_at';
 export const HEARTBEAT_THROTTLE_MS = 90_000; // At most once per 90 seconds
+export const HEARTBEAT_INTERVAL_MS = 5 * 60_000; // Idle cadence while visible and signed in
 
 let cachedDeviceId: string | null = null;
 let lastHeartbeatSentAt = 0;
 let heartbeatTrailingTimer: ReturnType<typeof setTimeout> | null = null;
 let lastSuccessfulSyncAtMemo: string | null = null;
+type HeartbeatOptions = { lastSuccessfulSyncAt?: string; hubId?: string; force?: boolean };
+let pendingTrailingOptions: HeartbeatOptions | undefined;
 
 /**
  * Resets in-memory cached state (useful for unit testing).
@@ -54,6 +60,7 @@ export function _resetDeviceSyncStateForTesting(): void {
     heartbeatTrailingTimer = null;
   }
   lastSuccessfulSyncAtMemo = null;
+  pendingTrailingOptions = undefined;
 }
 
 /**
@@ -123,88 +130,92 @@ export async function getDeviceId(database: typeof db = db): Promise<string> {
 }
 
 /**
- * Calculates pending summary:
- * pending = sync_queue rows (synced=0) + records quarantined by sync.ts (synced=2 in their own tables),
- * broken down per table, plus the oldest pending timestamp across all of them.
+ * Calculates the pending summary using count queries (no payloads are loaded):
+ * - pending_total / pending_by_table / oldest_pending_at: retryable sync_queue rows (synced=0) only
+ * - quarantined_count / quarantined_by_table: records quarantined by sync.ts (synced=2 in their own tables),
+ *   reported separately so they never inflate "Sync now" counts or the >4h red rule.
  */
 export async function getPendingSyncSummary(database: any = db): Promise<PendingSyncSummary> {
   const pendingByTable: Record<string, number> = {};
+  const quarantinedByTable: Record<string, number> = {};
+  let pendingTotal = 0;
   let quarantinedCount = 0;
-  let oldestPendingTime: number | null = null;
+  let oldestPendingAt: string | null = null;
 
-  // 1. sync_queue rows pending sync (synced === 0)
   try {
-    let queueRows: Array<{ table_name?: string; created_at?: string; synced?: number }> = [];
-    if (database?.sync_queue) {
-      if (typeof database.sync_queue.where === 'function') {
-        queueRows = await database.sync_queue.where('synced').equals(0).toArray().catch(() => []);
-      } else if (typeof database.sync_queue.toArray === 'function') {
-        const all = await database.sync_queue.toArray().catch(() => []);
-        queueRows = all.filter((r: any) => r.synced === 0);
-      }
-    }
-
-    for (const item of queueRows) {
-      const table = item.table_name || 'unknown';
-      pendingByTable[table] = (pendingByTable[table] || 0) + 1;
-
-      if (item.created_at) {
-        const t = new Date(item.created_at).getTime();
-        if (!isNaN(t)) {
-          if (oldestPendingTime === null || t < oldestPendingTime) {
-            oldestPendingTime = t;
-          }
+    const queue = database?.sync_queue;
+    if (queue) {
+      pendingTotal = await queue.where('synced').equals(0).count();
+      if (pendingTotal > 0) {
+        const tableNames: string[] = await queue.orderBy('table_name').uniqueKeys();
+        for (const tableName of tableNames) {
+          const n = await queue
+            .where('table_name')
+            .equals(tableName)
+            .and((r: { synced?: number }) => r.synced === 0)
+            .count();
+          if (n > 0) pendingByTable[tableName || 'unknown'] = n;
+        }
+        const oldest = await queue
+          .orderBy('created_at')
+          .filter((r: { synced?: number }) => r.synced === 0)
+          .first();
+        if (oldest?.created_at) {
+          const t = new Date(oldest.created_at).getTime();
+          if (!isNaN(t)) oldestPendingAt = new Date(t).toISOString();
         }
       }
     }
-  } catch (err) {
-    console.warn('getPendingSyncSummary: error reading sync_queue', err);
+  } catch (err: any) {
+    if (err?.name !== 'MissingAPIError') {
+      console.warn('getPendingSyncSummary: error reading sync_queue', err);
+    }
   }
 
-  // 2. Quarantined records in their own tables (synced === 2)
   for (const table of QUARANTINED_TABLES) {
     try {
       const tableObj = database?.[table];
       if (!tableObj) continue;
-
-      let quarantinedRows: Array<{ id?: string; created_at?: string; synced?: number; data?: any }> = [];
-      if (typeof tableObj.where === 'function') {
-        quarantinedRows = await tableObj.where('synced').equals(2).toArray().catch(() => []);
-      } else if (typeof tableObj.toArray === 'function') {
-        const all = await tableObj.toArray().catch(() => []);
-        quarantinedRows = all.filter((r: any) => r.synced === 2);
-      }
-
-      const count = quarantinedRows.length;
+      const count: number = await tableObj.where('synced').equals(2).count();
       if (count > 0) {
+        quarantinedByTable[table] = count;
         quarantinedCount += count;
-        pendingByTable[table] = (pendingByTable[table] || 0) + count;
-
-        for (const row of quarantinedRows) {
-          const ts = row.created_at || row.data?.created_at;
-          if (ts) {
-            const t = new Date(ts).getTime();
-            if (!isNaN(t)) {
-              if (oldestPendingTime === null || t < oldestPendingTime) {
-                oldestPendingTime = t;
-              }
-            }
-          }
-        }
       }
-    } catch (err) {
-      console.warn(`getPendingSyncSummary: error reading ${table}`, err);
+    } catch (err: any) {
+      if (err?.name !== 'MissingAPIError') {
+        console.warn(`getPendingSyncSummary: error reading ${table}`, err);
+      }
     }
   }
-
-  const pendingTotal = Object.values(pendingByTable).reduce((acc, curr) => acc + curr, 0);
 
   return {
     pending_total: pendingTotal,
     pending_by_table: pendingByTable,
     quarantined_count: quarantinedCount,
-    oldest_pending_at: oldestPendingTime !== null ? new Date(oldestPendingTime).toISOString() : null,
+    quarantined_by_table: quarantinedByTable,
+    oldest_pending_at: oldestPendingAt,
   };
+}
+
+/**
+ * A session counts as expired only when we are ONLINE and a refresh actually fails.
+ * Offline, an expired access token is normal and must never push the user out.
+ */
+export async function isSessionReallyExpired(deps: {
+  online: boolean;
+  getSession: () => Promise<{ expires_at?: number | null } | null>;
+  refreshSession: () => Promise<boolean>;
+  nowMs?: number;
+}): Promise<boolean> {
+  if (!deps.online) return false;
+  try {
+    const session = await deps.getSession();
+    const nowMs = deps.nowMs ?? Date.now();
+    if (session && !(session.expires_at && session.expires_at * 1000 < nowMs)) return false;
+    return !(await deps.refreshSession());
+  } catch {
+    return false; // can't tell (e.g. network blip): don't lock anyone out
+  }
 }
 
 /**
@@ -230,7 +241,7 @@ export function isLagosBusinessHours(date: Date = new Date()): boolean {
 /**
  * Evaluates health status for a device:
  * - Red if last_seen_at is over 2 hours old during 07:00-20:00 Lagos time OR oldest pending is over 4 hours old
- * - Amber if pending > 0
+ * - Amber if pending > 0 or quarantined > 0 (quarantined records never cause red)
  * - Green otherwise
  */
 export function evaluateDeviceStatus(
@@ -275,13 +286,21 @@ export function evaluateDeviceStatus(
     return { status: 'amber', reasons };
   }
 
+  // 4. Quarantined records need an admin; they get their own reason and never turn a device red
+  if ((device.quarantined_count || 0) > 0) {
+    const q = device.quarantined_count;
+    reasons.push(`${q} quarantined record${q === 1 ? '' : 's'} need admin attention`);
+    return { status: 'amber', reasons };
+  }
+
   return { status: 'green', reasons: ['In sync'] };
 }
 
 /**
  * Internal heartbeat invocation to report_device_sync_status RPC.
+ * The hub is resolved server-side from user_profiles; hubId is only honoured for admins.
  */
-async function sendHeartbeatNow(options?: { lastSuccessfulSyncAt?: string; hubId?: string }): Promise<void> {
+async function sendHeartbeatNow(options?: HeartbeatOptions): Promise<void> {
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) {
@@ -300,23 +319,26 @@ async function sendHeartbeatNow(options?: { lastSuccessfulSyncAt?: string; hubId
       } catch {}
     }
 
-    if (options?.lastSuccessfulSyncAt) {
-      lastSuccessfulSyncAtMemo = options.lastSuccessfulSyncAt;
+    // Nothing queued and we just reached the server: the device is fully synced right now.
+    if (summary.pending_total === 0 && (typeof navigator === 'undefined' || navigator.onLine !== false)) {
+      lastSync = new Date().toISOString();
+    }
+
+    if (lastSync && lastSync !== lastSuccessfulSyncAtMemo) {
+      lastSuccessfulSyncAtMemo = lastSync;
       try {
         if (typeof localStorage !== 'undefined') {
-          localStorage.setItem(LAST_SUCCESSFUL_SYNC_KEY, options.lastSuccessfulSyncAt);
+          localStorage.setItem(LAST_SUCCESSFUL_SYNC_KEY, lastSync);
         }
         if (db.device_meta) {
-          await db.device_meta.put({ key: 'last_successful_sync_at', value: options.lastSuccessfulSyncAt });
+          await db.device_meta.put({ key: 'last_successful_sync_at', value: lastSync });
         }
       } catch {}
     }
 
-    const hubId = options?.hubId || session.user.user_metadata?.hub_id || null;
-
     const { error } = await supabase.rpc('report_device_sync_status', {
       p_device_id: deviceId,
-      p_hub_id: hubId,
+      p_hub_id: options?.hubId || null,
       p_pending_total: summary.pending_total,
       p_pending_by_table: summary.pending_by_table,
       p_quarantined_count: summary.quarantined_count,
@@ -333,15 +355,10 @@ async function sendHeartbeatNow(options?: { lastSuccessfulSyncAt?: string; hubId
 }
 
 /**
- * Heartbeat trigger: on app open, when coming back online, and after each sync attempt.
- * Strictly throttled to at most once per 90s.
- * Trailing edge ensures the newest sync/offline status is delivered after cooldown.
+ * Heartbeat trigger (app open with force, reconnect, after a sync run, and the idle interval).
+ * Throttled to at most once per 90s; the trailing call always uses the LATEST options.
  */
-export async function reportDeviceSyncHeartbeat(options?: {
-  lastSuccessfulSyncAt?: string;
-  hubId?: string;
-  force?: boolean;
-}): Promise<void> {
+export async function reportDeviceSyncHeartbeat(options?: HeartbeatOptions): Promise<void> {
   if (options?.lastSuccessfulSyncAt) {
     lastSuccessfulSyncAtMemo = options.lastSuccessfulSyncAt;
     try {
@@ -359,18 +376,45 @@ export async function reportDeviceSyncHeartbeat(options?: {
       clearTimeout(heartbeatTrailingTimer);
       heartbeatTrailingTimer = null;
     }
+    pendingTrailingOptions = undefined;
     lastHeartbeatSentAt = now;
     await sendHeartbeatNow(options);
     return;
   }
 
-  // Throttled: schedule a trailing execution so the latest pending counts aren't dropped
+  // Throttled: remember the newest options and schedule one trailing execution
+  pendingTrailingOptions = { ...pendingTrailingOptions, ...options, force: false };
   if (!heartbeatTrailingTimer) {
     const remainingDelay = Math.max(1000, HEARTBEAT_THROTTLE_MS - elapsed);
     heartbeatTrailingTimer = setTimeout(async () => {
       heartbeatTrailingTimer = null;
+      const latest = pendingTrailingOptions;
+      pendingTrailingOptions = undefined;
       lastHeartbeatSentAt = Date.now();
-      await sendHeartbeatNow(options);
+      await sendHeartbeatNow(latest);
     }, remainingDelay);
   }
+}
+
+/**
+ * Idle heartbeat, independent of the sync queue: forced on start, then every
+ * HEARTBEAT_INTERVAL_MS while the tab is visible and online, so a healthy idle
+ * counter never looks inactive. Returns a stop function.
+ */
+export function startDeviceHeartbeat(getHubId?: () => string | undefined): () => void {
+  const beat = (force = false) => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    reportDeviceSyncHeartbeat({ hubId: getHubId?.(), force }).catch(() => {});
+  };
+  beat(true);
+  const timer = setInterval(() => beat(false), HEARTBEAT_INTERVAL_MS);
+  const onVisible = () => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') beat(false);
+  };
+  if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible);
+  return () => {
+    clearInterval(timer);
+    if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible);
+  };
 }

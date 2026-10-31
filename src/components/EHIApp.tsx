@@ -2,8 +2,8 @@ import { useState, useEffect, lazy, Suspense, useRef, useCallback, memo, useMemo
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { User, TabView, Transaction, Expense, ExcessBaggageAirline, CustomerWallet, HubShift, ShiftDepartment } from '../lib/types';
-import { processSyncQueue, writeWithOfflineSupport, cleanupOldQueue, getUnsyncedLocalTransactions, getAllLocalMirrorTransactions } from '../lib/sync';
-import { getPendingSyncSummary, reportDeviceSyncHeartbeat, type PendingSyncSummary } from '../lib/deviceSync';
+import { processSyncQueue, writeWithOfflineSupport, cleanupOldQueue, getUnsyncedLocalTransactions, getAllLocalMirrorTransactions, requeueQuarantined } from '../lib/sync';
+import { getPendingSyncSummary, reportDeviceSyncHeartbeat, startDeviceHeartbeat, isSessionReallyExpired, type PendingSyncSummary } from '../lib/deviceSync';
 import { PendingSyncBanner } from './PendingSyncBanner';
 import { db } from '../lib/db';
 import Dexie from 'dexie';
@@ -321,6 +321,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     pending_total: 0,
     pending_by_table: {},
     quarantined_count: 0,
+    quarantined_by_table: {},
     oldest_pending_at: null,
   });
   const [isSyncing, setIsSyncing] = useState(false);
@@ -1377,21 +1378,23 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     cleanupOldQueue();
     refreshPendingSummary();
 
-    // Heartbeat on app open (throttled to at most once per 90s)
-    reportDeviceSyncHeartbeat({ hubId: user.hub_id }).catch(() => {});
+    // Forced heartbeat on app open, then every 5 min while visible and online,
+    // independent of the sync queue so an idle healthy counter never looks inactive.
+    const stopHeartbeat = startDeviceHeartbeat(() => user.hub_id);
 
     // Check session status periodically for on-device banner
+    // Expired only when ONLINE and a refresh actually fails; offline an expired
+    // access token is normal and must not flip the banner.
     const checkSessionExpiry = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session || (session.expires_at && session.expires_at * 1000 < Date.now())) {
-          setIsSessionExpired(true);
-        } else {
-          setIsSessionExpired(false);
-        }
-      } catch {
-        setIsSessionExpired(true);
-      }
+      const expired = await isSessionReallyExpired({
+        online: typeof navigator === 'undefined' ? true : navigator.onLine,
+        getSession: async () => (await supabase.auth.getSession()).data.session,
+        refreshSession: async () => {
+          const { data, error } = await supabase.auth.refreshSession();
+          return !error && !!data.session;
+        },
+      });
+      setIsSessionExpired(expired);
     };
     checkSessionExpiry();
     const sessionTimer = window.setInterval(checkSessionExpiry, 30_000);
@@ -1445,6 +1448,7 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       window.clearTimeout(initialTimer);
       window.clearInterval(syncInterval);
       window.clearInterval(sessionTimer);
+      stopHeartbeat();
       window.removeEventListener('online', handleReconnectOnline);
       window.removeEventListener('online', handleOnlineRefreshNudge);
       window.removeEventListener('offline', handleOffline);
@@ -3000,11 +3004,33 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
     }
   }, [user.name, showToast, refreshPendingSummary]);
 
+  // Re-auth is non-destructive: try to renew the session; never sign the user out.
+  const handleReauth = useCallback(async () => {
+    const { data, error } = await supabase.auth.refreshSession();
+    if (!error && data.session) {
+      setIsSessionExpired(false);
+      showToast({ message: 'Session renewed', type: 'success' });
+      handleForceSync();
+    } else {
+      showToast({
+        message: 'Could not renew the session. Unsynced records stay safely on this device; log out and sign in again when online.',
+        type: 'error',
+      });
+    }
+  }, [showToast, handleForceSync]);
+
+  const handleRequeueQuarantined = useCallback(async () => {
+    const n = await requeueQuarantined();
+    await refreshPendingSummary();
+    showToast({ message: n > 0 ? `${n} quarantined record(s) re-queued for sync` : 'No quarantined records to re-queue', type: n > 0 ? 'success' : 'info' });
+    if (n > 0) handleForceSync();
+  }, [refreshPendingSummary, showToast, handleForceSync]);
+
   const handleToggleWifi = useCallback(() => {
     setIsOffline(prev => {
       const offline = !prev;
       if (!offline && pendingSyncCount > 0) {
-        showToast({ message: `${pendingSyncCount} transaction(s) synced to Supabase`, type: 'success' });
+        showToast({ message: `Back online — ${pendingSyncCount} pending record(s) will sync shortly`, type: 'info' });
         refreshPendingSummary();
       }
       return offline;
@@ -3151,7 +3177,8 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
           isSyncing={isSyncing}
           isSessionExpired={isSessionExpired}
           onSyncNow={() => handleForceSync()}
-          onSignIn={onLogout}
+          onSignIn={handleReauth}
+          onRequeueQuarantined={user.role === 'admin' || user.role === 'super_admin' ? handleRequeueQuarantined : undefined}
         />
 
         <main

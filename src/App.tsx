@@ -428,6 +428,7 @@ const AuthenticatedApp = () => {
     pending_total: 0,
     pending_by_table: {},
     quarantined_count: 0,
+    quarantined_by_table: {},
     oldest_pending_at: null,
   });
   // Distinguishes *why* the login screen is showing, so a genuine
@@ -505,12 +506,10 @@ const AuthenticatedApp = () => {
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  // Only needed for the signed-out banner; EHIApp owns the summary while signed in.
   useEffect(() => {
+    if (user) return;
     getPendingSyncSummary().then(setPendingSummary).catch(() => {});
-    const interval = setInterval(() => {
-      getPendingSyncSummary().then(setPendingSummary).catch(() => {});
-    }, 15000);
-    return () => clearInterval(interval);
   }, [user]);
 
   if (authLoading) {
@@ -531,14 +530,10 @@ const AuthenticatedApp = () => {
   if (!user) {
     return (
       <div className="relative min-h-screen flex flex-col">
-        {pendingSummary.pending_total > 0 && (
+        {(pendingSummary.pending_total > 0 || pendingSummary.quarantined_count > 0) && (
           <PendingSyncBanner
             summary={pendingSummary}
             isSessionExpired={true}
-            onSignIn={() => {
-              const input = document.querySelector('input') as HTMLInputElement | null;
-              if (input) input.focus();
-            }}
           />
         )}
         <div className="flex-1 flex flex-col">

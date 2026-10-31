@@ -469,24 +469,30 @@ let syncQueueInFlight = false;
 
 export async function processSyncQueue(): Promise<{ synced: number; errors: string[] }> {
   let result: { synced: number; errors: string[] } = { synced: 0, errors: [] };
+  let ran = false; // false when another tab/run held the lock: no heartbeat from a skipped pass
   if (typeof navigator !== 'undefined' && 'locks' in navigator) {
     await (navigator as any).locks.request('ehi-sync-queue', { ifAvailable: true }, async (lock: unknown) => {
       if (!lock) return; // another tab already holds it -- skip this pass
+      ran = true;
       result = await processSyncQueueInner();
     });
   } else {
     if (syncQueueInFlight) return { synced: 0, errors: [] };
     syncQueueInFlight = true;
     try {
+      ran = true;
       result = await processSyncQueueInner();
     } finally {
       syncQueueInFlight = false;
     }
   }
 
-  // Requirement 3: After each sync attempt (throttled to at most once per 90s), report device sync status heartbeat
+  if (!ran) return result;
+
+  // After each completed sync run (throttled to at most once per 90s), report device sync status.
+  // A run that finishes with no errors counts as a successful sync even if nothing was queued.
   reportDeviceSyncHeartbeat({
-    lastSuccessfulSyncAt: result.synced > 0 ? new Date().toISOString() : undefined,
+    lastSuccessfulSyncAt: result.errors.length === 0 ? new Date().toISOString() : undefined,
   }).catch(() => {});
 
   return result;
