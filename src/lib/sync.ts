@@ -3,6 +3,10 @@ import { supabase, fetchRowsCapped } from './supabase';
 import Dexie from 'dexie';
 import { appLogger } from './logger';
 import type { ProofOfDelivery } from './types';
+import { reportDeviceSyncHeartbeat } from './deviceSync';
+
+export { getPendingSyncSummary, getDeviceId, reportDeviceSyncHeartbeat } from './deviceSync';
+export type { PendingSyncSummary, DeviceSyncStatusRow } from './deviceSync';
 
 // Postgres error codes that a retry can never fix — the payload or schema is
 // wrong, not the network. Quarantine these instead of retrying forever.
@@ -464,21 +468,34 @@ export async function getAllLocalMirrorTransactions(): Promise<{ transactions: a
 let syncQueueInFlight = false;
 
 export async function processSyncQueue(): Promise<{ synced: number; errors: string[] }> {
+  let result: { synced: number; errors: string[] } = { synced: 0, errors: [] };
+  let ran = false; // false when another tab/run held the lock: no heartbeat from a skipped pass
   if (typeof navigator !== 'undefined' && 'locks' in navigator) {
-    let result: { synced: number; errors: string[] } = { synced: 0, errors: [] };
     await (navigator as any).locks.request('ehi-sync-queue', { ifAvailable: true }, async (lock: unknown) => {
       if (!lock) return; // another tab already holds it -- skip this pass
+      ran = true;
       result = await processSyncQueueInner();
     });
-    return result;
+  } else {
+    if (syncQueueInFlight) return { synced: 0, errors: [] };
+    syncQueueInFlight = true;
+    try {
+      ran = true;
+      result = await processSyncQueueInner();
+    } finally {
+      syncQueueInFlight = false;
+    }
   }
-  if (syncQueueInFlight) return { synced: 0, errors: [] };
-  syncQueueInFlight = true;
-  try {
-    return await processSyncQueueInner();
-  } finally {
-    syncQueueInFlight = false;
-  }
+
+  if (!ran) return result;
+
+  // After each completed sync run (throttled to at most once per 90s), report device sync status.
+  // A run that finishes with no errors counts as a successful sync even if nothing was queued.
+  reportDeviceSyncHeartbeat({
+    lastSuccessfulSyncAt: result.errors.length === 0 ? new Date().toISOString() : undefined,
+  }).catch(() => {});
+
+  return result;
 }
 
 async function processSyncQueueInner(): Promise<{ synced: number; errors: string[] }> {

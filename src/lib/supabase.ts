@@ -74,14 +74,30 @@ const customFetch = async (input: RequestInfo | URL, init?: RequestInit): Promis
 
 let lastBuiltUrl: string | null = null;
 
+function getLocalItem(key: string): string | null {
+  try {
+    return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
+  } catch {
+    return null;
+  }
+}
+
+function setLocalItem(key: string, value: string): void {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, value);
+    }
+  } catch {}
+}
+
 function buildClient(): SupabaseClient {
   const url =
     (import.meta as any).env?.VITE_SUPABASE_URL ||
-    localStorage.getItem('ehi_supabase_url') ||
+    getLocalItem('ehi_supabase_url') ||
     'https://dummy.supabase.co';
   const key =
     (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ||
-    localStorage.getItem('ehi_supabase_anon_key') ||
+    getLocalItem('ehi_supabase_anon_key') ||
     'dummy-key';
 
   lastBuiltUrl = url;
@@ -107,7 +123,7 @@ export function reinitSupabase(): void {
 export function getConnectionMode(): 'live' | 'unconfigured' {
   const url =
     (import.meta as any).env?.VITE_SUPABASE_URL ||
-    localStorage.getItem('ehi_supabase_url') ||
+    getLocalItem('ehi_supabase_url') ||
     '';
   return url && url.includes('supabase.co') && !url.includes('dummy') ? 'live' : 'unconfigured';
 }
@@ -130,8 +146,8 @@ export async function fetchAndApplyServerConfig(): Promise<boolean> {
   const viteUrl = (import.meta as any).env?.VITE_SUPABASE_URL;
   const viteKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
   if (viteUrl && viteKey && viteUrl.includes('supabase.co') && !viteUrl.includes('dummy')) {
-    localStorage.setItem('ehi_supabase_url', viteUrl);
-    localStorage.setItem('ehi_supabase_anon_key', viteKey);
+    setLocalItem('ehi_supabase_url', viteUrl);
+    setLocalItem('ehi_supabase_anon_key', viteKey);
     // _client was already built with these exact same Vite env vars at module
     // load time (see buildClient() — it checks the same import.meta.env values
     // first, synchronously). Calling reinitSupabase() here would create a
@@ -147,8 +163,8 @@ export async function fetchAndApplyServerConfig(): Promise<boolean> {
   }
 
   // Priority 2: Already in localStorage from a previous session
-  const storedUrl = localStorage.getItem('ehi_supabase_url');
-  const storedKey = localStorage.getItem('ehi_supabase_anon_key');
+  const storedUrl = getLocalItem('ehi_supabase_url');
+  const storedKey = getLocalItem('ehi_supabase_anon_key');
   if (storedUrl && storedKey && storedUrl.includes('supabase.co') && !storedUrl.includes('dummy')) {
     reinitSupabase();
     return true;
@@ -169,8 +185,8 @@ export async function fetchAndApplyServerConfig(): Promise<boolean> {
     } catch(e) {}
     
     if (config.configured && config.supabaseUrl && config.supabaseAnonKey) {
-      localStorage.setItem('ehi_supabase_url', config.supabaseUrl);
-      localStorage.setItem('ehi_supabase_anon_key', config.supabaseAnonKey);
+      setLocalItem('ehi_supabase_url', config.supabaseUrl);
+      setLocalItem('ehi_supabase_anon_key', config.supabaseAnonKey);
       reinitSupabase();
       return true;
     }

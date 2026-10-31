@@ -6,6 +6,7 @@ import { fmt, lagosBusinessDate } from "../../lib/helpers";
 import { supabase } from "../../lib/supabase";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { QRCode } from "../QRCode";
+import { DeviceSyncCard } from "./DeviceSyncCard";
 
 // Format time from full timestamp to "10:42 AM"
 function formatTime(raw: string): string {
@@ -435,6 +436,11 @@ export const Dashboard = ({
               ))}
             </div>
           </div>
+        )}
+
+        {/* Device Sync Card — Admin, Super Admin, and Auditor */}
+        {(isAdmin || user.role === 'auditor') && (
+          <DeviceSyncCard />
         )}
 
         {/* Live Feed Header */}
