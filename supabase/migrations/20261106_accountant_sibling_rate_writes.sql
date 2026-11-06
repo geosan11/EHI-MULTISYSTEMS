@@ -27,10 +27,11 @@
 -- THE FIX:
 -- Expand accountant write policies to allow writing to their own hub OR any sibling hub:
 --   public.current_user_role() = 'accountant'
---   AND (hub_id = public.current_user_hub_id() OR hub_id = ANY((SELECT public.sibling_hub_ids())))
+--   AND (hub_id = public.current_user_hub_id() OR hub_id = ANY(public.sibling_hub_ids()))
 --
--- The (SELECT public.sibling_hub_ids()) subquery ensures the function is evaluated
--- once per query rather than once per row.
+-- Use ANY(public.sibling_hub_ids()), not ANY((SELECT public.sibling_hub_ids())).
+-- Extra parentheses make ANY use the subquery form (uuid = uuid[]) and fail with
+-- ERROR: operator does not exist: uuid = uuid[].
 --
 -- WHAT REMAINS UNCHANGED:
 -- - Read policies: company-wide authenticated read (USING true) remains intact.
@@ -82,6 +83,7 @@
 -- ── 2. ROLLBACK SCRIPT ──────────────────────────────────────────────────────
 -- Restores the previous own-hub-only policy text and RPC definition:
 --
+-- BEGIN;
 -- DROP POLICY IF EXISTS "Hub rate editors insert flat_tier_rates" ON public.flat_tier_rates;
 -- DROP POLICY IF EXISTS "Hub rate editors update flat_tier_rates" ON public.flat_tier_rates;
 -- DROP POLICY IF EXISTS "Hub rate editors delete flat_tier_rates" ON public.flat_tier_rates;
@@ -174,6 +176,8 @@
 -- ────────────────────────────────────────────────────────────────────────────
 -- 1. TABLE: flat_tier_rates
 -- ────────────────────────────────────────────────────────────────────────────
+BEGIN;
+
 DROP POLICY IF EXISTS "Hub rate editors insert flat_tier_rates" ON public.flat_tier_rates;
 DROP POLICY IF EXISTS "Hub rate editors update flat_tier_rates" ON public.flat_tier_rates;
 DROP POLICY IF EXISTS "Hub rate editors delete flat_tier_rates" ON public.flat_tier_rates;
@@ -188,7 +192,7 @@ CREATE POLICY "Hub rate editors insert flat_tier_rates"
       public.current_user_role() = 'accountant'
       AND (
         hub_id = public.current_user_hub_id()
-        OR hub_id = ANY((SELECT public.sibling_hub_ids()))
+        OR hub_id = ANY(public.sibling_hub_ids())
       )
     )
   );
@@ -203,7 +207,7 @@ CREATE POLICY "Hub rate editors update flat_tier_rates"
       public.current_user_role() = 'accountant'
       AND (
         hub_id = public.current_user_hub_id()
-        OR hub_id = ANY((SELECT public.sibling_hub_ids()))
+        OR hub_id = ANY(public.sibling_hub_ids())
       )
     )
   )
@@ -213,7 +217,7 @@ CREATE POLICY "Hub rate editors update flat_tier_rates"
       public.current_user_role() = 'accountant'
       AND (
         hub_id = public.current_user_hub_id()
-        OR hub_id = ANY((SELECT public.sibling_hub_ids()))
+        OR hub_id = ANY(public.sibling_hub_ids())
       )
     )
   );
@@ -228,7 +232,7 @@ CREATE POLICY "Hub rate editors delete flat_tier_rates"
       public.current_user_role() = 'accountant'
       AND (
         hub_id = public.current_user_hub_id()
-        OR hub_id = ANY((SELECT public.sibling_hub_ids()))
+        OR hub_id = ANY(public.sibling_hub_ids())
       )
     )
   );
@@ -251,7 +255,7 @@ CREATE POLICY "Hub rate editors insert hub_airline_route_rates"
       public.current_user_role() = 'accountant'
       AND (
         hub_id = public.current_user_hub_id()
-        OR hub_id = ANY((SELECT public.sibling_hub_ids()))
+        OR hub_id = ANY(public.sibling_hub_ids())
       )
     )
   );
@@ -266,7 +270,7 @@ CREATE POLICY "Hub rate editors update hub_airline_route_rates"
       public.current_user_role() = 'accountant'
       AND (
         hub_id = public.current_user_hub_id()
-        OR hub_id = ANY((SELECT public.sibling_hub_ids()))
+        OR hub_id = ANY(public.sibling_hub_ids())
       )
     )
   )
@@ -276,7 +280,7 @@ CREATE POLICY "Hub rate editors update hub_airline_route_rates"
       public.current_user_role() = 'accountant'
       AND (
         hub_id = public.current_user_hub_id()
-        OR hub_id = ANY((SELECT public.sibling_hub_ids()))
+        OR hub_id = ANY(public.sibling_hub_ids())
       )
     )
   );
@@ -291,7 +295,7 @@ CREATE POLICY "Hub rate editors delete hub_airline_route_rates"
       public.current_user_role() = 'accountant'
       AND (
         hub_id = public.current_user_hub_id()
-        OR hub_id = ANY((SELECT public.sibling_hub_ids()))
+        OR hub_id = ANY(public.sibling_hub_ids())
       )
     )
   );
@@ -314,7 +318,7 @@ CREATE POLICY "Hub rate editors insert hub_route_rates"
       public.current_user_role() = 'accountant'
       AND (
         hub_id = public.current_user_hub_id()
-        OR hub_id = ANY((SELECT public.sibling_hub_ids()))
+        OR hub_id = ANY(public.sibling_hub_ids())
       )
     )
   );
@@ -329,7 +333,7 @@ CREATE POLICY "Hub rate editors update hub_route_rates"
       public.current_user_role() = 'accountant'
       AND (
         hub_id = public.current_user_hub_id()
-        OR hub_id = ANY((SELECT public.sibling_hub_ids()))
+        OR hub_id = ANY(public.sibling_hub_ids())
       )
     )
   )
@@ -339,7 +343,7 @@ CREATE POLICY "Hub rate editors update hub_route_rates"
       public.current_user_role() = 'accountant'
       AND (
         hub_id = public.current_user_hub_id()
-        OR hub_id = ANY((SELECT public.sibling_hub_ids()))
+        OR hub_id = ANY(public.sibling_hub_ids())
       )
     )
   );
@@ -354,7 +358,7 @@ CREATE POLICY "Hub rate editors delete hub_route_rates"
       public.current_user_role() = 'accountant'
       AND (
         hub_id = public.current_user_hub_id()
-        OR hub_id = ANY((SELECT public.sibling_hub_ids()))
+        OR hub_id = ANY(public.sibling_hub_ids())
       )
     )
   );
@@ -377,7 +381,7 @@ CREATE POLICY "Admins insert special_goods_rates"
       public.current_user_role() = 'accountant'
       AND (
         hub_id = public.current_user_hub_id()
-        OR hub_id = ANY((SELECT public.sibling_hub_ids()))
+        OR hub_id = ANY(public.sibling_hub_ids())
       )
     )
   );
@@ -392,7 +396,7 @@ CREATE POLICY "Admins update special_goods_rates"
       public.current_user_role() = 'accountant'
       AND (
         hub_id = public.current_user_hub_id()
-        OR hub_id = ANY((SELECT public.sibling_hub_ids()))
+        OR hub_id = ANY(public.sibling_hub_ids())
       )
     )
   )
@@ -402,7 +406,7 @@ CREATE POLICY "Admins update special_goods_rates"
       public.current_user_role() = 'accountant'
       AND (
         hub_id = public.current_user_hub_id()
-        OR hub_id = ANY((SELECT public.sibling_hub_ids()))
+        OR hub_id = ANY(public.sibling_hub_ids())
       )
     )
   );
@@ -417,7 +421,7 @@ CREATE POLICY "Admins delete special_goods_rates"
       public.current_user_role() = 'accountant'
       AND (
         hub_id = public.current_user_hub_id()
-        OR hub_id = ANY((SELECT public.sibling_hub_ids()))
+        OR hub_id = ANY(public.sibling_hub_ids())
       )
     )
   );
@@ -438,7 +442,7 @@ CREATE POLICY "Write size_tier_rates"
       public.current_user_role() = 'accountant'
       AND (
         hub_id = public.current_user_hub_id()
-        OR hub_id = ANY((SELECT public.sibling_hub_ids()))
+        OR hub_id = ANY(public.sibling_hub_ids())
       )
     )
   )
@@ -448,7 +452,7 @@ CREATE POLICY "Write size_tier_rates"
       public.current_user_role() = 'accountant'
       AND (
         hub_id = public.current_user_hub_id()
-        OR hub_id = ANY((SELECT public.sibling_hub_ids()))
+        OR hub_id = ANY(public.sibling_hub_ids())
       )
     )
   );
@@ -479,7 +483,7 @@ BEGIN
       public.current_user_role() = 'accountant'
       AND (
         p_hub_id = public.current_user_hub_id()
-        OR p_hub_id = ANY((SELECT public.sibling_hub_ids()))
+        OR p_hub_id = ANY(public.sibling_hub_ids())
       )
     )
   ) THEN
@@ -533,4 +537,6 @@ GRANT EXECUTE ON FUNCTION public.sync_special_goods_rate(uuid, uuid, text, text,
 -- ────────────────────────────────────────────────────────────────────────────
 INSERT INTO public.schema_migrations (filename)
 VALUES ('20261106_accountant_sibling_rate_writes.sql')
-ON CONFLICT DO NOTHING;
+ON CONFLICT (filename) DO NOTHING;
+
+COMMIT;
