@@ -7,7 +7,7 @@ import { useToast } from '../../lib/ToastContext';
 import { KgTierEditor, KgTier } from '../KgTierEditor';
 import { useAirlines } from '../../lib/airlines';
 import { useHubRoutes, useValidatedRouteSelection } from '../../lib/hubRoutes';
-import { syncLagosRates } from '../../lib/lagosHubSync';
+import { syncLagosRates, deleteLagosRateRow, getSelectableHubsForUser, SelectableHub } from '../../lib/lagosHubSync';
 
 interface RateRow { id: string; min_inches: number; max_inches: number | null; flat_amount: number; }
 
@@ -16,37 +16,42 @@ interface RateRow { id: string; min_inches: number; max_inches: number | null; f
 export const SizeTierRates = ({ user, onBack }: { user: User; onBack: () => void }) => {
   const { showToast } = useToast();
   const isUnrestricted = ['super_admin', 'admin'].includes(user.role);
+  const isAccountant = user.role === 'accountant';
+  const canSelectHub = isUnrestricted || isAccountant;
+
   const airlines = useAirlines({ includeOther: false });
   const routes = useHubRoutes();
 
   const [contentTypes, setContentTypes] = useState<{ id: string; name: string }[]>([]);
-  const [hubs, setHubs] = useState<{ id: string; name: string }[]>([]);
+  const [hubs, setHubs] = useState<SelectableHub[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedContentTypeId, setSelectedContentTypeId] = useState('');
   const [selectedAirline, setSelectedAirline] = useState('');
   // size_tier_rates requires a specific hub_id/route_name (NOT NULL) -- there
   // is no company-wide/all-routes bracket, so these must always resolve to a
   // real value, never a sentinel. Restricted users are pinned to their own
-  // hub; unrestricted users default to the first loaded hub below.
+  // hub (or sibling hubs for accountants); unrestricted users default to the first loaded hub below.
   const [selectedRoute, setSelectedRoute] = useState('');
-  const [selectedHubId, setSelectedHubId] = useState<string>(isUnrestricted ? '' : (user.hub_id || ''));
+  const [selectedHubId, setSelectedHubId] = useState<string>(user.hub_id || '');
   const [rows, setRows] = useState<RateRow[]>([]);
   const [rowsLoading, setRowsLoading] = useState(false);
 
   useEffect(() => {
     Promise.all([
       supabase.from('content_types').select('id, name').eq('is_size_tier', true).eq('active', true).order('name'),
-      supabase.from('hubs').select('id, name').eq('active', true).order('name'),
+      getSelectableHubsForUser(user),
     ]).then(([ct, hb]) => {
       const cts = ct.data || [];
-      const hbs = hb.data || [];
+      const hbs = (hb || []) as SelectableHub[];
       setContentTypes(cts);
       setHubs(hbs);
       if (cts.length > 0) setSelectedContentTypeId(cts[0].id);
-      if (isUnrestricted && hbs.length > 0) setSelectedHubId(prev => prev || hbs[0].id);
+      if (hbs.length > 0) {
+        setSelectedHubId(prev => prev || user.hub_id || hbs[0].id);
+      }
       setLoading(false);
     });
-  }, [isUnrestricted]);
+  }, [user]);
 
   useEffect(() => { if (airlines.length && !selectedAirline) setSelectedAirline(airlines[0]); }, [airlines]);
   useEffect(() => { if (routes.length && !selectedRoute) setSelectedRoute(routes[0]); }, [routes]);
@@ -87,8 +92,13 @@ export const SizeTierRates = ({ user, onBack }: { user: User; onBack: () => void
     if (error) { showToast({ message: `Failed to add: ${error.message}`, type: 'error' }); return; }
     // Keeps EHI Head Office Lagos and Lagos Air Cargo Station on identical
     // pricing -- HubCargoRates.tsx's equivalent save already does this;
-    // this screen's own writes to the same Lagos-synced table never did.
-    syncLagosRates();
+    // sync from edited hub and surface any sibling copy failures.
+    const syncRes = await syncLagosRates(selectedHubId);
+    if (!syncRes.success) {
+      showToast({ message: `Bracket added, but sibling hub sync failed: ${syncRes.message}`, type: 'warning' });
+    } else {
+      showToast({ message: 'Bracket added', type: 'success' });
+    }
     fetchRows();
   };
   const handleUpdateField = async (id: string, field: 'min_kg' | 'max_kg' | 'price', value: number | null) => {
@@ -96,15 +106,42 @@ export const SizeTierRates = ({ user, onBack }: { user: User; onBack: () => void
     const column = field === 'price' ? 'flat_amount' : field === 'min_kg' ? 'min_inches' : 'max_inches';
     setRows(cur => cur.map(r => r.id === id ? { ...r, [column]: value } as RateRow : r));
     const { error } = await supabase.from('size_tier_rates').update({ [column]: value, updated_at: new Date().toISOString() }).eq('id', id);
-    if (error) { setRows(prev); showToast({ message: `Failed to save: ${error.message}`, type: 'error' }); }
-    else syncLagosRates();
+    if (error) {
+      setRows(prev);
+      showToast({ message: `Failed to save: ${error.message}`, type: 'error' });
+    } else {
+      const syncRes = await syncLagosRates(selectedHubId);
+      if (!syncRes.success) {
+        showToast({ message: `Saved, but sibling hub sync failed: ${syncRes.message}`, type: 'warning' });
+      }
+    }
   };
   const handleDelete = async (id: string) => {
     const prev = rows;
+    const targetRow = rows.find(r => r.id === id);
     setRows(cur => cur.filter(r => r.id !== id));
     const { error } = await supabase.from('size_tier_rates').delete().eq('id', id);
-    if (error) { setRows(prev); showToast({ message: `Failed to remove: ${error.message}`, type: 'error' }); return; }
-    syncLagosRates();
+    if (error) {
+      setRows(prev);
+      showToast({ message: `Failed to remove: ${error.message}`, type: 'error' });
+      return;
+    }
+    if (targetRow) {
+      const delRes = await deleteLagosRateRow({
+        table: 'size_tier_rates',
+        sourceHubId: selectedHubId,
+        keys: {
+          content_type_id: selectedContentTypeId,
+          airline: selectedAirline,
+          route_name: selectedRoute,
+          min_inches: targetRow.min_inches,
+        },
+      });
+      if (!delRes.success) {
+        showToast({ message: `Bracket removed, but sibling hub delete failed: ${delRes.message}`, type: 'warning' });
+        return;
+      }
+    }
     showToast({ message: 'Bracket removed', type: 'success' });
   };
 
@@ -141,7 +178,7 @@ export const SizeTierRates = ({ user, onBack }: { user: User; onBack: () => void
               <select value={selectedRoute} onChange={e => setSelectedRoute(e.target.value)} className={selCls}>
                 {routes.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
-              <select value={selectedHubId} onChange={e => setSelectedHubId(e.target.value)} disabled={!isUnrestricted} className={selCls}>
+              <select value={selectedHubId} onChange={e => setSelectedHubId(e.target.value)} disabled={!canSelectHub} className={selCls}>
                 {hubs.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
               </select>
             </div>
