@@ -110,23 +110,41 @@ window.addEventListener('wheel', () => {
   }
 }, { passive: true });
 
-// Run data retention policies
-cleanupOldPings();
-
-// Request persistent storage so IndexedDB offline queues are protected from browser eviction
-if (typeof navigator !== 'undefined' && navigator.storage && typeof navigator.storage.persist === 'function') {
-  navigator.storage.persist().catch(() => {});
+// One-time forced hard refresh on the very first launch after this release deploys,
+// ensuring installed PWAs and cached clients immediately load this update without manual action.
+const FORCED_RELOAD_KEY = 'ehi_forced_reload_subscription_notice_20261106';
+let isReloadingForRelease = false;
+if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
+  try {
+    if (!localStorage.getItem(FORCED_RELOAD_KEY)) {
+      localStorage.setItem(FORCED_RELOAD_KEY, '1');
+      isReloadingForRelease = true;
+      window.location.reload();
+    }
+  } catch {
+    // If localStorage is unavailable or restricted, continue normally without looping
+  }
 }
 
-// CRITICAL: Await Supabase config BEFORE mounting React.
-// Without this, getSession() fires against the dummy URL (race condition)
-// and users are shown the login screen even with a valid session.
-fetchAndApplyServerConfig()
-  .catch(() => {})
-  .finally(() => {
-    createRoot(document.getElementById('root')!).render(
-      <StrictMode>
-        <App />
-      </StrictMode>,
-    );
-  });
+if (!isReloadingForRelease) {
+  // Run data retention policies
+  cleanupOldPings();
+
+  // Request persistent storage so IndexedDB offline queues are protected from browser eviction
+  if (typeof navigator !== 'undefined' && navigator.storage && typeof navigator.storage.persist === 'function') {
+    navigator.storage.persist().catch(() => {});
+  }
+
+  // CRITICAL: Await Supabase config BEFORE mounting React.
+  // Without this, getSession() fires against the dummy URL (race condition)
+  // and users are shown the login screen even with a valid session.
+  fetchAndApplyServerConfig()
+    .catch(() => {})
+    .finally(() => {
+      createRoot(document.getElementById('root')!).render(
+        <StrictMode>
+          <App />
+        </StrictMode>,
+      );
+    });
+}
