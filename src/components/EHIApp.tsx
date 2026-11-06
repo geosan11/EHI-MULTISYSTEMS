@@ -354,8 +354,10 @@ export const EHIApp = ({ user, onLogout }: { user: User; onLogout: () => void })
       if (Date.now() - lastSynced < 24 * 3600 * 1000) return;
     } catch {}
     const timer = window.setTimeout(() => {
-      syncLagosRates().then(() => {
-        try { localStorage.setItem(LAGOS_RATES_SYNC_KEY, String(Date.now())); } catch {}
+      syncLagosRates().then((res) => {
+        if (res.success) {
+          try { localStorage.setItem(LAGOS_RATES_SYNC_KEY, String(Date.now())); } catch {}
+        }
       }).catch(() => {});
     }, 5000);
     return () => window.clearTimeout(timer);

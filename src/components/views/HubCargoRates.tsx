@@ -5,15 +5,10 @@ import { DollarSign, Trash2 } from 'lucide-react';
 import { User } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../lib/ToastContext';
-import { syncLagosRates } from '../../lib/lagosHubSync';
+import { syncLagosRates, deleteLagosRateRow, getSelectableHubsForUser, SelectableHub } from '../../lib/lagosHubSync';
 import { PageHeader } from '../ui';
 
 const HUB_DEFAULT_AIRLINE = '__HUB_DEFAULT__';
-
-interface Hub {
-  id: string;
-  name: string;
-}
 
 // Rates here are additive overrides on top of the company-wide
 // standard_cargo_rates (edited in PricingConfiguration.tsx, which stays
@@ -22,9 +17,12 @@ interface Hub {
 // screen's writes feed into.
 export const HubCargoRates = ({ user, onBack }: { user: User; onBack: () => void }) => {
   const isUnrestricted = user.role === 'super_admin' || user.role === 'admin';
+  const isAccountant = user.role === 'accountant';
+  const canSelectHub = isUnrestricted || isAccountant;
+
   const allRoutes = useHubRoutes();
   const ROUTES = useMemo(() => allRoutes.filter((r) => r !== 'Other'), [allRoutes]);
-  const [hubs, setHubs] = useState<Hub[]>([]);
+  const [hubs, setHubs] = useState<SelectableHub[]>([]);
   const [selectedHubId, setSelectedHubId] = useState<string>(user.hub_id || '');
   // Same canonical airline source CargoForm.tsx uses -- the key-set of
   // pricing_config's airline_commissions row, not a separate hardcoded list.
@@ -36,11 +34,14 @@ export const HubCargoRates = ({ user, onBack }: { user: User; onBack: () => void
   const { showToast } = useToast();
 
   useEffect(() => {
-    if (!isUnrestricted) return;
-    supabase.from('hubs').select('id, name').eq('active', true).order('name').then(({ data }) => {
-      if (data) setHubs(data);
+    if (!canSelectHub) return;
+    getSelectableHubsForUser(user).then((data) => {
+      setHubs(data);
+      if (data.length > 0 && !selectedHubId) {
+        setSelectedHubId(user.hub_id || data[0].id);
+      }
     });
-  }, [isUnrestricted]);
+  }, [canSelectHub, user]);
 
   const fetchHubRates = async (hubId: string) => {
     if (!hubId) { setHubRouteRates({}); setHubAirlineRouteRates({}); setLoading(false); return; }
@@ -65,8 +66,8 @@ export const HubCargoRates = ({ user, onBack }: { user: User; onBack: () => void
   useEffect(() => { fetchHubRates(selectedHubId); }, [selectedHubId]);
 
   const currentHubName = useMemo(
-    () => (isUnrestricted ? hubs.find((h) => h.id === selectedHubId)?.name : user.hub) || '',
-    [isUnrestricted, hubs, selectedHubId, user.hub],
+    () => (canSelectHub ? (hubs.find((h) => h.id === selectedHubId)?.name || (selectedHubId === user.hub_id ? user.hub : '')) : user.hub) || '',
+    [canSelectHub, hubs, selectedHubId, user.hub, user.hub_id],
   );
 
   const handleSetRate = async (route: string, value: string) => {
@@ -88,8 +89,12 @@ export const HubCargoRates = ({ user, onBack }: { user: User; onBack: () => void
         setHubRouteRates(prev);
         showToast({ message: `Failed to save ${route} default rate: ${error.message}`, type: 'error' });
       } else {
-        syncLagosRates();
-        showToast({ message: `${route} default rate saved.`, type: 'success' });
+        const syncRes = await syncLagosRates(selectedHubId);
+        if (!syncRes.success) {
+          showToast({ message: `${route} default rate saved, but sibling hub sync failed: ${syncRes.message}`, type: 'warning' });
+        } else {
+          showToast({ message: `${route} default rate saved.`, type: 'success' });
+        }
       }
     } else {
       const key = `${selectedAirline}|${route}`;
@@ -107,8 +112,12 @@ export const HubCargoRates = ({ user, onBack }: { user: User; onBack: () => void
         setHubAirlineRouteRates(prev);
         showToast({ message: `Failed to save ${route} rate for ${selectedAirline}: ${error.message}`, type: 'error' });
       } else {
-        syncLagosRates();
-        showToast({ message: `${route} rate for ${selectedAirline} saved.`, type: 'success' });
+        const syncRes = await syncLagosRates(selectedHubId);
+        if (!syncRes.success) {
+          showToast({ message: `${route} rate for ${selectedAirline} saved, but sibling hub sync failed: ${syncRes.message}`, type: 'warning' });
+        } else {
+          showToast({ message: `${route} rate for ${selectedAirline} saved.`, type: 'success' });
+        }
       }
     }
   };
@@ -125,8 +134,16 @@ export const HubCargoRates = ({ user, onBack }: { user: User; onBack: () => void
         setHubRouteRates(prev);
         showToast({ message: `Failed to clear ${route} default rate: ${error.message}`, type: 'error' });
       } else {
-        syncLagosRates();
-        showToast({ message: `${route} default rate cleared.`, type: 'success' });
+        const delRes = await deleteLagosRateRow({
+          table: 'hub_route_rates',
+          sourceHubId: selectedHubId,
+          keys: { route_name: route },
+        });
+        if (!delRes.success) {
+          showToast({ message: `${route} default rate cleared, but sibling hub delete failed: ${delRes.message}`, type: 'warning' });
+        } else {
+          showToast({ message: `${route} default rate cleared.`, type: 'success' });
+        }
       }
     } else {
       const key = `${selectedAirline}|${route}`;
@@ -139,8 +156,16 @@ export const HubCargoRates = ({ user, onBack }: { user: User; onBack: () => void
         setHubAirlineRouteRates(prev);
         showToast({ message: `Failed to clear ${route} rate for ${selectedAirline}: ${error.message}`, type: 'error' });
       } else {
-        syncLagosRates();
-        showToast({ message: `${route} rate for ${selectedAirline} cleared.`, type: 'success' });
+        const delRes = await deleteLagosRateRow({
+          table: 'hub_airline_route_rates',
+          sourceHubId: selectedHubId,
+          keys: { airline: selectedAirline, route_name: route },
+        });
+        if (!delRes.success) {
+          showToast({ message: `${route} rate for ${selectedAirline} cleared, but sibling hub delete failed: ${delRes.message}`, type: 'warning' });
+        } else {
+          showToast({ message: `${route} rate for ${selectedAirline} cleared.`, type: 'success' });
+        }
       }
     }
   };
@@ -166,7 +191,7 @@ export const HubCargoRates = ({ user, onBack }: { user: User; onBack: () => void
         </div>
 
         <div className="grid md:grid-cols-2 gap-3">
-          {isUnrestricted && (
+          {canSelectHub && (
             <div>
               <label htmlFor="hub-select" className="text-[11px] font-medium text-[var(--color-muted)] block mb-1.5">Hub</label>
               <select
@@ -175,7 +200,7 @@ export const HubCargoRates = ({ user, onBack }: { user: User; onBack: () => void
                 onChange={(e) => setSelectedHubId(e.target.value)}
                 className="w-full bg-[var(--color-surface-1)] border border-[var(--color-border)] rounded-md px-3 py-2 text-[13px] text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent-amber)]"
               >
-                <option value="">Select a hub…</option>
+                {isUnrestricted && <option value="">Select a hub…</option>}
                 {hubs.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
               </select>
             </div>

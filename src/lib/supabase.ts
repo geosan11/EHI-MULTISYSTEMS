@@ -114,6 +114,10 @@ export const supabase: SupabaseClient = new Proxy({} as SupabaseClient, {
   get(_t, prop) {
     return (_client as any)[prop];
   },
+  set(_t, prop, value) {
+    (_client as any)[prop] = value;
+    return true;
+  },
 });
 
 export function reinitSupabase(): void {

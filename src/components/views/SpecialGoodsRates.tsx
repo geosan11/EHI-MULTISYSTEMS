@@ -7,7 +7,7 @@ import { useToast } from '../../lib/ToastContext';
 import { useAirlines } from '../../lib/airlines';
 import { useHubRoutes } from '../../lib/hubRoutes';
 import { User } from '../../lib/types';
-import { syncLagosRates } from '../../lib/lagosHubSync';
+import { syncLagosRates, deleteLagosRateRow, getSelectableHubsForUser, SelectableHub } from '../../lib/lagosHubSync';
 
 // Sentinel for the company-wide default row (hub_id IS NULL) -- same
 // convention as HubCargoRates.tsx's HUB_DEFAULT_AIRLINE for a "wildcard"
@@ -18,11 +18,6 @@ const ALL_HUBS = '__ALL_HUBS__';
 const ALL_ROUTES = '__all_routes__';
 
 interface SpecialContentType {
-  id: string;
-  name: string;
-}
-
-interface Hub {
   id: string;
   name: string;
 }
@@ -40,16 +35,18 @@ interface RateRow {
 
 export const SpecialGoodsRates = ({ onBack, presetContentTypeId, user }: { onBack: () => void; presetContentTypeId?: string; user: User }) => {
   const isUnrestricted = user.role === 'super_admin' || user.role === 'admin';
+  const isAccountant = user.role === 'accountant';
+  const canSelectHub = isUnrestricted || isAccountant;
+
   const [contentTypes, setContentTypes] = useState<SpecialContentType[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedContentTypeId, setSelectedContentTypeId] = useState<string>(presetContentTypeId || '');
   const [selectedAirline, setSelectedAirline] = useState<string>('');
   // super_admin/admin can browse/edit any hub's override (or the ALL_HUBS
-  // company-wide default); accountant is locked to their own hub -- RLS
-  // would reject a write to any other hub_id anyway (20260820_special_goods_hub_scoping.sql).
-  const [selectedHubId, setSelectedHubId] = useState<string>(isUnrestricted ? ALL_HUBS : (user.hub_id || ALL_HUBS));
+  // company-wide default); accountant can select their own hub or sibling hubs.
+  const [selectedHubId, setSelectedHubId] = useState<string>(isUnrestricted ? ALL_HUBS : (user.hub_id || ''));
   const [selectedRoute, setSelectedRoute] = useState<string>(ALL_ROUTES);
-  const [hubs, setHubs] = useState<Hub[]>([]);
+  const [hubs, setHubs] = useState<SelectableHub[]>([]);
   const [rows, setRows] = useState<RateRow[]>([]);
   const [rowsLoading, setRowsLoading] = useState(false);
 
@@ -58,11 +55,14 @@ export const SpecialGoodsRates = ({ onBack, presetContentTypeId, user }: { onBac
   const routes = useHubRoutes();
 
   useEffect(() => {
-    if (!isUnrestricted) return;
-    supabase.from('hubs').select('id, name').eq('active', true).order('name').then(({ data }) => {
-      if (data) setHubs(data);
+    if (!canSelectHub) return;
+    getSelectableHubsForUser(user).then((data) => {
+      setHubs(data);
+      if (!isUnrestricted && data.length > 0 && !selectedHubId) {
+        setSelectedHubId(user.hub_id || data[0].id);
+      }
     });
-  }, [isUnrestricted]);
+  }, [canSelectHub, isUnrestricted, user]);
 
   useEffect(() => {
     const fetchTypes = async () => {
@@ -110,10 +110,11 @@ export const SpecialGoodsRates = ({ onBack, presetContentTypeId, user }: { onBac
   useEffect(() => { fetchRows(); }, [selectedContentTypeId, selectedAirline, selectedHubId, selectedRoute]);
 
   const handleAdd = async ({ min_kg, max_kg, price }: { min_kg: number; max_kg: number | null; price: number }) => {
+    const hubIdVal = selectedHubId === ALL_HUBS ? null : selectedHubId;
     const { error } = await supabase.from('special_goods_rates').insert({
       content_type_id: selectedContentTypeId,
       airline: selectedAirline,
-      hub_id: selectedHubId === ALL_HUBS ? null : selectedHubId,
+      hub_id: hubIdVal,
       route_name: selectedRoute === ALL_ROUTES ? null : selectedRoute,
       min_kg,
       max_kg,
@@ -125,8 +126,13 @@ export const SpecialGoodsRates = ({ onBack, presetContentTypeId, user }: { onBac
     }
     // Keeps EHI Head Office Lagos and Lagos Air Cargo Station on identical
     // pricing -- HubCargoRates.tsx's equivalent save already does this;
-    // this screen's own writes to the same Lagos-synced table never did.
-    syncLagosRates();
+    // sync from edited hub and surface any sibling copy failures.
+    const syncRes = await syncLagosRates(hubIdVal);
+    if (!syncRes.success) {
+      showToast({ message: `Bracket added, but sibling hub sync failed: ${syncRes.message}`, type: 'warning' });
+    } else {
+      showToast({ message: 'Bracket added', type: 'success' });
+    }
     fetchRows();
   };
 
@@ -141,12 +147,17 @@ export const SpecialGoodsRates = ({ onBack, presetContentTypeId, user }: { onBac
       setRows(prev);
       showToast({ message: `Failed to save change: ${error.message}`, type: 'error' });
     } else {
-      syncLagosRates();
+      const hubIdVal = selectedHubId === ALL_HUBS ? null : selectedHubId;
+      const syncRes = await syncLagosRates(hubIdVal);
+      if (!syncRes.success) {
+        showToast({ message: `Saved, but sibling hub sync failed: ${syncRes.message}`, type: 'warning' });
+      }
     }
   };
 
   const handleDelete = async (id: string) => {
     const prevRows = rows;
+    const targetRow = rows.find(r => r.id === id);
     setRows(cur => cur.filter(r => r.id !== id));
     const { error } = await supabase.from('special_goods_rates').delete().eq('id', id);
     if (error) {
@@ -154,7 +165,22 @@ export const SpecialGoodsRates = ({ onBack, presetContentTypeId, user }: { onBac
       showToast({ message: `Failed to remove bracket: ${error.message}`, type: 'error' });
       return;
     }
-    syncLagosRates();
+    if (targetRow && targetRow.hub_id) {
+      const delRes = await deleteLagosRateRow({
+        table: 'special_goods_rates',
+        sourceHubId: targetRow.hub_id,
+        keys: {
+          content_type_id: targetRow.content_type_id,
+          airline: targetRow.airline,
+          route_name: targetRow.route_name,
+          min_kg: targetRow.min_kg,
+        },
+      });
+      if (!delRes.success) {
+        showToast({ message: `Bracket removed, but sibling hub delete failed: ${delRes.message}`, type: 'warning' });
+        return;
+      }
+    }
     showToast({ message: 'Bracket removed', type: 'success' });
   };
 
@@ -213,14 +239,14 @@ export const SpecialGoodsRates = ({ onBack, presetContentTypeId, user }: { onBac
               </div>
               <div>
                 <label htmlFor="sg-hub" className="text-[9px] font-mono text-[var(--color-muted)] block mb-1">HUB</label>
-                {isUnrestricted ? (
+                {canSelectHub ? (
                   <select
                     id="sg-hub"
                     value={selectedHubId}
                     onChange={(e) => setSelectedHubId(e.target.value)}
                     className="w-full ehi-input"
                   >
-                    <option value={ALL_HUBS}>All Hubs (Default)</option>
+                    {isUnrestricted && <option value={ALL_HUBS}>All Hubs (Default)</option>}
                     {hubs.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
                   </select>
                 ) : (
