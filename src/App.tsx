@@ -15,6 +15,7 @@ import { ConfirmProvider, useConfirm } from './lib/ConfirmContext';
 import { getPendingSyncSummary, type PendingSyncSummary } from './lib/deviceSync';
 import { PendingSyncBanner } from './components/PendingSyncBanner';
 import { statusMeta, statusColorVar } from './lib/status';
+import { SubscriptionExpiredModal } from './components/SubscriptionExpiredModal';
 
 const PublicTrackingPage = () => {
   const { waybillId } = useParams<{ waybillId?: string }>();
@@ -527,22 +528,6 @@ const AuthenticatedApp = () => {
     );
   }
 
-  if (!user) {
-    return (
-      <div className="relative min-h-screen flex flex-col">
-        {(pendingSummary.pending_total > 0 || pendingSummary.quarantined_count > 0) && (
-          <PendingSyncBanner
-            summary={pendingSummary}
-            isSessionExpired={true}
-          />
-        )}
-        <div className="flex-1 flex flex-col">
-          <LoginScreen onLogin={(u) => { setLoginNotice(null); setUser(u); }} notice={loginNotice} />
-        </div>
-      </div>
-    );
-  }
-
   const handleLogout = async () => {
     const summary = await getPendingSyncSummary();
     if (summary.pending_total > 0) {
@@ -567,11 +552,28 @@ const AuthenticatedApp = () => {
   };
 
   return (
-    <ErrorBoundary>
-      <Suspense fallback={<SplashScreen />}>
-        <EHIApp user={user} onLogout={handleLogout} />
-      </Suspense>
-    </ErrorBoundary>
+    <>
+      <SubscriptionExpiredModal />
+      {!user ? (
+        <div className="relative min-h-screen flex flex-col">
+          {(pendingSummary.pending_total > 0 || pendingSummary.quarantined_count > 0) && (
+            <PendingSyncBanner
+              summary={pendingSummary}
+              isSessionExpired={true}
+            />
+          )}
+          <div className="flex-1 flex flex-col">
+            <LoginScreen onLogin={(u) => { setLoginNotice(null); setUser(u); }} notice={loginNotice} />
+          </div>
+        </div>
+      ) : (
+        <ErrorBoundary>
+          <Suspense fallback={<SplashScreen />}>
+            <EHIApp user={user} onLogout={handleLogout} />
+          </Suspense>
+        </ErrorBoundary>
+      )}
+    </>
   );
 };
 
