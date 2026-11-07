@@ -3849,22 +3849,6 @@ export const TransactionLedger = ({
         {allDests.map(r => <option key={r} value={r}>{r}</option>)}
       </select>
 
-      {/* Metrics / Summary Drawer Toggle */}
-      <button
-        type="button"
-        onClick={toggleSummaryExpanded}
-        title={isSummaryExpanded ? 'Collapse KPI Cards & Manifest' : 'Expand Full KPI Cards, Debt Split & Airline Manifest'}
-        className={`h-8 px-2.5 rounded-full flex items-center gap-1.5 font-mono text-[10px] font-bold border transition-all cursor-pointer ${
-          isSummaryExpanded
-            ? 'bg-[rgba(251,191,36,0.16)] border-[var(--color-accent-amber)] text-[var(--color-accent-amber)] shadow-[var(--shadow-amber)]'
-            : 'bg-[var(--color-surface-1)] border-[rgba(251,191,36,0.35)] text-[var(--color-accent-amber)] hover:bg-[rgba(251,191,36,0.1)]'
-        }`}
-      >
-        <LayoutGrid size={12} className="shrink-0" />
-        <span>Metrics</span>
-        {isSummaryExpanded ? <ChevronUp size={12} className="shrink-0" /> : <ChevronDown size={12} className="shrink-0" />}
-      </button>
-
       {/* Grouped Export Dropdown Menu (Excel Current View, Excel All-Time, Airline Manifest Excel) */}
       <div className="relative" ref={exportMenuRef}>
         <button
