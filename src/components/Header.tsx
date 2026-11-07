@@ -197,14 +197,15 @@ export const Header = ({
           {quickNavItems.length > 0 && (
             <nav
               aria-label="Quick Navigation"
-              className="hidden md:flex items-center gap-1 p-1 rounded-full bg-[var(--color-surface-1)] border border-[var(--color-border)] shadow-inner"
+              className="hidden md:flex items-center gap-1 p-1 rounded-full bg-[var(--color-surface-1)] border border-[var(--color-border)] shadow-inner shrink-0"
             >
               {quickNavItems.map((item) => {
                 const Icon = item.icon;
                 const isActive =
-                  !docked &&
-                  (location.pathname === item.path ||
-                    location.pathname.startsWith(item.path + '/'));
+                  (!docked &&
+                    (location.pathname === item.path ||
+                      location.pathname.startsWith(item.path + '/'))) ||
+                  (docked && item.id === 'ledger');
                 return (
                   <button
                     key={item.id}
@@ -214,7 +215,7 @@ export const Header = ({
                       if (onCloseOverlay) onCloseOverlay();
                       navigate(item.path);
                     }}
-                    className={`group relative h-7 px-2.5 rounded-full flex items-center justify-center transition-all duration-300 ease-out cursor-pointer select-none ${
+                    className={`group relative h-7 px-2.5 rounded-full flex items-center justify-center transition-all duration-300 ease-out cursor-pointer select-none shrink-0 ${
                       isActive
                         ? 'bg-[rgba(251,191,36,0.16)] text-[var(--color-accent-amber)] border border-[rgba(251,191,36,0.38)] shadow-sm'
                         : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-hover)] border border-transparent'
@@ -225,13 +226,7 @@ export const Header = ({
                       strokeWidth={isActive ? 2.2 : 1.8}
                       className="shrink-0 transition-transform duration-200 group-hover:scale-110"
                     />
-                    <span
-                      className={`font-mono text-[10px] font-bold tracking-tight whitespace-nowrap overflow-hidden transition-all duration-300 ease-out ${
-                        isActive
-                          ? 'max-w-[140px] opacity-100 ml-1.5'
-                          : 'max-w-0 opacity-0 ml-0 group-hover:max-w-[140px] group-hover:opacity-100 group-hover:ml-1.5 group-focus-visible:max-w-[140px] group-focus-visible:opacity-100 group-focus-visible:ml-1.5'
-                      }`}
-                    >
+                    <span className="font-mono text-[10px] font-bold tracking-tight whitespace-nowrap ml-1.5">
                       {item.label}
                     </span>
                   </button>
@@ -243,11 +238,11 @@ export const Header = ({
 
         {/* Right controls -- sit in the sticky top bar on desktop
             (.ehi-header-controls is in-flow; see index.css). */}
-        <div className="ehi-header-controls flex items-center gap-2 ml-auto flex-wrap justify-end">
+        <div className="ehi-header-controls flex items-center gap-2 ml-auto flex-wrap justify-end min-w-0">
           {/* Dynamic Slot for Ledger Secondary Navigation Controls (Filters, Export, Debt Log, 80mm, Manifest) */}
           <div
             data-ehi-header-right-slot
-            className="flex items-center gap-1.5 flex-wrap justify-end empty:hidden pr-1 border-r border-[var(--color-border)]"
+            className="flex items-center gap-1.5 flex-wrap justify-end empty:hidden pr-1 border-r border-[var(--color-border)] min-w-0"
           />
 
           {/* Theme toggle — Frosted Glass Lens Orb */}

@@ -16,7 +16,7 @@ import { getEquivalentHubIds } from "../../lib/lagosHubSync";
 import { useAirlines } from "../../lib/airlines";
 import { statusChipClass, statusMeta } from "../../lib/status";
 import { Button } from "../ui";
-import { MIN_PACKAGE_AMOUNT } from "../../lib/constants";
+import { MIN_PACKAGE_AMOUNT, CARGO_ROUTES } from "../../lib/constants";
 import { useContentTypes } from "../../lib/contentTypes";
 import { useSpecialGoodsRates, resolveSpecialGoodsRate } from "../../lib/specialGoodsRates";
 import { useFlatTierRates, resolveFlatTier } from "../../lib/flatTierRates";
@@ -133,6 +133,39 @@ function stripBadgedFieldsFromDetail(detail: string, ...values: (string | null |
     .replace(/^\s*·\s*/, '')
     .replace(/\s*·\s*$/, '')
     .trim();
+}
+
+// Shortens long destination strings (e.g. "ABV/ABUJA AIR CARGO STATION" -> "ABV",
+// "KAN/KANO CARGO STATION" -> "KAN") for compact badge display.
+// Prefers a real 2-4 letter hub code when present; if none, shows the clean state/city name.
+function shortenDestination(dest: string | null | undefined): string {
+  if (!dest) return '';
+  const trimmed = dest.trim();
+  if (!trimmed) return '';
+
+  // 1. Check for leading 2-4 letter code before a "/"
+  const slashIdx = trimmed.indexOf('/');
+  if (slashIdx > 0) {
+    const candidateCode = trimmed.slice(0, slashIdx).trim();
+    if (/^[A-Za-z]{2,4}$/.test(candidateCode)) {
+      return candidateCode.toUpperCase();
+    }
+  }
+
+  // 2. Check against known CARGO_ROUTES for a match
+  const lower = trimmed.toLowerCase();
+  for (const route of CARGO_ROUTES) {
+    if (route === 'Other') continue;
+    const [c, city] = route.split('/');
+    if (city && (lower.includes(city.toLowerCase()) || lower === c.toLowerCase())) {
+      return c.toUpperCase();
+    }
+  }
+
+  // 3. No real hub code found: show the state/city part without the long suffix
+  const cityPart = slashIdx >= 0 ? trimmed.slice(slashIdx + 1).trim() : trimmed;
+  const cleaned = cleanRoute(cityPart);
+  return cleaned !== '—' ? cleaned : cityPart;
 }
 
 // Maps a transaction type to its real DB table -- needed anywhere a
@@ -3783,7 +3816,7 @@ export const TransactionLedger = ({
   );
 
   const ledgerHeaderRight = (
-    <div className="flex items-center gap-1.5 flex-wrap justify-end">
+    <div className="flex items-center gap-1.5 flex-wrap justify-end min-w-0">
       {defaultTypeFilter === 'baggage' && (
         <>
           <select
@@ -4009,8 +4042,8 @@ export const TransactionLedger = ({
   );
 
   return (
-    <div className="ehi-ledger-textured flex flex-row h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] relative animate-in slide-in-from-right overflow-hidden">
-      <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
+    <div className="ehi-ledger-textured flex flex-row h-full bg-[var(--color-obsidian)] text-[var(--color-foreground)] relative animate-in slide-in-from-right">
+      <div className="flex-1 flex flex-col h-full min-w-0">
         {headerSlots.left && headerSlots.right ? (
           <>
             {createPortal(ledgerHeaderLeft, headerSlots.left)}
@@ -4037,9 +4070,9 @@ export const TransactionLedger = ({
         ) : (
           <>
             {/* ── TIER 2: Collapsible KPI Ribbon & Progressive Disclosure Drawer ── */}
-            <div className="shrink-0 bg-[var(--color-surface-card)] border-b border-[var(--color-border)]">
-              {/* Slim Always-Visible KPI Strip */}
-              <div className="px-3 py-1.5 flex items-center justify-between gap-2 flex-wrap">
+            <div className="shrink-0 bg-[var(--color-surface-card)] border-b border-[var(--color-border)] relative">
+              {/* Slim Always-Visible KPI Strip (Pinned) */}
+              <div className="sticky top-0 z-20 bg-[var(--color-surface-card)] border-b border-[var(--color-border)] px-3 py-1.5 flex items-center justify-between gap-2 flex-wrap shadow-sm">
                 <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
                   {/* Total Pill */}
                   <button
@@ -4175,9 +4208,9 @@ export const TransactionLedger = ({
 
               {/* Progressive Disclosure Expanded Drawer (Full KPI Cards, Debt Breakdown & Airline Manifest) */}
               {isSummaryExpanded && (
-                <div className="px-3 py-3 border-t border-[var(--color-border)] bg-[var(--color-surface-1)]/40 space-y-2.5 animate-in fade-in duration-200">
+                <div className="px-3 py-2 border-t border-[var(--color-border)] bg-[var(--color-surface-1)]/40 space-y-1.5 animate-in fade-in duration-200">
                   {(onStartShift || onEndShift || shiftAutoManaged) && (
-                    <div className="px-3 py-2 rounded-xl bg-[var(--color-surface-card)] border border-[var(--color-border)] flex items-center justify-between gap-3">
+                    <div className="px-3 py-1.5 rounded-xl bg-[var(--color-surface-card)] border border-[var(--color-border)] flex items-center justify-between gap-3">
                       {shiftBarContent}
                     </div>
                   )}
@@ -4187,128 +4220,128 @@ export const TransactionLedger = ({
                     {/* Total */}
                     <div
                       onClick={() => setModeFilter('All')}
-                      className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all cursor-pointer ${
+                      className={`rounded-xl p-1.5 border flex items-center gap-1.5 text-left transition-all cursor-pointer ${
                         modeFilter === 'All'
                           ? 'bg-[rgba(251,191,36,0.06)] border-[var(--color-accent-amber)] shadow-[var(--shadow-amber)]'
                           : 'bg-[var(--color-surface-card)] border-[rgba(251,191,36,0.35)] hover:border-[var(--color-accent-amber)] shadow-[var(--shadow-sm),0_0_18px_-6px_rgba(251,191,36,0.35)]'
                       }`}
                     >
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'All' ? 'bg-[rgba(251,191,36,0.22)]' : 'bg-[rgba(251,191,36,0.12)]'}`}>
-                        <LayoutGrid size={16} className="text-[var(--color-accent-amber)]" />
+                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${modeFilter === 'All' ? 'bg-[rgba(251,191,36,0.22)]' : 'bg-[rgba(251,191,36,0.12)]'}`}>
+                        <LayoutGrid size={13} className="text-[var(--color-accent-amber)]" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-[10px] font-mono text-[var(--color-accent-amber)] uppercase tracking-wider truncate">Total</div>
-                        <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-foreground)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.totalAmount)}`}</div>
+                        <div className="text-[11px] sm:text-[12px] font-bold font-mono text-[var(--color-foreground)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={11} className="animate-spin" /> : `₦${fmt(displayTotals.totalAmount)}`}</div>
                       </div>
                     </div>
 
                     {/* Cash */}
                     <button
                       onClick={() => setModeFilter(modeFilter === 'Cash' ? 'All' : 'Cash')}
-                      className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
+                      className={`rounded-xl p-1.5 border flex items-center gap-1.5 text-left transition-all ${
                         modeFilter === 'Cash'
                           ? 'bg-[rgba(16,185,129,0.06)] border-[var(--color-success)] shadow-[var(--shadow-success)]'
                           : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-success)] shadow-[var(--shadow-sm)]'
                       }`}
                     >
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'Cash' ? 'bg-[rgba(16,185,129,0.22)]' : 'bg-[rgba(16,185,129,0.12)]'}`}>
-                        <Banknote size={16} className="text-[var(--color-success)]" />
+                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${modeFilter === 'Cash' ? 'bg-[rgba(16,185,129,0.22)]' : 'bg-[rgba(16,185,129,0.12)]'}`}>
+                        <Banknote size={13} className="text-[var(--color-success)]" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-1">
                           <div className="text-[10px] font-mono text-[var(--color-success)] uppercase tracking-wider truncate">Cash</div>
                           {isAccountantOrAdmin && unverifiedCash.length > 0 && (
-                            <span className="text-[10px] font-mono font-bold bg-[rgba(251,191,36,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unverifiedCash.length}</span>
+                            <span className="text-[9px] font-mono font-bold bg-[rgba(251,191,36,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unverifiedCash.length}</span>
                           )}
                         </div>
-                        <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-success)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.cashAmount)}`}</div>
+                        <div className="text-[11px] sm:text-[12px] font-bold font-mono text-[var(--color-success)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={11} className="animate-spin" /> : `₦${fmt(displayTotals.cashAmount)}`}</div>
                       </div>
                     </button>
 
                     {/* Transfer */}
                     <button
                       onClick={() => setModeFilter(modeFilter === 'Transfer' ? 'All' : 'Transfer')}
-                      className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
+                      className={`rounded-xl p-1.5 border flex items-center gap-1.5 text-left transition-all ${
                         modeFilter === 'Transfer'
                           ? 'bg-[rgba(59,130,246,0.06)] border-[var(--color-accent-cobalt)] shadow-[var(--shadow-cobalt)]'
                           : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-accent-cobalt)] shadow-[var(--shadow-sm)]'
                       }`}
                     >
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'Transfer' ? 'bg-[rgba(59,130,246,0.22)]' : 'bg-[rgba(59,130,246,0.12)]'}`}>
-                        <ArrowLeftRight size={16} className="text-[var(--color-accent-cobalt)]" />
+                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${modeFilter === 'Transfer' ? 'bg-[rgba(59,130,246,0.22)]' : 'bg-[rgba(59,130,246,0.12)]'}`}>
+                        <ArrowLeftRight size={13} className="text-[var(--color-accent-cobalt)]" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-1">
                           <div className="text-[10px] font-mono text-[var(--color-accent-cobalt)] uppercase tracking-wider truncate">Transfer</div>
                           {isAccountantOrAdmin && unconfirmedTransfer.length > 0 && (
-                            <span className="text-[10px] font-mono font-bold bg-[rgba(251,191,36,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unconfirmedTransfer.length}</span>
+                            <span className="text-[9px] font-mono font-bold bg-[rgba(251,191,36,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unconfirmedTransfer.length}</span>
                           )}
                         </div>
-                        <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-accent-cobalt)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.transferAmount)}`}</div>
+                        <div className="text-[11px] sm:text-[12px] font-bold font-mono text-[var(--color-accent-cobalt)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={11} className="animate-spin" /> : `₦${fmt(displayTotals.transferAmount)}`}</div>
                       </div>
                     </button>
 
                     {/* POS */}
                     <button
                       onClick={() => setModeFilter(modeFilter === 'POS' ? 'All' : 'POS')}
-                      className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
+                      className={`rounded-xl p-1.5 border flex items-center gap-1.5 text-left transition-all ${
                         modeFilter === 'POS'
                           ? 'bg-[rgba(251,191,36,0.06)] border-[var(--color-accent-amber)] shadow-[var(--shadow-amber)]'
                           : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-accent-amber)] shadow-[var(--shadow-sm)]'
                       }`}
                     >
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'POS' ? 'bg-[rgba(251,191,36,0.22)]' : 'bg-[rgba(251,191,36,0.12)]'}`}>
-                        <CreditCard size={16} className="text-[var(--color-accent-amber)]" />
+                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${modeFilter === 'POS' ? 'bg-[rgba(251,191,36,0.22)]' : 'bg-[rgba(251,191,36,0.12)]'}`}>
+                        <CreditCard size={13} className="text-[var(--color-accent-amber)]" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-1">
                           <div className="text-[10px] font-mono text-[var(--color-accent-amber)] uppercase tracking-wider truncate">POS</div>
                           {isAccountantOrAdmin && unconfirmedPOS.length > 0 && (
-                            <span className="text-[10px] font-mono font-bold bg-[rgba(251,191,36,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unconfirmedPOS.length}</span>
+                            <span className="text-[9px] font-mono font-bold bg-[rgba(251,191,36,0.2)] text-[var(--color-accent-amber)] px-1 py-0.5 rounded shrink-0">!{unconfirmedPOS.length}</span>
                           )}
                         </div>
-                        <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-accent-amber)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.posAmount)}`}</div>
+                        <div className="text-[11px] sm:text-[12px] font-bold font-mono text-[var(--color-accent-amber)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={11} className="animate-spin" /> : `₦${fmt(displayTotals.posAmount)}`}</div>
                       </div>
                     </button>
 
                     {/* Debt */}
                     <button
                       onClick={() => setModeFilter(modeFilter === 'Debt' ? 'All' : 'Debt')}
-                      className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
+                      className={`rounded-xl p-1.5 border flex items-center gap-1.5 text-left transition-all ${
                         modeFilter === 'Debt'
                           ? 'bg-[rgba(239,68,68,0.06)] border-[var(--color-error)] shadow-[var(--shadow-error)]'
                           : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-error)] shadow-[var(--shadow-sm)]'
                       }`}
                     >
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'Debt' ? 'bg-[rgba(239,68,68,0.22)]' : 'bg-[rgba(239,68,68,0.12)]'}`}>
-                        <AlertTriangle size={16} className="text-[var(--color-error)]" />
+                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${modeFilter === 'Debt' ? 'bg-[rgba(239,68,68,0.22)]' : 'bg-[rgba(239,68,68,0.12)]'}`}>
+                        <AlertTriangle size={13} className="text-[var(--color-error)]" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-1">
                           <div className="text-[10px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Debt</div>
                           {displayTotals.unpaidDebtCount > 0 && (
-                            <span className="text-[10px] font-mono font-bold bg-[rgba(239,68,68,0.2)] text-[var(--color-error)] px-1 py-0.5 rounded shrink-0">{displayTotals.unpaidDebtCount}</span>
+                            <span className="text-[9px] font-mono font-bold bg-[rgba(239,68,68,0.2)] text-[var(--color-error)] px-1 py-0.5 rounded shrink-0">{displayTotals.unpaidDebtCount}</span>
                           )}
                         </div>
-                        <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.debtAmount)}`}</div>
+                        <div className="text-[11px] sm:text-[12px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={11} className="animate-spin" /> : `₦${fmt(displayTotals.debtAmount)}`}</div>
                       </div>
                     </button>
 
                     {/* Wallet */}
                     <button
                       onClick={() => setModeFilter(modeFilter === 'Wallet' ? 'All' : 'Wallet')}
-                      className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
+                      className={`rounded-xl p-1.5 border flex items-center gap-1.5 text-left transition-all ${
                         modeFilter === 'Wallet'
                           ? 'bg-[rgba(168,85,247,0.06)] border-[var(--color-purple-border)] shadow-[var(--shadow-purple)]'
                           : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-purple-border)] shadow-[var(--shadow-sm)]'
                       }`}
                     >
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${modeFilter === 'Wallet' ? 'bg-[rgba(168,85,247,0.22)]' : 'bg-[rgba(168,85,247,0.12)]'}`}>
-                        <Wallet size={16} className="text-[var(--color-purple-fg)]" />
+                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${modeFilter === 'Wallet' ? 'bg-[rgba(168,85,247,0.22)]' : 'bg-[rgba(168,85,247,0.12)]'}`}>
+                        <Wallet size={13} className="text-[var(--color-purple-fg)]" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-[10px] font-mono text-[var(--color-purple-fg)] uppercase tracking-wider truncate">Wallet</div>
-                        <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-purple-fg)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={13} className="animate-spin" /> : `₦${fmt(displayTotals.walletAmount)}`}</div>
+                        <div className="text-[11px] sm:text-[12px] font-bold font-mono text-[var(--color-purple-fg)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={11} className="animate-spin" /> : `₦${fmt(displayTotals.walletAmount)}`}</div>
                       </div>
                     </button>
                   </div>
@@ -4321,18 +4354,18 @@ export const TransactionLedger = ({
                         setDebtClassFilter(next);
                         if (next !== 'All') setModeFilter('Debt');
                       }}
-                      className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
+                      className={`rounded-xl p-1.5 border flex items-center gap-1.5 text-left transition-all ${
                         debtClassFilter === 'Office'
                           ? 'bg-[rgba(239,68,68,0.06)] border-[var(--color-error)] shadow-[var(--shadow-error)]'
                           : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-error)] shadow-[var(--shadow-sm)]'
                       }`}
                     >
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${debtClassFilter === 'Office' ? 'bg-[rgba(239,68,68,0.22)]' : 'bg-[rgba(239,68,68,0.12)]'}`}>
-                        <Building2 size={14} className="text-[var(--color-error)]" />
+                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${debtClassFilter === 'Office' ? 'bg-[rgba(239,68,68,0.22)]' : 'bg-[rgba(239,68,68,0.12)]'}`}>
+                        <Building2 size={13} className="text-[var(--color-error)]" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-[10px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Office Debt (B2B)</div>
-                        <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={11} className="animate-spin" /> : `₦${fmt(displayTotals.officeDebtAmount)}`}</div>
+                        <div className="text-[11px] sm:text-[12px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={11} className="animate-spin" /> : `₦${fmt(displayTotals.officeDebtAmount)}`}</div>
                       </div>
                     </button>
                     <button
@@ -4341,18 +4374,18 @@ export const TransactionLedger = ({
                         setDebtClassFilter(next);
                         if (next !== 'All') setModeFilter('Debt');
                       }}
-                      className={`rounded-2xl p-2.5 border flex items-center gap-2.5 text-left transition-all ${
+                      className={`rounded-xl p-1.5 border flex items-center gap-1.5 text-left transition-all ${
                         debtClassFilter === 'Individual'
                           ? 'bg-[rgba(239,68,68,0.06)] border-[var(--color-error)] shadow-[var(--shadow-error)]'
                           : 'bg-[var(--color-surface-card)] border-[var(--color-border)] hover:border-[var(--color-error)] shadow-[var(--shadow-sm)]'
                       }`}
                     >
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${debtClassFilter === 'Individual' ? 'bg-[rgba(239,68,68,0.22)]' : 'bg-[rgba(239,68,68,0.12)]'}`}>
-                        <UserIcon size={14} className="text-[var(--color-error)]" />
+                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${debtClassFilter === 'Individual' ? 'bg-[rgba(239,68,68,0.22)]' : 'bg-[rgba(239,68,68,0.12)]'}`}>
+                        <UserIcon size={13} className="text-[var(--color-error)]" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-[10px] font-mono text-[var(--color-error)] uppercase tracking-wider truncate">Individual Debt</div>
-                        <div className="text-[13px] sm:text-[14px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={11} className="animate-spin" /> : `₦${fmt(displayTotals.individualDebtAmount)}`}</div>
+                        <div className="text-[11px] sm:text-[12px] font-bold font-mono text-[var(--color-error)] leading-tight truncate">{allTimeFirstLoadInFlight ? <Loader2 size={11} className="animate-spin" /> : `₦${fmt(displayTotals.individualDebtAmount)}`}</div>
                       </div>
                     </button>
                   </div>
@@ -4852,9 +4885,13 @@ export const TransactionLedger = ({
                             {(() => {
                               const raw = e.raw as any;
                               const dest = raw ? ((e.type === 'cargo' || e.type === 'marketing') ? raw.route : raw.destination) : null;
+                              const shortDest = shortenDestination(dest);
                               return dest ? (
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono uppercase tracking-wider bg-[rgba(251,191,36,0.12)] text-[var(--color-accent-amber)] border border-[rgba(251,191,36,0.3)]">
-                                  {dest}
+                                <span
+                                  title={dest}
+                                  className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono uppercase tracking-wider bg-[rgba(251,191,36,0.12)] text-[var(--color-accent-amber)] border border-[rgba(251,191,36,0.3)]"
+                                >
+                                  {shortDest || dest}
                                 </span>
                               ) : null;
                             })()}
@@ -5201,9 +5238,13 @@ export const TransactionLedger = ({
                         {(() => {
                           const raw = e.raw as any;
                           const dest = raw ? ((e.type === 'cargo' || e.type === 'marketing') ? raw.route : raw.destination) : null;
+                          const shortDest = shortenDestination(dest);
                           return dest ? (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono uppercase tracking-wider bg-[rgba(251,191,36,0.12)] text-[var(--color-accent-amber)] border border-[rgba(251,191,36,0.3)]">
-                              {dest}
+                            <span
+                              title={dest}
+                              className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono uppercase tracking-wider bg-[rgba(251,191,36,0.12)] text-[var(--color-accent-amber)] border border-[rgba(251,191,36,0.3)]"
+                            >
+                              {shortDest || dest}
                             </span>
                           ) : null;
                         })()}
