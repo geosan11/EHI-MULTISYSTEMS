@@ -1,5 +1,8 @@
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   FORCED_RELOAD_KEY,
   CLOUD_PAUSED_TITLE,
@@ -7,6 +10,9 @@ import {
   GATE_CONTAINER_ID,
   getOrCreateGateContainer,
 } from './CloudPausedGate';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 describe('CloudPausedGate Requirements & Behavioral Contract', () => {
   describe('Exact Copy & Sentinel Integrity', () => {
@@ -75,6 +81,43 @@ describe('CloudPausedGate Requirements & Behavioral Contract', () => {
         true,
         'Must display when storage is unavailable'
       );
+    });
+
+    test('removes invented reassurance and status claims while preserving neutral locked labels', () => {
+      const source = fs.readFileSync(path.join(__dirname, 'CloudPausedGate.tsx'), 'utf8');
+
+      // Invented supplemental reassurance and status claims must be removed
+      assert.strictEqual(
+        source.includes('Status Verification Panel'),
+        false,
+        'Status Verification Panel must be removed'
+      );
+      assert.strictEqual(
+        source.includes('Infrastructure Scope'),
+        false,
+        'Infrastructure Scope claims must be removed'
+      );
+      assert.strictEqual(
+        source.includes('Local Storage State'),
+        false,
+        'Local Storage State claims must be removed'
+      );
+      assert.strictEqual(
+        source.includes('All offline IndexedDB queues'),
+        false,
+        'Invented IndexedDB queue reassurance claims must be removed'
+      );
+      assert.strictEqual(
+        source.includes('endpoints will resume automatically'),
+        false,
+        'Invented endpoint resumption assertions must be removed'
+      );
+
+      // Only neutral locked / paused labels remain besides exact user title & body
+      assert.ok(source.includes('CLOUD_PAUSED_TITLE'), 'Exact title preserved');
+      assert.ok(source.includes('CLOUD_PAUSED_BODY'), 'Exact body preserved');
+      assert.ok(source.includes('Terminal interaction locked'), 'Neutral terminal locked label preserved');
+      assert.ok(source.includes('Administrative clearance required'), 'Neutral clearance label preserved');
     });
   });
 
@@ -270,57 +313,122 @@ describe('CloudPausedGate Requirements & Behavioral Contract', () => {
       }
     }
 
-    test('Escape key is unconditionally blocked everywhere', () => {
-      const event = new MockDomEvent('keydown', { key: 'Escape' });
+    test('Escape key is unconditionally blocked everywhere (inside and outside gate)', () => {
+      const gateContainerNode = { contains: (n: any) => n === dialogNode };
+      const dialogNode = {};
+      const outsideNode = {};
 
-      // Simulator of handleKeyCapture
-      let intercepted = false;
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
-        intercepted = true;
-      }
+      const simulateKeyCapture = (e: MockDomEvent) => {
+        e.stopPropagation();
+        e.stopImmediatePropagation();
 
-      assert.ok(intercepted, 'Escape must be intercepted');
-      assert.ok(event.defaultPrevented, 'Escape default must be prevented');
-      assert.ok(event.immediatePropagationStopped, 'Escape propagation must be immediately stopped');
-    });
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          return;
+        }
 
-    test('Print shortcut (Ctrl+P / Cmd+P) is blocked to prevent receipt printing', () => {
-      const eventCtrlP = new MockDomEvent('keydown', { key: 'p', ctrlKey: true });
-      const eventCmdP = new MockDomEvent('keydown', { key: 'P', metaKey: true });
-
-      const handleKey = (e: MockDomEvent) => {
         if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
           e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
+          return;
+        }
+
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          return;
+        }
+
+        const isInsideGate = gateContainerNode.contains(e.target);
+        if (!isInsideGate) {
+          e.preventDefault();
+          return;
         }
       };
 
-      handleKey(eventCtrlP);
+      const eventInside = new MockDomEvent('keydown', { key: 'Escape', target: dialogNode });
+      simulateKeyCapture(eventInside);
+      assert.ok(eventInside.defaultPrevented, 'Escape inside gate default prevented');
+      assert.ok(eventInside.propagationStopped, 'Escape inside gate propagation stopped');
+      assert.ok(eventInside.immediatePropagationStopped, 'Escape inside gate immediate propagation stopped');
+
+      const eventOutside = new MockDomEvent('keydown', { key: 'Escape', target: outsideNode });
+      simulateKeyCapture(eventOutside);
+      assert.ok(eventOutside.defaultPrevented, 'Escape outside gate default prevented');
+      assert.ok(eventOutside.propagationStopped, 'Escape outside gate propagation stopped');
+      assert.ok(eventOutside.immediatePropagationStopped, 'Escape outside gate immediate propagation stopped');
+    });
+
+    test('Print shortcut (Ctrl+P / Cmd+P) is blocked to prevent receipt printing', () => {
+      const gateContainerNode = { contains: (n: any) => n === dialogNode };
+      const dialogNode = {};
+
+      const simulateKeyCapture = (e: MockDomEvent) => {
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          return;
+        }
+
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+          e.preventDefault();
+          return;
+        }
+
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          return;
+        }
+
+        const isInsideGate = gateContainerNode.contains(e.target);
+        if (!isInsideGate) {
+          e.preventDefault();
+          return;
+        }
+      };
+
+      const eventCtrlP = new MockDomEvent('keydown', { key: 'p', ctrlKey: true, target: dialogNode });
+      const eventCmdP = new MockDomEvent('keydown', { key: 'P', metaKey: true, target: dialogNode });
+
+      simulateKeyCapture(eventCtrlP);
       assert.ok(eventCtrlP.defaultPrevented);
+      assert.ok(eventCtrlP.propagationStopped);
       assert.ok(eventCtrlP.immediatePropagationStopped);
 
-      handleKey(eventCmdP);
+      simulateKeyCapture(eventCmdP);
       assert.ok(eventCmdP.defaultPrevented);
+      assert.ok(eventCmdP.propagationStopped);
       assert.ok(eventCmdP.immediatePropagationStopped);
     });
 
     test('Keystrokes from barcode scanners targeting outside gate are stopped immediately', () => {
-      const dialogNode = { contains: (n: any) => n === dialogNode };
-      const outsideNode = { contains: () => false };
+      const gateContainerNode = { contains: (n: any) => n === dialogNode };
+      const dialogNode = {};
+      const outsideNode = {};
 
-      const handleKey = (e: MockDomEvent) => {
+      const simulateKeyCapture = (e: MockDomEvent) => {
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+
         if (e.key === 'Escape') {
-          e.stopImmediatePropagation();
+          e.preventDefault();
           return;
         }
-        if (!dialogNode.contains(e.target)) {
+
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
           e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
+          return;
+        }
+
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          return;
+        }
+
+        const isInsideGate = gateContainerNode.contains(e.target);
+        if (!isInsideGate) {
+          e.preventDefault();
+          return;
         }
       };
 
@@ -330,9 +438,114 @@ describe('CloudPausedGate Requirements & Behavioral Contract', () => {
         target: outsideNode,
       });
 
-      handleKey(scannerEvent);
+      simulateKeyCapture(scannerEvent);
       assert.ok(scannerEvent.defaultPrevented, 'Scanner key burst default prevented');
-      assert.ok(scannerEvent.immediatePropagationStopped, 'Scanner key burst propagation stopped');
+      assert.ok(scannerEvent.propagationStopped, 'Scanner key burst propagation stopped');
+      assert.ok(scannerEvent.immediatePropagationStopped, 'Scanner key burst immediate propagation stopped');
+    });
+
+    test('Ordinary keyboard events originating INSIDE gate have propagation blocked to protect operational hotkeys', () => {
+      const gateContainerNode = { contains: (n: any) => n === dialogNode };
+      const dialogNode = {};
+
+      const simulateKeyCapture = (e: MockDomEvent) => {
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          return;
+        }
+
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+          e.preventDefault();
+          return;
+        }
+
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          return;
+        }
+
+        const isInsideGate = gateContainerNode.contains(e.target);
+        if (!isInsideGate) {
+          e.preventDefault();
+          return;
+        }
+      };
+
+      // Hotkey for cargo 'c', ledger 'l', scanner burst characters '0'-'9', Enter originating inside gate
+      const operationalKeys = ['c', 'l', 'w', '0', '1', 'Enter'];
+      for (const key of operationalKeys) {
+        const event = new MockDomEvent('keydown', { key, target: dialogNode });
+        simulateKeyCapture(event);
+
+        assert.strictEqual(
+          event.propagationStopped,
+          true,
+          `Key '${key}' inside gate must have propagationStopped`
+        );
+        assert.strictEqual(
+          event.immediatePropagationStopped,
+          true,
+          `Key '${key}' inside gate must have immediatePropagationStopped`
+        );
+        // Default is not prevented for normal keys, preserving typing/system behavior without firing window hotkeys
+        assert.strictEqual(
+          event.defaultPrevented,
+          false,
+          `Key '${key}' inside gate does not prevent harmless default`
+        );
+      }
+    });
+
+    test('Reasonable scrolling keys originating INSIDE gate preserve default scrolling while blocking propagation', () => {
+      const gateContainerNode = { contains: (n: any) => n === dialogNode };
+      const dialogNode = {};
+
+      const simulateKeyCapture = (e: MockDomEvent) => {
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          return;
+        }
+
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+          e.preventDefault();
+          return;
+        }
+
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          return;
+        }
+
+        const isInsideGate = gateContainerNode.contains(e.target);
+        if (!isInsideGate) {
+          e.preventDefault();
+          return;
+        }
+      };
+
+      const scrollKeys = ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' '];
+      for (const key of scrollKeys) {
+        const event = new MockDomEvent('keydown', { key, target: dialogNode });
+        simulateKeyCapture(event);
+
+        assert.strictEqual(event.propagationStopped, true, `Scroll key '${key}' propagation stopped`);
+        assert.strictEqual(
+          event.immediatePropagationStopped,
+          true,
+          `Scroll key '${key}' immediate propagation stopped`
+        );
+        assert.strictEqual(
+          event.defaultPrevented,
+          false,
+          `Scroll key '${key}' inside gate must NOT prevent default so scroll container functions`
+        );
+      }
     });
 
     test('Pointer events targeting outside gate are stopped immediately (no backdrop dismissal)', () => {
@@ -365,22 +578,36 @@ describe('CloudPausedGate Requirements & Behavioral Contract', () => {
       const gateContainerNode = { contains: (n: any) => n === dialogNode };
       const dialogNode = {};
 
-      const handleKey = (e: MockDomEvent) => {
-        if (!gateContainerNode.contains(e.target)) {
+      const simulateKeyCapture = (e: MockDomEvent) => {
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+
+        if (e.key === 'Escape') {
           e.preventDefault();
-          e.stopImmediatePropagation();
           return;
         }
+
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+          e.preventDefault();
+          return;
+        }
+
         if (e.key === 'Tab') {
           e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
+          return;
+        }
+
+        const isInsideGate = gateContainerNode.contains(e.target);
+        if (!isInsideGate) {
+          e.preventDefault();
+          return;
         }
       };
 
       const tabEvent = new MockDomEvent('keydown', { key: 'Tab', target: dialogNode });
-      handleKey(tabEvent);
+      simulateKeyCapture(tabEvent);
       assert.ok(tabEvent.defaultPrevented, 'Tab prevented from leaving dialog');
+      assert.ok(tabEvent.propagationStopped, 'Tab propagation stopped');
       assert.ok(tabEvent.immediatePropagationStopped, 'Tab stopped immediately');
     });
   });

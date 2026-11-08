@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { EHILogo } from './EHILogo';
-import { AlertTriangle, ShieldCheck, Database, Lock } from 'lucide-react';
+import { AlertTriangle, Lock } from 'lucide-react';
 import { lockBodyScroll, unlockBodyScroll } from '../lib/bodyScrollLock';
 
 /**
@@ -134,38 +134,40 @@ export const CloudPausedGate: React.FC = () => {
     if (!isOpen || isPublicTrack || typeof window === 'undefined') return;
 
     const handleKeyCapture = (e: KeyboardEvent) => {
+      // Unconditionally stop propagation and immediate propagation for ALL key events while gate is active,
+      // regardless of target (inside or outside gate), ensuring ordinary keyboard events originating inside
+      // the gate cannot reach global operational hotkeys, window listeners, or barcode scanner listeners.
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
       // Escape is always blocked - NO Escape dismissal
       if (e.key === 'Escape') {
         e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
         return;
       }
 
       // Block Ctrl+P / Cmd+P to prevent receipt / screen printing
       if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
         e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        return;
-      }
-
-      const gateContainer = getOrCreateGateContainer();
-      // If event originated outside gate container (e.g. global window listeners, barcode scanner bursts)
-      if (!gateContainer || !gateContainer.contains(e.target as Node)) {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
         return;
       }
 
       // Prevent Tab from moving focus outside the alertdialog
       if (e.key === 'Tab') {
         e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
         return;
       }
+
+      const gateContainer = getOrCreateGateContainer();
+      const isInsideGate = !!(gateContainer && gateContainer.contains(e.target as Node));
+
+      // Any keystroke originating outside the gate container has its default prevented
+      if (!isInsideGate) {
+        e.preventDefault();
+        return;
+      }
+
+      // Inside gate: preserve reasonable scrolling key defaults (ArrowUp, ArrowDown, PageUp, PageDown, Home, End, Space)
     };
 
     const handlePointerCapture = (e: Event) => {
@@ -323,58 +325,6 @@ export const CloudPausedGate: React.FC = () => {
           </div>
         </div>
 
-        {/* Status Verification Panel */}
-        <div
-          className="rounded-xl p-4 sm:p-5 flex flex-col gap-3.5"
-          style={{
-            backgroundColor: 'var(--color-surface-1, #1a1f2e)',
-            border: '1px solid var(--color-border, rgba(255, 255, 255, 0.08))',
-          }}
-        >
-          <div className="flex items-center justify-between text-xs font-mono pb-2 border-b border-white/5">
-            <span className="text-[var(--color-muted,#8b97a8)] uppercase tracking-wider">
-              Infrastructure Scope
-            </span>
-            <span className="text-[var(--color-foreground,#f1f5f9)] font-semibold">
-              Vercel Edge &amp; Supabase Database
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between text-xs font-mono pb-2 border-b border-white/5">
-            <span className="text-[var(--color-muted,#8b97a8)] uppercase tracking-wider">
-              Invoice Clearance
-            </span>
-            <span className="text-amber-400 font-semibold">
-              28 Oct 2026 &bull; &#8358;63,000 (Past Due)
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between text-xs font-mono">
-            <span className="text-[var(--color-muted,#8b97a8)] uppercase tracking-wider flex items-center gap-1.5">
-              <ShieldCheck size={14} className="text-green-400" />
-              Local Storage State
-            </span>
-            <span className="text-green-400 font-semibold flex items-center gap-1">
-              Station Records Intact &amp; Backed Up
-            </span>
-          </div>
-        </div>
-
-        {/* Informational reassurance notice */}
-        <div
-          className="p-3.5 rounded-lg flex items-start gap-3 text-xs"
-          style={{
-            backgroundColor: 'rgba(2, 90, 170, 0.1)',
-            border: '1px solid rgba(2, 90, 170, 0.25)',
-            color: '#93C5FD',
-          }}
-        >
-          <Database size={16} className="shrink-0 mt-0.5 text-blue-400" />
-          <div className="leading-relaxed">
-            All offline IndexedDB queues, customer waybill records, and local ledger balances remain safely preserved. Operational console access and cloud synchronization endpoints will resume automatically once invoice clearance is verified.
-          </div>
-        </div>
-
         {/* Lockout notice without dismiss */}
         <div
           className="pt-2 flex items-center justify-between text-[11px] font-mono text-[var(--color-muted,#8b97a8)] border-t border-white/5"
@@ -384,7 +334,7 @@ export const CloudPausedGate: React.FC = () => {
             Terminal interaction locked
           </span>
           <span className="italic">
-            Administrative billing clearance required
+            Administrative clearance required
           </span>
         </div>
       </div>
