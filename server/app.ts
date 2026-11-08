@@ -11,6 +11,7 @@ import qzRoutes from './qz.js';
 import flightRadarRoutes, { cronRouter as flightRadarCronRouter } from './flightRadar.js';
 import aiChatRoutes from './aiChat.js';
 import { parseBankAlert } from './emailParser.js';
+import { createBillingRouter, createWebhookHandler } from './billing/billingRoutes.js';
 
 // Same DSN as the client (VITE_SENTRY_DSN reads fine server-side too --
 // the VITE_ prefix only controls client bundling, same pattern already
@@ -180,7 +181,23 @@ export function createApp() {
   // without it, uncompressed for every JS/CSS asset and API JSON response.
   app.use(compression());
 
-  app.use(express.json({ limit: '2mb' }));
+  // Webhook raw body handling:
+  // Must intercept raw bytes for Paystack webhooks before standard JSON body parsing.
+  // Both modern timestamped Paystack-Signature (whsec) and legacy x-paystack-signature
+  // require HMAC-SHA512 verification over the byte-exact original payload.
+  const webhookHandler = createWebhookHandler();
+  app.all('/api/paystack-webhook', express.raw({ type: '*/*', limit: '1mb' }), webhookHandler);
+  app.all('/api/paystack/webhook', express.raw({ type: '*/*', limit: '1mb' }), webhookHandler);
+  app.all('/api/billing/webhook', express.raw({ type: '*/*', limit: '1mb' }), webhookHandler);
+
+  app.use(
+    express.json({
+      limit: '2mb',
+      verify: (req: any, _res, buf) => {
+        req.rawBody = buf;
+      },
+    })
+  );
 
   app.use((_req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -204,6 +221,7 @@ export function createApp() {
   });
 
   app.use('/api/paystack', paystackRoutes);
+  app.use('/api/billing', createBillingRouter());
   app.use('/api/notify', notifyLimiter, requireAuthenticatedUser, notificationRoutes);
   app.use('/api/eod', requireAuthenticatedUser, eodRoutes);
   app.use('/api/gemini', notifyLimiter, requireAuthenticatedUser, geminiRoutes);
