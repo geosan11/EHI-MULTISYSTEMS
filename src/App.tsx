@@ -15,7 +15,7 @@ import { ConfirmProvider, useConfirm } from './lib/ConfirmContext';
 import { getPendingSyncSummary, type PendingSyncSummary } from './lib/deviceSync';
 import { PendingSyncBanner } from './components/PendingSyncBanner';
 import { statusMeta, statusColorVar } from './lib/status';
-import { SubscriptionExpiredModal } from './components/SubscriptionExpiredModal';
+import { CloudPausedGate } from './components/CloudPausedGate';
 
 const PublicTrackingPage = () => {
   const { waybillId } = useParams<{ waybillId?: string }>();
@@ -553,7 +553,7 @@ const AuthenticatedApp = () => {
 
   return (
     <>
-      <SubscriptionExpiredModal />
+      <CloudPausedGate />
       {!user ? (
         <div className="relative min-h-screen flex flex-col">
           {(pendingSummary.pending_total > 0 || pendingSummary.quarantined_count > 0) && (
