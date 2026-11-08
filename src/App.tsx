@@ -16,6 +16,7 @@ import { getPendingSyncSummary, type PendingSyncSummary } from './lib/deviceSync
 import { PendingSyncBanner } from './components/PendingSyncBanner';
 import { statusMeta, statusColorVar } from './lib/status';
 import { CloudPausedGate } from './components/CloudPausedGate';
+import { BillingCallbackPage } from './components/BillingCallbackPage';
 
 const PublicTrackingPage = () => {
   const { waybillId } = useParams<{ waybillId?: string }>();
@@ -585,6 +586,7 @@ export default function App() {
           <Routes>
             <Route path="/track/:waybillId" element={<PublicTrackingPage />} />
             <Route path="/track" element={<PublicTrackingPage />} />
+            <Route path="/billing/callback" element={<BillingCallbackPage />} />
             <Route path="/*" element={<AuthenticatedApp />} />
           </Routes>
         </BrowserRouter>

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { EHILogo } from './EHILogo';
-import { AlertTriangle, Lock, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Lock, CheckCircle2, ShieldAlert, Loader2 } from 'lucide-react';
 import { lockBodyScroll, unlockBodyScroll } from '../lib/bodyScrollLock';
 import {
   CLOUD_PAUSED_TITLE,
@@ -9,10 +9,15 @@ import {
   FORCED_RELOAD_KEY,
   PRICING_CARDS,
   isPublicTrackingPath,
+  isBillingCallbackPath,
+  isExemptFromLock,
   isPaymentConfigured,
   PricingCardConfig,
+  PlanId,
 } from '../config/cloudLockConfig';
 import { useCloudLockSchedule } from '../lib/cloudLockSchedule';
+import { useBillingEntitlement } from '../hooks/useBillingEntitlement';
+import { initializeBillingCheckout } from '../lib/billingApi';
 import {
   getOrCreateGateContainer,
   applySiblingInert,
@@ -28,20 +33,27 @@ export {
   isCloudLockActive,
   isBridgeCardVisible,
   isPublicTrackingPath,
+  isBillingCallbackPath,
+  isExemptFromLock,
 } from '../config/cloudLockConfig';
 
 /**
  * Non-dismissible frontend gate displaying scheduled cloud instance lock.
  * - Displays when Date.now() >= 2026-11-09T07:58:00+01:00 on operational routes.
- * - Non-dismissible: NO dismiss/close button, NO Escape key dismissal, NO backdrop dismissal, NO bypass.
+ * - Auto-unlocks when authoritative server entitlement is confirmed active.
+ * - Non-dismissible while locked: NO close button, NO Escape key, NO backdrop dismissal.
  * - Prevents operational cargo processing, receipt printing, and ledger access via pointer and keyboard.
  * - Sibling elements and dynamic portals are made inert; operational keyboard shortcuts are stopped.
  * - Underlying background sync and auth remain mounted and operational.
- * - Public tracking (/track and /track/:waybillId) is explicitly excluded.
+ * - Public tracking (/track) and billing callback (/billing/callback) are explicitly excluded.
  */
 export const CloudPausedGate: React.FC = () => {
   const dialogRef = useRef<HTMLDivElement>(null);
   const scheduleState = useCloudLockSchedule();
+  const { isUnlocked, entitlement } = useBillingEntitlement();
+
+  const [initializingPlan, setInitializingPlan] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const [isEligible] = useState(() => {
     try {
@@ -57,13 +69,14 @@ export const CloudPausedGate: React.FC = () => {
     return true;
   });
 
-  const isPublicTrack =
-    typeof window !== 'undefined' && isPublicTrackingPath(window.location.pathname);
+  const isExempt =
+    typeof window !== 'undefined' && isExemptFromLock(window.location.pathname);
 
-  const isGateActive = scheduleState.isLocked && isEligible && !isPublicTrack;
+  // Gate is active if scheduled epoch arrived, user has no active entitlement, is eligible, and not exempt
+  const isGateActive = scheduleState.isLocked && !isUnlocked && isEligible && !isExempt;
 
   const [container, setContainer] = useState<HTMLElement | null>(() => {
-    if (typeof window === 'undefined' || isPublicTrack) return null;
+    if (typeof window === 'undefined' || isExempt) return null;
     return getOrCreateGateContainer();
   });
 
@@ -183,6 +196,20 @@ export const CloudPausedGate: React.FC = () => {
     PRICING_CARDS.handover,
   ];
 
+  const handleCheckout = async (planId: PlanId) => {
+    try {
+      setInitializingPlan(planId);
+      setCheckoutError(null);
+      const res = await initializeBillingCheckout(planId);
+      if (res.authorizationUrl) {
+        window.location.href = res.authorizationUrl;
+      }
+    } catch (err: any) {
+      setCheckoutError(err.message || 'Failed to start Paystack checkout.');
+      setInitializingPlan(null);
+    }
+  };
+
   return createPortal(
     <div
       id="ehi-cloud-paused-backdrop"
@@ -290,6 +317,13 @@ export const CloudPausedGate: React.FC = () => {
             <span>{activeCards.length} Options Available</span>
           </div>
 
+          {checkoutError && (
+            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-xs text-red-300 flex items-center gap-2">
+              <AlertTriangle size={14} className="shrink-0 text-red-400" />
+              <span>{checkoutError}</span>
+            </div>
+          )}
+
           <div
             className={`grid gap-4 ${
               activeCards.length === 3
@@ -382,6 +416,14 @@ export const CloudPausedGate: React.FC = () => {
                       </div>
                     )}
 
+                    {/* Monthly Licence Active Notice (Discourage Duplicate Early Checkout) */}
+                    {card.id === 'monthly-licence' && entitlement?.isActive && entitlement?.paidUntil && (
+                      <div className="p-2 rounded bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-300">
+                        <span className="font-bold">Active Coverage: </span>
+                        Valid through {new Date(entitlement.paidUntil).toLocaleDateString()}. Renewing extends by 30 days from that date (no stacking). Early renewal is discouraged unless nearing expiration.
+                      </div>
+                    )}
+
                     {/* Features checklist if present */}
                     {card.features && card.features.length > 0 && (
                       <ul className="flex flex-col gap-1.5 pt-2 text-xs text-slate-300">
@@ -398,26 +440,34 @@ export const CloudPausedGate: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Checkout Button & Centralized Placeholder Notice */}
+                  {/* Checkout Button & Automatic Billing Notice */}
                   <div className="mt-5 pt-3 border-t border-white/5 flex flex-col gap-2">
                     <button
                       type="button"
-                      aria-disabled="true"
-                      tabIndex={0}
+                      disabled={initializingPlan !== null}
                       onClick={(e) => {
                         e.preventDefault();
-                        // Inert placeholder - no unlock, no live payment execution
+                        handleCheckout(card.id);
                       }}
-                      className="w-full py-2.5 px-4 rounded-lg font-mono text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-not-allowed opacity-60 bg-slate-800 text-slate-300 border border-slate-700 hover:border-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                      className="w-full py-2.5 px-4 rounded-lg font-mono text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 border border-amber-400/50 shadow-md shadow-amber-500/10 focus:outline-none focus:ring-2 focus:ring-amber-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Lock size={13} className="text-amber-400" />
-                      <span>Checkout via Paystack</span>
+                      {initializingPlan === card.id ? (
+                        <>
+                          <Loader2 size={13} className="text-slate-950 animate-spin" />
+                          <span>Connecting to Paystack...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Lock size={13} className="text-slate-950" />
+                          <span>Proceed to Paystack Checkout</span>
+                        </>
+                      )}
                     </button>
 
                     <div className="flex items-center justify-center gap-1.5 text-[11px] font-mono text-amber-400/90 text-center">
                       <ShieldAlert size={12} className="shrink-0" />
                       <span>
-                        {configured ? 'Ready' : 'Payment Link Not Configured'}
+                        Automatic unlock via Paystack verification
                       </span>
                     </div>
                   </div>

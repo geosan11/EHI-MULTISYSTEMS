@@ -34,13 +34,15 @@ export const CLOUD_PAUSED_BODY =
 
 export const GATE_CONTAINER_ID = 'ehi-cloud-paused-gate-root';
 
+export type PlanId = 'november-bridge' | 'monthly-licence' | 'system-handover';
+
 export interface PricingBreakdownItem {
   label: string;
   amountFormatted: string;
 }
 
 export interface PricingCardConfig {
-  id: 'november-bridge' | 'monthly-licence' | 'system-handover';
+  id: PlanId;
   title: string;
   badge?: string;
   badgeType: 'warning' | 'primary' | 'neutral';
@@ -132,6 +134,22 @@ export function isPublicTrackingPath(pathname: string): boolean {
   if (!pathname) return false;
   const cleanPath = pathname.split(/[?#]/)[0].trim();
   return cleanPath === '/track' || cleanPath.startsWith('/track/');
+}
+
+/**
+ * Route check: Billing callback page /billing/callback explicitly excluded from gate blocking overlay.
+ */
+export function isBillingCallbackPath(pathname: string): boolean {
+  if (!pathname) return false;
+  const cleanPath = pathname.split(/[?#]/)[0].trim();
+  return cleanPath === '/billing/callback' || cleanPath.startsWith('/billing/callback/');
+}
+
+/**
+ * Route check: Returns true if the path is exempt from CloudPausedGate blocking.
+ */
+export function isExemptFromLock(pathname: string): boolean {
+  return isPublicTrackingPath(pathname) || isBillingCallbackPath(pathname);
 }
 
 /**
