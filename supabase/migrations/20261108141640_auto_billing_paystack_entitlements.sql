@@ -6,12 +6,24 @@
 -- 2. Revoked default public/anon/authenticated mutation grants (server service-role writes only).
 -- 3. Read access for active authenticated EHI staff only.
 -- 4. Durable 'billing_transactions' recording pre-init state, amounts, currency, and verification data.
--- 5. Atomic security-definer RPC 'apply_billing_grant_atomic' with pinned search_path ('SET search_path = ''')
---    and exclusive row-level locking (SELECT FOR UPDATE) to guarantee idempotency across concurrent
+--    Sensitive gateway payload ('paystack_data') column-restricted from client reads.
+-- 5. Architecture: Private non-exposed SECURITY DEFINER function in 'private' schema,
+--    with a public SECURITY INVOKER wrapper.
+--    Both functions pin search_path ('SET search_path = ''') and revoke PUBLIC/anon/authenticated.
+--    Only service_role has execution rights.
+-- 6. Exclusive row-level locking (SELECT FOR UPDATE) to guarantee idempotency across concurrent
 --    webhook and callback confirmation races.
--- 6. Strict rules: Never downgrade permanent buyout, never shorten longer paid_until,
---    bridge exact paid_until 2026-11-30T23:59:59+01:00, monthly max(existing, now) + 30 days,
---    and late bridge confirmation recorded as expired grant needing manual billing resolution (no automatic refund).
+-- 7. Strict rules: Never downgrade permanent buyout, never shorten longer paid_until,
+--    bridge exact paid_until 2026-11-30T23:59:59+01:00, monthly GREATEST(existing, now + 30 days)
+--    minimum rule (no stacking), and late bridge confirmation recorded as expired grant
+--    needing manual billing resolution (no automatic refund).
+
+-- ---------------------------------------------------------------------------
+-- 0. Private Schema Setup
+-- ---------------------------------------------------------------------------
+CREATE SCHEMA IF NOT EXISTS private;
+REVOKE ALL ON SCHEMA private FROM PUBLIC, anon, authenticated;
+GRANT USAGE ON SCHEMA private TO service_role;
 
 -- ---------------------------------------------------------------------------
 -- 1. Singleton Company Entitlement Table
@@ -25,7 +37,7 @@ CREATE TABLE IF NOT EXISTS public.ehi_entitlement (
   last_reference text,
   last_amount_kobo bigint,
   mode text NOT NULL DEFAULT 'test' CHECK (mode IN ('test', 'live')),
-  status text NOT NULL DEFAULT 'expired' CHECK (status IN ('active', 'expired', 'manual_resolution_required')),
+  status text NOT NULL DEFAULT 'expired' CHECK (status IN ('active', 'expired', 'manual_resolution_required', 'mode_mismatch')),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -63,14 +75,14 @@ CREATE INDEX IF NOT EXISTS idx_billing_transactions_status ON public.billing_tra
 CREATE INDEX IF NOT EXISTS idx_billing_transactions_initiated_at ON public.billing_transactions(initiated_at DESC);
 
 -- ---------------------------------------------------------------------------
--- 3. Row-Level Security & Grants
+-- 3. Row-Level Security & Column Grants
 -- ---------------------------------------------------------------------------
 ALTER TABLE public.ehi_entitlement ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.billing_transactions ENABLE ROW LEVEL SECURITY;
 
 -- Revoke all default table grants from public, anon, and authenticated
-REVOKE ALL ON public.ehi_entitlement FROM public, anon, authenticated;
-REVOKE ALL ON public.billing_transactions FROM public, anon, authenticated;
+REVOKE ALL ON public.ehi_entitlement FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON public.billing_transactions FROM PUBLIC, anon, authenticated;
 
 -- Allow authenticated active staff to read current company entitlement
 CREATE POLICY "Allow active staff read entitlement"
@@ -95,18 +107,21 @@ CREATE POLICY "Allow staff read own transactions"
     )
   );
 
--- Grant SELECT only to authenticated users (no direct client INSERT/UPDATE/DELETE)
-GRANT SELECT ON public.ehi_entitlement TO authenticated;
-GRANT SELECT ON public.billing_transactions TO authenticated;
+-- Grant SELECT on minimal status fields only to authenticated users (no paystack_data exposure)
+GRANT SELECT (company_id, plan, is_active, is_permanent, paid_until, mode, status, created_at, updated_at)
+  ON public.ehi_entitlement TO authenticated;
+
+GRANT SELECT (id, reference, account_id, plan, amount_kobo, currency, mode, status, initiated_at, initiated_by, verified_at, entitlement_granted)
+  ON public.billing_transactions TO authenticated;
 
 -- Service role has full permissions for backend operations
 GRANT ALL ON public.ehi_entitlement TO service_role;
 GRANT ALL ON public.billing_transactions TO service_role;
 
 -- ---------------------------------------------------------------------------
--- 4. Atomic Security-Definer Entitlement Grant Function
+-- 4. Private Non-Exposed Security-Definer Atomic Grant Function
 -- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.apply_billing_grant_atomic(
+CREATE OR REPLACE FUNCTION private.apply_billing_grant_atomic_definer(
   p_reference text,
   p_paystack_data jsonb,
   p_verified_amount_kobo bigint,
@@ -256,32 +271,18 @@ BEGIN
     END IF;
 
   ELSIF v_tx.plan = 'monthly-licence' THEN
-    -- Monthly plan: max(existing, now) + 30 days minimum
+    -- Monthly plan: minimum NOW() + 30 days rule.
+    -- Permanent never downgrade, never shorten existing longer coverage, NO stacking.
     IF v_ent.is_permanent = true THEN
       v_is_permanent := true;
       v_is_active := true;
       v_target_paid_until := NULL;
       v_status := 'active';
     ELSE
-      DECLARE
-        v_base_time timestamptz;
-      BEGIN
-        IF v_ent.paid_until IS NOT NULL AND v_ent.paid_until > v_now THEN
-          v_base_time := v_ent.paid_until;
-        ELSE
-          v_base_time := v_now;
-        END IF;
-        v_target_paid_until := v_base_time + interval '30 days';
-
-        -- Never shorten existing longer paid_until
-        IF v_ent.paid_until IS NOT NULL AND v_ent.paid_until > v_target_paid_until THEN
-          v_target_paid_until := v_ent.paid_until;
-        END IF;
-
-        v_is_permanent := false;
-        v_is_active := true;
-        v_status := 'active';
-      END;
+      v_target_paid_until := GREATEST(COALESCE(v_ent.paid_until, v_now), v_now + interval '30 days');
+      v_is_permanent := false;
+      v_is_active := true;
+      v_status := 'active';
     END IF;
   ELSE
     RETURN jsonb_build_object(
@@ -328,6 +329,40 @@ BEGIN
 END;
 $$;
 
--- Revoke public execution and grant to service_role only
-REVOKE ALL ON FUNCTION public.apply_billing_grant_atomic FROM public, anon, authenticated;
+-- Revoke all execution rights on private definer function from public/anon/authenticated
+REVOKE ALL ON FUNCTION private.apply_billing_grant_atomic_definer FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION private.apply_billing_grant_atomic_definer TO service_role;
+
+-- ---------------------------------------------------------------------------
+-- 5. Public SECURITY INVOKER Wrapper Function (Service Role Only)
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.apply_billing_grant_atomic(
+  p_reference text,
+  p_paystack_data jsonb,
+  p_verified_amount_kobo bigint,
+  p_verified_currency text,
+  p_paystack_status text,
+  p_mode text,
+  p_paystack_id text DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+BEGIN
+  RETURN private.apply_billing_grant_atomic_definer(
+    p_reference,
+    p_paystack_data,
+    p_verified_amount_kobo,
+    p_verified_currency,
+    p_paystack_status,
+    p_mode,
+    p_paystack_id
+  );
+END;
+$$;
+
+-- Revoke public execution on public wrapper and grant to service_role only
+REVOKE ALL ON FUNCTION public.apply_billing_grant_atomic FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.apply_billing_grant_atomic TO service_role;

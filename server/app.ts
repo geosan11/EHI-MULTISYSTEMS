@@ -188,6 +188,7 @@ export function createApp() {
   const webhookHandler = createWebhookHandler();
   app.all('/api/paystack-webhook', express.raw({ type: '*/*', limit: '1mb' }), webhookHandler);
   app.all('/api/paystack/webhook', express.raw({ type: '*/*', limit: '1mb' }), webhookHandler);
+  app.all('/api/billing/webhook', express.raw({ type: '*/*', limit: '1mb' }), webhookHandler);
 
   app.use(
     express.json({

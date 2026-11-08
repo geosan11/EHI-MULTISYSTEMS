@@ -55,7 +55,27 @@ export const BRIDGE_CUTOFF_EPOCH_MS = 1796079600000; // 2026-12-01T00:00:00+01:0
 export const BRIDGE_EXPIRY_ISO = '2026-11-30T23:59:59+01:00';
 export const BRIDGE_EXPIRY_EPOCH_MS = 1796079599000; // Exact 1 second before cutoff
 
-// Allowlisted Paystack checkout hostname
+// Paystack reference specification: allowed characters are strictly alphanumeric, dash, dot, equals
+// Underscores are NOT permitted by Paystack's documented reference specification.
+export const PAYSTACK_REFERENCE_REGEX = /^[a-zA-Z0-9.\-=]+$/;
+
+export function isValidPaystackReference(ref: string): boolean {
+  if (!ref || typeof ref !== 'string') return false;
+  if (ref.includes('_')) return false;
+  return PAYSTACK_REFERENCE_REGEX.test(ref);
+}
+
+export function generatePaystackReference(planId: string): string {
+  const safePlan = planId.replace(/[^a-zA-Z0-9]/g, '-');
+  const safeUuid = crypto.randomUUID();
+  const ref = `ehi-${safePlan}-${safeUuid}`;
+  if (!isValidPaystackReference(ref)) {
+    throw new Error(`Generated reference ${ref} violates Paystack allowed character specification`);
+  }
+  return ref;
+}
+
+// Allowlisted Paystack checkout hostnames
 export const ALLOWED_PAYSTACK_HOSTS = [
   'checkout.paystack.com',
   'standard.paystack.co',
@@ -133,6 +153,85 @@ export function timingSafeEqualString(a: string, b: string): boolean {
   return crypto.timingSafeEqual(bufA, bufB);
 }
 
+export interface EntitlementTargetCalculation {
+  paidUntil: string | null;
+  isPermanent: boolean;
+  isActive: boolean;
+  status: string;
+  requiresManualResolution?: boolean;
+  message?: string;
+}
+
+/**
+ * Pure calculation helper for entitlement renewals and precedence.
+ * Enforces:
+ * 1. Full Handover: permanent = true, paidUntil = null. Never downgrades.
+ * 2. Bridge: exact cutoff 2026-11-30T23:59:59+01:00. If after cutoff, requires manual resolution.
+ *    Never shortens longer existing coverage or permanent buyout.
+ * 3. Monthly: GREATEST(COALESCE(existing, now), now + 30 days) minimum rule.
+ *    No stacking onto existing! Guarantees at least 30 days coverage from payment time,
+ *    never shortens existing longer coverage, and never downgrades permanent status.
+ */
+export function calculateTargetEntitlement(
+  plan: PlanId,
+  existing: {
+    paidUntil?: string | null;
+    isPermanent?: boolean;
+  },
+  nowMs: number = Date.now()
+): EntitlementTargetCalculation {
+  if (plan === PLANS.HANDOVER) {
+    return {
+      paidUntil: null,
+      isPermanent: true,
+      isActive: true,
+      status: 'active',
+    };
+  }
+
+  if (plan === PLANS.BRIDGE) {
+    if (nowMs > BRIDGE_EXPIRY_EPOCH_MS) {
+      return {
+        paidUntil: existing.paidUntil ?? null,
+        isPermanent: existing.isPermanent ?? false,
+        isActive: existing.isPermanent ? true : (existing.paidUntil ? new Date(existing.paidUntil).getTime() > nowMs : false),
+        status: 'manual_resolution_required',
+        requiresManualResolution: true,
+        message: 'Late bridge payment confirmed after 2026-11-30T23:59:59+01:00. Manual billing resolution required, no automatic refund.',
+      };
+    }
+    if (existing.isPermanent) {
+      return { paidUntil: null, isPermanent: true, isActive: true, status: 'active' };
+    }
+    const existingMs = existing.paidUntil ? new Date(existing.paidUntil).getTime() : 0;
+    const targetMs = Math.max(existingMs, BRIDGE_EXPIRY_EPOCH_MS);
+    return {
+      paidUntil: new Date(targetMs).toISOString(),
+      isPermanent: false,
+      isActive: true,
+      status: 'active',
+    };
+  }
+
+  if (plan === PLANS.MONTHLY) {
+    if (existing.isPermanent) {
+      return { paidUntil: null, isPermanent: true, isActive: true, status: 'active' };
+    }
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+    const minTargetMs = nowMs + thirtyDaysMs;
+    const existingMs = existing.paidUntil ? new Date(existing.paidUntil).getTime() : 0;
+    const targetMs = Math.max(existingMs, minTargetMs);
+    return {
+      paidUntil: new Date(targetMs).toISOString(),
+      isPermanent: false,
+      isActive: true,
+      status: 'active',
+    };
+  }
+
+  throw new Error(`Unrecognized plan: ${plan}`);
+}
+
 export interface WebhookVerificationResult {
   valid: boolean;
   scheme: 'modern' | 'legacy' | 'none';
@@ -142,14 +241,6 @@ export interface WebhookVerificationResult {
 
 /**
  * Verifies Paystack Webhook Signature timing-safely over exact raw bytes.
- *
- * Supports BOTH:
- * 1. Modern Paystack-Signature: `t=unix,v1=key_id:hex_signature` (or multiple `v1=...`)
- *    HMAC-SHA512 of `t + "." + rawBody` using `PAYSTACK_WEBHOOK_SECRET` (`whsec_...`).
- *    Anti-replay tolerance: 300 seconds.
- * 2. Legacy x-paystack-signature: hex HMAC-SHA512 of `rawBody` using `PAYSTACK_SECRET_KEY` (`sk_...`).
- *
- * Strict policy: If modern signature mode is configured, legacy fallback is NEVER allowed.
  */
 export function verifyPaystackWebhookSignature(
   rawBody: Buffer,
@@ -230,7 +321,6 @@ function verifyModernSignature(
       timestampStr = part.substring(2);
     } else if (part.startsWith('v1=')) {
       const v1Content = part.substring(3);
-      // v1 is either key_id:hex_signature or raw hex_signature
       const colonIdx = v1Content.indexOf(':');
       const hexSig = colonIdx !== -1 ? v1Content.substring(colonIdx + 1) : v1Content;
       if (hexSig) signatures.push(hexSig);
@@ -357,6 +447,17 @@ export class PaystackBillingService {
     this.supabase = supabase;
   }
 
+  private assertRequiredSecrets(): void {
+    if (!this.config.secretKey) {
+      throw new Error('PAYSTACK_SECRET_KEY is not configured on server');
+    }
+    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceKey) {
+      throw new Error('Supabase configuration (VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) is missing on server');
+    }
+  }
+
   private getSupabaseAdmin(): SupabaseClient {
     if (this.supabase) return this.supabase;
     const url = process.env.VITE_SUPABASE_URL || '';
@@ -371,13 +472,6 @@ export class PaystackBillingService {
 
   /**
    * Initializes a Paystack checkout transaction.
-   *
-   * 1. Validates plan existence.
-   * 2. Checks November Bridge cutoff (rejects if now >= Dec 1 midnight+01).
-   * 3. Generates cryptographically unique reference.
-   * 4. Inserts initialized transaction record into database.
-   * 5. Calls Paystack POST /transaction/initialize.
-   * 6. Validates returned authorization_url against allowlist.
    */
   async initializeCheckout(params: {
     planId: PlanId;
@@ -389,6 +483,9 @@ export class PaystackBillingService {
     authorizationUrl: string;
     plan: PlanConfig;
   }> {
+    // 0. Catch missing secrets before initializing any transaction
+    this.assertRequiredSecrets();
+
     const nowMs = params.nowMs ?? Date.now();
     const plan = PLAN_CATALOG[params.planId];
     if (!plan) {
@@ -406,9 +503,8 @@ export class PaystackBillingService {
       throw new Error('A valid staff email address is required for checkout billing.');
     }
 
-    // Generate random reference
-    const randomHex = crypto.randomBytes(8).toString('hex');
-    const reference = `ehi_${params.planId.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}_${randomHex}`;
+    // Generate safe dashed Paystack reference: ehi-<plan>-<safeUUID> (alphanumeric and dashes, NO underscores)
+    const reference = generatePaystackReference(params.planId);
 
     // 1. Insert transaction into durable database
     const admin = this.getSupabaseAdmin();
@@ -461,7 +557,6 @@ export class PaystackBillingService {
       responseData = response.data;
     } catch (apiErr: any) {
       console.error('Paystack transaction/initialize API error:', apiErr?.response?.data || apiErr.message);
-      // Update transaction status to failed
       await admin
         .from('billing_transactions')
         .update({ status: 'failed', grant_notes: `API Error: ${apiErr.message}` })
@@ -513,6 +608,15 @@ export class PaystackBillingService {
       return { success: false, reference: '', error: 'Missing reference' };
     }
 
+    if (!isValidPaystackReference(reference)) {
+      return { success: false, reference, error: 'Invalid reference format: reference contains disallowed characters' };
+    }
+
+    // Catch missing secrets before proceeding
+    if (!this.config.secretKey) {
+      return { success: false, reference, error: 'PAYSTACK_SECRET_KEY is not configured on server' };
+    }
+
     const admin = this.getSupabaseAdmin();
 
     // 1. Fetch transaction record from database
@@ -526,17 +630,43 @@ export class PaystackBillingService {
       return {
         success: false,
         reference,
-        error: `Transaction reference not found in database: ${reference}`,
+        error: `TRANSACTION_NOT_FOUND: Transaction reference not found in database: ${reference}`,
       };
     }
 
-    // If already granted, return current status
+    // Mode and account validation: prevent cross-tenant or test transactions unlocking production
+    if (tx.account_id !== 'EHI') {
+      return {
+        success: false,
+        reference,
+        error: `Account mismatch: transaction is bound to ${tx.account_id}, expected EHI`,
+      };
+    }
+
+    if (tx.mode !== this.config.mode) {
+      return {
+        success: false,
+        reference,
+        error: `Mode mismatch: transaction mode is ${tx.mode}, server mode is ${this.config.mode}`,
+      };
+    }
+
+    // If already granted, validate mode/account before returning current status
     if (tx.entitlement_granted) {
       const { data: ent } = await admin
         .from('ehi_entitlement')
-        .select('*')
+        .select('is_active, is_permanent, paid_until, status, mode')
         .eq('company_id', 'EHI')
         .single();
+
+      if (ent && ent.mode !== this.config.mode) {
+        return {
+          success: false,
+          reference,
+          error: `Mode mismatch: entitlement mode is ${ent.mode}, server mode is ${this.config.mode}`,
+        };
+      }
+
       return {
         success: true,
         reference,
@@ -610,16 +740,25 @@ export class PaystackBillingService {
       };
     }
 
-    // Domain / Mode validation: Prevent test transactions unlocking live environments
-    if (verifiedDomain && verifiedDomain !== tx.mode) {
+    // Mode validation: Prevent test transactions unlocking live environments
+    if (verifiedDomain && (verifiedDomain !== tx.mode || verifiedDomain !== this.config.mode)) {
       return {
         success: false,
         reference,
-        error: `Mode mismatch: transaction is ${tx.mode}, Paystack verified domain is ${verifiedDomain}`,
+        error: `Mode mismatch: transaction is ${tx.mode}, server is ${this.config.mode}, Paystack verified domain is ${verifiedDomain}`,
       };
     }
 
-    // 4. Invoke Atomic Security-Definer Grant RPC
+    // Metadata account verification
+    if (paystackData.metadata?.account_id && paystackData.metadata.account_id !== 'EHI') {
+      return {
+        success: false,
+        reference,
+        error: `Account mismatch in metadata: expected EHI, got ${paystackData.metadata.account_id}`,
+      };
+    }
+
+    // 4. Invoke Atomic Grant RPC
     const { data: rpcResult, error: rpcErr } = await admin.rpc('apply_billing_grant_atomic', {
       p_reference: reference,
       p_paystack_data: paystackData,
@@ -662,6 +801,8 @@ export class PaystackBillingService {
 
   /**
    * Reads current authoritative entitlement from database singleton.
+   * Bound status read selects minimal fields only.
+   * Strictly rejects mismatching PAYSTACK_MODE.
    */
   async getEntitlement(): Promise<{
     isActive: boolean;
@@ -669,12 +810,13 @@ export class PaystackBillingService {
     plan: string;
     paidUntil: string | null;
     status: string;
+    mode: string;
     serverTime: string;
   }> {
     const admin = this.getSupabaseAdmin();
     const { data: ent, error } = await admin
       .from('ehi_entitlement')
-      .select('*')
+      .select('company_id, plan, is_active, is_permanent, paid_until, mode, status')
       .eq('company_id', 'EHI')
       .single();
 
@@ -685,6 +827,20 @@ export class PaystackBillingService {
         plan: 'bridge',
         paidUntil: null,
         status: 'expired',
+        mode: this.config.mode,
+        serverTime: new Date().toISOString(),
+      };
+    }
+
+    // Strictly reject mismatching mode: test entitlement must NEVER unlock production
+    if (ent.mode !== this.config.mode) {
+      return {
+        isActive: false,
+        isPermanent: false,
+        plan: ent.plan,
+        paidUntil: ent.paid_until,
+        status: 'mode_mismatch',
+        mode: ent.mode,
         serverTime: new Date().toISOString(),
       };
     }
@@ -704,6 +860,7 @@ export class PaystackBillingService {
       plan: ent.plan,
       paidUntil: ent.paid_until,
       status: isActive ? 'active' : ent.status,
+      mode: ent.mode,
       serverTime: new Date().toISOString(),
     };
   }
