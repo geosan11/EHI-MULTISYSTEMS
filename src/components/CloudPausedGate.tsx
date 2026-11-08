@@ -347,10 +347,10 @@ export const CloudPausedGate: React.FC = () => {
                       </span>
                     </div>
 
-                    {/* Subtitle */}
-                    {card.subtitle && (
+                    {/* Subtitle or Bridge validity */}
+                    {(card.validity || card.subtitle) && (
                       <p className="text-xs text-slate-400 font-medium">
-                        {card.subtitle}
+                        {card.validity || card.subtitle}
                       </p>
                     )}
 
@@ -382,18 +382,20 @@ export const CloudPausedGate: React.FC = () => {
                       </div>
                     )}
 
-                    {/* Features checklist */}
-                    <ul className="flex flex-col gap-1.5 pt-2 text-xs text-slate-300">
-                      {card.features.map((feat, idx) => (
-                        <li key={idx} className="flex items-start gap-2">
-                          <CheckCircle2
-                            size={14}
-                            className="shrink-0 mt-0.5 text-slate-400"
-                          />
-                          <span>{feat}</span>
-                        </li>
-                      ))}
-                    </ul>
+                    {/* Features checklist if present */}
+                    {card.features && card.features.length > 0 && (
+                      <ul className="flex flex-col gap-1.5 pt-2 text-xs text-slate-300">
+                        {card.features.map((feat, idx) => (
+                          <li key={idx} className="flex items-start gap-2">
+                            <CheckCircle2
+                              size={14}
+                              className="shrink-0 mt-0.5 text-slate-400"
+                            />
+                            <span>{feat}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
 
                   {/* Checkout Button & Centralized Placeholder Notice */}

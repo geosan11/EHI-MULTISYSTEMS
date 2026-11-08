@@ -196,8 +196,8 @@ describe('Scheduled Cloud Lock Configuration & Boundary Contracts', () => {
       assert.strictEqual(bridge.priceFormatted, '₦63,000');
       assert.strictEqual(bridge.billingFrequency, 'one-time');
       assert.strictEqual(bridge.badge, 'NON-RENEWABLE');
-      assert.ok(bridge.subtitle?.includes('30 Nov 2026'));
-      assert.ok(bridge.features.includes('Explicitly non-renewable'));
+      assert.ok((bridge.validity || bridge.subtitle)?.includes('30 Nov 2026'));
+      assert.strictEqual(bridge.paystackPlaceholderUrl, 'https://example.invalid/paystack/november-bridge');
     });
 
     test('Monthly System Licence breakdown adds up exactly with mandatory note', () => {
@@ -222,6 +222,7 @@ describe('Scheduled Cloud Lock Configuration & Boundary Contracts', () => {
       // Exact mandatory note
       const EXPECTED_NOTE = 'Remote software uptime & cloud hosting only. No on-site visits.';
       assert.strictEqual(monthly.note, EXPECTED_NOTE);
+      assert.strictEqual(monthly.paystackPlaceholderUrl, 'https://example.invalid/paystack/monthly-licence');
     });
 
     test('Full System Handover card parameters', () => {
@@ -229,10 +230,17 @@ describe('Scheduled Cloud Lock Configuration & Boundary Contracts', () => {
       assert.strictEqual(handover.title, 'Full System Handover');
       assert.strictEqual(handover.priceFormatted, '₦700,000');
       assert.strictEqual(handover.billingFrequency, 'one-time');
+      assert.strictEqual(handover.badge, 'ONE-TIME HANDOVER');
+      assert.strictEqual(handover.badgeType, 'neutral');
+      assert.strictEqual(handover.paystackPlaceholderUrl, 'https://example.invalid/paystack/system-handover');
     });
 
     test('centralized placeholder URL detection and validation', () => {
-      // Default placeholder fields use example.invalid / inert hashes
+      // Default placeholder fields use genuinely non-routable reserved example.invalid domain
+      assert.strictEqual(PRICING_CARDS.bridge.paystackPlaceholderUrl, 'https://example.invalid/paystack/november-bridge');
+      assert.strictEqual(PRICING_CARDS.monthly.paystackPlaceholderUrl, 'https://example.invalid/paystack/monthly-licence');
+      assert.strictEqual(PRICING_CARDS.handover.paystackPlaceholderUrl, 'https://example.invalid/paystack/system-handover');
+
       assert.strictEqual(isPaymentConfigured(PRICING_CARDS.bridge.paystackPlaceholderUrl), false);
       assert.strictEqual(isPaymentConfigured(PRICING_CARDS.monthly.paystackPlaceholderUrl), false);
       assert.strictEqual(isPaymentConfigured(PRICING_CARDS.handover.paystackPlaceholderUrl), false);
@@ -241,11 +249,35 @@ describe('Scheduled Cloud Lock Configuration & Boundary Contracts', () => {
       assert.strictEqual(isPaymentConfigured(''), false);
       assert.strictEqual(isPaymentConfigured('#'), false);
       assert.strictEqual(isPaymentConfigured('#placeholder'), false);
-      assert.strictEqual(isPaymentConfigured('https://checkout.paystack.com/example.invalid'), false);
+      assert.strictEqual(isPaymentConfigured('https://example.invalid/paystack/november-bridge'), false);
       assert.strictEqual(isPaymentConfigured('not-a-url'), false);
 
       // Live configured URL
       assert.strictEqual(isPaymentConfigured('https://paystack.com/pay/ehi-monthly-licence'), true);
+    });
+
+    test('pricing config contains strictly authorized terms without invented promises', () => {
+      const configSource = fs.readFileSync(
+        path.join(__dirname, '../config/cloudLockConfig.ts'),
+        'utf8'
+      );
+
+      // No invented commercial promises or benefits
+      assert.strictEqual(configSource.includes('automated backup routines'), false);
+      assert.strictEqual(configSource.includes('proprietary source ownership'), false);
+      assert.strictEqual(configSource.includes('proprietary source code'), false);
+      assert.strictEqual(configSource.includes('dedicated cloud tenant'), false);
+      assert.strictEqual(configSource.includes('zero future recurring'), false);
+      assert.strictEqual(configSource.includes('Zero recurring software'), false);
+      assert.strictEqual(configSource.includes('operational autonomy'), false);
+      assert.strictEqual(configSource.includes('PERMANENT TRANSFER'), false);
+      assert.strictEqual(configSource.includes('checkout.paystack.com/example.invalid'), false);
+
+      // Backup claim is retained ONLY in body
+      assert.ok(CLOUD_PAUSED_BODY.includes('All cargo records are safely backed up and intact.'));
+      assert.strictEqual(PRICING_CARDS.bridge.features, undefined);
+      assert.strictEqual(PRICING_CARDS.monthly.features, undefined);
+      assert.strictEqual(PRICING_CARDS.handover.features, undefined);
     });
   });
 

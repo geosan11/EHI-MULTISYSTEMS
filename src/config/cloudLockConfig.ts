@@ -46,18 +46,23 @@ export interface PricingCardConfig {
   badgeType: 'warning' | 'primary' | 'neutral';
   priceFormatted: string;
   billingFrequency: string;
+  validity?: string;
   subtitle?: string;
   breakdown?: PricingBreakdownItem[];
   note?: string;
-  features: string[];
+  features?: string[];
   paystackPlaceholderUrl: string;
 }
 
 /**
  * CENTRALIZED placeholder Paystack URLs / checkout configuration.
- * Users replace these placeholder fields with live Paystack URLs later.
- * Uses inert example.invalid URLs with disabled checkout actions until configured.
- * No fabricated payable URLs, no real payment calls/integration, no unlock on click.
+ * Minimal pricing cards with user-authorized terms ONLY:
+ * - Exact prices and one-time/monthly frequencies
+ * - Bridge nonrenewable validity through 30 Nov 2026
+ * - Monthly licence breakdown with exact remote-only note
+ * - Neutral ONE-TIME HANDOVER badge
+ * - Non-routable reserved RFC 2606 example.invalid placeholder URLs (disabled until configured)
+ * - Zero speculative promises or unverified feature checklists.
  */
 export const PRICING_CARDS: {
   bridge: PricingCardConfig;
@@ -71,55 +76,35 @@ export const PRICING_CARDS: {
     badgeType: 'warning',
     priceFormatted: '₦63,000',
     billingFrequency: 'one-time',
-    subtitle: 'Valid until 30 Nov 2026',
-    features: [
-      'Station operational continuity',
-      'Valid through 30 Nov 2026 only',
-      'Cloud sync and cargo records retained',
-      'Explicitly non-renewable',
-    ],
-    // CENTRALIZED PLACEHOLDER: Replace with live Paystack payment URL
-    paystackPlaceholderUrl: 'https://checkout.paystack.com/example.invalid#bridge-placeholder',
+    validity: 'Valid through 30 Nov 2026',
+    subtitle: 'Valid through 30 Nov 2026',
+    // Reserved non-routable RFC 2606 URL; disabled until configured
+    paystackPlaceholderUrl: 'https://example.invalid/paystack/november-bridge',
   },
   monthly: {
     id: 'monthly-licence',
     title: 'Monthly System Licence',
-    badge: 'STANDARD PRODUCTION',
     badgeType: 'primary',
     priceFormatted: '₦180,000',
     billingFrequency: '/ month',
-    subtitle: 'Comprehensive monthly infrastructure',
     breakdown: [
       { label: 'Software Usage Licence', amountFormatted: '₦117,000' },
       { label: 'Supabase', amountFormatted: '₦35,000' },
       { label: 'Vercel', amountFormatted: '₦28,000' },
     ],
     note: 'Remote software uptime & cloud hosting only. No on-site visits.',
-    features: [
-      'Full cloud hosting & database uptime',
-      'Continuous multi-station sync',
-      'Automated data backup routines',
-      'Monthly recurring licence',
-    ],
-    // CENTRALIZED PLACEHOLDER: Replace with live Paystack payment URL
-    paystackPlaceholderUrl: 'https://checkout.paystack.com/example.invalid#monthly-placeholder',
+    // Reserved non-routable RFC 2606 URL; disabled until configured
+    paystackPlaceholderUrl: 'https://example.invalid/paystack/monthly-licence',
   },
   handover: {
     id: 'system-handover',
     title: 'Full System Handover',
-    badge: 'PERMANENT TRANSFER',
+    badge: 'ONE-TIME HANDOVER',
     badgeType: 'neutral',
     priceFormatted: '₦700,000',
     billingFrequency: 'one-time',
-    subtitle: 'Self-hosted source acquisition',
-    features: [
-      'Complete proprietary source code',
-      'Dedicated cloud tenant handover',
-      'Zero recurring software usage licence',
-      'Full operational autonomy',
-    ],
-    // CENTRALIZED PLACEHOLDER: Replace with live Paystack payment URL
-    paystackPlaceholderUrl: 'https://checkout.paystack.com/example.invalid#handover-placeholder',
+    // Reserved non-routable RFC 2606 URL; disabled until configured
+    paystackPlaceholderUrl: 'https://example.invalid/paystack/system-handover',
   },
 };
 
